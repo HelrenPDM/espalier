@@ -1131,6 +1131,9 @@ no copy of that list.
 0007 follows 0006, because it reuses the external-identity functions of 0006.
 0008 can start as soon as 0001 is done, and 0010 as soon as 0004 is done.
 
+Each task has a GitHub issue under its milestone, and
+[`tasks/EPIC.md`](tasks/EPIC.md) records the issue and status of every task.
+
 ## 15 Decisions
 
 | # | Decision | Status |
