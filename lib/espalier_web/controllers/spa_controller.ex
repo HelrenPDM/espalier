@@ -10,6 +10,9 @@ defmodule EspalierWeb.SpaController do
     |> json(EspalierWeb.ErrorJSON.render("404.json", %{}))
   end
 
+  # send_file/3 receives the fixed path of index.html from Application.app_dir/2.
+  # No part of the request path reaches it.
+  # sobelow_skip ["Traversal.SendFile"]
   def index(conn, _params) do
     index_html = Application.app_dir(:espalier, "priv/static/spa/index.html")
 

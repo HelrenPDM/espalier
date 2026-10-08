@@ -1,8 +1,10 @@
 defmodule EspalierWeb.HealthController do
   use EspalierWeb, :controller
 
+  alias Ecto.Adapters.SQL
+
   def index(conn, _params) do
-    case Ecto.Adapters.SQL.query(Espalier.Repo, "SELECT 1", []) do
+    case SQL.query(Espalier.Repo, "SELECT 1", []) do
       {:ok, _result} ->
         json(conn, %{status: "ok"})
 

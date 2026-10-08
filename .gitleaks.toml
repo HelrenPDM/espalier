@@ -1,0 +1,16 @@
+# Configuration of `make secrets-scan`. `gitleaks detect` (gitleaks 8.30.1
+# from shell.nix) reads this file from the repository root.
+title = "Espalier gitleaks configuration"
+
+# Extend the default rule set built into the gitleaks binary.
+[extend]
+useDefault = true
+
+# Allowlist without entries. Every entry names its reason in `description`
+# and matches no more than the finding it accepts (CONTRIBUTING.md). gitleaks
+# rejects an [[allowlists]] table without commits, paths, regexes or
+# stopwords, so the table stays a comment until its first entry:
+#
+# [[allowlists]]
+# description = "<reason>"
+# paths = ['''^<path of the fixture>$''']

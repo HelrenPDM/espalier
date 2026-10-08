@@ -11,7 +11,10 @@ defmodule Espalier.MixProject do
       aliases: aliases(),
       deps: deps(),
       listeners: [Phoenix.CodeReloader],
-      package: [licenses: ["Apache-2.0"]]
+      package: [licenses: ["Apache-2.0"]],
+      # With a cooldown, Hex resolves only releases that are at least seven
+      # days old (README section 13, `mix help hex.config`).
+      hex: [cooldown: "7d"]
     ]
   end
 
@@ -51,7 +54,10 @@ defmodule Espalier.MixProject do
       {:gettext, "~> 1.0"},
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.2.0"},
-      {:bandit, "~> 1.5"}
+      {:bandit, "~> 1.5"},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:sobelow, "~> 0.16", only: [:dev, :test], runtime: false, warn_if_outdated: true},
+      {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false}
     ]
   end
 
@@ -67,7 +73,18 @@ defmodule Espalier.MixProject do
       "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
-      precommit: ["compile --warnings-as-errors", "deps.unlock --unused", "format", "test"]
+      # hex.audit runs before any task that loads or starts the application
+      # (`mix help hex.audit`).
+      precommit: [
+        "hex.audit",
+        "compile --warnings-as-errors",
+        "deps.unlock --unused",
+        "format",
+        "credo --strict",
+        "sobelow --config --exit",
+        "deps.audit",
+        "test"
+      ]
     ]
   end
 end

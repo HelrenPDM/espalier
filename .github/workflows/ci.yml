@@ -1,5 +1,6 @@
-# Runs `make check` inside the pinned nix-shell, so CI uses the same toolchain
-# as a developer machine. Actions are pinned to commit SHAs.
+# Runs `make check` and `make secrets-scan` inside the pinned nix-shell, so CI
+# uses the same toolchain as a developer machine. Actions are pinned to commit
+# SHAs.
 
 name: CI
 
@@ -38,12 +39,16 @@ jobs:
           --health-retries 10
 
     steps:
+      # The whole history, so that gitleaks scans every commit.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
 
       - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
 
+      # The cache never holds .nix-mix, so the Hex archive comes fresh from
+      # the install step below.
       - name: Cache Mix and npm
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -56,6 +61,8 @@ jobs:
             ${{ runner.os }}-${{ hashFiles('shell.nix') }}-
 
       # Hex goes into the project-local MIX_HOME of shell.nix on every run.
+      # make check stops before mix hex.audit when Hex is older than 2.5.1
+      # (scripts/check-hex-version.sh).
       - name: Install Hex and rebar
         run: nix-shell --run 'mix local.hex --force && mix local.rebar --force'
 
@@ -64,3 +71,6 @@ jobs:
 
       - name: make check
         run: nix-shell --run 'make check NIX="sh -c"'
+
+      - name: make secrets-scan
+        run: nix-shell --run 'make secrets-scan NIX="sh -c"'

@@ -1,7 +1,14 @@
 import Config
 
-# Host port of the database from compose.dev.yaml (DATABASE_PORT in .env).
-# An empty value counts as unset.
+# Host and port of the database. The port comes from compose.dev.yaml
+# (DATABASE_PORT in .env). DATABASE_HOST serves a CI job that runs in a
+# container next to the database service. An empty value counts as unset.
+database_host =
+  case String.trim(System.get_env("DATABASE_HOST", "")) do
+    "" -> "localhost"
+    host -> host
+  end
+
 database_port =
   case String.trim(System.get_env("DATABASE_PORT", "")) do
     "" -> 5432
@@ -16,7 +23,7 @@ database_port =
 config :espalier, Espalier.Repo,
   username: "postgres",
   password: "postgres",
-  hostname: "localhost",
+  hostname: database_host,
   port: database_port,
   database: "espalier_test#{System.get_env("MIX_TEST_PARTITION")}",
   pool: Ecto.Adapters.SQL.Sandbox,

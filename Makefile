@@ -45,19 +45,37 @@ refresh-db: ## drop, create and migrate the database
 	$(NIX) '$(DOTENV) mix do ecto.drop, ecto.create, ecto.migrate'
 
 .PHONY: lint
-lint: ## format code with automatic fixes
+lint: ## format and fix the code of both projects
 	$(NIX) 'mix format'
+	$(NIX) 'npm --prefix frontend run lint -- --fix'
+	$(NIX) 'npm --prefix frontend run format'
 
+# hex.audit runs in its own mix process, because Hex requires it to run before
+# any task that loads or starts the application (`mix help hex.audit`).
 .PHONY: check
-check: ## run format check, strict compile, tests and frontend build
+check: ## run every static check, dependency audit and test of both projects
 	$(NIX) 'mix format --check-formatted'
 	$(NIX) 'mix compile --warnings-as-errors'
+	$(NIX) 'mix credo --strict'
+	$(NIX) 'mix sobelow --config --exit'
+	$(NIX) 'scripts/check-hex-version.sh'
+	$(NIX) 'mix hex.audit'
+	$(NIX) 'mix deps.audit'
+	$(NIX) 'mix deps.unlock --check-unused'
 	$(NIX) 'DATABASE_PORT=$(DATABASE_PORT) mix test'
-	$(NIX) 'npm --prefix frontend run build'
+	$(NIX) 'npm --prefix frontend run typecheck'
+	$(NIX) 'npm --prefix frontend run lint'
+	$(NIX) 'npm --prefix frontend run format:check'
+	$(NIX) 'npm --prefix frontend run test -- --run'
 
 .PHONY: test
-test: ## run the test suite
+test: ## run the test suites of both projects
 	$(NIX) 'DATABASE_PORT=$(DATABASE_PORT) mix test'
+	$(NIX) 'npm --prefix frontend run test -- --run'
+
+.PHONY: secrets-scan
+secrets-scan: ## scan the Git history for secrets
+	$(NIX) 'gitleaks detect --no-banner --redact'
 
 .PHONY: docs
 docs: ## render PlantUML diagrams to docs/architecture/out/
