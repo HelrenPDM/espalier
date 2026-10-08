@@ -1,0 +1,144 @@
+@startuml auth-oidc
+title Sign-in with an OIDC provider (Entra ID / Microsoft 365, Google Workspace, other)
+autonumber
+skinparam shadowing false
+
+actor User
+participant "SPA" as SPA
+participant "Phoenix /auth/oidc\nOidcController\n(oidcc_plug)" as Auth
+participant "Phoenix /api" as Api
+participant "Identity.Oidc\n(oidcc, Rules)" as Oidc
+participant "Accounts" as Acc
+database "PostgreSQL" as DB
+participant "OIDC provider" as IdP
+
+== Intent (link or step-up from the security settings) ==
+opt purpose link or step_up
+  SPA -> Api : POST /api/auth/oidc/:provider/intents {purpose: "link" | "step_up"}\n(OidcIntentController.create/2, signed in, CSRF header)
+  Api -> Acc : create_oidc_intent/3: context oidc_intent, 5 min,\nbound to the creating session (binding_hash of the session id)
+  Api --> SPA : 201 {url: "/auth/oidc/<key>?intent=<token>"}
+  note right of Api
+    link needs a second factor within 10 minutes
+    (403 reauth_required) and answers 409
+    provider_already_linked for a second identity
+    of the provider. step_up needs an identity of
+    an idp_trusted provider (422 step_up_not_available).
+    The intent works once and only in the browser
+    session that created it.
+  end note
+end
+
+== Authorize ==
+User -> SPA : choose a provider (sign-in page or security settings)
+SPA -> Auth : top-level navigation GET /auth/oidc/:provider[?intent=<token>]\n(OidcController.authorize/2)
+opt intent present
+  Auth -> Auth : TransactionCookie.read_main_session/1\n(the Strict cookie arrives with this same-origin navigation)
+  Auth -> Acc : get_session_by_token/2 (session strength mfa required)
+  Auth -> Acc : consume_oidc_intent/3 with provider key and session id\n(single use, session binding): purpose, user id
+  note right of Acc
+    An invalid intent redirects to /auth/finish?error=oidc_failed
+    (reason intent_invalid). A missing session, the session of
+    another browser or account, and a session of another strength
+    do the same (reason intent_session_mismatch).
+  end note
+end
+Auth -> Auth : put_session "oidc": provider_key, purpose,\nuser_id, requested_at
+Auth -> Oidc : Oidcc.Plug.Authorize (provider worker:\ncached discovery and JWKS)
+Oidc --> Auth : URL with state, nonce, PKCE S256 challenge,\nresponse_mode query; max_age=0 for step_up
+Auth -> Auth : transaction cookie __Host-espalier_tx (Lax, 10 min):\nnonce, PKCE verifier, state hash, "oidc" map
+Auth --> User : 302 to the provider
+User -> IdP : authenticate (provider policy, e.g. MFA)
+IdP --> User : 302 to /auth/oidc/:provider/callback?code&state[&iss]
+
+== Callback ==
+User -> Auth : GET callback (cross-site navigation:\ncarries only the Lax transaction cookie)\nOidcController.callback/2
+Auth -> Auth : provider configuration loaded; "oidc".provider_key\nequals :provider; iss where the provider advertises it
+Auth -> Oidc : Oidcc.Plug.AuthorizationCallback (code, verifier,\nprivate_key_jwt or client secret)
+Oidc -> IdP : POST token endpoint
+IdP --> Oidc : ID token
+Oidc -> Oidc : validate signature (RS256, PS256, ES256), iss,\naud = client_id, exp, nonce; drop access and refresh token
+Oidc --> Auth : ID token claims
+Auth -> Oidc : Rules.check/4
+note right of Oidc
+  Entra ID: tid = configured tenant, subject oid,
+  roles claim, groups overage fails the sign-in.
+  Google: hd = configured domain, subject sub.
+  Other OIDC: subject sub, configured role claim.
+  step_up: auth_time no older than the request.
+  Never matched by e-mail.
+end note
+alt purpose sign_in
+  Auth -> Acc : sign_in_external/2
+  Acc -> DB : find ExternalIdentity by provider_key and subject_hash\n(or provision when allowed); replace idp_claim role grants
+  Auth -> Oidc : Rules.idp_mfa?/2: idp_trusted mode and an amr\nthat is missing or holds a configured multi-factor value
+else purpose link
+  Auth -> Acc : check_external_link/3 (reads only; no identity is written)
+else purpose step_up
+  Auth -> Acc : check_external_step_up/3; Rules.idp_mfa?/2 must hold
+end
+Auth -> Acc : create_login_ticket/1
+Acc -> DB : users_tokens row (context login_ticket, 60 s): hashes of\nticket and binding, purpose, auth_methods [oidc] or [oidc, idp_mfa],\nidp_amr, idp_sid_hash, link_identity (encrypted, link only)
+Auth -> Auth : clear the transaction session, store ticket_binding in it
+Auth --> User : 302 to /auth/finish#ticket=<ticket>\n(transaction cookie keeps ticket_binding)
+note right of Auth
+  Any failure drops the transaction session,
+  logs authn_login_fail and redirects to
+  /auth/finish?error=<code> (oidc_cancelled,
+  oidc_unavailable, oidc_no_account,
+  oidc_identity_in_use, oidc_failed).
+end note
+
+== Finish ==
+User -> SPA : load /auth/finish (served by SpaController)
+SPA -> Api : POST /api/auth/finish {ticket} (Auth.FinishController.create/2;\nsame origin, Strict session cookie, CSRF header)
+Api -> Api : TransactionCookie.get(conn, "ticket_binding")
+Api -> Acc : consume_login_ticket(ticket, binding)
+note right of Api
+  Every response of this route deletes the
+  transaction cookie (TransactionCookie.clear/1).
+  A missing or expired ticket, a binding mismatch
+  and, for link and step_up, a session of another
+  user answer 401 ticket_invalid.
+end note
+alt sign_in, ticket without idp_mfa, user holds a local factor
+  Api -> Api : UserAuth.put_pending_second_factor/3\n(auth_methods [oidc], provider_key, idp_sid_hash)
+  Api --> SPA : 200 {next: "second_factor"}\n(pending state in the Strict session cookie)
+  SPA -> Api : POST /api/auth/second-factor {totp | passkey | recovery_code}\n(passkey, TOTP or recovery code)
+  Api -> Acc : verify factor; log_in_user/3 with [oidc, totp], [oidc, passkey]\nor [oidc, recovery_code], strength mfa, provider_key, idp_sid_hash
+  Api --> SPA : 200 session payload + __Host-espalier (Strict) cookie, new CSRF token\n(recovery_codes_remaining after a recovery code)
+else sign_in, ticket without idp_mfa, no local factor
+  Api -> Acc : log_in_user/3 with [oidc], strength enrollment (30 min)
+  Api --> SPA : 200 {next: "enroll_second_factor"} + Strict cookie
+else sign_in, ticket with idp_mfa
+  Api -> Acc : log_in_user/3 with [oidc, idp_mfa], strength mfa,\nmfa_at now, idp_amr
+  Api --> SPA : 200 session payload + Strict cookie, new CSRF token
+else link (session user equals ticket user)
+  Api -> Acc : link_external_identity/3
+  Acc -> DB : insert ExternalIdentity; mail identity_linked
+  Api --> SPA : 200 session payload with "linked": true\n(409 identity_in_use or provider_already_linked)
+else step_up (session user equals ticket user)
+  Api -> Acc : UserAuth.step_up/3 with idp_mfa:\nnew token, mfa_at now, idp_amr, same expires_at
+  Api --> SPA : 200 session payload, new CSRF token
+end
+
+== Logout ==
+SPA -> Api : DELETE /api/session
+Api -> Acc : log_out_user/1 deletes the session row
+alt session of a provider with an end_session_endpoint
+  Api -> Oidc : :oidcc_logout.initiate_url/3 (client_id,\npost_logout_redirect_uri PUBLIC_URL/signed-out)
+  Api --> SPA : 200 {logout_url}
+  SPA -> User : top-level navigation to logout_url
+  User -> IdP : end the provider session
+  IdP --> User : 302 to /signed-out
+else provider without an end_session_endpoint (Google)
+  Api --> SPA : 204
+end
+User -> Auth : GET /auth/oidc/:provider/front-channel-logout?sid[&iss]\n(iframe on the provider's logout page, no platform cookie)
+Auth -> Acc : delete_sessions_by_idp_sid/2 (skipped when a\npresent iss differs from the provider's issuer)
+Auth --> User : 200, empty body
+
+note over SPA, Auth
+  The Strict session cookie is only ever set in a same-origin
+  response. The provider's access and refresh tokens are not kept.
+end note
+@enduml

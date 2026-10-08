@@ -1,0 +1,28 @@
+name: espalier
+
+services:
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: espalier_prod
+    volumes:
+      # PostgreSQL 18 images keep their data below /var/lib/postgresql.
+      - db_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    image: espalier:latest
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "4000:4000"
+    env_file: .env
+
+volumes:
+  db_data:

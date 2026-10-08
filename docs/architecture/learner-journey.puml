@@ -1,0 +1,60 @@
+@startuml learner-journey
+title Learner journey through a program
+skinparam shadowing false
+
+start
+:Sign in (passkey, password with second factor, OIDC, LDAP or demo account);
+:Open the program;
+if (Self-assessment already answered?) then (no)
+  :Choose a segment (optional);
+  :Store an anonymous response and a participation marker;
+else (yes)
+endif
+:Preselect the path from the segment default (short or full);
+note right
+  The learner can switch the path at any time.
+  The enrollment stores the path and never the segment.
+end note
+:Open the station overview;
+repeat
+  :Open the next module station;
+  :Read the objectives of the topic,\ngrouped by the four CORE competence areas;
+  repeat
+    :Read the lesson blocks;
+    note right
+      On the short path, explanation blocks start collapsed.
+      No lesson is skipped on any path.
+    end note
+    :Answer a practice item;
+    :Server evaluates and returns feedback per option;
+    if (Answer wrong and path is short?) then (yes)
+      :Expand the explanations of the linked lessons;
+    else (no)
+    endif
+  repeat while (More lessons?) is (yes) not (no)
+  if (Module has an exam?) then (yes)
+    repeat
+      :Answer all exam items;
+      :Evaluate the pass rule;
+      note right
+        Core item wrong: failed_core.
+        Wrong answers above max_wrong: failed_errors.
+        Otherwise: passed.
+      end note
+    repeat while (Passed?) is (no, new attempt) not (yes)
+  else (no)
+  endif
+  :Mark the module complete;
+  :See which objectives of the topic have evidence\n(derived from own records and local practice state);
+repeat while (Required modules left?) is (yes) not (no)
+:Acknowledge the current policy versions;
+if (All requirements of a qualification met?) then (yes)
+  :Issue a credential that lists the unlocked tasks;
+else (no)
+  :Show the open requirements;
+endif
+:Companion formats: anchor self and social competence in practice\n(anonymous interest vote, attendance certificates);
+:Anonymous feedback;
+:Phase 5: refresher when due;
+stop
+@enduml

@@ -1,0 +1,118 @@
+@startuml context
+title Espalier: system context and components
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultTextAlignment center
+
+actor Learner
+actor "Author / Admin" as Staff
+actor Facilitator
+actor "Analyst / Registrar" as Analyst
+
+node "Browser" {
+  package "SPA (Vite, React, Tailwind CSS)" {
+    [Learner area] as LA
+    [Admin area] as AA
+    [Player\n(content renderer)] as Player
+    interface "Runtime" as RT
+    [PlatformRuntime] as PR
+  }
+}
+
+node "Application server (Elixir release)" {
+  package "EspalierWeb (Phoenix)" {
+    [SPA controller\n(serves index.html)] as Spa
+    [JSON API\n/api] as Api
+    [Auth controllers\n/auth] as Auth
+    [OpenAPI spec\n/api/openapi] as Spec
+  }
+  package "Espalier (contexts)" {
+    [Accounts\n(sessions, passkeys,\nTOTP, recovery)] as Accounts
+    [Identity\n(oidcc, :eldap)] as Idp
+    [Vault\n(Cloak, AES-GCM, HMAC)] as Vault
+    [Rate limiter\n(Hammer)] as Limiter
+    [Catalog] as Catalog
+    [Learning] as Learning
+    [Credentials] as Credentials
+    [Policies] as Policies
+    [Insights] as Insights
+    [Interop] as Interop
+    [Audit] as Audit
+    [Repo (Ecto)] as Repo
+  }
+  [Oban jobs] as Oban
+}
+
+database "PostgreSQL" as DB
+
+cloud "Identity providers" {
+  [OIDC provider\n(Entra ID / Microsoft 365,\nGoogle Workspace, other)] as OIDC
+  [LDAP / Active Directory] as LDAP
+}
+
+[SMTP server] as SMTP
+[Breached-password range API\n(optional)] as HIBP
+[Mock OIDC provider\n(dev port 4010, test port 4011)] as DevOidc
+[External LMS\n(SCORM 1.2 / 2004)] as LMS
+[Downstream systems\n(access control, HR)] as Down
+folder "Content packs\n(YAML + Markdown in Git)" as Packs
+
+Learner --> LA
+Staff --> AA
+Facilitator --> AA
+Analyst --> AA
+
+LA --> Player
+AA --> Player : preview
+Player --> RT
+PR -- RT
+
+Spa ..> LA : delivers bundle
+PR --> Api : JSON over HTTPS\n(__Host- session cookie\n+ CSRF header)
+LA --> Auth : OIDC redirect
+
+Auth --> Idp
+Api --> Accounts : sign-in, factors,\nsessions
+Idp --> Accounts
+Idp --> OIDC : code flow + PKCE\n(oidcc)
+Idp --> LDAP : LDAPS search, then bind
+Idp ..> DevOidc : dev and test
+Accounts --> Limiter
+Accounts --> Vault
+Accounts ..> HIBP : k-anonymity range query
+
+Api --> Catalog
+Api --> Learning
+Api --> Credentials
+Api --> Policies
+Api --> Insights
+Api --> Interop
+
+Learning --> Credentials : requirement events
+Policies --> Credentials : refresher events
+
+Repo --> DB
+Oban --> DB : job queue
+
+Oban --> Credentials : validity and refresher schedule
+Oban --> Interop : SCORM exports
+Oban --> Insights : retention purge
+Oban --> SMTP : notifications, invitation, e-mail change\nand recovery links
+Oban --> Down : signed webhooks
+Down --> Api : integration API\n(machine token)
+
+Packs --> Catalog : import\n(mix task or upload)
+Interop ..> Packs : pack export\n(mix espalier.export)
+Interop ..> LMS : SCORM package (zip)
+
+note bottom of Repo
+  All contexts persist through the Repo.
+end note
+
+note bottom of LMS
+  An exported package contains the player bundle
+  with Scorm12Runtime or Scorm2004Runtime. Both
+  implement the same Runtime interface as
+  PlatformRuntime.
+end note
+@enduml

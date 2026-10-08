@@ -1,0 +1,22 @@
+name: espalier-dev
+
+services:
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      # DATABASE_PORT from .env; loopback only.
+      - "127.0.0.1:${DATABASE_PORT:-5432}:5432"
+    volumes:
+      # PostgreSQL 18 images keep their data below /var/lib/postgresql.
+      - db_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  db_data:

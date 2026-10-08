@@ -1,0 +1,268 @@
+@startuml domain-catalog
+title Domain model (1/3): catalog and content
+hide empty methods
+hide circle
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+
+package "Catalog" {
+  class Program {
+    slug : string
+    title : string
+    locale : string
+    status : ProgramStatus
+    pack_version : string
+  }
+
+  class Station {
+    position : int
+    kind : StationKind
+    title : string
+    config : map
+  }
+
+  class Segment {
+    key : string
+    label : string
+    description : text
+    default_path : Path
+    position : int
+    archived_at : datetime
+  }
+
+  class Qualification {
+    code : string
+    title : string
+    audience : text
+    unlocks : string[]
+    add_on : boolean
+    validity_kind : ValidityKind
+    validity_months : int
+    refresher_mode : RefresherMode
+    phases : Phase[]
+    archived_at : datetime
+  }
+
+  class Requirement {
+    kind : RequirementKind
+    target_key : string
+  }
+
+  class Module {
+    number : int
+    title : string
+    summary : text
+    phases : Phase[]
+    domains : string[]
+    single_path : boolean
+    refresher_unit : boolean
+    areas_elsewhere : map
+    archived_at : datetime
+  }
+
+  class LearningObjective {
+    key : string
+    statement : text
+    area : CompetenceArea
+    depth : Depth
+    phase : Phase
+    domain : string
+    position : int
+    archived_at : datetime
+  }
+
+  class Lesson {
+    key : string
+    position : int
+    title : string
+    archived_at : datetime
+  }
+
+  class Block {
+    position : int
+    kind : BlockKind
+    body : markdown
+    provenance : Provenance
+    collapsed_on : Path[]
+    placeholder_key : string
+  }
+
+  class Rule {
+    number : int
+    statement : text
+    action : text
+    archived_at : datetime
+  }
+
+  class Item {
+    key : string
+    kind : ItemKind
+    stem : markdown
+    core : boolean
+    phase : Phase
+    provenance : Provenance
+    config : map
+    position : int
+    archived_at : datetime
+  }
+
+  class Option {
+    key : string
+    label : text
+    correct : boolean
+    feedback : markdown
+    position : int
+  }
+
+  class Assessment {
+    key : string
+    title : string
+    kind : AssessmentKind
+    counts_for_credential : boolean
+    max_wrong : int
+    core_required : boolean
+    archived_at : datetime
+  }
+
+  class CompanionFormat {
+    key : string
+    title : string
+    description : text
+    phases : Phase[]
+    attendance_counts : boolean
+    position : int
+    archived_at : datetime
+  }
+
+  class GlossaryTerm {
+    slug : string
+    label : string
+    short_text : text
+    archived_at : datetime
+  }
+
+  class Source {
+    key : string
+    title : string
+    publisher : string
+    url : string
+    edition_date : date
+    retrieved_on : date
+    kind : SourceKind
+    archived_at : datetime
+  }
+
+  class Citation {
+    locator : string
+  }
+}
+
+Program "1" *-- "1..*" Station
+Program "1" *-- "0..*" Segment
+Program "1" *-- "1..*" Qualification
+Program "1" *-- "1..*" Module
+Program "1" *-- "0..*" CompanionFormat
+Program "1" *-- "0..*" GlossaryTerm
+Program "1" *-- "0..*" Source
+
+Station "0..*" --> "0..1" Module : shows
+
+Qualification "1" *-- "1..*" Requirement
+Qualification "0..*" --> "0..*" Qualification : prerequisite
+Requirement ..> Module : module_completed
+Requirement ..> Assessment : assessment_passed
+Requirement ..> CompanionFormat : attendance
+
+Module "1" *-- "1..*" Lesson
+Module "1" *-- "0..*" LearningObjective : topic objectives
+LearningObjective "0..*" --> "0..*" Lesson : taught in
+Item "0..*" --> "0..*" LearningObjective : practises or\nprovides evidence for
+CompanionFormat "0..*" --> "0..*" LearningObjective : anchors
+Module "1" *-- "0..*" Rule
+Module "1" *-- "0..*" Assessment
+
+Lesson "1" *-- "1..*" Block
+Lesson "1" *-- "0..*" Item : practice
+Assessment "1" o-- "1..*" Item : questions
+
+Item "1" *-- "0..*" Option
+Item "0..*" --> "0..*" Rule : refers to
+Item "0..*" --> "0..*" Lesson : reveals on wrong answer
+
+Block "1" o-- "0..*" Citation
+Rule "1" o-- "0..*" Citation
+Item "1" o-- "0..*" Citation
+Citation "0..*" --> "1" Source
+
+note right of Qualification
+  unlocks lists the tasks a credential
+  for this qualification permits.
+  The model holds no rank, score or
+  level of the person.
+end note
+
+note bottom of Assessment
+  Pass rule: a wrong core item fails the attempt.
+  Otherwise the attempt passes when the number of
+  wrong answers is at most max_wrong.
+end note
+
+note top of LearningObjective
+  Constructive alignment per topic (domain rule 14):
+  1. Every objective has a teaching lesson and evidence
+     (an item of an assessment, a practice item with
+     a correct answer, a checklist drill, or a companion
+     format whose attendance counts).
+  2. Every item of an assessment that counts for a
+     credential provides evidence for an objective.
+  3. Every module covers the four CORE areas or names
+     in areas_elsewhere where a missing area is covered.
+  4. The evidence kind fits the depth (always a warning).
+  With alignment: strict, checks 1 to 3 are errors.
+  With alignment: warn, they are warnings, so an
+  objective can lack a teaching lesson. A module
+  without objectives.yaml has no objectives.
+  The learner's status per objective is derived from
+  the learner's own records. No table stores it per person.
+end note
+
+note right of Item
+  config by kind:
+  slot_builder: slots, options per slot, feedback per option
+  classification: cases, categories, expected mapping
+  checklist_drill: required checks and initials before release
+  poll: options without a correct answer
+end note
+
+note left of Station
+  config holds station texts from the pack:
+  the self-assessment question, the feedback
+  questions, intro text for overview, credential
+  and companion format stations.
+end note
+
+note right of Block
+  collapsed_on: paths on which the block starts
+  collapsed (for example explanations on the
+  short path). No lesson is skipped on any path.
+  placeholder_key: binds the block to a policy
+  that the organization maintains (see 2/3).
+end note
+
+note left of Module
+  Keyed rows (segments, modules, lessons, learning
+  objectives, rules, items, assessments, qualifications,
+  companion formats, glossary terms, sources) carry
+  archived_at.
+  A publish sets it on every row whose key the pack
+  no longer contains and clears it on rows that
+  return. Learner read paths skip archived rows.
+end note
+
+note left of Requirement
+  kind policy_acknowledged targets a Policy,
+  kind qualification_held targets a Qualification
+  (see 2/3 for Policy).
+end note
+@enduml

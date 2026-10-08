@@ -1,0 +1,219 @@
+@startuml domain-values
+title Domain model (3/3): value types
+hide empty methods
+skinparam shadowing false
+skinparam packageStyle rectangle
+
+package "Learning design" {
+  enum Phase {
+    orient
+    understand
+    apply
+    anchor
+    update
+  }
+
+  enum Path {
+    short
+    full
+  }
+
+  enum CompetenceArea {
+    subject
+    method
+    self
+    social
+  }
+
+  enum Depth {
+    know
+    apply
+    judge
+  }
+
+  enum Provenance {
+    invented
+    sourced
+    vendor_statement
+    assumption
+    placeholder
+  }
+}
+
+package "Content structure" {
+  enum ProgramStatus {
+    draft
+    published
+    archived
+  }
+
+  enum StationKind {
+    self_assessment
+    overview
+    module
+    credential
+    companion_formats
+    feedback
+  }
+
+  enum BlockKind {
+    text
+    explanation
+    example
+    case_comparison
+    quote
+    callout
+    placeholder
+  }
+
+  enum ItemKind {
+    single_choice
+    multiple_choice
+    slot_builder
+    classification
+    checklist_drill
+    poll
+  }
+
+  enum AssessmentKind {
+    practice
+    exam
+  }
+
+  enum SourceKind {
+    law
+    guidance
+    vendor
+    study
+    press
+    other
+  }
+}
+
+package "Qualification and records" {
+  enum RequirementKind {
+    module_completed
+    assessment_passed
+    policy_acknowledged
+    attendance
+    qualification_held
+  }
+
+  enum ValidityKind {
+    none
+    months
+    event
+  }
+
+  enum RefresherMode {
+    update_unit
+    full_run
+    test_only
+  }
+
+  enum AttemptOutcome {
+    passed
+    failed_core
+    failed_errors
+  }
+
+  enum CredentialStatus {
+    active
+    refresh_due
+    expired
+    revoked
+  }
+}
+
+package "Authentication" {
+  enum TokenContext {
+    session
+    invite
+    change_email
+    recovery_email
+    login_ticket
+    oidc_intent
+  }
+
+  enum ChallengePurpose {
+    registration
+    sign_in
+    second_factor
+    reauth
+  }
+
+  enum AuthMethod {
+    passkey
+    password
+    totp
+    recovery_code
+    email_code
+    oidc
+    ldap
+    idp_mfa
+    demo
+  }
+
+  enum SessionStrength {
+    mfa
+    recovery
+    enrollment
+    demo
+  }
+
+  enum AuthenticatorKind {
+    password
+    totp
+    recovery_code
+    passkey
+    ldap
+  }
+}
+
+package "Identity and policies" {
+  enum Role {
+    learner
+    facilitator
+    author
+    registrar
+    analyst
+    admin
+  }
+
+  enum GrantSource {
+    idp_claim
+    manual
+  }
+
+  enum UserStatus {
+    active
+    disabled
+  }
+
+  enum ToolStatus {
+    approved
+    restricted
+    not_approved
+  }
+}
+
+note bottom of CompetenceArea
+  The four competence areas of CORE: subject
+  (knowledge of rules and tools), method
+  (verification, checking, releasing), self
+  (judgement and own responsibility) and social
+  (team practice and transparency). Depth runs
+  from know to apply to judge.
+end note
+
+note bottom of Phase
+  Five-phase arc: orient, understand and apply build
+  the competence; anchor carries it into daily work;
+  update runs as a permanent refresher cycle.
+end note
+
+note bottom of Provenance
+  Every block and item shows its provenance
+  as a visible badge in the player.
+end note
+@enduml

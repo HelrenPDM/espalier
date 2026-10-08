@@ -1,0 +1,46 @@
+@startuml scorm-export
+title SCORM export of a published module (SCORM 1.2 or 2004 4th edition)
+autonumber
+skinparam shadowing false
+
+actor Author
+participant "SPA\n(admin area)" as SPA
+participant "Phoenix\nExportController" as Api
+participant "Oban\nExportWorker" as Job
+participant "Catalog" as Cat
+collections "Player bundle\n(priv/scorm_player)" as Bundle
+database "Export storage" as Store
+participant "External LMS" as LMS
+
+Author -> SPA : choose a published module and a SCORM version
+SPA -> Api : POST /api/admin/exports {module_id, scorm_version}
+Api -> Job : enqueue export
+Api --> SPA : 202 export (status queued)
+Job -> Cat : load published content including answer keys
+Job -> Job : write content.json
+Job -> Bundle : copy player files
+Job -> Job : write imsmanifest.xml (1.2 or 2004 4th edition)
+Job -> Store : zip the package
+SPA -> Api : GET /api/admin/exports/:id
+Api --> SPA : status and download link
+Author -> LMS : upload the package
+LMS -> LMS : launch the SCO; Scorm12Runtime calls LMSInitialize,\nScorm2004Runtime calls Initialize
+
+note over Job, Bundle
+  One module becomes one SCO. Its learning objectives
+  become cmi.objectives entries (id = objective key)
+  with the status of their evidence.
+  Scorm12Runtime maps outcomes to cmi.core.lesson_status
+  and cmi.core.score.raw. Scorm2004Runtime maps them to
+  cmi.completion_status, cmi.success_status and
+  cmi.score.scaled.
+  The resume state must fit suspend_data: 4,096 characters
+  in 1.2 and 64,000 characters in 2004.
+end note
+
+note over LMS
+  The package evaluates answers locally, so it contains
+  the answer keys. Anonymous insights (self-assessment,
+  votes, feedback) are not part of an export.
+end note
+@enduml

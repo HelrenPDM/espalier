@@ -1,0 +1,313 @@
+@startuml domain-records
+title Domain model (2/3): accounts, policies, records and insights
+hide empty methods
+hide circle
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+
+package "Catalog (see 1/3)" {
+  class Program <<catalog>>
+  class Module <<catalog>>
+  class Item <<catalog>>
+  class Assessment <<catalog>>
+  class Qualification <<catalog>>
+  class CompanionFormat <<catalog>>
+}
+
+package "Accounts and authentication" {
+  class User {
+    email : encrypted
+    email_hash : hmac
+    display_name : encrypted
+    locale : string
+    org_unit : encrypted
+    status : UserStatus
+    confirmed_at : datetime
+    hashed_password : string
+    webauthn_user_handle : binary
+    last_login_at : datetime
+  }
+
+  class UserToken {
+    token_hash : binary
+    context : TokenContext
+    sent_to_hash : hmac
+    new_email : encrypted
+    purpose : string
+    binding_hash : hmac
+    link_identity : encrypted
+    authenticated_at : datetime
+    auth_methods : AuthMethod[]
+    strength : SessionStrength
+    mfa_at : datetime
+    provider_key : string
+    idp_sid_hash : hmac
+    idp_amr : string[]
+    device_summary : string
+    last_seen_at : datetime
+    expires_at : datetime
+  }
+
+  class ExternalIdentity {
+    provider_key : string
+    issuer : string
+    tenant_id : string
+    subject : encrypted
+    subject_hash : hmac
+    directory_dn : encrypted
+    directory_upn : encrypted
+    directory_login : encrypted
+  }
+
+  class WebauthnCredential {
+    credential_id : binary
+    cose_key : binary
+    sign_count : int
+    aaguid : binary
+    backup_eligible : boolean
+    backed_up : boolean
+    transports : string[]
+    nickname : string
+    last_used_at : datetime
+  }
+
+  class TotpFactor {
+    secret : encrypted
+    last_used_step : int
+    enabled_at : datetime
+  }
+
+  class RecoveryCode {
+    code_hmac : binary
+    used_at : datetime
+  }
+
+  class AuthChallenge {
+    purpose : ChallengePurpose
+    challenge : binary
+    expires_at : datetime
+  }
+
+  class FailureCounter {
+    authenticator : AuthenticatorKind
+    consecutive_failures : int
+    locked_until : datetime
+    disabled_at : datetime
+    provider_key : string
+    subject_hash : hmac
+  }
+
+  class RoleGrant {
+    role : Role
+    source : GrantSource
+    provider_key : string
+  }
+
+  class ApiClient {
+    name : string
+    token_hash : binary
+    scopes : string[]
+    last_used_at : datetime
+  }
+}
+
+package "Policies" {
+  class Policy {
+    key : string
+    title : string
+  }
+
+  class PolicyVersion {
+    number : int
+    body : markdown
+    effective_from : date
+    published_at : datetime
+    requires_refresher : boolean
+  }
+
+  class ApprovedTool {
+    name : string
+    vendor : string
+    status : ToolStatus
+    conditions : text
+    reviewed_on : date
+    position : int
+  }
+}
+
+package "Person-linked records" {
+  class Enrollment {
+    path : Path
+    path_chosen_manually : boolean
+    started_at : datetime
+  }
+
+  class ItemResponse {
+    correct : boolean
+    attempt_no : int
+    answered_on : date
+  }
+
+  class AssessmentAttempt {
+    number : int
+    wrong_count : int
+    core_failed : boolean
+    outcome : AttemptOutcome
+    submitted_at : datetime
+  }
+
+  class ModuleCompletion {
+    completed_at : datetime
+  }
+
+  class Acknowledgement {
+    acknowledged_at : datetime
+  }
+
+  class AttendanceCertificate {
+    held_on : date
+  }
+
+  class Credential {
+    status : CredentialStatus
+    issued_at : datetime
+    valid_until : date
+    refresh_due_at : datetime
+    unlocks_snapshot : string[]
+  }
+}
+
+package "Anonymous insights (no user key)" {
+  class SelfAssessmentResponse {
+    segment_key : string
+    org_unit : string
+    recorded_on : date
+  }
+
+  class InterestVote {
+    choice : string
+    recorded_on : date
+  }
+
+  class FeedbackResponse {
+    answers : map
+    recorded_on : date
+  }
+
+  class ItemStat {
+    period : date (first day of the month)
+    org_unit : string
+    attempts : int
+    correct : int
+  }
+}
+
+class ParticipationMarker {
+  subject_type : string
+  subject_id : uuid
+}
+
+class AuditEvent {
+  action : string
+  subject_type : string
+  subject_id : uuid
+  details : map
+  at : datetime
+}
+
+User "1" *-- "0..*" UserToken
+User "1" *-- "0..*" ExternalIdentity
+User "1" *-- "0..*" WebauthnCredential
+User "1" *-- "0..1" TotpFactor
+User "1" *-- "0..*" RecoveryCode
+User "0..1" -- "0..*" FailureCounter
+User "1" *-- "0..*" RoleGrant
+AuthChallenge "0..*" --> "0..1" User
+
+Policy "1" *-- "1..*" PolicyVersion
+
+Enrollment "0..*" --> "1" User
+Enrollment "0..*" --> "1" Program
+ItemResponse "0..*" --> "1" Enrollment
+ItemResponse "0..*" --> "1" Item
+AssessmentAttempt "0..*" --> "1" Enrollment
+AssessmentAttempt "0..*" --> "1" Assessment
+ModuleCompletion "0..*" --> "1" Enrollment
+ModuleCompletion "0..*" --> "1" Module
+Acknowledgement "0..*" --> "1" User
+Acknowledgement "0..*" --> "1" PolicyVersion
+AttendanceCertificate "0..*" --> "1" User : holder
+AttendanceCertificate "0..*" --> "1" User : issued_by
+AttendanceCertificate "0..*" --> "1" CompanionFormat
+Credential "0..*" --> "1" User
+Credential "0..*" --> "1" Qualification
+
+SelfAssessmentResponse "0..*" --> "1" Program
+InterestVote "0..*" --> "1" CompanionFormat
+FeedbackResponse "0..*" --> "1" Program
+ItemStat "0..*" --> "1" Item
+
+ParticipationMarker "0..*" --> "1" User
+AuditEvent "0..*" --> "0..1" User : actor
+
+note right of Credential
+  No score and no rank.
+  unlocks_snapshot copies Qualification.unlocks
+  at the time of issue.
+end note
+
+note bottom of ItemResponse
+  Stored only with TRACKING_DETAIL=standard.
+  Raw answers are never stored per person.
+end note
+
+note bottom of ParticipationMarker
+  Records that a person has answered a
+  self-assessment, vote or feedback form,
+  so that each person counts once.
+  It stores no answer and no timestamp.
+end note
+
+note top of SelfAssessmentResponse
+  Rows in this package carry no user key, a random
+  primary key and only a date with day precision.
+  A nightly job reorders them by primary key.
+  Reports suppress every group below
+  INSIGHTS_MIN_GROUP_SIZE.
+end note
+
+note bottom of UserToken
+  One table for session tokens, e-mail tokens,
+  OIDC sign-in tickets and OIDC intents
+  (phx.gen.auth pattern). All tokens are stored
+  as SHA-256 hashes. Session rows record the
+  methods used and expire after inactivity
+  and at an absolute limit. A sign-in ticket
+  lives 60 seconds and is bound to the
+  transaction cookie through binding_hash.
+end note
+
+note bottom of ExternalIdentity
+  Key: provider_key and subject_hash
+  (Entra ID: issuer, tid and oid;
+  Google and other OIDC: issuer and sub;
+  Active Directory: objectGUID as UUID;
+  generic LDAP: entryUUID).
+  Never linked through e-mail.
+  DN, UPN and login are refreshed
+  at every directory sign-in.
+end note
+
+note bottom of FailureCounter
+  Counters of local authenticators belong to a user.
+  Directory counters (authenticator ldap) are keyed
+  by provider_key and subject_hash, carry no user
+  and exist before the account.
+end note
+
+note right of Enrollment
+  The enrollment stores the chosen path.
+  It never stores the self-assessment segment.
+end note
+@enduml

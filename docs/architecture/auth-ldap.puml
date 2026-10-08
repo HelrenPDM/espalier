@@ -1,0 +1,84 @@
+@startuml auth-ldap
+title Sign-in with LDAP / Active Directory (search, counter reservation, bind, then local second factor)
+autonumber
+skinparam shadowing false
+
+actor User
+participant "SPA" as SPA
+participant "Phoenix /api\nAuth.LdapController" as Auth
+participant "Accounts\n(LdapSignIn,\nFailureCounters)" as Acc
+participant "Identity.Ldap\n(:eldap wrapper)" as Ldap
+database "PostgreSQL" as DB
+participant "Directory\n(LDAP / AD)" as Dir
+
+User -> SPA : enter username and password
+SPA -> Auth : POST /api/auth/ldap/:provider {username, password}\n(Strict session cookie, CSRF header)
+Auth -> Auth : bucket ldap_ip (per IP)
+Auth -> Acc : LdapSignIn.sign_in(provider, username, password, meta)
+Acc -> Acc : RateLimit.check_account(:ldap_account,\nprovider key and normalized username)
+Acc -> Ldap : Ldap.authenticate(config, username, password,\nbefore_bind: before_bind/2)
+Ldap -> Ldap : reject empty, whitespace-only and oversized values\n(an empty binary would be an unauthenticated bind)
+Ldap -> Ldap : run in a task under LdapTaskSupervisor,\ndeadline 3 x AUTH_LDAP_TIMEOUT_MS
+group connection 1 (service account): lookup/2
+  Ldap -> Dir : open LDAPS 636 (or StartTLS) with SNI,\nverify_peer with the configured CA, TLS 1.2 and 1.3
+  Ldap -> Dir : simple_bind(service DN, service password)
+  Ldap -> Dir : search base DN, equalityMatch on sAMAccountName or UPN (ad)\nor uid (generic), size_limit 2
+  Dir --> Ldap : DN, objectGUID (ad) or entryUUID (generic),\nmail, displayName, userAccountControl, org unit
+  Ldap -> Ldap : exactly one entry; reject disabled accounts\n(userAccountControl bit 0x2, ad)
+  Ldap -> Dir : for each mapped group: base search on the user DN\n(ad: matching rule 1.2.840.113556.1.4.1941;\ngeneric: memberOf equality)
+  Ldap -> Dir : close (after block)
+end
+Ldap -> Acc : before_bind(entry)
+Acc -> Acc : RateLimit.check_account(:ldap_subject,\nprovider key and subject)
+Acc -> DB : FailureCounters.reserve_directory/5: row of authenticator ldap\nby provider_key and subject_hash, count plus one, locked_until\nat the limit; a locked or disabled row refuses the attempt
+group connection 2 (user bind): verify_password/3
+  Ldap -> Dir : open a new LDAPS connection,\nsimple_bind(user DN, password)
+  Dir --> Ldap : only the bare atom ok counts as success
+  Ldap -> Dir : close (after block)
+end
+Ldap --> Acc : {:ok, entry, reservation}\nor {:error, reason, entry, reservation}
+alt bind succeeds
+  Acc -> DB : directory_succeeded/1 deletes the counter row
+  Acc -> Acc : sign_in_external/2 (subject: objectGUID as UUID,\nor entryUUID)
+  Acc -> DB : find or create user and identity; refresh display name,\norg unit, DN, UPN and login; replace idp_claim role grants
+  alt user holds a local factor
+    Acc --> Auth : {:ok, user}
+    Auth -> Auth : UserAuth.put_pending_second_factor/3\n(auth_methods [ldap], provider_key)
+    Auth --> SPA : 200 {next: "second_factor"}\n(pending state in the Strict session cookie)
+    SPA -> Auth : POST /api/auth/second-factor {totp | passkey | recovery_code}\n(passkey, TOTP or recovery code)
+    Auth -> Acc : verify factor; log_in_user/3 with [ldap, totp], [ldap, passkey]\nor [ldap, recovery_code], strength mfa
+    Auth --> SPA : 200 session payload + __Host-espalier (Strict) cookie, new CSRF token\n(recovery_codes_remaining after a recovery code)
+  else no local factor
+    Acc --> Auth : {:ok, user}
+    Auth -> Acc : log_in_user/3 with [ldap], strength enrollment (30 min)
+    Auth --> SPA : 200 {next: "enroll_second_factor"} + Strict cookie
+  else e-mail address of the entry belongs to another account
+    Acc --> Auth : {:error, :link_required}
+    Auth --> SPA : 409 {error: "link_required"}
+  else platform account disabled
+    Auth --> SPA : 401 {error: "invalid_credentials"}
+  end
+else wrong password (bind_failed)
+  Acc -> DB : directory_failed/2 keeps the reserved count\n(lock at AUTH_LDAP_FAILURE_LIMIT, disabled at 50)
+  Auth --> SPA : 401 {error: "invalid_credentials"}
+else other failure after the reservation (bind rejected, referral,\ndirectory unreachable, timeout, internal error)
+  Acc -> DB : release_directory/1 lowers the count by one
+  Auth --> SPA : 401 {error: "invalid_credentials"}
+else failure before the reservation (invalid input, service bind failed,\nnot found, two entries, disabled entry, group lookup failed,\nsubject throttled, counter locked or disabled)
+  Acc -> Acc : counter unchanged
+  Auth --> SPA : 401 {error: "invalid_credentials"}
+end
+
+note over Auth, Acc
+  Every failure answers no earlier than one second after the
+  request started (failure_floor_ms 1000), with one uniform body,
+  and logs authn_login_fail with an internal reason. The buckets
+  ldap_ip and ldap_account answer 429 rate_limited.
+end note
+
+note over Ldap, Dir
+  A handle is never reused after an error or timeout, because
+  :eldap does not match responses by message id. No {log, fun}
+  option: :eldap would log the bind request with the password.
+end note
+@enduml

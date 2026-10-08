@@ -1,0 +1,55 @@
+@startuml auth-local
+title Local accounts: invitation, passkey sign-in, password with second factor
+autonumber
+skinparam shadowing false
+
+actor User
+participant "SPA\n(@simplewebauthn/browser)" as SPA
+participant "Phoenix\nAuth API" as Auth
+participant "Accounts\n(wax_, nimble_totp, argon2)" as Acc
+database "PostgreSQL" as DB
+
+== Invitation (onboarding) ==
+User -> SPA : open invitation link /invite#token=<token>\n(token in the URL fragment)
+SPA -> Auth : POST /api/auth/invitations/accept {token}
+Auth -> Acc : consume hashed invite token (10 min, single use)
+Acc -> DB : create session token with strength "enrollment"\n(auth_methods: email_code, 30 min)
+Auth --> SPA : 200 + cookie; only enrollment routes are allowed
+SPA -> Auth : POST /api/me/passkeys/options
+Auth -> Acc : new registration challenge (purpose registration,\nstored server-side, single use)
+SPA -> SPA : startRegistration({optionsJSON})
+SPA -> Auth : POST /api/me/passkeys {credential, nickname}
+Auth -> Acc : Wax.register/3 plus own checks\n(COSE alg allowlist, crossOrigin, BE/BS rule)
+Acc -> DB : store credential; Factors.complete_enrollment/3:\nissue recovery codes, replace session with strength "mfa"
+Auth --> SPA : 200 {recovery_codes, session}, recovery codes shown once
+
+== Passkey sign-in (conditional UI) ==
+SPA -> Auth : POST /api/auth/passkey/options {purpose: "sign_in"} (on page load)
+Auth -> Acc : new authentication challenge without allowCredentials
+SPA -> SPA : startAuthentication({optionsJSON, useBrowserAutofill: true})
+User -> SPA : pick the passkey in the username field, verify (UV)
+SPA -> Auth : POST /api/auth/passkey (AuthenticationResponseJSON)
+Auth -> Acc : resolve credential and userHandle owner (no external identity),\nWax.authenticate/6 with user_verification "required"
+Acc -> DB : update sign count, consume challenge,\ncreate session token (auth_methods: passkey)
+Auth --> SPA : 200 + __Host-espalier (Strict), new CSRF token
+
+== Password with second factor ==
+SPA -> Auth : POST /api/auth/password {email, password}
+Auth -> Acc : throttle check; Argon2id verify\n(dummy verify for unknown accounts)
+Acc --> Auth : first factor ok
+Auth --> SPA : 200 {next: "second_factor"} (pending state, 5 min)
+opt passkey as second factor
+  SPA -> Auth : POST /api/auth/passkey/options {purpose: "second_factor"}
+  Auth -> Acc : new challenge with allowCredentials of the pending user
+end
+SPA -> Auth : POST /api/auth/second-factor {totp | passkey | recovery_code}
+Auth -> Acc : TOTP check of the current and previous step against last_used_step,\nor passkey assertion of the pending user, or unused recovery code
+Acc -> DB : create session token\n(auth_methods: password and totp, passkey or recovery_code)
+Auth --> SPA : 200 + cookie, new CSRF token\n(recovery_codes_remaining after a recovery code)
+
+note over SPA, Auth
+  Every failure returns the same body and status. Failures increment
+  the durable counter of the authenticator; Hammer limits by IP and account.
+  A failed discoverable passkey sign-in counts only in the IP bucket.
+end note
+@enduml

@@ -1,0 +1,42 @@
+@startuml session-lifecycle
+title Session lifecycle (server-side session row)
+skinparam shadowing false
+
+state "Pending second factor\n(session cookie state, 5 min)" as Pending
+state "Enrollment\n(invitation accepted, or first OIDC or LDAP\nsign-in without a local factor; 30 min)" as Enrollment
+state "Recovery\n(recovery code and e-mail link; 30 min)" as Recovery
+state "Active (mfa)" as Active
+state "Recently verified\n(second factor within 10 min)" as Recent
+state "Ended" as Ended
+
+[*] --> Pending : first factor ok, local factor enrolled\n(password; LDAP; OIDC in local mode,\nor idp_trusted with a single-factor amr)
+[*] --> Active : passkey with UV, or OIDC with idp_trusted\nand an amr that is missing or multi-factor
+[*] --> Enrollment : invitation link accepted
+[*] --> Enrollment : first OIDC or LDAP sign-in\nwithout a local factor
+[*] --> Recovery : recovery code and e-mail link verified
+Pending --> Active : TOTP, passkey or recovery code accepted\n(new token, new CSRF token)
+Pending --> Ended : 5 minutes passed or fifth failed attempt
+Enrollment --> Active : passkey or TOTP enrolled\n(new token, recovery codes when none exist)
+Recovery --> Active : new factor enrolled\n(new token, new recovery codes, failure counters cleared,\nother sessions offered for termination)
+Active --> Recent : step-up with a local second factor\n(POST /api/me/reauth, new token)
+Active --> Recent : OIDC step-up with max_age=0\n(idp_trusted users, new token)
+Recent --> Active : 10 minutes passed
+Active --> Ended : logout, inactivity 60 min, absolute 24 h,\nrevoked by user or admin, user disabled,\nrole grants changed (manual, or idp_claim\nat a sign-in), oldest session beyond\nSESSION_MAX_CONCURRENT, front-channel logout
+Recent --> Ended : same as Active
+Enrollment --> Ended : 30 minutes passed or logout
+Recovery --> Ended : 30 minutes passed or logout
+Ended --> [*]
+
+note right of Recent
+  Required for changes to e-mail, password,
+  factors, recovery codes, sessions and for
+  every admin change (ASVS 7.5.1). Without it,
+  these routes answer 403 reauth_required.
+end note
+
+note left of Enrollment
+  Enrollment and recovery sessions reach only
+  the enrollment routes; every other route
+  answers 403 enrollment_required.
+end note
+@enduml
