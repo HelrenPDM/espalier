@@ -1,2 +1,7 @@
 Espalier
 Copyright 2026 The Espalier contributors
+
+priv/security/common-passwords.txt is derived from SecLists
+(https://github.com/danielmiessler/SecLists), Copyright (c) 2018 Daniel
+Miessler, under the MIT License. priv/security/README.md holds the license
+text and the filter that produced the file.

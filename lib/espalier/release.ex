@@ -5,6 +5,8 @@ defmodule Espalier.Release do
   """
   @app :espalier
 
+  alias Espalier.Accounts
+  alias Espalier.Accounts.{RoleGrant, Scope}
   alias Espalier.Crypto.{Keys, Rotation}
 
   def migrate do
@@ -47,6 +49,82 @@ defmodule Espalier.Release do
   """
   def encryption_status do
     with_vault(&print_tag_counts/1)
+  end
+
+  @doc """
+  Grants the `manual` role `role` to the account of `email` and prints the
+  result: `{:ok, grant}`, `{:error, :unknown_role}` or `{:error, :not_found}`.
+  This is the explicit operator action that grants `admin` to a federated
+  account (README section 6.11).
+
+      bin/espalier eval 'Espalier.Release.grant_role("admin", "a@example.org")'
+  """
+  def grant_role(role, email) when is_binary(role) and is_binary(email) do
+    start_app()
+
+    result =
+      case Enum.find(Ecto.Enum.values(RoleGrant, :role), &(Atom.to_string(&1) == role)) do
+        nil ->
+          {:error, :unknown_role}
+
+        role ->
+          case Accounts.get_user_by_email(email) do
+            nil -> {:error, :not_found}
+            user -> Accounts.grant_role(Scope.system(), user, role)
+          end
+      end
+
+    print(result)
+  end
+
+  @doc """
+  Invites a new address, or sends a new invitation to an invitable account,
+  and prints the result.
+
+      bin/espalier eval 'Espalier.Release.invite_user("a@example.org")'
+  """
+  def invite_user(email) when is_binary(email) do
+    start_app()
+
+    result =
+      case Accounts.get_user_by_email(email) do
+        nil -> Accounts.invite_user(Scope.system(), %{email: email})
+        user -> Accounts.resend_invitation(Scope.system(), user)
+      end
+
+    print(result)
+  end
+
+  @doc """
+  Ends every session of every user and prints the number of ended sessions.
+
+      bin/espalier eval 'Espalier.Release.end_all_sessions()'
+  """
+  def end_all_sessions do
+    start_app()
+    print(Accounts.end_all_sessions(Scope.system()))
+  end
+
+  defp print(result) do
+    IO.puts(inspect(result))
+    result
+  end
+
+  # An eval node inserts jobs without processing them and runs no bootstrap.
+  # The order matters: fetch_env!/2 can raise before the application is
+  # loaded, and loading can replace a value set before it.
+  defp start_app do
+    load_app()
+
+    Application.put_env(
+      @app,
+      Oban,
+      Keyword.merge(Application.fetch_env!(@app, Oban), queues: false, plugins: false)
+    )
+
+    Application.put_env(@app, :bootstrap_on_boot, false)
+    {:ok, _apps} = Application.ensure_all_started(@app)
+    :ok
   end
 
   defp with_vault(fun) do

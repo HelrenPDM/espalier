@@ -52,20 +52,20 @@ column. That task sets the status to `done` and names its module.
 
 | Column | Level | Type or function | Key | Task | Status |
 |---|---|---|---|---|---|
-| `users.email` | `encrypted` | `Espalier.Encrypted.Binary` | `CLOAK_KEY_V<n>` | 0004 | planned |
-| `users.display_name` | `encrypted` | `Espalier.Encrypted.Binary` | `CLOAK_KEY_V<n>` | 0004 | planned |
-| `users.org_unit` | `encrypted` | `Espalier.Encrypted.Binary` | `CLOAK_KEY_V<n>` | 0004 | planned |
-| `users.email_hash` | `keyed hash` | `Espalier.Hashed.HMAC` of the trimmed, lower-cased address, unique index | `CLOAK_HMAC_SECRET` | 0004 | planned |
-| `users.hashed_password` | `password hash` | Argon2id with `argon2_elixir` | none | 0004 | planned |
-| `users_tokens.token_hash` | `hash` | SHA-256 of a 32-byte random token for the contexts `session`, `invite`, `change_email`, `recovery_email` and `login_ticket`, and `oidc_intent` from 0006 | none | 0004 | planned |
-| `users_tokens.sent_to_hash` | `keyed hash` | `Espalier.Hashed.HMAC` | `CLOAK_HMAC_SECRET` | 0004 | planned |
-| `users_tokens.new_email` | `encrypted` | `Espalier.Encrypted.Binary` | `CLOAK_KEY_V<n>` | 0004 | planned |
-| `users_tokens.idp_sid_hash` | `keyed hash` | plain `:binary` column with `Espalier.Hashed.HMAC.hash/1` of the provider's `sid`, computed once by 0006 and copied unchanged through the sign-in ticket, the pending second-factor state, the enrollment session and every reissued session row; lookups compare with `hash/1` of the presented `sid` | `CLOAK_HMAC_SECRET` | 0004 | planned |
+| `users.email` | `encrypted` | `Espalier.Encrypted.Binary` in `Espalier.Accounts.User`; rotation through `Espalier.Crypto.Rotation.Users` | `CLOAK_KEY_V<n>` | 0004 | done |
+| `users.display_name` | `encrypted` | `Espalier.Encrypted.Binary` in `Espalier.Accounts.User`; rotation through `Espalier.Crypto.Rotation.Users` | `CLOAK_KEY_V<n>` | 0004 | done |
+| `users.org_unit` | `encrypted` | `Espalier.Encrypted.Binary` in `Espalier.Accounts.User`; rotation through `Espalier.Crypto.Rotation.Users` | `CLOAK_KEY_V<n>` | 0004 | done |
+| `users.email_hash` | `keyed hash` | `Espalier.Hashed.HMAC` in `Espalier.Accounts.User` of the trimmed, lower-cased address (`Espalier.Accounts.normalize_email/1`), unique index; not rotated in the first version (README section 6.9) | `CLOAK_HMAC_SECRET` | 0004 | done |
+| `users.hashed_password` | `password hash` | Argon2id with `argon2_elixir` in `Espalier.Accounts.User` (`argon2_type: 2`, `t_cost: 2`, `m_cost: 16`, `parallelism: 1`; measurements in `authentication.md`) over the NFC-normalized password | none | 0004 | done |
+| `users_tokens.token_hash` | `hash` | SHA-256 of a 32-byte random token in `Espalier.Accounts.UserToken` for the contexts `session`, `invite`, `change_email`, `recovery_email` and `login_ticket`, and `oidc_intent` from 0006 | none | 0004 | done |
+| `users_tokens.sent_to_hash` | `keyed hash` | `Espalier.Hashed.HMAC` in `Espalier.Accounts.UserToken` of the normalized address an e-mail link went to; not rotated in the first version | `CLOAK_HMAC_SECRET` | 0004 | done |
+| `users_tokens.new_email` | `encrypted` | `Espalier.Encrypted.Binary` in `Espalier.Accounts.UserToken`; rotation through `Espalier.Crypto.Rotation.UsersTokens` | `CLOAK_KEY_V<n>` | 0004 | done |
+| `users_tokens.idp_sid_hash` | `keyed hash` | plain `:binary` field of `Espalier.Accounts.UserToken`, filled by `UserToken.hash_idp_sid/1` (HMAC-SHA256 under `CLOAK_HMAC_SECRET` through `Espalier.Hashed.HMAC.hash/1`) of the provider's `sid`, computed once by 0006 and copied unchanged through the sign-in ticket, the pending second-factor state, the enrollment session and every reissued session row; lookups compare with `hash_idp_sid/1` of the presented `sid` | `CLOAK_HMAC_SECRET` | 0004 | done |
 | `users_tokens.binding_hash` | `keyed hash` | `Espalier.Hashed.HMAC` of the Base64url-encoded 32-byte binding of a sign-in ticket, or of the id of the session that created an OIDC intent | `CLOAK_HMAC_SECRET` | 0006 | planned |
 | `users_tokens.link_identity` | `encrypted` | `Espalier.Encrypted.Binary` (issuer, tenant id and subject of an identity to link) | `CLOAK_KEY_V<n>` | 0006 | planned |
-| `api_clients.token_hash` | `hash` | SHA-256 of a 32-byte random token | none | 0004 | planned |
-| `external_identities.subject` | `encrypted` | `Espalier.Encrypted.Binary`, written by 0004 (demo identities), 0006 and 0007 | `CLOAK_KEY_V<n>` | 0004 | planned |
-| `external_identities.subject_hash` | `keyed hash` | `Espalier.Hashed.HMAC` of `Espalier.Accounts.ExternalIdentity.hash_input(issuer, tenant_id, subject)` of 0004, unique index with `provider_key`; written by 0004 (demo identities), 0006 and 0007 | `CLOAK_HMAC_SECRET` | 0004 | planned |
+| `api_clients.token_hash` | `hash` | SHA-256 of a 32-byte random token in `Espalier.Accounts.ApiClient` (`Espalier.Accounts.create_api_client/2`) | none | 0004 | done |
+| `external_identities.subject` | `encrypted` | `Espalier.Encrypted.Binary` in `Espalier.Accounts.ExternalIdentity`, written by 0004 (demo identities), 0006 and 0007; rotation through `Espalier.Crypto.Rotation.ExternalIdentities` | `CLOAK_KEY_V<n>` | 0004 | done |
+| `external_identities.subject_hash` | `keyed hash` | `Espalier.Hashed.HMAC` in `Espalier.Accounts.ExternalIdentity` of `Espalier.Accounts.ExternalIdentity.hash_input(issuer, tenant_id, subject)`, filled by the changeset, unique index with `provider_key`; written by 0004 (demo identities, `Espalier.Accounts.Demo`), 0006 and 0007; not rotated in the first version | `CLOAK_HMAC_SECRET` | 0004 | done |
 | `external_identities.directory_dn` | `encrypted` | `Espalier.Encrypted.Binary` | `CLOAK_KEY_V<n>` | 0007 | planned |
 | `external_identities.directory_upn` | `encrypted` | `Espalier.Encrypted.Binary` | `CLOAK_KEY_V<n>` | 0007 | planned |
 | `external_identities.directory_login` | `encrypted` | `Espalier.Encrypted.Binary` | `CLOAK_KEY_V<n>` | 0007 | planned |
@@ -89,7 +89,7 @@ same change as the code that writes it.
 
 | Location | Content | Encryption | Lifetime | Task | Status |
 |---|---|---|---|---|---|
-| `oban_jobs.args` of `Espalier.Accounts.MailWorker` | e-mail addresses of the mail kinds of 0004 steps 20 and 27 | `Espalier.Vault.encrypt!/1`, Base64 | read while the job is `available`, `scheduled`, `executing` or `retryable`; the finished row stays until the Oban pruner of 0004 deletes it | 0004 | planned |
+| `oban_jobs.args` of `Espalier.Accounts.MailWorker` | e-mail addresses of the kinds `signup`, `change_email` and `email_changed`, written by `Espalier.Accounts.MailWorker.encrypt_arg/1` from `Espalier.Accounts.request_invitation/1`, `request_email_change/2` and `confirm_email_change/3` | `Espalier.Vault.encrypt!/1`, Base64 | read while the job is `available`, `scheduled`, `executing` or `retryable`; the finished row stays until `Oban.Plugins.Pruner` deletes it after 24 hours (`max_age: 86_400`) | 0004 | done |
 
 ## Keys and algorithms outside the database
 
@@ -98,9 +98,9 @@ same change as the code that writes it.
 | `CLOAK_KEY_V<n>` | AES-256-GCM with a 12-byte random IV, a 16-byte GCM tag and the cipher tag `AES.GCM.V<n>` (`Espalier.Crypto.StrictAESGCM` over Cloak) | encrypts the columns of the level `encrypted` and the values of the section "Values encrypted outside Ecto types"; no other use | environment, the vault ETS table `:"Elixir.Espalier.Vault.Config"`, the vault state, and Base64-encoded in the application environment under `Espalier.Vault` (Limits (1)) | 0003 | done |
 | `CLOAK_HMAC_SECRET` | HMAC-SHA256 (`Espalier.Hashed.HMAC` over `Cloak.Ecto.HMAC`) | keys the columns of the level `keyed hash` and is the input of the recovery-code key; it encrypts nothing | environment, and Base64-encoded in the application environment under `Espalier.Hashed.HMAC` (Limits (1)) | 0003 | done |
 | recovery-code key | HMAC-SHA256, derived from `CLOAK_HMAC_SECRET` as HMAC-SHA256 over the label `espalier/recovery-codes/v1` (README section 6.6) | keys `recovery_codes.code_hmac` only | derived in the node from `CLOAK_HMAC_SECRET`; 0005 completes the row | 0005 | planned |
-| `SECRET_KEY_BASE` | keys derived with PBKDF2-HMAC-SHA256 (`Plug.Crypto.KeyGenerator`), signatures with HMAC-SHA256 (`Plug.Crypto.MessageVerifier`), cookie encryption with AES-GCM (`Plug.Crypto.MessageEncryptor`) | Phoenix signing (0001) and the encrypted `Plug.Session` cookie (0004) | environment and the endpoint configuration in the application environment | 0001, 0004 | done for 0001; 0004 completes the row |
-| rate-limit key | HMAC-SHA256 over normalized identifiers; the key is derived once at boot with `Plug.Crypto.KeyGenerator.generate(secret_key_base, "espalier rate limit", length: 32)` | keys the bucket names of the rate limits only | `:persistent_term` of the node | 0004 | planned |
-| session tokens | 32 bytes from `:crypto.strong_rand_bytes(32)`, stored as SHA-256 (`users_tokens.token_hash`) | identify a session; the raw token exists only in the cookie | the session cookie; the database holds the hash only | 0004 | planned |
+| `SECRET_KEY_BASE` | keys derived with PBKDF2-HMAC-SHA256 (`Plug.Crypto.KeyGenerator`), signatures with HMAC-SHA256 (`Plug.Crypto.MessageVerifier`), cookie encryption with AES-GCM (`Plug.Crypto.MessageEncryptor`) | Phoenix signing (0001), the encrypted `Plug.Session` cookies `__Host-espalier` and `__Host-espalier_tx` with the salts of `EspalierWeb.TransactionCookie` (0004), and the input of the rate-limit key | environment and the endpoint configuration in the application environment | 0001, 0004 | done |
+| rate-limit key | HMAC-SHA256 over normalized identifiers; the key is derived once at boot with `Plug.Crypto.KeyGenerator.generate(secret_key_base, "espalier rate limit", length: 32)` in `Espalier.RateLimit.init_key/1` | keys the bucket names of the rate limits and `Espalier.RateLimit.account_hash/1` only | `:persistent_term` of the node | 0004 | done |
+| session tokens | 32 bytes from `:crypto.strong_rand_bytes(32)` (`Espalier.Accounts.UserToken.generate/0`), stored as SHA-256 (`users_tokens.token_hash`) | identify a session; the raw token exists only in the encrypted session cookie | the session cookie; the database holds the hash only | 0004 | done |
 | OIDC client certificate and key | `private_key_jwt` client authentication | authenticates the client at the token endpoint of a provider only | files named in the environment; 0006 completes the row | 0006 | planned |
 | `AUTH_<KEY>_CLIENT_SECRET` | `client_secret_basic` or `client_secret_post` | the client presents it to the token endpoint of its provider only | environment, and the provider structs under `:identity_providers` in the application environment; 0006 completes the row with the module that reads it | 0006 | planned |
 | LDAP CA certificate | X.509 trust anchor for LDAPS and StartTLS | verifies the directory server only | file named in the environment | 0007 | planned |

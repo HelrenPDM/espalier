@@ -24,7 +24,13 @@ defmodule Espalier.Crypto.Rotation do
 
   @doc "Returns the registered rotation-only schemas."
   @spec schemas() :: [module()]
-  def schemas, do: []
+  def schemas do
+    [
+      Espalier.Crypto.Rotation.Users,
+      Espalier.Crypto.Rotation.UsersTokens,
+      Espalier.Crypto.Rotation.ExternalIdentities
+    ]
+  end
 
   @doc """
   Raises `ArgumentError` unless `schema` has exactly one primary key field and

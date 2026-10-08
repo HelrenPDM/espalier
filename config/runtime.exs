@@ -23,6 +23,17 @@ end
 config :espalier, EspalierWeb.Endpoint,
   http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 
+# Account, session and mail settings in every environment (README section
+# 6.11). An invalid value stops the boot; Espalier.RuntimeConfig lists the
+# variables and their defaults.
+config :espalier, Espalier.RuntimeConfig.parse!(System.get_env(), config_env())
+
+# External identity providers: the full structs for the sign-in code and the
+# public entries for the session payload and GET /auth/providers.
+providers = Espalier.Identity.Config.parse!(System.get_env(), config_env())
+config :espalier, :identity_providers, providers
+config :espalier, :auth_providers, Enum.map(providers, &Espalier.Identity.Config.public_entry/1)
+
 if config_env() == :prod do
   database_url =
     System.get_env("DATABASE_URL") ||
@@ -46,12 +57,19 @@ if config_env() == :prod do
   # want to use a different value for prod and you most likely don't want
   # to check this value into version control, so we use an environment
   # variable instead.
+  # The encrypted session cookies and the rate-limit key derive from it, and
+  # the cookie store needs at least 64 bytes; an empty value stops the boot.
   secret_key_base =
-    System.get_env("SECRET_KEY_BASE") ||
-      raise """
-      environment variable SECRET_KEY_BASE is missing.
-      You can generate one by calling: mix phx.gen.secret
-      """
+    case String.trim(System.get_env("SECRET_KEY_BASE", "")) do
+      value when byte_size(value) >= 64 ->
+        value
+
+      _ ->
+        raise """
+        environment variable SECRET_KEY_BASE is missing or shorter than 64 bytes.
+        You can generate one by calling: mix phx.gen.secret
+        """
+    end
 
   # Each CLOAK_KEY_V<n> defines the cipher tag AES.GCM.V<n>. The highest version
   # encrypts new values, and the others only decrypt. An empty or
@@ -127,21 +145,35 @@ if config_env() == :prod do
   #
   # Check `Plug.SSL` for all available options in `force_ssl`.
 
-  # ## Configuring the mailer
-  #
-  # In production you need to configure the mailer to use a different adapter.
-  # Here is an example configuration for Mailgun:
-  #
-  #     config :espalier, Espalier.Mailer,
-  #       adapter: Swoosh.Adapters.Mailgun,
-  #       api_key: System.get_env("MAILGUN_API_KEY"),
-  #       domain: System.get_env("MAILGUN_DOMAIN")
-  #
-  # Most non-SMTP adapters require an API client. Swoosh supports Req, Hackney,
-  # and Finch out-of-the-box. This configuration is typically done at
-  # compile-time in your config/prod.exs:
-  #
-  #     config :swoosh, :api_client, Swoosh.ApiClient.Req
-  #
-  # See https://swoosh.hexdocs.pm/Swoosh.html#module-installation for details.
+  # Production mail goes out over SMTP with STARTTLS, authentication and
+  # certificate verification; gen_smtp receives `tls_options` for the
+  # STARTTLS upgrade (Swoosh.Adapters.SMTP 1.28, "TLS options and certificate
+  # verification"). Without SMTP_HOST, an instance sends no mail:
+  # Espalier.Mailer.DisabledAdapter refuses every delivery, and the boot logs
+  # a warning.
+  case String.trim(System.get_env("SMTP_HOST", "")) do
+    "" ->
+      config :espalier, Espalier.Mailer, adapter: Espalier.Mailer.DisabledAdapter
+
+    smtp_host ->
+      config :espalier, Espalier.Mailer,
+        adapter: Swoosh.Adapters.SMTP,
+        relay: smtp_host,
+        port: String.to_integer(System.get_env("SMTP_PORT", "587")),
+        username: System.get_env("SMTP_USERNAME"),
+        password: System.get_env("SMTP_PASSWORD"),
+        ssl: false,
+        tls: :always,
+        auth: :always,
+        tls_options: [
+          versions: [:"tlsv1.2", :"tlsv1.3"],
+          verify: :verify_peer,
+          cacerts: :public_key.cacerts_get(),
+          server_name_indication: String.to_charlist(smtp_host),
+          depth: 99,
+          customize_hostname_check: [
+            match_fun: :public_key.pkix_verify_hostname_match_fun(:https)
+          ]
+        ]
+  end
 end

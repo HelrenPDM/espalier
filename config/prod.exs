@@ -21,6 +21,27 @@ config :swoosh, local: false
 # Do not print debug messages in production
 config :logger, level: :info
 
+# Production logs go to standard output as JSON lines
+# (docs/security/logging.md). The `formatter` key of the default handler
+# replaces the default formatter (`h Logger`, Elixir 1.20.4).
+config :logger, :default_handler,
+  formatter:
+    {Espalier.Logger.JSONFormatter,
+     %{
+       metadata: [
+         :request_id,
+         :event,
+         :user_id,
+         :session_id,
+         :ip,
+         :factor,
+         :provider,
+         :reason,
+         :count,
+         :account_hash
+       ]
+     }}
+
 # ecto_sql logs the cast parameters of a query, which hold the plaintext of
 # encrypted and hashed fields before dump. Its query log stays off, and
 # Espalier.Telemetry.QueryLog logs queries without parameters. Telemetry

@@ -32,5 +32,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   without crash dump files and without Erlang distribution (task 0003).
 - `docs/security/crypto-inventory.md`, `docs/security/key-management.md` and
   the ASVS matrix `docs/security/asvs-l2.md` (task 0003).
+- Accounts and sessions ported from `phx.gen.auth` (Phoenix 1.8.15) to JSON,
+  with `make auth-reference`: encrypted user records, server-side sessions
+  behind the encrypted `__Host-espalier` cookie with 60 minutes of inactivity,
+  24 hours of absolute lifetime and five concurrent sessions, password sign-in
+  up to the pending second-factor state, invitations, e-mail and password
+  change, session listing, roles, the bootstrap admin, API clients, external
+  identity rows and the demo sign-in (task 0004).
+- Password policy with NFC normalization, 15 to 128 code points, a bundled
+  common-password list from SecLists, context words and the optional
+  Pwned Passwords range check; Argon2id with `parallelism: 1` and
+  `make argon2-bench` (task 0004).
+- CSRF token, Fetch Metadata and security header plugs, trusted proxy
+  handling, rate limits with Hammer, durable failure counters, security event
+  logging with JSON log lines in production, and audit events (task 0004).
+- Oban with the daily token purge and mail delivery, Mailpit in
+  `compose.dev.yaml` and `make test-integration` (task 0004).
+- `docs/security/authentication.md`, `docs/security/logging.md`, and the
+  ownership table and the full Level 2 scan of the ASVS matrix (task 0004).
+
+### Changed
+
+- A production boot stops when `SECRET_KEY_BASE` is shorter than 64 bytes,
+  because the encrypted session cookies need it (task 0004).
 
 [Unreleased]: https://github.com/HelrenPDM/espalier/commits/main

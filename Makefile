@@ -4,6 +4,7 @@
 NIX ?= nix-shell --run
 IMAGE ?= espalier
 TAG ?= latest
+PHX_NEW_VERSION ?= 1.8.15
 
 # Phoenix reads no .env file by itself. DOTENV exports every assignment of
 # .env into the recipe shell and skips a missing file.
@@ -25,7 +26,7 @@ deps: ## fetch Mix and npm dependencies
 	$(NIX) 'npm --prefix frontend ci'
 
 .PHONY: services-up
-services-up: ## start the development services (PostgreSQL)
+services-up: ## start the development services (PostgreSQL, Mailpit)
 	docker compose -f compose.dev.yaml up -d --wait
 
 .PHONY: services-down
@@ -72,6 +73,24 @@ check: ## run every static check, dependency audit and test of both projects
 test: ## run the test suites of both projects
 	$(NIX) 'DATABASE_PORT=$(DATABASE_PORT) mix test'
 	$(NIX) 'npm --prefix frontend run test -- --run'
+
+.PHONY: auth-reference
+auth-reference: ## Regenerate the phx.gen.auth reference project in tmp/auth-reference
+	rm -rf tmp/auth-reference.previous
+	if [ -d tmp/auth-reference ]; then mv tmp/auth-reference tmp/auth-reference.previous; fi
+	mkdir -p tmp/auth-reference
+	$(NIX) "mix archive.install hex phx_new $(PHX_NEW_VERSION) --force"
+	$(NIX) "cd tmp/auth-reference && mix phx.new espalier --module Espalier --binary-id --no-assets --no-dashboard --no-install"
+	$(NIX) "cd tmp/auth-reference/espalier && mix deps.get && printf 'Y\n' | mix phx.gen.auth Accounts User users --no-live --hashing-lib argon2"
+	test -f tmp/auth-reference/espalier/lib/espalier_web/user_auth.ex
+
+.PHONY: test-integration
+test-integration: ## Run the LDAP and mail tests against the dev services
+	$(NIX) "DATABASE_PORT=$(DATABASE_PORT) mix test --only ldap --only mail"
+
+.PHONY: argon2-bench
+argon2-bench: ## Benchmark Argon2 parameters inside the production image
+	docker run --rm --env-file .env -v "$(PWD)/scripts:/scripts:ro" $(IMAGE):$(TAG) /app/bin/espalier eval 'Code.eval_file("/scripts/argon2_bench.exs")'
 
 .PHONY: gen-keys
 gen-keys: ## print new CLOAK_KEY_V1 and CLOAK_HMAC_SECRET values for .env

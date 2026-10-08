@@ -58,8 +58,21 @@ config :espalier, EspalierWeb.Endpoint,
 # configured to run both http and https servers on
 # different ports.
 
-# Enable dev routes for dashboard and mailbox
+# Enable development-only routes. The mailbox preview is gone (Mailpit
+# replaces it); task 0011 mounts its development routes behind this flag.
 config :espalier, dev_routes: true
+
+# Development mail goes to Mailpit from compose.dev.yaml (UI at
+# http://localhost:8025).
+config :espalier, Espalier.Mailer,
+  adapter: Swoosh.Adapters.SMTP,
+  relay: "localhost",
+  port: 1025,
+  ssl: false,
+  tls: :never,
+  auth: :never,
+  no_mx_lookups: true,
+  retries: 1
 
 # Do not include metadata nor timestamps in development logs
 config :logger, :default_formatter, format: "[$level] $message\n"

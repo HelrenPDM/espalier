@@ -1,19 +1,13 @@
 defmodule EspalierWeb.Endpoint do
   use Phoenix.Endpoint, otp_app: :espalier
 
-  # The session will be stored in the cookie and signed,
-  # this means its contents can be read but not tampered with.
-  # Set :encryption_salt if you would also like to encrypt it.
-  @session_options [
-    store: :cookie,
-    key: "_espalier_key",
-    signing_salt: "JXGWoewJ",
-    same_site: "Lax"
-  ]
+  # The endpoint has no session. The session cookies are configured in the
+  # router pipelines with the options of EspalierWeb.TransactionCookie.
 
-  # socket "/live", Phoenix.LiveView.Socket,
-  #   websocket: [connect_info: [session: @session_options]],
-  #   longpoll: [connect_info: [session: @session_options]]
+  # The client address and the security headers apply to every response,
+  # the SPA, the static assets, /health and the API included.
+  plug EspalierWeb.Plugs.TrustedProxy
+  plug EspalierWeb.Plugs.SecurityHeaders
 
   # Serve at "/" the static files from "priv/static" directory.
   #
@@ -42,8 +36,6 @@ defmodule EspalierWeb.Endpoint do
     pass: ["*/*"],
     json_decoder: Phoenix.json_library()
 
-  plug Plug.MethodOverride
   plug Plug.Head
-  plug Plug.Session, @session_options
   plug EspalierWeb.Router
 end

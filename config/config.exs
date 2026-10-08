@@ -7,9 +7,49 @@
 # General application configuration
 import Config
 
+config :espalier, :scopes,
+  user: [
+    default: true,
+    module: Espalier.Accounts.Scope,
+    assign_key: :current_scope,
+    access_path: [:user, :id],
+    schema_key: :user_id,
+    schema_type: :binary_id,
+    schema_table: :users,
+    test_data_fixture: Espalier.AccountsFixtures,
+    test_setup_helper: :register_and_log_in_user
+  ]
+
 config :espalier,
   ecto_repos: [Espalier.Repo],
   generators: [timestamp_type: :utc_datetime, binary_id: true]
+
+# Argon2id. parallelism: 1 keeps the vendored C code off its thread creation
+# path (argon2_elixir issue #73) and is encoded into every hash. make
+# argon2-bench measures t_cost and m_cost on the production image
+# (docs/security/authentication.md).
+config :argon2_elixir, argon2_type: 2, parallelism: 1, t_cost: 2, m_cost: 16
+
+config :espalier, Oban,
+  engine: Oban.Engines.Basic,
+  repo: Espalier.Repo,
+  queues: [default: 10, mail: 5],
+  plugins: [
+    {Oban.Plugins.Pruner, max_age: 86_400},
+    {Oban.Plugins.Cron, crontab: [{"0 2 * * *", Espalier.Accounts.PurgeExpiredTokensWorker}]}
+  ]
+
+# Rate limit buckets as {scale_ms, limit} (docs/security/authentication.md).
+config :espalier, :rate_limits, %{
+  auth_ip: {:timer.minutes(1), 30},
+  password_account: {:timer.minutes(15), 10},
+  invitation_ip: {:timer.minutes(15), 10},
+  invitation_target: {:timer.hours(1), 3},
+  demo_ip: {:timer.minutes(1), 10},
+  account_change: {:timer.minutes(15), 10}
+}
+
+config :espalier, :bootstrap_on_boot, true
 
 # Configure the endpoint
 config :espalier, EspalierWeb.Endpoint,
@@ -22,19 +62,26 @@ config :espalier, EspalierWeb.Endpoint,
   pubsub_server: Espalier.PubSub,
   live_view: [signing_salt: "BGC9pZL+"]
 
-# Configure the mailer
-#
-# By default it uses the "Local" adapter which stores the emails
-# locally. You can see the emails in your browser, at "/dev/mailbox".
-#
-# For production it's recommended to configure a different adapter
-# at the `config/runtime.exs`.
+# Configure the mailer. config/dev.exs sends to Mailpit, config/test.exs uses
+# the test adapter, and config/runtime.exs configures SMTP for production.
 config :espalier, Espalier.Mailer, adapter: Swoosh.Adapters.Local
 
 # Configure Elixir's Logger
 config :logger, :default_formatter,
   format: "$time $metadata[$level] $message\n",
-  metadata: [:request_id]
+  metadata: [:request_id, :event]
+
+# Phoenix filters every parameter whose key contains one of these strings,
+# also inside nested maps (docs/security/logging.md).
+config :phoenix, :filter_parameters, [
+  "password",
+  "current_password",
+  "email",
+  "token",
+  "code",
+  "secret",
+  "recovery_code"
+]
 
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason

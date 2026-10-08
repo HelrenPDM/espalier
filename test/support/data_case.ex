@@ -22,10 +22,13 @@ defmodule Espalier.DataCase do
     quote do
       alias Espalier.Repo
 
+      use Oban.Testing, repo: Espalier.Repo
+
       import Ecto
       import Ecto.Changeset
       import Ecto.Query
       import Espalier.DataCase
+      import Espalier.Test.SecurityEvents
     end
   end
 

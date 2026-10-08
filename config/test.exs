@@ -39,6 +39,31 @@ config :espalier, EspalierWeb.Endpoint,
 # In test we don't send emails
 config :espalier, Espalier.Mailer, adapter: Swoosh.Adapters.Test
 
+# Cheap Argon2 parameters for the test suite only; the timing test sets the
+# production values for its own run.
+config :argon2_elixir, t_cost: 1, m_cost: 8, parallelism: 1
+
+# Jobs run only through Oban.Testing (perform_job/3, drain_queue/2).
+config :espalier, Oban, testing: :manual
+
+config :espalier, :bootstrap_on_boot, false
+
+# Every ConnTest request comes from 127.0.0.1 and the ETS table is global to
+# the node, so the suite runs with limits no test reaches. The rate limit
+# tests restore a real limit with put_rate_limit/2.
+config :espalier, :rate_limits, %{
+  auth_ip: {:timer.minutes(1), 1_000_000},
+  password_account: {:timer.minutes(1), 1_000_000},
+  invitation_ip: {:timer.minutes(1), 1_000_000},
+  invitation_target: {:timer.minutes(1), 1_000_000},
+  demo_ip: {:timer.minutes(1), 1_000_000},
+  account_change: {:timer.minutes(1), 1_000_000}
+}
+
+# Requests from the tests stub the Pwned Passwords API.
+config :espalier, Espalier.Accounts.BreachedPasswords,
+  req_options: [plug: {Req.Test, Espalier.Accounts.BreachedPasswords}, retry: false]
+
 # Disable swoosh api client as it is only required for production adapters
 config :swoosh, :api_client, false
 

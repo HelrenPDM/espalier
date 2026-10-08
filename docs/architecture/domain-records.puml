@@ -42,7 +42,7 @@ package "Accounts and authentication" {
     strength : SessionStrength
     mfa_at : datetime
     provider_key : string
-    idp_sid_hash : hmac
+    idp_sid_hash : binary (keyed hash)
     idp_amr : string[]
     device_summary : string
     last_seen_at : datetime

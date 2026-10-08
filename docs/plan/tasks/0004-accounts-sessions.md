@@ -595,6 +595,129 @@ and the ASVS 5.0.0 Level 2 matrix are in place for the tasks that follow.
 - [ ] README section 6.5 (row "Session cookie") names the session token, the CSRF token, the pending second-factor state and the WebAuthn ceremony id, and README section 8 lists every route of step 35.
 - [ ] `make check` passes.
 
+## Addendum: implementation
+The implementation departs from the steps above in the points below, and later
+tasks rely on the implemented form. Task 0004a carries these points into the
+specs that cite them.
+
+- Mail in production (steps 9 and 41): SMTP is optional. Without `SMTP_HOST`,
+  `config/runtime.exs` sets `Espalier.Mailer.DisabledAdapter`, which refuses
+  every delivery with `{:error, :mail_disabled}`, and the boot logs a warning,
+  so a demo instance without mail boots. `MAIL_FROM` is required in
+  production only together with `SMTP_HOST`; its default is
+  `Espalier <noreply@localhost>`. With `SMTP_HOST`, the adapter is
+  `Swoosh.Adapters.SMTP` with `tls: :always`, `auth: :always` and
+  `tls_options` (`verify: :verify_peer`, `cacerts: :public_key.cacerts_get()`,
+  server name indication, `pkix_verify_hostname_match_fun(:https)`).
+- Configuration (step 41): `Espalier.RuntimeConfig.parse!/2` parses and
+  validates the variables of step 41 and returns the keys `session_idle_minutes`,
+  `session_max_hours`, `session_max_concurrent`, `local_accounts`, `signup`,
+  `signup_domains`, `password_breach_check`, `password_context_words`,
+  `auth_demo`, `bootstrap_admin_emails`, `trusted_proxies`, `public_url` and
+  `mail_from` of `config :espalier`. It removes one pair of surrounding double
+  quotes from a value, because `docker run --env-file` keeps them.
+  `RuntimeConfig.proxy!/1` parses one `TRUSTED_PROXIES` entry into
+  `{address, prefix_length}`.
+- `SECRET_KEY_BASE` (step 41): a production boot stops when the value is
+  shorter than 64 bytes. The generated `config/runtime.exs` accepted an empty
+  value, and the encrypted cookie store then answered every request with 500.
+- Sessions (step 18): `reissue_session/2` returns `{:ok, new_token}` or
+  `{:error, :not_found}`. The copy of steps 18 and 35 is
+  `Espalier.Accounts.copy_session/2`. `create_session/2` stores only the
+  attributes of step 18, which `UserToken.build_session_token/3` lists, so a
+  task that adds a session column (such as `idp_amr` of 0006) extends that
+  function; `reissue_session/2` copies every schema field.
+- Failure counters (step 17): `FailureCounters.record_failure/3` returns
+  `{:ok, counter}` with the updated row (`consecutive_failures`,
+  `locked_until`, `disabled_at`). `FailureCounters.reset/2` returns the count
+  before the reset, or 0 when no row exists, and `authenticate_password/3`
+  uses it for step 16.5.
+- Rate limits (step 34): a controller applies an account bucket with
+  `EspalierWeb.Plugs.RateLimit.check_account(conn, bucket, identifier)`, which
+  returns the conn or the halted 429 answer and logs
+  `excess_rate_limit_exceeded` with the bucket in `reason`; the controller
+  continues only when `conn.halted` is false. `Espalier.RateLimit.check_account/2`
+  returns `{:allow, count}` or `{:deny, retry_after_ms}` for callers outside a
+  controller.
+- Password change (steps 21 and 35): `update_user_password/3` returns
+  `{:ok, {user, token}}`, where `token` is the raw token of the copied session
+  row of the option `keep_session:` (the session row of the calling client) or
+  `nil`, and `{:error, changeset}`. A missing or wrong current password is a
+  changeset error on `current_password` with the code `required` or `invalid`
+  (422 `validation_failed`).
+- Pending state (step 33): `fetch_pending_second_factor/1` reads the state
+  from the conn and returns only `{:ok, pending}` or `:error`, without a conn,
+  so it cannot delete the state. `fetch_current_scope_for_user/2` deletes an
+  expired or malformed state on each request of the `:api` pipeline that
+  `protect_api_from_forgery/2` lets pass. `put_reissued_session/2` puts a
+  reissued or copied token into a renewed session, and `UserToken.method!/1`
+  turns a stored method name back into its atom.
+- Sign-in events (step 33): `log_in_user/3` takes `provider:` for its events
+  (default: `provider_key`, or `local`). It logs `session_created` with
+  `user_id`, `session_id`, `ip` and `provider`, and `authn_login_success` with
+  these and `factor`, the methods of the session joined by `+` (for example
+  `password+totp`); it logs no `methods` and no `strength`. `log_out_user/1`
+  logs `session_logout` with `user_id`, `session_id`, `ip` and the reason
+  `user`.
+- CSRF (step 33): `protect_api_from_forgery/2` rejects a mutating request
+  without the `x-csrf-token` header before `Plug.CSRFProtection` runs, because
+  `Plug.CSRFProtection` also accepts the body parameter `_csrf_token`.
+- Request bodies (step 35): a request without the required fields answers
+  400 `bad_request` on `POST /api/auth/password`, `POST /api/auth/invitations`
+  and `PUT /api/me/email`, and on `POST /api/auth/demo` with a slot outside 1
+  to 20. `POST /api/auth/invitations/accept` also answers 404 with
+  `LOCAL_ACCOUNTS=false`.
+- Errors (step 36): `EspalierWeb.ErrorJSON` maps 400 to `bad_request`, 401 to
+  `unauthenticated`, 403 to `forbidden`, 404 to `not_found` and 429 to
+  `rate_limited`, every other 4xx status to `bad_request` and every other
+  status to `internal_error`. `EspalierWeb.ChangesetJSON.error_codes/1`
+  renders the codes of `validation_failed`. Bandit 1.12.5 logs 500 to 599 by
+  default, so the endpoint sets no `log_exceptions_with_status_codes`.
+- Security events (step 39): `SecurityLog.event/3` also raises
+  `ArgumentError` for an attribute key outside its allowlist.
+- Administration (steps 23 and 38): `resend_invitation/2` writes the audit
+  event `user.invitation_resent` and returns `:ok`, `{:error, :not_invitable}`
+  or `{:error, :forbidden}`. `Audit.list_events/2` takes the filters `:action`,
+  `:subject_id` and `:limit` (default 100) and orders by `at` and
+  `inserted_at`, both with second precision.
+- Mail (steps 26 and 27): `UserNotifier.invitation_email/2` builds the
+  invitation mail, which the `:mail` test delivers to Mailpit. A failed
+  delivery logs `mail delivery failed: job <id>, kind <kind>`, because
+  `job_id` is no metadata key of the JSON formatter.
+- Migrations (step 11): `phx.gen.schema` gave two pairs of migrations the
+  same timestamp, so their versions were renumbered
+  (`20261008114548` to `20261008114553`, Oban `20261008114603`).
+- Password list (step 14): the SecLists file
+  `Passwords/Common-Credentials/xato-net-10-million-passwords-1000000.txt`
+  (MIT) yields 10,898 entries; `NOTICE` carries the attribution, and
+  `priv/security/README.md` the license text and the filter. Sobelow's
+  `Traversal.FileModule` finding on `PasswordPolicy.read_list/1`, which reads
+  the two fixed file names, is accepted in code.
+- Tests (steps 44 and 45): `api_conn/0` and `next_request/1` set
+  `plug_skip_csrf_protection` to `false`, because `Phoenix.ConnTest.build_conn/0`
+  sets it and `Plug.CSRFProtection` then accepts any token; every API test
+  therefore runs the real token check. `ConnCase` also has `put_setting/2`
+  and `next_request/1`, and `Espalier.AccountsFixtures`, which `ConnCase`
+  imports, has `session_fixture/2` (one or two arguments),
+  `email_token_fixture/4` (two to four arguments) and
+  `sessions_with_idp_sid/2`. Security events are asserted through
+  `attach_security_events/0` (`Espalier.Test.SecurityEvents`), because
+  `capture_log/1` sees only warning-level lines under `config/test.exs`. `test/test_helper.exs` starts ExUnit with
+  `capture_log: true`. Phoenix compiles `:filter_parameters` at boot, so the
+  logging test reads `config/config.exs` with `Config.Reader` and checks
+  `Phoenix.Logger.filter_values/2`. The `TrustedProxy` tests sit in
+  `test/espalier_web/plugs/rate_limit_test.exs`. The scope check of step 45
+  ran in the working tree before the commit, and its files were removed.
+- Headers (step 30): Bandit 1.12.5 adds its own `vary: accept-encoding`
+  after the plugs have run (`Bandit.Compression`), whether or not it
+  compresses the answer, so most answers carry two `Vary` headers. Answers of
+  `send_file` carry one.
+- `docs/architecture/domain-records.puml` shows `idp_sid_hash` as
+  `binary (keyed hash)` (step 12).
+- Open: whether the browsers used for development store the `__Host-espalier`
+  cookie over `http://localhost` (Notes) is not yet checked in a browser;
+  task 0004a assigns the check.
+
 ## Notes
 - `phx.gen.auth` at tag `v1.8.15` of Phoenix (released 2026-09-25): it refuses projects without `phoenix_html`; it stores session tokens raw and e-mail tokens as SHA-256 hashes; it reissues session tokens after 7 days without deleting the old row and never purges expired rows; its remember-me cookie lives 14 days with `SameSite=Lax`; `require_sudo_mode/2` uses a 10-minute window; `renew_session` deletes the CSRF token at sign-in and sign-out; the `:api` pipeline of a `--no-html` project holds only `plug :accepts, ["json"]`. The endpoint's `Plug.Session` cookie is signed and readable without `encryption_salt` (Plug 1.20.3).
 - Sobelow 0.16.0 (`lib/sobelow/config.ex`, `vuln_pipeline?/2` for `:csrf`) reports a pipeline as `Config.CSRF` when its block lists `plug :fetch_session` and no plug named `:protect_from_forgery`; the accepted formats play no part in this check. It reads each `pipeline` block on its own and compares plug names, so it neither recognizes the function plug `:protect_api_from_forgery` nor proves that a mutating route rejects a request without the token. Step 32 accepts the two findings with skip comments, and the router-wide tests of step 45 carry the CSRF proof (0002, Notes).

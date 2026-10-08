@@ -18,5 +18,13 @@ services:
       timeout: 5s
       retries: 5
 
+  # Development mail. Both ports stay on loopback: the UI and the API on 8025
+  # show every development mail, invitation and e-mail change links included.
+  mailpit:
+    image: axllent/mailpit:v1.31.4
+    ports:
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
+
 volumes:
   db_data:

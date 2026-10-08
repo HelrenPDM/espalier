@@ -5,7 +5,7 @@ defmodule EspalierWeb.SpaControllerTest do
     test "GET #{path} answers 404 with a JSON body", %{conn: conn} do
       conn = get(conn, unquote(path))
 
-      assert json_response(conn, 404) == %{"errors" => %{"detail" => "Not Found"}}
+      assert json_response(conn, 404) == %{"error" => "not_found"}
     end
   end
 end
