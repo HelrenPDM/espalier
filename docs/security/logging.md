@@ -70,7 +70,17 @@ what (the event name, `factor`, `provider`, `reason`, `count`).
 
 `authz_change` and `session_use_after_expire` belong to the vocabulary and
 are written by later tasks. Tasks 0005 to 0007 add their event names and
-attribute keys to the allowlists of `Espalier.SecurityLog`.
+attribute keys to the allowlists of `Espalier.SecurityLog`, together with the
+events that use them, and a task whose event records a rejection adds it to
+the warning events as well.
+
+`factor` names one verified factor in the events of a single verification
+step, such as `password` in the events of `authenticate_password/3`, and the
+methods of the session joined by `+` in the `authn_login_success` event of
+`log_in_user/3`, such as `password+totp`. The events of `log_in_user/3` carry
+no `methods` and no `strength` attribute. `authn_login_successafterfail` follows a success that resets a
+counter of five or more failures, the count at which the failure counter
+starts to lock and the `failed_attempts` mail goes out.
 
 ## Other logged failures
 

@@ -50,9 +50,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `compose.dev.yaml` and `make test-integration` (task 0004).
 - `docs/security/authentication.md`, `docs/security/logging.md`, and the
   ownership table and the full Level 2 scan of the ASVS matrix (task 0004).
+- `test/docs/asvs_matrix_test.exs` in `make check`, which compares the ASVS
+  matrix, its ownership table and the security requirements of the task specs
+  (task 0004a).
 
 ### Changed
 
+- The ownership table of the ASVS matrix names every row, and the matrix
+  records the decided deviations for RS256, SHA-1, the previous TOTP step, the
+  directory password bind, the OIDC query-string values and the proxy hop
+  (decisions D13 to D17, task 0004a).
 - A production boot stops when `SECRET_KEY_BASE` is shorter than 64 bytes,
   because the encrypted session cookies need it (task 0004).
 

@@ -239,12 +239,16 @@ anonymous insights are generated with `--no-scope`.
 | RFC 10017 (OAuth 2.0 for Browser-Based Applications, August 2026) | BFF rules: confidential client, `Secure` and `HttpOnly` cookies, `SameSite=Strict`, CSRF defense. |
 | OpenID Connect Core 1.0 (errata set 2) | ID token validation. |
 
-`docs/security/asvs-l2.md` holds the verification matrix: one row per
-applicable requirement with its status, the code that implements it and the
-test that proves it. Task 0003 creates the matrix, 0004 holds the ownership
-table that assigns every row to one task, and every security task updates its
-rows. Requirements the platform deviates from are listed there with the
-reason.
+`docs/security/asvs-l2.md` holds the verification matrix: one row per Level 1
+and Level 2 requirement and per selected Level 3 item, with its status, the
+code that implements it and the test that proves it, or the reason why it does
+not apply. Requirements the platform deviates from are listed in the matrix
+with the reason. Task 0003 creates the matrix, 0004 holds the ownership table
+that assigns every applicable row to its owning task and to the tasks that
+extend it, and every security task updates its rows. The section "Security
+requirements" of each task spec lists exactly the rows whose `Task` column
+names that task (decision D16), and `test/docs/asvs_matrix_test.exs` checks
+this rule in `make check`.
 
 ### 6.2 Authentication pathways
 
@@ -293,7 +297,7 @@ The versions are those of Hex, npm and the upstream repositories on
 | Password hashing | `argon2_elixir` | ~> 4.1 (4.1.3) | Argon2id with `parallelism: 1`, which avoids the native thread creation reported in upstream issue #73 on this OTP version. Parameters are benchmarked on the production image. |
 | Passkeys (server) | `wax_` with `x509` | 0.7.0, x509 ~> 0.9 | The only maintained Elixir WebAuthn library; it leaves several checks to the application (6.6). Task 0005 starts with a spike on the target toolchain. |
 | Passkeys (browser) | `@simplewebauthn/browser` | ^14.0.0 | `startRegistration` and `startAuthentication` with conditional UI. |
-| TOTP | `nimble_totp`, `eqrcode` | 1.0.0, 0.2.1 | SHA-1, 6 digits, 30 seconds. QR code as SVG. |
+| TOTP | `nimble_totp`, `eqrcode` | 1.0.0, 0.2.1 | HMAC-SHA-1, 6 digits, 30 seconds, as RFC 6238 defines TOTP by default; `nimble_totp` 1.0.0 offers no other algorithm, and the matrix records HMAC-SHA-1 as a deviation from ASVS 11.4.1 (decision D14). QR code as SVG. |
 | OIDC client | `oidcc`, `oidcc_plug`, `jose` | ~> 3.9, ~> 0.5.1, ~> 1.11 | Erlang Ecosystem Foundation, OpenID-certified relying party. 3.9.0 and 0.5.1 are minimums because they fix CVE-2026-75759, CVE-2026-66883 and CVE-2026-66884. |
 | LDAP | `:eldap` from OTP | OTP 28.5.0.x (eldap 1.2.16.1) | Own wrapper `Espalier.Identity.Ldap`; no wrapper dependency (6.8). |
 | Encryption at rest | `cloak`, `cloak_ecto` | exactly 1.1.4 and 1.3.0 | Only AES-256-GCM through a strict wrapper and HMAC-SHA256 (6.9). |
@@ -348,9 +352,9 @@ guard, re-authentication before sensitive changes) and changes these defaults:
 | Timeouts | Inactivity 60 minutes, absolute 24 hours (NIST AAL2); enrollment and recovery sessions 30 minutes; checked on the server; cookie expiry is never the only check. A change of manual role grants ends the sessions of that user. |
 | Concurrent sessions | At most `SESSION_MAX_CONCURRENT` (default 5) per user; the oldest is ended. |
 | Termination | Logout deletes the row. Disabling a user ends all sessions. Users list and end their sessions after re-authentication; admins end the sessions of a user or of all users (ASVS 7.4, 7.5). |
-| CSRF | Three layers: (1) `Plug.CSRFProtection` token in the `x-csrf-token` header on every mutating request; (2) a Fetch Metadata plug that rejects `Sec-Fetch-Site: cross-site` except for the allowlisted navigation endpoints (OIDC callback, `/auth/finish`, front-channel logout in an iframe), with an `Origin` check when the header is missing; (3) the `Strict` session cookie. Sobelow does not flag a JSON pipeline without CSRF protection, so a test covers every mutating route. |
+| CSRF | Three layers: (1) `Plug.CSRFProtection` token in the `x-csrf-token` header on every mutating request of the session pipelines (the integration route of task 0013 takes a bearer token and no session cookie); (2) a Fetch Metadata plug that rejects `Sec-Fetch-Site: cross-site` except for the allowlisted navigation endpoints (OIDC callback, `/auth/finish`, front-channel logout in an iframe), with an `Origin` check when the header is missing; (3) the `Strict` session cookie. Sobelow does not flag a JSON pipeline without CSRF protection, so a test covers every mutating route, with the integration route of task 0013 as its only exemption. |
 | Strict cookie and redirects | The OIDC callback arrives as a cross-site navigation and never carries the `Strict` cookie. The callback therefore validates the response, stores a single-use sign-in ticket (60 seconds, hashed, bound to a value in the transaction cookie) and redirects to the SPA route `/auth/finish#ticket=<ticket>`. The SPA posts the ticket same-origin to `POST /api/auth/finish`, which sets the `Strict` session cookie and deletes the transaction cookie. Phoenix serves `/auth/finish` through `SpaController`, and the Vite dev proxy excludes it (proxy key `^/auth/(?!finish)`). |
-| Headers | Own plug for every response: CSP `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'`, Trusted Types first in report-only mode, `Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Resource-Policy: same-origin`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Content-Type-Options: nosniff`, `Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), publickey-credentials-create=(self), publickey-credentials-get=(self)`, `Cache-Control: no-store` on `/api/session`, `/api/auth/*` and `/api/me/*`, `Vary: Sec-Fetch-Site, Sec-Fetch-Mode, Sec-Fetch-Dest`. HSTS comes from the reverse proxy. |
+| Headers | Own plug for every response: CSP `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'`, Trusted Types first in report-only mode, `Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Resource-Policy: same-origin`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Content-Type-Options: nosniff`, `Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), publickey-credentials-create=(self), publickey-credentials-get=(self)`, `Cache-Control: no-store` on `/api/session`, `/api/auth/*` and `/api/me/*` (task 0004), on `/api/admin/*` (task 0015) and on `/api/facilitator/*`, `/api/registrar/*` and `/api/integration/*` (task 0013), `Vary: Sec-Fetch-Site, Sec-Fetch-Mode, Sec-Fetch-Dest`. HSTS comes from the reverse proxy. |
 
 The `__Host-Http-` prefix from RFC 10017 is not used yet, because Safari does
 not support it. The plan revisits it in task 0017.
@@ -367,7 +371,9 @@ The application adds the checks that `wax_` leaves open:
 - challenges are stored server-side, single-use, bound to the ceremony and the
   user or the anonymous attempt, and deleted on every outcome;
 - after registration, the credential's COSE algorithm must be one of -7, -8 or
-  -257 (`wax_` issue #59);
+  -257 (`wax_` issue #59); -257 (RS256) stays for Windows Hello authenticators,
+  which the FIDO metadata lists with RS256 only, and the matrix records it as a
+  deviation from ASVS 11.6.1 (decision D13);
 - `clientDataJSON` is parsed by the application, and `crossOrigin: true` or any
   `topOrigin` is rejected (`wax_` issue #60);
 - authenticator data with backup state set but backup eligibility unset is
@@ -380,8 +386,10 @@ The application adds the checks that `wax_` leaves open:
 **TOTP** (`nimble_totp` 1.0.0). A 20-byte secret, encrypted with Cloak (closure
 type), activated only after one valid code. Verification accepts the current
 and the previous 30-second step and stores the last used step, so that each code
-works once (ASVS 6.5.1). This drift window is a documented decision against the
-30-second wording of ASVS 6.5.5.
+works once (ASVS 6.5.1). This drift window follows RFC 6238, section 5.2, which
+recommends at most one past time step as transmission delay, and the matrix
+records it as a deviation from the 30-second limit of ASVS 6.5.5 (decision
+D15). Codes are HMAC-SHA-1 values (section 6.3, decision D14).
 
 **Recovery codes.** Ten codes of 128 bits each (ASVS 11.5.1), shown once as 26
 base32 characters. Stored as HMAC-SHA256 with a key derived from
@@ -411,7 +419,9 @@ of the user.
   (RFC 9700).
 - ID token validation per OpenID Connect Core 3.1.3.7 with an algorithm
   allowlist (RS256, PS256, ES256), `aud` equal to the client id (ASVS 10.5.4),
-  keys only from the configured issuer.
+  keys only from the configured issuer. Google and Entra ID list RS256 as their
+  only ID token signing algorithm, and the matrix records RS256 as a deviation
+  from ASVS 11.6.1 (decision D13).
 - The provider's access and refresh tokens are not kept. The platform calls no
   provider API after sign-in.
 - **Entra ID.** Single-tenant issuer
@@ -422,8 +432,10 @@ of the user.
   `token_endpoint_auth_signing_alg_values_supported`, so the configuration adds
   both through `quirks.document_overrides`; without the first override, `oidcc`
   drops PKCE without warning. Client authentication uses a certificate
-  (`private_key_jwt`); a spike in task 0006 verifies which key id and audience
-  Entra accepts. Client secrets are allowed only in development.
+  (`private_key_jwt`) with PS256 assertions, the algorithm that Microsoft
+  documents (decision D13); a spike in task 0006 verifies which key id and
+  audience Entra accepts and that it accepts PS256 alone. Client secrets are
+  allowed only in development.
 - **Google Workspace.** `hd` must equal the configured domain; identity key
   issuer and `sub`.
 - **Linking and step-up.** `POST /api/auth/oidc/:provider/intents` creates a
@@ -582,7 +594,15 @@ or from `bin/espalier eval "Espalier.Release.grant_role(\"admin\", \"a@example.o
 Providers are configured through environment variables, parsed in
 `config/runtime.exs`. `AUTH_PROVIDERS` lists the active external providers in
 the order of the sign-in page; local accounts are always available unless
-`LOCAL_ACCOUNTS=false`.
+`LOCAL_ACCOUNTS=false`. `Espalier.Identity.Config.parse!/2` parses the
+`AUTH_*` variables of the providers. `Espalier.RuntimeConfig.parse!/2` parses
+the account and session settings of task 0004, and every later task that adds
+an application setting outside `AUTH_*` extends that module. The connection
+and secret variables (`DATABASE_*`, `SECRET_KEY_BASE`, `CLOAK_*`, `SMTP_*`)
+stay in `config/runtime.exs`, and the boot check of task 0017 reports each
+required one that is missing. Both modules trim each value,
+remove one pair of surrounding double quotes, which `docker run --env-file`
+keeps, and stop the boot with a message that names the variable.
 
 ```sh
 AUTH_PROVIDERS=entra,ldap
@@ -656,10 +676,10 @@ that each task can rely on the others.
 |---|---|---|
 | `Espalier.Vault`, `Espalier.Crypto.StrictAESGCM`, `Espalier.Encrypted.Binary`, `Espalier.Encrypted.Map`, `Espalier.Encrypted.ClosureBinary`, `Espalier.Hashed.HMAC`, `Espalier.Crypto.Rotation`, `docs/security/crypto-inventory.md`, `docs/security/asvs-l2.md` | 0003 | every task with protected columns registers its rotation schemas and inventory rows |
 | `users`, `users_tokens`, `external_identities`, `failure_counters`, `role_grants`, `api_clients`, `audit_events` | 0004 | 0005, 0006, 0007 add columns through their own migrations; 0007 makes `failure_counters.user_id` nullable for directory counters |
-| `EspalierWeb.UserAuth.log_in_user/3` with `auth_methods:` and `strength:`, `require_authenticated_user/2`, `require_recent_auth/2` (403 `reauth_required`), the pending second-factor state, the `:enrollment` pipeline | 0004 | 0005, 0006, 0007 |
+| `EspalierWeb.UserAuth.log_in_user/3` with `auth_methods:` and `strength:`, `put_reissued_session/2`, `require_authenticated_user/2`, `require_recent_auth/2` (403 `reauth_required`), the pending second-factor state with `put_pending_second_factor/3` and `fetch_pending_second_factor/1`, the `:enrollment` pipeline | 0004 | 0005, 0006, 0007 |
 | `EspalierWeb.TransactionCookie` (`main_session_options/0`, `session_options/0`, `fetch/1`, `get/2`, `put/3`, `delete/2`, `clear/1`, `read_main_session/1`); the router of 0004 reads both option sets | 0004 | 0006 (`get/2`, `clear/1`, `read_main_session/1`), 0017 (checks `session_options/0` in the container) |
 | `GET /auth/providers` (`ProviderController`, pipeline `:auth_bare`), `Espalier.Identity.Config.parse!/2` with `public_entry/1`; application env `:identity_providers` (full structs) and `:auth_providers` (public entries with `key`, `type`, `kind`, `label`, `start_url`) | 0004 | 0006 adds the types `entra`, `google`, `oidc`; 0007 adds `ldap` |
-| `Espalier.RateLimit`, `EspalierWeb.Plugs.RateLimit`, `Espalier.Accounts.FailureCounters`, `Espalier.SecurityLog.event/3`, `Espalier.Accounts.UserNotifier` through Oban | 0004 | all account tasks |
+| `Espalier.RateLimit`, `EspalierWeb.Plugs.RateLimit` with `check_account/3`, `Espalier.Accounts.FailureCounters`, `Espalier.SecurityLog.event/3`, `Espalier.Accounts.UserNotifier` through Oban, `Espalier.RuntimeConfig` | 0004 | all account tasks; `Espalier.RuntimeConfig` also 0009 and 0013 to 0017, and the rate limiter also 0009 and 0014 |
 | Second factors, `POST /api/auth/second-factor`, `POST /api/me/reauth`, `Accounts.enrolled?/1`, `Accounts.Factors.complete_enrollment/3`, recovery | 0005 | 0006, 0007, 0011, 0015 |
 | `Accounts.sign_in_external/2`, `link_external_identity/3`, `deliver_identity_linked/2`, `POST /api/auth/finish`, `POST /api/auth/oidc/:provider/intents` | 0006 | 0007, 0011 |
 | Answers of `POST /api/auth/finish` and of the LDAP sign-in: `{"next": "second_factor"}`, `{"next": "enroll_second_factor"}`, or the session payload of `GET /api/session` for a full session (with `"linked": true` after a link) | 0006, 0007 | 0011 |
@@ -777,12 +797,12 @@ at `/api/openapi`. The frontend generates its types from that document.
 | Policies | `GET /api/policies`, `POST /api/policy-versions/:id/acknowledgements`, `GET /api/approved-tools` | learner |
 | Credentials | `GET /api/me/credentials`, `GET /api/me/credentials/:id` | learner |
 | Insights | `POST /api/self-assessments`, `POST /api/formats/:id/votes`, `POST /api/feedback` | learner |
-| Attendance | `GET /api/facilitator/users`, `POST /api/formats/:id/attendance` | facilitator |
+| Attendance | `POST /api/facilitator/user-lookups` (address in the body), `POST /api/formats/:id/attendance` | facilitator |
 | Registrar | `GET /api/registrar/credentials` (only with `REGISTRAR_ENABLED=true`) | registrar |
 | Reports | `GET /api/insights/self-assessment`, `GET /api/insights/items`, `GET /api/insights/competence`, `GET /api/insights/formats`, `GET /api/insights/feedback`, `GET /api/insights/credentials` | analyst |
-| Administration | `POST /api/admin/packs`, `GET /api/admin/packs/:id`, `GET /api/admin/packs/:id/diff`, `POST /api/admin/packs/:id/publish`, CRUD on `/api/admin/policies`, `/api/admin/policy-versions`, `/api/admin/approved-tools`, `/api/admin/role-grants`, `/api/admin/api-clients`, `/api/admin/webhooks`, `/api/admin/users` (invite, resend invitation, disable, end sessions, reset factors, reset failure counters), `DELETE /api/admin/sessions` (all users), `POST /api/admin/credentials/:id/revoke`, `GET /api/admin/audit` | author / admin (changes need a recent second factor) |
+| Administration | `POST /api/admin/packs`, `GET /api/admin/packs/:id`, `GET /api/admin/packs/:id/diff`, `POST /api/admin/packs/:id/publish`, CRUD on `/api/admin/policies`, `/api/admin/policy-versions`, `/api/admin/approved-tools`, `/api/admin/role-grants`, `/api/admin/api-clients`, `/api/admin/webhooks`, `/api/admin/users` (invite, resend invitation, disable, end sessions, reset factors, reset failure counters), `POST /api/admin/user-lookups` (address in the body), `DELETE /api/admin/sessions` (all users), `POST /api/admin/credentials/:id/revoke`, `GET /api/admin/audit` | author / admin (changes need a recent second factor) |
 | Exports | `POST /api/admin/exports`, `GET /api/admin/exports/:id`, `GET /api/admin/exports/:id/download` | author |
-| Integration | `GET /api/integration/credentials` (machine token, scope `credentials:read`) | machine client |
+| Integration | `POST /api/integration/credential-lookups` (machine token, scope `credentials:read`, address in the body) | machine client |
 | Health | `GET /health` | public |
 
 ## 9 Frontend
@@ -1031,9 +1051,14 @@ anonymous insights.
 ### Integration API and webhooks
 
 Machine clients authenticate with a bearer token (stored as a hash, scoped).
-`GET /api/integration/credentials?email=` returns the credentials in force
-(status `active` or `refresh_due`) with their status, unlocked tasks and
-validity. Webhooks send `credential.issued`,
+`POST /api/integration/credential-lookups` with `{"email": ...}` in the body
+returns the credentials in force (status `active` or `refresh_due`) with their
+status, unlocked tasks and validity. The address travels in the body, so no
+URL carries it (ASVS 14.2.1). The route runs without the session cookie, the
+CSRF layer and the Fetch Metadata plug, because a bearer token in the
+`authorization` header is its only credential and a browser never sends a
+bearer token by itself (task 0013). Webhooks go only to hosts and ports that
+the operator lists in `WEBHOOK_ALLOWED_HOSTS` (ASVS 1.3.6). Webhooks send `credential.issued`,
 `credential.refresh_due`, `credential.expired` and `credential.revoked` as JSON,
 signed with HMAC-SHA256 in the header `x-espalier-signature`. Webhook secrets
 come from environment variables. Binding a credential to a permission in another
@@ -1114,12 +1139,13 @@ no copy of that list.
 | 0002 | [Quality gates, CI and open-source files](tasks/0002-quality-ci-oss.md) | M0 Foundation | 0001 |
 | 0003 | [Encryption at rest with Cloak](tasks/0003-encryption-at-rest.md) | M1 Accounts | 0001 |
 | 0004 | [Accounts and sessions from phx.gen.auth](tasks/0004-accounts-sessions.md) | M1 Accounts | 0002, 0003 |
-| 0005 | [Second factors: passkeys, TOTP and recovery codes](tasks/0005-second-factors.md) | M1 Accounts | 0004 |
+| 0004a | [Sync the task specs with task 0004](tasks/0004a-spec-sync.md) | M1 Accounts | 0004 |
+| 0005 | [Second factors: passkeys, TOTP and recovery codes](tasks/0005-second-factors.md) | M1 Accounts | 0004, 0004a |
 | 0006 | [OIDC sign-in with oidcc and the mock provider](tasks/0006-oidc.md) | M1 Accounts | 0005 |
 | 0007 | [LDAP and Active Directory sign-in](tasks/0007-ldap.md) | M1 Accounts | 0006 |
-| 0008 | [Catalog schemas, content pack importer and demo pack](tasks/0008-catalog-content-packs.md) | M2 Content | 0001 |
-| 0009 | [Learner API with OpenAPI](tasks/0009-learner-api.md) | M3 Learning | 0004, 0008 |
-| 0010 | [Frontend shell: Tailwind, routing, i18n, API client](tasks/0010-frontend-shell.md) | M3 Learning | 0004 |
+| 0008 | [Catalog schemas, content pack importer and demo pack](tasks/0008-catalog-content-packs.md) | M2 Content | 0001, 0004a |
+| 0009 | [Learner API with OpenAPI](tasks/0009-learner-api.md) | M3 Learning | 0004, 0004a, 0008 |
+| 0010 | [Frontend shell: Tailwind, routing, i18n, API client](tasks/0010-frontend-shell.md) | M3 Learning | 0004, 0004a |
 | 0011 | [Account UI: sign-in, enrollment, recovery and security settings](tasks/0011-account-ui.md) | M3 Learning | 0007, 0009, 0010 |
 | 0012 | [Player and learner UI](tasks/0012-player-learner-ui.md) | M3 Learning | 0009, 0010 |
 | 0013 | [Policies, credentials, attendance, refresher and integration API](tasks/0013-policies-credentials.md) | M4 Records | 0009, 0010, 0012 |
@@ -1129,7 +1155,9 @@ no copy of that list.
 | 0017 | [Production image, guides and hardening](tasks/0017-production-hardening.md) | M6 Interop and operations | 0002, 0015, 0016 |
 
 0007 follows 0006, because it reuses the external-identity functions of 0006.
-0008 can start as soon as 0001 is done, and 0010 as soon as 0004 is done.
+0004a carries the implemented interfaces of 0004, the ASVS scan rows and the
+decisions D13 to D17 into the specs of the later tasks. 0008 and 0010 can
+start as soon as 0004a is done.
 
 Each task has a GitHub issue under its milestone, and
 [`tasks/EPIC.md`](tasks/EPIC.md) records the issue and status of every task.
@@ -1150,6 +1178,11 @@ Each task has a GitHub issue under its milestone, and
 | D10 | Breached-password check | Decided: `PASSWORD_BREACH_CHECK=off` with the bundled lists. `hibp` stays available as an option; the GDPR workstream assesses it before anyone enables it. |
 | D11 | Recovery without any factor | Decided: admin-assisted reset after identity verification by the organization (`POST /api/admin/users/:id/reset-factors`, task 0015), logged and notified. No self-service path without a recovery code. |
 | D12 | Password normalization | Decided: passwords are normalized to Unicode NFC (`String.normalize(password, :nfc)`) in `PasswordPolicy.prepare/1` before every length check, blocklist check, hash and verification. This follows NIST SP 800-63B-4 section 3.1.1.2 and deviates from ASVS 6.2.8, which asks for verification exactly as received; the matrix records the deviation. The platform stores no passwords before this rule applies, so no rehash migration is needed. |
+| D13 | RS256 | Decided: RS256 stays only for verification, where a provider or an authenticator offers no other algorithm. The ID token allowlist keeps RS256 next to PS256 and ES256, because the discovery documents of Google and Entra ID list RS256 as their only signing algorithm (retrieved 2026-10-08). Passkeys keep COSE -257 next to -7 and -8, because the FIDO metadata lists the Windows Hello authenticators with RS256 only and WebAuthn Level 3 asks relying parties to offer it. Every `private_key_jwt` client assertion uses PS256 alone, the algorithm that Microsoft documents for Entra ID, and a provider that accepts no PS256 authenticates the client with a secret. oidcc signs no request object and no DPoP proof, because task 0006 switches both off. The spike of decision D4 checks that Entra accepts PS256; when it does not, the `entra` list becomes `["RS256"]`. ASVS Appendix C lists RSASSA-PKCS1-v1_5 as disallowed, so the matrix records RS256 as a deviation from ASVS 11.6.1. |
+| D14 | SHA-1 | Decided: TOTP computes HMAC-SHA-1, as RFC 6238 defines it by default and as `nimble_totp` 1.0.0 offers it (task 0005), and the breached-password check sends the SHA-1 prefix that the Pwned Passwords range API defines (task 0004). ASVS Appendix C rates both as legacy, and the matrix records each use as a deviation from ASVS 11.4.1. |
+| D15 | Announced deviations | Decided: the ownership table marks the deviations that the task specs announce, as it marks 6.2.8: the previous TOTP step under ASVS 6.5.5 (task 0005), the password bind of the directory service account under ASVS 13.2.1 (task 0007), and `code`, `state` and the OIDC intent in a query string under ASVS 14.2.1 (task 0011, with the measures of task 0006). The section "Deviations" of the matrix holds each entry with rule and reason. |
+| D16 | ASVS scan rows | Decided: every row of the matrix appears in the ownership table of task 0004 (step 42), and the section "Security requirements" of each task spec lists exactly the rows whose `Task` column names that task. `test/docs/asvs_matrix_test.exs` checks both rules in `make check`. |
+| D17 | Proxy hop | Decided: the hop from the reverse proxy to the application stays HTTP on the compose network of one host, which `self-hosting.md` requires (task 0017), and the matrix records it as a deviation from ASVS 12.3.1 and 12.3.3. A proxy on another host needs TLS on that hop. |
 
 ## 16 Risks
 

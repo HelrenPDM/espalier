@@ -1,6 +1,6 @@
 # 0008: Catalog schemas, content pack importer and demo pack
 
-> Milestone: M2 Content, Depends on: 0001
+> Milestone: M2 Content, Depends on: 0001, 0004a
 
 ## Context to read first
 - `docs/plan/README.md`: the intro and goal 8 (constructive alignment per topic), sections 2 (principles 4, 5 and 10), 5 (the `Espalier.Catalog` row of the context table and the paragraph on scopes), 7 (domain rules, in particular rules 14 and 15), 11 (content packs, including the example of `objectives.yaml`), 12 (Makefile targets `setup` and `refresh-db`) and 16 (the risk on pack schema changes).
@@ -27,7 +27,17 @@ a pack, and the demo pack passes the check in strict mode.
 - Out: read API for learners and its OpenAPI operations (0009), including the objectives of the module view, the `objective_keys` of the item views and the objective status in `GET /api/me/progress`; the objectives in the player (0012); the policies that placeholder blocks and `policy_acknowledged` requirements name, including the demo policy `usage-policy` (0013); the competence report `GET /api/insights/competence` (0014); upload, the alignment section of the pack page and the diff endpoint (0015); pack export and the `cmi.objectives` of the SCORM export (0016); the content pack guide (0017).
 
 ## Security requirements
-The ASVS ownership table in 0004 step 42 assigns no row of `docs/security/asvs-l2.md` to this task, so this task adds no code and no test to the matrix. The task adds no route, and its tables hold no personal data and no encrypted or keyed-hash column (Notes). The loader of step 6 limits what a pack can do during an import: it reads only the files of step 5 inside the pack directory, rejects every symbolic link, creates no atoms and stops after 50,000 YAML nodes. `mix espalier.alignment` reads a pack through the same loader. Step 15 tests the symbolic links, the atom case and the node limit. The CSV output of `mix espalier.alignment` (step 13) holds module numbers, enum values, keys that match `^[a-z0-9][a-z0-9-]*$` with the prefixes `item:`, `format:` and `module:`, and nothing else, so no field starts with a character that a spreadsheet reads as the start of a formula.
+This list holds exactly the rows whose `Task` column names this task, as the ownership table of 0004 step 42 assigns them (README section 15, decision D16). A row marked "extends the row of" belongs to the task named there, and this task adds its code and test to that row (step 16). The task adds no route, and its tables hold no personal data and no encrypted or keyed-hash column (Notes).
+
+- 1.1.1 (extends the row of 0009): The loader of step 6 decodes each YAML and Markdown file of a pack from its raw text before the validator of step 8 runs. The line index of step 6 reads the same raw text for line numbers only, and no step decodes a value that an earlier step has decoded.
+- 1.3.3 (extends the row of 0009): Keys match `^[a-z0-9][a-z0-9-]*$`. The CSV output of `mix espalier.alignment` (step 13) holds module numbers, enum values, keys with the prefixes `item:`, `format:` and `module:`, and nothing else, so no field starts with a character that a spreadsheet reads as the start of a formula.
+- 1.5.2 (extended by 0004): The loader creates no atoms, reads only the files of step 5 and stops after 50,000 YAML nodes, and `mix espalier.alignment` reads a pack through the same loader. Step 15 tests the atom case and the node limit.
+- 2.1.2 (extended by 0017): The validator implements the cross-file checks of the pack format and the alignment checks of README section 7, domain rule 14 (steps 8 and 13), and 0017 documents them in `docs/guides/content-packs.md`.
+- 2.2.1 (extends the row of 0009): The validator checks every pack file against the embedded schema of its file type before the importer stores a payload (steps 8 and 9).
+- 2.2.3 (extended by 0013): The validator checks references across pack files, for example that `taught_in` names lessons of the same module and that `domain` is one of the module's `domains`.
+- 2.3.3 (extends the row of 0004): The publisher applies a payload in one transaction under an advisory lock on the pack key (step 10).
+- 5.2.2 (extends the row of 0015): The loader reads only the files of the pack format and parses each one as YAML or Markdown.
+- 5.3.2 (extends the row of 0015): The loader reads only the named files inside the pack directory and rejects every symbolic link, which step 15 tests.
 
 ## Steps
 1. Add `{:yaml_elixir, "~> 2.12"}` to `deps` in `mix.exs` and run `nix-shell --run "mix deps.get"`. Check with `nix-shell --run "mix hex.info yaml_elixir"` that 2.12 is the current minor. On 2026-10-07, hex.pm listed 2.12.2 (published 2026-05-30, so more than seven days old, as the cooldown of README section 13 requires) with the single dependency `yamerl ~> 0.10`, and the OSV database listed no advisory for either package. `mix.lock` then holds `yaml_elixir` and `yamerl`.
@@ -49,7 +59,7 @@ The ASVS ownership table in 0004 step 42 assigns no row of `docs/security/asvs-l
    - `Catalog.Requirement requirements qualification_id:references:qualifications kind:enum:module_completed:assessment_passed:policy_acknowledged:attendance:qualification_held target_key:string`
    - `Catalog.CompanionFormat companion_formats program_id:references:programs key:string title:string description:text phases:array:string attendance_counts:boolean position:integer`
    - `Catalog.Citation citations source_id:references:sources block_id:references:blocks rule_id:references:rules item_id:references:items locator:string`
-   - `Catalog.PackImport pack_imports pack_key:string pack_version:string status:enum:validated:failed:published report:map payload:map published_at:utc_datetime imported_by_id:uuid`. `imported_by_id` is a plain UUID column without a foreign key, because 0004 creates the `users` table and this task depends on 0001 only. It holds the id of the importing user, or `NULL` for the mix tasks and the release function.
+   - `Catalog.PackImport pack_imports pack_key:string pack_version:string status:enum:validated:failed:published report:map payload:map published_at:utc_datetime imported_by_id:uuid`. `imported_by_id` is a plain UUID column without a foreign key. It holds the id of the importing user, or `NULL` for the mix tasks and the release function, and the catalog tables keep no reference to the `users` table of 0004.
 3. Write the join-table migrations with `mix ecto.gen.migration`, one command per table after the generators of step 2 (for example `nix-shell --run "mix ecto.gen.migration create_objective_lessons"`), and the matching `many_to_many` associations:
    - `item_rules (item_id, rule_id)`, `item_reveals (item_id, lesson_id)`, `assessment_items (assessment_id, item_id, position)` with a join schema `Espalier.Catalog.AssessmentItem` for the position, and `qualification_prerequisites (qualification_id, prerequisite_id)`.
    - For the alignment: `objective_lessons (learning_objective_id, lesson_id)`, `item_objectives (item_id, learning_objective_id)` and `format_objectives (companion_format_id, learning_objective_id)`. The associations are `many_to_many :lessons`, `many_to_many :items` (through `item_objectives`) and `many_to_many :companion_formats` (through `format_objectives`) on `LearningObjective`, and `many_to_many :objectives` on `Item` and on `CompanionFormat`. Ecto derives the default join keys from the last part of the schema module name (`association_key/2` in `lib/ecto/association.ex`), which gives `learning_objective_id`, `item_id`, `lesson_id` and `companion_format_id` and matches these columns.
@@ -164,6 +174,7 @@ The ASVS ownership table in 0004 step 42 assigns no row of `docs/security/asvs-l
     - Mix task `espalier.validate`: a fixture with only a check 4 finding prints one warning line and returns without an exit.
     - Importer: a fixture with an orphan exam item gives a `failed` import. Its `report`, read back from the database, holds one entry in `errors` with `check` 2, the module number as `module`, the item key as `key`, a `message`, `file` `modules/<directory>/items.yaml` and the line of the item's entry. With `alignment: warn`, the import is `validated` and the same entry is in `warnings`. A copy of the demo pack in which one exam item has no `objectives` gives exactly one entry in `errors`, which carries `check` 2 and the key of that item, for each of the four exam items. The payload of the demo pack, read back from the database, equals the payload of a copy that lists the `rules`, `reveals`, `objectives`, `taught_in` and `cite` entries, the sources and the glossary terms in reverse order. In that payload, the objectives of module 2 hold `"domain" => nil`, every exam item holds `"lesson" => nil`, and the `rules` of every item are in ascending order.
     - Publisher: a second publish keeps the ids of programs, modules, lessons, learning objectives, rules, items, assessments and qualifications; an item removed from the pack receives `archived_at`; the same item added back keeps its id and has `archived_at` cleared; an item moved to another module keeps its id; an objective removed from the pack receives `archived_at`, and an objective moved to another module keeps its id; a changed `objectives` list of an item replaces its `item_objectives` rows, and a changed `taught_in` replaces the `objective_lessons` rows of its objective; `publish/1` on a failed import answers `{:error, :not_validated}`.
+16. Verification matrix. Add the code and the tests of this task to the rows of `docs/security/asvs-l2.md` that the section "Security requirements" lists, and state in `Notes` what this task delivers. The `Task` column of each row names this task as the ownership table of 0004 step 42 assigns it. A row stays `open` until every task it names has added its code and test, and then becomes `verified` (0004 step 42).
 
 ## Deliverables
 - `mix.exs` and `mix.lock` with `yaml_elixir` and `yamerl`.
@@ -172,6 +183,7 @@ The ASVS ownership table in 0004 step 42 assigns no row of `docs/security/asvs-l
 - `content/demo/` complete, with `objectives.yaml` in both module directories.
 - Makefile targets `setup` and `refresh-db` with the demo import.
 - Tests and fixture packs under `test/espalier/catalog/`.
+- The rows of the section "Security requirements" in `docs/security/asvs-l2.md` with the code and the tests of this task (step 16).
 
 ## Acceptance
 - [ ] `nix-shell --run "mix espalier.validate content/demo"` prints no error and no warning and exits with status 0.
@@ -183,6 +195,7 @@ The ASVS ownership table in 0004 step 42 assigns no row of `docs/security/asvs-l
 - [ ] A second `nix-shell --run "mix espalier.import content/demo"` leaves the output of `SELECT id FROM items ORDER BY key` and of `SELECT id FROM learning_objectives ORDER BY key` unchanged, and `SELECT (SELECT count(*) FROM items WHERE archived_at IS NOT NULL), (SELECT count(*) FROM learning_objectives WHERE archived_at IS NOT NULL)` prints `0|0`.
 - [ ] `grep -l user_id` over the migrations of steps 2 and 3 prints nothing.
 - [ ] `grep -nE 'competence|depth' priv/repo/migrations/*_create_items.exs lib/espalier/catalog/item.ex` prints nothing.
+- [ ] The rows of `docs/security/asvs-l2.md` that the section "Security requirements" lists name the code and the tests of this task.
 - [ ] `make check` passes.
 
 ## Notes

@@ -277,6 +277,80 @@ decision in README section 15.
 - [ ] Each gap of step 5 is a step of a spec, and the matrix row names that task.
 - [ ] `make check` passes.
 
+## Addendum: implementation
+The maintainer chose the recommended option of every decision above (README
+section 15, decisions D13 to D17). The sync departs from the steps or fills
+them in at these points:
+
+- Decision 1 (D13): the discovery documents of Google and Entra ID list RS256
+  as their only ID token algorithm, and the FIDO metadata lists the Windows
+  Hello authenticators with RS256 only (retrieved 2026-10-08). 0006 gives
+  every provider with a client certificate the client-assertion list
+  `["PS256"]`, because oidcc signs with the first algorithm of the provider's
+  list that the key supports (`oidcc_jwt_util:sign/4`), which can be RS256 for
+  a generic provider; such a provider uses a client secret when it accepts no
+  PS256 assertion. When the spike of decision D4 shows that Entra rejects
+  PS256, the `entra` list becomes `["RS256"]`, since a list of PS256 and RS256
+  would still send PS256. oidcc 3.9.0 also signs request objects and DPoP
+  proofs on its own when a discovery document offers them
+  (`src/oidcc_authorization.erl`, `src/oidcc_auth_util.erl`), so 0006 sets
+  `request_parameter_supported` to `false` and
+  `dpop_signing_alg_values_supported` to `[]` for every provider.
+- Decision 2 (D14): row 11.4.1 names 0003, 0004 and 0005 and changes from
+  `verified` to `open` until 0005 has landed. The range API also accepts NTLM
+  prefixes, which are MD4 and disallowed, and the key URI format of Google
+  Authenticator states that its apps ignore the `algorithm` parameter.
+- Decision 4 (D16): the ownership table names every row of the matrix,
+  including the rows without a task after `not applicable`. The test of step 6
+  also checks the table against the `Task` column, the copy in 0004 step 42
+  against the table of the matrix, and the entries of the section
+  `Deviations` against the rows that the table marks.
+- Decision 5 (D17): the hop from the proxy to the application is an inbound
+  connection under ASVS 12.3.1 as well, so the table marks 12.3.1 and 12.3.3,
+  and the section `Deviations` holds an entry for each.
+- Step 2, 0005 step 20: the later specs cite only the attributes that 0004
+  writes, and `log_in_user/3` stays as it is. `factor` names one verified
+  factor in the events of a verification step and the methods of the session
+  joined by `+` in the `authn_login_success` event of `log_in_user/3`. 0005
+  step 13 appends the method of a step-up only when it is absent, as 0006
+  does, and 0005 step 14 keeps the failure count of the pending state under a
+  session key of its own. `mfa_at` takes `DateTime.utc_now(:second)`, because
+  `create_session/2` stores it as given in a `:utc_datetime` column.
+- Step 2, environment variables: 0005, 0009, 0013, 0014, 0015 and 0016 extend
+  `Espalier.RuntimeConfig`, because every value needs the same unquoting for
+  `docker run --env-file`, and 0017 adds `RuntimeConfig.errors/2` for its boot
+  check. 0006 extends the value reader of `Espalier.Identity.Config`, which
+  0004 wrote without the unquoting, and 0007 reads its values through it.
+- Step 3, 15.3.2: oidcc 3.9.0 hands `httpc` only the HTTP options `timeout`
+  and `ssl` (`src/oidcc_http_util.erl`), so 0006 writes an `http_adapter` with
+  `autoredirect: false`. oidcc also sends a pushed authorization request when
+  a discovery document names its endpoint (`src/oidcc_authorization.erl`), so
+  0006 checks that endpoint and passes the adapter to `Authorize` as well.
+  0013, the owner of the row, adds the redirect test of the range request of
+  0004.
+- Step 5: 14.2.1 moves the e-mail address of the facilitator lookup and of the
+  integration API of 0013 into the body of POST requests, and 0015 does the
+  same for its user lookup (`POST /api/admin/user-lookups` in the pipeline
+  `:admin`), which changes README sections 8 and 11. The integration route
+  runs without the session cookie, the CSRF layer and the Fetch Metadata
+  plug, so the rows 3.5.1 and 3.5.2 name 0013, and the CSRF coverage test of
+  0004 gets its only exemption. 14.2.2 names 0013,
+  whose `no-store` binds shared caches as well. 1.3.6 adds
+  `WEBHOOK_ALLOWED_HOSTS` to 0013 and 0015, and 2.4.1 adds the buckets
+  `learner_write` and `assessment_attempt` to 0009 and `insights_write` to
+  0014. The browser check of 0004 is `e2e/dev-cookie.spec.ts` of 0010; it
+  checks the development setup and belongs to no matrix row.
+- Step 3: the 48 rows with the status `not applicable` keep their reasons,
+  because the plan contains no operating system command, no regular
+  expression built from input, no SVG or HTML input, no XML parser, no
+  limited-quantity resource and no WebSocket. The Notes of row 1.2.3 name
+  Jason, which `config :phoenix, :json_library` sets, as the encoder of the
+  API responses.
+- README sections 6.5, 6.11 and 6.12 name the `no-store` prefixes of 0013 and
+  0015, `Espalier.RuntimeConfig`, `put_reissued_session/2`,
+  `fetch_pending_second_factor/1` and
+  `EspalierWeb.Plugs.RateLimit.check_account/3`.
+
 ## Notes
 - The row lists of step 3 come from a comparison of the `Task` column of the matrix with the "Security requirements" sections on 2026-10-08, after 0004. The test of step 6 replaces that one-off comparison.
 - 15.3.2 (outgoing calls follow no redirects) is owned by 0013 and extended by 0004 and 0006. 0004 already sends the Pwned Passwords range request with `redirect: false`, without a test of its own.

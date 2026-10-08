@@ -20,12 +20,12 @@ the order of the tasks.
 | 0003 | [Encryption at rest with Cloak](0003-encryption-at-rest.md) | M1 Accounts | 0001 | [#3](https://github.com/HelrenPDM/espalier/issues/3) (closed) | Done |
 | 0004 | [Accounts and sessions from phx.gen.auth](0004-accounts-sessions.md) | M1 Accounts | 0002, 0003 | [#4](https://github.com/HelrenPDM/espalier/issues/4) (closed) | Done |
 | 0004a | [Sync the task specs with task 0004](0004a-spec-sync.md) | M1 Accounts | 0004 | [#18](https://github.com/HelrenPDM/espalier/issues/18) | To do |
-| 0005 | [Second factors: passkeys, TOTP and recovery codes](0005-second-factors.md) | M1 Accounts | 0004 | [#5](https://github.com/HelrenPDM/espalier/issues/5) | To do |
+| 0005 | [Second factors: passkeys, TOTP and recovery codes](0005-second-factors.md) | M1 Accounts | 0004, 0004a | [#5](https://github.com/HelrenPDM/espalier/issues/5) | To do |
 | 0006 | [OIDC sign-in with oidcc and the mock provider](0006-oidc.md) | M1 Accounts | 0005 | [#6](https://github.com/HelrenPDM/espalier/issues/6) | To do |
 | 0007 | [LDAP and Active Directory sign-in](0007-ldap.md) | M1 Accounts | 0006 | [#7](https://github.com/HelrenPDM/espalier/issues/7) | To do |
-| 0008 | [Catalog schemas, content pack importer and demo pack](0008-catalog-content-packs.md) | M2 Content | 0001 | [#8](https://github.com/HelrenPDM/espalier/issues/8) | To do |
-| 0009 | [Learner API with OpenAPI](0009-learner-api.md) | M3 Learning | 0004, 0008 | [#9](https://github.com/HelrenPDM/espalier/issues/9) | To do |
-| 0010 | [Frontend shell: Tailwind, routing, i18n, API client](0010-frontend-shell.md) | M3 Learning | 0004 | [#10](https://github.com/HelrenPDM/espalier/issues/10) | To do |
+| 0008 | [Catalog schemas, content pack importer and demo pack](0008-catalog-content-packs.md) | M2 Content | 0001, 0004a | [#8](https://github.com/HelrenPDM/espalier/issues/8) | To do |
+| 0009 | [Learner API with OpenAPI](0009-learner-api.md) | M3 Learning | 0004, 0004a, 0008 | [#9](https://github.com/HelrenPDM/espalier/issues/9) | To do |
+| 0010 | [Frontend shell: Tailwind, routing, i18n, API client](0010-frontend-shell.md) | M3 Learning | 0004, 0004a | [#10](https://github.com/HelrenPDM/espalier/issues/10) | To do |
 | 0011 | [Account UI: sign-in, enrollment, recovery and security settings](0011-account-ui.md) | M3 Learning | 0007, 0009, 0010 | [#11](https://github.com/HelrenPDM/espalier/issues/11) | To do |
 | 0012 | [Player and learner UI](0012-player-learner-ui.md) | M3 Learning | 0009, 0010 | [#12](https://github.com/HelrenPDM/espalier/issues/12) | To do |
 | 0013 | [Policies, credentials, attendance, refresher and integration API](0013-policies-credentials.md) | M4 Records | 0009, 0010, 0012 | [#13](https://github.com/HelrenPDM/espalier/issues/13) | To do |
