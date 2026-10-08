@@ -6,8 +6,10 @@ Espalier has no release yet. Security fixes go into the `main` branch.
 
 ## Reporting a vulnerability
 
-Report a vulnerability privately to [INSERT CONTACT ADDRESS]. Please do not
-open a public issue, pull request or discussion for it, because every
+Report a vulnerability privately through GitHub: open the Security tab of
+the repository and choose "Report a vulnerability"
+(<https://github.com/HelrenPDM/espalier/security/advisories/new>). Please do
+not open a public issue, pull request or discussion for it, because every
 contribution to this repository is public.
 
 A useful report contains:

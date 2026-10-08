@@ -1,8 +1,9 @@
 # Contributing to Espalier
 
 Espalier accepts issues and pull requests on GitHub. Everyone who takes part
-follows the [code of conduct](CODE_OF_CONDUCT.md). A vulnerability goes to the
-private address in [`SECURITY.md`](SECURITY.md), never into a public issue.
+follows the [code of conduct](CODE_OF_CONDUCT.md). A vulnerability goes through
+the private report form that [`SECURITY.md`](SECURITY.md) describes, never into
+a public issue.
 
 ## Setup
 

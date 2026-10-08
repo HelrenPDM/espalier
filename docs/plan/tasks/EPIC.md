@@ -16,7 +16,7 @@ the order of the tasks.
 | # | Task | Milestone | Depends on | Issue | Status |
 |---|---|---|---|---|---|
 | 0001 | [Bootstrap the repository with the standard generators](0001-bootstrap.md) | M0 Foundation | none | [#1](https://github.com/HelrenPDM/espalier/issues/1) (closed) | Done |
-| 0002 | [Quality gates, CI and open-source files](0002-quality-ci-oss.md) | M0 Foundation | 0001 | [#2](https://github.com/HelrenPDM/espalier/issues/2) | To do |
+| 0002 | [Quality gates, CI and open-source files](0002-quality-ci-oss.md) | M0 Foundation | 0001 | [#2](https://github.com/HelrenPDM/espalier/issues/2) (closed) | Done |
 | 0003 | [Encryption at rest with Cloak](0003-encryption-at-rest.md) | M1 Accounts | 0001 | [#3](https://github.com/HelrenPDM/espalier/issues/3) | To do |
 | 0004 | [Accounts and sessions from phx.gen.auth](0004-accounts-sessions.md) | M1 Accounts | 0002, 0003 | [#4](https://github.com/HelrenPDM/espalier/issues/4) | To do |
 | 0005 | [Second factors: passkeys, TOTP and recovery codes](0005-second-factors.md) | M1 Accounts | 0004 | [#5](https://github.com/HelrenPDM/espalier/issues/5) | To do |
