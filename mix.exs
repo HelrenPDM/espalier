@@ -10,7 +10,8 @@ defmodule Espalier.MixProject do
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
-      listeners: [Phoenix.CodeReloader]
+      listeners: [Phoenix.CodeReloader],
+      package: [licenses: ["Apache-2.0"]]
     ]
   end
 
