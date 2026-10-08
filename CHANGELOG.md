@@ -20,5 +20,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   deny-list check for maintainers (task 0002).
 - `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md` and `.editorconfig`
   (task 0002).
+- Encryption at rest with `cloak` 1.1.4 and `cloak_ecto` 1.3.0, pinned
+  exactly: the vault `Espalier.Vault` with a strict AES-256-GCM cipher, the
+  Ecto types `Espalier.Encrypted.Binary`, `Espalier.Encrypted.Map`,
+  `Espalier.Encrypted.ClosureBinary` and `Espalier.Hashed.HMAC`, key checks at
+  boot, and the release functions `rotate_encryption/0` and
+  `encryption_status/0` (task 0003).
+- `make gen-keys`, and the variables `CLOAK_KEY_V1` and `CLOAK_HMAC_SECRET`
+  in `.env.example` (task 0003).
+- A query log without parameters for production, and a release environment
+  without crash dump files and without Erlang distribution (task 0003).
+- `docs/security/crypto-inventory.md`, `docs/security/key-management.md` and
+  the ASVS matrix `docs/security/asvs-l2.md` (task 0003).
 
 [Unreleased]: https://github.com/HelrenPDM/espalier/commits/main

@@ -73,6 +73,10 @@ test: ## run the test suites of both projects
 	$(NIX) 'DATABASE_PORT=$(DATABASE_PORT) mix test'
 	$(NIX) 'npm --prefix frontend run test -- --run'
 
+.PHONY: gen-keys
+gen-keys: ## print new CLOAK_KEY_V1 and CLOAK_HMAC_SECRET values for .env
+	@$(NIX) "elixir scripts/gen-keys.exs"
+
 .PHONY: secrets-scan
 secrets-scan: ## scan the Git history for secrets
 	$(NIX) 'gitleaks detect --no-banner --redact'

@@ -12,9 +12,19 @@ defmodule Espalier.MixProject do
       deps: deps(),
       listeners: [Phoenix.CodeReloader],
       package: [licenses: ["Apache-2.0"]],
-      # With a cooldown, Hex resolves only releases that are at least seven
-      # days old (README section 13, `mix help hex.config`).
-      hex: [cooldown: "7d"]
+      hex: [
+        # With a cooldown, Hex resolves only releases that are at least seven
+        # days old (README section 13, `mix help hex.config`).
+        cooldown: "7d",
+        # cloak 1.1.4 and cloak_ecto 1.3.0 have no release that fixes these advisories.
+        # EEF-CVE-2026-95105 concerns Cloak.Ciphers.AES.CTR and
+        # Cloak.Ciphers.Deprecated.AES.CTR. EEF-CVE-2026-94206 concerns
+        # Cloak.Ecto.PBKDF2. Espalier uses neither module: the vault holds only
+        # Espalier.Crypto.StrictAESGCM over Cloak.Ciphers.AES.GCM, and lookups use
+        # Cloak.Ecto.HMAC. test/espalier/crypto/cipher_allowlist_test.exs fails if
+        # that changes. Review rules: docs/security/key-management.md.
+        ignore_advisories: ["EEF-CVE-2026-95105", "EEF-CVE-2026-94206"]
+      ]
     ]
   end
 
@@ -55,6 +65,8 @@ defmodule Espalier.MixProject do
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.5"},
+      {:cloak, "1.1.4"},
+      {:cloak_ecto, "1.3.0"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:sobelow, "~> 0.16", only: [:dev, :test], runtime: false, warn_if_outdated: true},
       {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false}

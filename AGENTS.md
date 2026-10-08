@@ -13,6 +13,17 @@ This is a web application written using the Phoenix web framework.
 - The implementation plan and the task specs live in `docs/plan/`
 - Update the diagrams in `docs/architecture/` in the same change as the code they describe
 
+### Encrypted and hashed data
+
+- A column with personal data or an authenticator secret has the column type `:binary` and one of the Ecto types `Espalier.Encrypted.Binary`, `Espalier.Encrypted.Map` or `Espalier.Encrypted.ClosureBinary`, with `redact: true`. A column for lookups by such a value has the type `Espalier.Hashed.HMAC`, with `redact: true`, and the changeset fills it from the normalized plaintext
+- A keyed hash that is copied from one row into another, or carried through the session or a sign-in ticket, has a plain `:binary` field with `redact: true`. Its value comes once from `Espalier.Hashed.HMAC.hash/1` of the normalized plaintext, every copy takes the stored bytes unchanged, and every lookup compares with `hash/1` of the presented value. The Ecto type `Espalier.Hashed.HMAC` hashes every value it dumps, so a loaded hash written through it is hashed a second time and matches no lookup
+- No encrypted or hashed type appears inside `embedded_schema`, `embeds_one` or `embeds_many`. Structured personal data goes into one `Espalier.Encrypted.Map` column
+- Every table with an encrypted column gets a rotation-only schema `Espalier.Crypto.Rotation.<Table>` in `lib/espalier/crypto/rotation/<table>.ex`, registered in `Espalier.Crypto.Rotation.schemas/0`, and every encrypted, hashed or password-hash column gets a row in `docs/security/crypto-inventory.md`, both in the same change
+- A value encrypted with `Espalier.Vault.encrypt!/1` outside an Ecto type, such as an address in Oban job arguments, gets a row in the section "Values encrypted outside Ecto types" of `docs/security/crypto-inventory.md` with its location and its lifetime in the same change. `rotate_encryption/0` does not rewrite such values, so the rotation runbook waits until no value under the old tag is still read
+- Only `lib/espalier/vault.ex`, `lib/espalier/crypto/`, `lib/espalier/encrypted/` and `lib/espalier/hashed/` call Cloak
+- Repo calls take no `log:` option, and a telemetry handler for Repo events calls `Espalier.Telemetry.QueryLog.scrub/1` first
+- A data migration that writes an encrypted field calls `Espalier.Vault.start_link()` first, because `mix ecto.migrate` and `bin/migrate` do not start the application
+
 
 <!-- usage-rules-start -->
 

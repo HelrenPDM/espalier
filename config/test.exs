@@ -42,6 +42,11 @@ config :espalier, Espalier.Mailer, adapter: Swoosh.Adapters.Test
 # Disable swoosh api client as it is only required for production adapters
 config :swoosh, :api_client, false
 
+# Invented keys for test data only. Production keys come from CLOAK_KEY_V<n>
+# and CLOAK_HMAC_SECRET (config/runtime.exs).
+config :espalier, Espalier.Vault, keys: [{1, Base.encode64(String.duplicate("t", 32))}]
+config :espalier, Espalier.Hashed.HMAC, secret: Base.encode64(String.duplicate("s", 32))
+
 # Print only warnings and errors during test
 config :logger, level: :warning
 

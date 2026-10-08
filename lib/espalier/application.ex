@@ -5,10 +5,20 @@ defmodule Espalier.Application do
 
   use Application
 
+  alias Espalier.Crypto.Keys
+  alias Espalier.Telemetry.QueryLog
+
   @impl true
   def start(_type, _args) do
+    Keys.check!()
+
+    if Application.get_env(:espalier, QueryLog, [])[:enabled] do
+      QueryLog.attach()
+    end
+
     children = [
       EspalierWeb.Telemetry,
+      Espalier.Vault,
       Espalier.Repo,
       {DNSCluster, query: Application.get_env(:espalier, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Espalier.PubSub},

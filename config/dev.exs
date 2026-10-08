@@ -73,3 +73,8 @@ config :phoenix, :plug_init_mode, :runtime
 
 # Disable swoosh api client as it is only required for production adapters.
 config :swoosh, :api_client, false
+
+# Invented keys for local data only. Production keys come from CLOAK_KEY_V<n>
+# and CLOAK_HMAC_SECRET (config/runtime.exs).
+config :espalier, Espalier.Vault, keys: [{1, Base.encode64(String.duplicate("d", 32))}]
+config :espalier, Espalier.Hashed.HMAC, secret: Base.encode64(String.duplicate("h", 32))

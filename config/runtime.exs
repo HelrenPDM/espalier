@@ -53,6 +53,33 @@ if config_env() == :prod do
       You can generate one by calling: mix phx.gen.secret
       """
 
+  # Each CLOAK_KEY_V<n> defines the cipher tag AES.GCM.V<n>. The highest version
+  # encrypts new values, and the others only decrypt. An empty or
+  # whitespace-only value counts as missing. Espalier.Crypto.Keys.check!/0
+  # validates the values at boot (docs/security/key-management.md).
+  cloak_keys =
+    for {"CLOAK_KEY_V" <> version, value} <- System.get_env(),
+        String.match?(version, ~r/\A[1-9][0-9]*\z/),
+        String.trim(value) != "",
+        do: {String.to_integer(version), value}
+
+  hmac_secret = System.get_env("CLOAK_HMAC_SECRET", "")
+
+  missing_cloak =
+    for {name, missing?} <- [
+          {"CLOAK_KEY_V1", cloak_keys == []},
+          {"CLOAK_HMAC_SECRET", String.trim(hmac_secret) == ""}
+        ],
+        missing?,
+        do: name
+
+  if missing_cloak != [] do
+    raise "Missing environment variables: #{Enum.join(missing_cloak, ", ")}"
+  end
+
+  config :espalier, Espalier.Vault, keys: cloak_keys
+  config :espalier, Espalier.Hashed.HMAC, secret: hmac_secret
+
   host = System.get_env("PHX_HOST") || "example.com"
 
   config :espalier, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")

@@ -21,5 +21,12 @@ config :swoosh, local: false
 # Do not print debug messages in production
 config :logger, level: :info
 
+# ecto_sql logs the cast parameters of a query, which hold the plaintext of
+# encrypted and hashed fields before dump. Its query log stays off, and
+# Espalier.Telemetry.QueryLog logs queries without parameters. Telemetry
+# events are still emitted with `log: false`.
+config :espalier, Espalier.Repo, log: false
+config :espalier, Espalier.Telemetry.QueryLog, enabled: true
+
 # Runtime production configuration, including reading
 # of environment variables, is done on config/runtime.exs.
