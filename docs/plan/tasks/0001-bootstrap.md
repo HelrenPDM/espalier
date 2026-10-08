@@ -3,7 +3,7 @@
 > Milestone: M0 Foundation, Depends on: none
 
 ## Context to read first
-- `docs/plan/README.md`, sections 2 (principles), 3 (stack), 4 (layout), 5 (request flow), 6.11 (the format of the provider variables in `.env`), 12 (Makefile, container) and 15 (decision D2, license).
+- `docs/plan/README.md`, sections 2 (principles), 3 (stack), 4 (layout), 5 (request flow), 6.11 (the format of the provider variables in `.env`), 12 (Makefile, container), 13 (quality gates, CI) and 15 (decisions D2, license, and D3, repository host).
 - `docs/architecture/context.puml`.
 - Reference shape: the `Makefile`, `shell.nix`, `Dockerfile`, `docker-compose.yml` and `.env.example` of `sl_vanilla`. Copy the shape and update the stack as listed in section 3 of the plan.
 
@@ -15,7 +15,7 @@ Phoenix, and `make docker-build` produces an image that serves the built SPA and
 `/health`.
 
 ## Scope
-- In: `shell.nix`, generator runs, Vite proxy and build output, SPA and health controllers, `.gitignore`, `.env.example`, `compose.dev.yaml` (PostgreSQL only), `compose.yaml`, Makefile, Dockerfile with frontend stage, project section in `AGENTS.md`, `README.md`.
+- In: `shell.nix`, generator runs, Vite proxy and build output, SPA and health controllers, `.gitignore`, `.env.example`, `compose.dev.yaml` (PostgreSQL only), `compose.yaml`, Makefile, Dockerfile with frontend stage, project section in `AGENTS.md`, `README.md`, the CI workflow `.github/workflows/ci.yml` with `make check`.
 - Out: authentication (0004), Tailwind and routing (0010), lint and CI beyond `mix format` and `tsc` (0002), the Mailpit service (0004) and the lldap service (0007) in `compose.dev.yaml`, the SCORM build in the Dockerfile (0016), the SPA route `/auth/finish` and its proxy exclusion (0011).
 
 ## Security requirements
@@ -137,6 +137,7 @@ The ASVS ownership table in 0004 step 42 assigns no row of `docs/security/asvs-l
 18. Write the `Makefile` in the shape of `sl_vanilla` (`.POSIX:`, `all: help`, `##` comments, `help` target). Use a variable `NIX ?= nix-shell --run` for every toolchain call so CI can override it, and the variables `IMAGE ?= espalier` and `TAG ?= latest`, which 0004, 0007 and 0017 use. Targets: `init`, `deps`, `services-up`, `services-down`, `setup`, `run`, `refresh-db`, `lint`, `check`, `test`, `docs`, `docker-build`, `docker-up`, `docker-down`, `docker-logs`, `docker-migrate`, `help`. A target that README section 12 lists runs the command given there, limited to the tools this task installs; 0002 completes `lint` and `check`. Phoenix reads no `.env` file by itself, so the Makefile defines `DOTENV = set -a; if [ -f .env ]; then . ./.env; fi; set +a;`, and `run` executes `$(NIX) '$(DOTENV) iex -S mix phx.server'`. The variables of `.env` then reach Phoenix and the Vite watcher in development, and `make run` still starts when no `.env` exists. The Playwright `webServer` of 0010 starts `make run`, so `make e2e` runs against a server with the same variables. Every later recipe that starts the application in development or reads the provider variables of README section 6.11 puts `$(DOTENV)` in front of its command in the same way. In this task, `deps` runs `mix deps.get` and `npm --prefix frontend ci`, and `init` depends on `deps` and runs `mix compile`. `services-up` runs `docker compose -f compose.dev.yaml up -d --wait`, so that `make services-up && make setup` continues only once the health check of `db` passes. `setup` depends on `init` and runs `$(DOTENV) mix ecto.setup`, because `ecto.setup` runs the seeds and thereby starts the application; `refresh-db` runs `$(DOTENV) mix do ecto.drop, ecto.create, ecto.migrate`; 0008 and 0013 add the demo import and the demo seed to both. The test suite must not depend on the provider variables of a developer's `.env`, so the test recipes take only the database port from it: the Makefile defines `DATABASE_PORT ?= $(shell sed -n 's/^DATABASE_PORT=\([0-9][0-9]*\).*/\1/p' .env 2>/dev/null)`, and every recipe that runs `mix test` executes `$(NIX) 'DATABASE_PORT=$(DATABASE_PORT) mix test'` (with its own arguments). `?=` lets an exported variable or `make test DATABASE_PORT=…` override the value, and without `.env` the empty value selects 5432 (step 8). `check` runs `mix format --check-formatted`, `mix compile --warnings-as-errors`, `DATABASE_PORT=$(DATABASE_PORT) mix test` and `npm --prefix frontend run build`, and `test` runs `DATABASE_PORT=$(DATABASE_PORT) mix test`. `docker-build` runs `docker build -t $(IMAGE):$(TAG) .`, so the defaults build the image `espalier:latest` that `compose.yaml` runs. `docs` runs `plantuml -tsvg -o out docs/architecture/*.puml`.
 19. In the generated `AGENTS.md`, delete the heading "Phoenix v1.8 guidelines" with its bullet list, which refers to LiveView, layouts and core components only (this project has no HEEx templates). Add a section "Project rules" with: run every toolchain command through `make` or `nix-shell`; create code with `mix phx.gen.*` before editing it by hand; no secrets and no organization names in the repository; the plan and task specs live in `docs/plan/`; diagrams in `docs/architecture/` are updated in the same change as the code they describe.
 20. Replace the generated `README.md` with a short project README: one paragraph on the purpose, quick start (`cp .env.example .env`, `make services-up`, `make setup`, `make run`, open `http://localhost:5173`), one sentence that the development database listens on `127.0.0.1` at `DATABASE_PORT`, links to `docs/plan/README.md` and `docs/architecture/README.md`, and a section `License` with the sentence `Espalier is licensed under the Apache License, Version 2.0 (SPDX identifier Apache-2.0).` followed by links to `LICENSE` and `NOTICE`. 0002 adds both files with the license text and the attribution notice.
+21. Write `.github/workflows/ci.yml` (decision D3, README section 13): workflow `CI` on push and pull request to `main`, `permissions: contents: read`, one job `check` named `make check` on `ubuntu-24.04` with `timeout-minutes: 30` and a service `postgres` from `postgres:18` (`POSTGRES_PASSWORD: postgres`, port `5432:5432`, health check with `pg_isready -U postgres`). Pin every action to a commit SHA with the release tag as comment: `actions/checkout` (with `persist-credentials: false`), `cachix/install-nix-action`, and `actions/cache` for `deps`, `_build` and `~/.npm`, keyed on `hashFiles('shell.nix')` and `hashFiles('mix.lock', 'frontend/package-lock.json')`. The steps run `nix-shell --run 'mix local.hex --force && mix local.rebar --force'`, `nix-shell --run 'make deps NIX="sh -c"'` and `nix-shell --run 'make check NIX="sh -c"'`. The job runs on the runner, so the service answers on `localhost:5432`, and the empty `DATABASE_PORT` of a checkout without `.env` selects 5432 (step 8). `NIX="sh -c"` runs every recipe in the one `nix-shell` of the step.
 
 ## Deliverables
 - `shell.nix`, `Makefile` with the `DOTENV` loader, `.env.example`, `compose.dev.yaml`, `compose.yaml`, `Dockerfile`, `.dockerignore`, `rel/`, `lib/espalier/release.ex`.
@@ -144,6 +145,7 @@ The ASVS ownership table in 0004 step 42 assigns no row of `docs/security/asvs-l
 - `config/dev.exs` with the Vite watcher, `config/dev.exs` and `config/test.exs` with `DATABASE_PORT`.
 - `frontend/` from `create-vite` with the adjusted `vite.config.ts`.
 - Updated `AGENTS.md`, `README.md`, `.gitignore`.
+- `.github/workflows/ci.yml`.
 
 ## Acceptance
 - [ ] `nix-shell --run "elixir --version"` prints Elixir 1.20.4 and Erlang/OTP 28.
@@ -160,6 +162,7 @@ The ASVS ownership table in 0004 step 42 assigns no row of `docs/security/asvs-l
 - [ ] `grep -n 'Apache-2.0' README.md` prints the license sentence of step 20.
 - [ ] `git status --porcelain` lists no `.env`, `node_modules`, `.nix-mix` or `priv/static/spa` entries.
 - [ ] After the first commit, `nix-shell --run "gitleaks detect --no-banner --redact"` reports no leaks.
+- [ ] `nix-shell -p actionlint --run "actionlint .github/workflows/ci.yml"` exits 0, and after a push to `main`, `gh run list --workflow ci.yml --limit 1` shows the run as `completed` and `success`.
 
 ## Notes
 - `phx.new` with `--no-html --no-dashboard` generates no LiveView dependency and comments out the live socket in the endpoint. Leave the comment in place.

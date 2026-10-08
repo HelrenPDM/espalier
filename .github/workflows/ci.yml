@@ -1,0 +1,66 @@
+# Runs `make check` inside the pinned nix-shell, so CI uses the same toolchain
+# as a developer machine. Actions are pinned to commit SHAs.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: make check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    # The job runs on the runner, so the service answers on localhost:5432,
+    # the default of config/test.exs when DATABASE_PORT is unset.
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+
+      - name: Cache Mix and npm
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            deps
+            _build
+            ~/.npm
+          key: ${{ runner.os }}-${{ hashFiles('shell.nix') }}-${{ hashFiles('mix.lock', 'frontend/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ hashFiles('shell.nix') }}-
+
+      # Hex goes into the project-local MIX_HOME of shell.nix on every run.
+      - name: Install Hex and rebar
+        run: nix-shell --run 'mix local.hex --force && mix local.rebar --force'
+
+      - name: Fetch dependencies
+        run: nix-shell --run 'make deps NIX="sh -c"'
+
+      - name: make check
+        run: nix-shell --run 'make check NIX="sh -c"'
