@@ -18,8 +18,8 @@ the order of the tasks.
 | 0001 | [Bootstrap the repository with the standard generators](0001-bootstrap.md) | M0 Foundation | none | [#1](https://github.com/HelrenPDM/espalier/issues/1) (closed) | Done |
 | 0002 | [Quality gates, CI and open-source files](0002-quality-ci-oss.md) | M0 Foundation | 0001 | [#2](https://github.com/HelrenPDM/espalier/issues/2) (closed) | Done |
 | 0003 | [Encryption at rest with Cloak](0003-encryption-at-rest.md) | M1 Accounts | 0001 | [#3](https://github.com/HelrenPDM/espalier/issues/3) (closed) | Done |
-| 0004 | [Accounts and sessions from phx.gen.auth](0004-accounts-sessions.md) | M1 Accounts | 0002, 0003 | [#4](https://github.com/HelrenPDM/espalier/issues/4) | To do |
-| 0004a | [Sync the task specs with task 0004](0004a-spec-sync.md) | M1 Accounts | 0004 | none yet | To do |
+| 0004 | [Accounts and sessions from phx.gen.auth](0004-accounts-sessions.md) | M1 Accounts | 0002, 0003 | [#4](https://github.com/HelrenPDM/espalier/issues/4) (closed) | Done |
+| 0004a | [Sync the task specs with task 0004](0004a-spec-sync.md) | M1 Accounts | 0004 | [#18](https://github.com/HelrenPDM/espalier/issues/18) | To do |
 | 0005 | [Second factors: passkeys, TOTP and recovery codes](0005-second-factors.md) | M1 Accounts | 0004 | [#5](https://github.com/HelrenPDM/espalier/issues/5) | To do |
 | 0006 | [OIDC sign-in with oidcc and the mock provider](0006-oidc.md) | M1 Accounts | 0005 | [#6](https://github.com/HelrenPDM/espalier/issues/6) | To do |
 | 0007 | [LDAP and Active Directory sign-in](0007-ldap.md) | M1 Accounts | 0006 | [#7](https://github.com/HelrenPDM/espalier/issues/7) | To do |
