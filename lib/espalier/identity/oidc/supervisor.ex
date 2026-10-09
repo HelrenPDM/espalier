@@ -36,7 +36,7 @@ defmodule Espalier.Identity.Oidc.Supervisor do
       if provider.mfa == :idp_trusted do
         Logger.warning(
           "AUTH_#{String.upcase(provider.key)}_MFA=idp_trusted: the provider's multi-factor " <>
-            "sign-in counts as second factor (README section 6.2, rule 4)"
+            "sign-in counts as second factor (README section 6.2, rule 4)" <> entra_note(provider)
         )
       end
     end
@@ -45,6 +45,15 @@ defmodule Espalier.Identity.Oidc.Supervisor do
     |> Enum.map(&child_spec_for/1)
     |> Supervisor.init(strategy: :one_for_one)
   end
+
+  # Entra ID sends no amr, so every sign-in counts as multi-factor in this mode
+  # (docs/guides/identity-providers.md, spike results).
+  defp entra_note(%{type: "entra"}) do
+    "; Entra ID sends no amr, so only an application-scoped Conditional Access " <>
+      "policy that enforces MFA makes this mode safe"
+  end
+
+  defp entra_note(_provider), do: ""
 
   @doc "The child spec of the configuration worker of `provider`."
   def child_spec_for(provider) do

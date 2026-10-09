@@ -40,7 +40,7 @@ configuration stops the boot with a message that names the variable.
 | `AUTH_<KEY>_TENANT_ID` | `entra` | yes | the tenant GUID |
 | `AUTH_<KEY>_ISSUER` | all | `oidc` | `entra`: `https://login.microsoftonline.com/<TENANT_ID>/v2.0`, and a set value must end in `/<TENANT_ID>/v2.0`; `google`: `https://accounts.google.com`; outside development the issuer must use `https` |
 | `AUTH_<KEY>_CLIENT_CERT_FILE`, `AUTH_<KEY>_CLIENT_KEY_FILE` | `entra`, `oidc` | `entra` in production | PEM files of the client certificate and its RSA key, both or neither |
-| `AUTH_<KEY>_CLIENT_KID_FORMAT` | with a certificate | no | `x5t_s256` (default), `x5t` or `sha1_hex`; the Entra spike below records the value that Entra accepts |
+| `AUTH_<KEY>_CLIENT_KID_FORMAT` | with a certificate | no | `x5t` (default, the only format that Entra ID accepts), `x5t_s256` or `sha1_hex` |
 | `AUTH_<KEY>_CLIENT_SECRET` | all | `google`, and `oidc` without certificate | refused for `entra` in production |
 | `AUTH_<KEY>_CLIENT_AUTH` | `oidc` | no | `client_secret_basic` (default with a secret), `client_secret_post`, `private_key_jwt` (default with a certificate) |
 | `AUTH_<KEY>_HOSTED_DOMAIN` | `google` | yes | compared with the `hd` claim |
@@ -133,7 +133,8 @@ Keep a provider configured while accounts hold identities of it.
   platform sessions only through the two paths below.
 - Front-channel logout (Entra ID): the provider loads the front-channel
   logout URL in a hidden frame with the `sid` of its session, and every
-  platform session that started from that provider session ends. The ID
+  platform session that started from that provider session ends. Entra ID
+  sends `sid` without `iss`. The ID
   token must carry `sid`, which Entra ID sends as an optional claim.
 - RP-initiated logout: where the provider offers an end-session endpoint
   (Entra ID and many OIDC providers, not Google), signing out of Espalier
@@ -205,7 +206,8 @@ test tenant.
    `AUTH_<KEY>_CLIENT_KEY_FILE`. Upload a new certificate before the old one
    expires, switch the files and restart, then remove the old certificate.
    The client signs its assertions with PS256, the algorithm that Microsoft
-   documents for certificate credentials.
+   documents for certificate credentials, and names the certificate in the
+   key id by its `x5t` thumbprint.
 3. Use no client secret in production: Espalier refuses
    `AUTH_<KEY>_CLIENT_SECRET` for `entra` outside development.
 4. Create App Roles whose values match `AUTH_<KEY>_ROLE_MAP`, for example
@@ -231,21 +233,26 @@ Espalier does not use, so the org unit of Entra users stays empty.
 
 ### Spike results (task 0006, step 18, decision D4)
 
-The spike runs against the test tenant of decision D4, which is not yet
-available. Until it has run, these items are unverified:
+The spike ran on 2026-10-09 against a Microsoft 365 business tenant with
+security defaults, a single-tenant app registration, a certificate
+credential and two test users.
 
-- which `AUTH_<KEY>_CLIENT_KID_FORMAT` Entra accepts (`x5t_s256`, `x5t`,
-  `sha1_hex`), and whether it accepts the issuer as `aud` of the client
-  assertion and PS256 as its `alg`;
-- whether the ID token carries `sid`, `roles`, `auth_time` and `amr`, and
-  which `amr` values arrive after a password sign-in and after an MFA
-  sign-in;
-- whether `max_age=0` makes Entra ask for credentials again and return a
-  fresh `auth_time`;
-- the hosts of the endpoints in the tenant's discovery document;
-- the names of the query parameters of a front-channel logout request.
+| Item | Result |
+|---|---|
+| Key id of the client assertion | Entra ID accepts only `x5t`, the Base64url SHA-1 of the certificate. `x5t_s256` and `sha1_hex` fail with AADSTS700027 ("The certificate with identifier used to sign the client assertion is not registered on application"), so `x5t` is the default. |
+| Signing algorithm and audience | Entra ID accepts PS256 and the issuer as `aud`; the token endpoint as `aud` and RS256 work as well. Espalier signs with PS256 and the issuer. |
+| Claims of the ID token | `sid`, `roles` and `auth_time` arrive as configured. `amr` never arrived, also not after a sign-in with the Authenticator app. |
+| Step-up with `max_age=0` | Entra ID asks for the credentials and the second factor again and returns a fresh `auth_time`. |
+| Endpoint hosts | The authorization, token, JWKS and end-session endpoints of the tenant document lie on `login.microsoftonline.com`, the default of `AUTH_<KEY>_ALLOWED_HOSTS`. |
+| Front-channel logout | The request carries `sid` only, without `iss`, and ends the sessions of that provider session. |
+| Security defaults | A new user must register the Authenticator app at the first sign-in. Later sign-ins asked for no second factor, except the step-up with `max_age=0`, and in `idp_trusted` mode still became sessions with `idp_mfa`, because the ID token carries no `amr`. |
 
-This section records the results with their date once the spike has run.
+Because Entra ID sends no `amr`, every Entra sign-in in `idp_trusted` mode
+rests on an application-scoped Conditional Access policy that enforces
+multi-factor sign-in. Security defaults alone are not sufficient evidence:
+they require registration and challenge conditionally, but do not ensure MFA
+on every application sign-in. With `local` mode, the person confirms each
+sign-in with a local passkey or TOTP code.
 
 ## Google Workspace
 

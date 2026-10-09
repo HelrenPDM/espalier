@@ -27,7 +27,7 @@ defmodule Espalier.Identity.Config do
   | `AUTH_<KEY>_TENANT_ID` | `entra` | required, a GUID, stored lower-case |
   | `AUTH_<KEY>_ISSUER` | all | required for `oidc`; `entra`: `https://login.microsoftonline.com/<TENANT_ID>/v2.0`; `google`: `https://accounts.google.com` |
   | `AUTH_<KEY>_CLIENT_CERT_FILE`, `AUTH_<KEY>_CLIENT_KEY_FILE` | `entra`, `oidc` | both or neither; required for `entra` outside dev and test |
-  | `AUTH_<KEY>_CLIENT_KID_FORMAT` | with a certificate | `x5t_s256`, `x5t` or `sha1_hex` |
+  | `AUTH_<KEY>_CLIENT_KID_FORMAT` | with a certificate | `x5t` (default), `x5t_s256` or `sha1_hex` |
   | `AUTH_<KEY>_CLIENT_SECRET` | all | required for `google` and for `oidc` without certificate; refused for `entra` outside dev and test |
   | `AUTH_<KEY>_CLIENT_AUTH` | `oidc` | `client_secret_basic`, `client_secret_post` or `private_key_jwt` |
   | `AUTH_<KEY>_HOSTED_DOMAIN` | `google` | required |
@@ -282,10 +282,11 @@ defmodule Espalier.Identity.Config do
     nil
   end
 
-  # x5t_s256 stays the default until the Entra spike of task 0006 (step 18)
-  # records the accepted format.
+  # Entra ID accepts only x5t, the Base64url SHA-1 of the certificate; it
+  # answers AADSTS700027 for the other formats (Entra spike of task 0006,
+  # step 18, 2026-10-09).
   defp kid_format!(ctx, _cert_file),
-    do: enum!(ctx, "CLIENT_KID_FORMAT", @kid_formats, :x5t_s256)
+    do: enum!(ctx, "CLIENT_KID_FORMAT", @kid_formats, :x5t)
 
   defp role_claim(%{type: "entra"}), do: "roles"
   defp role_claim(%{type: "google"}), do: nil

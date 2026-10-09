@@ -2,8 +2,9 @@ defmodule Espalier.Identity.Oidc.ClientKey do
   @moduledoc """
   Loads the certificate and the RSA key of a `private_key_jwt` client
   (task 0006, step 4). The key id follows `AUTH_<KEY>_CLIENT_KID_FORMAT`:
-  the Base64url SHA-256 (`x5t_s256`) or SHA-1 (`x5t`) thumbprint of the
-  certificate, or its SHA-1 in upper-case hex (`sha1_hex`).
+  the Base64url SHA-1 (`x5t`, the default and the only format that Entra ID
+  accepts) or SHA-256 (`x5t_s256`) thumbprint of the certificate, or its
+  SHA-1 in upper-case hex (`sha1_hex`).
 
   `oidcc_jwt_util:sign/4` copies only `kid` from the JWK fields into the
   header of the client assertion.

@@ -128,7 +128,7 @@ defmodule Espalier.Identity.ConfigTest do
                start_url: "/auth/oidc/entra",
                tenant_id: @tenant,
                client_auth: :private_key_jwt,
-               kid_format: :x5t_s256,
+               kid_format: :x5t,
                role_claim: "roles",
                mfa: :local,
                mfa_amr: ["mfa"],
@@ -340,6 +340,19 @@ defmodule Espalier.Identity.ConfigTest do
         end)
 
       assert log =~ "AUTH_WARNED_MFA=idp_trusted"
+      refute log =~ "Conditional Access"
+
+      entra = parse!(entra(%{"MFA" => "idp_trusted"}), :test)
+
+      log =
+        capture_log([level: :warning], fn ->
+          Espalier.Identity.Oidc.Supervisor.init(
+            providers: [%{entra | client_auth: :client_secret_basic}]
+          )
+        end)
+
+      assert log =~ "AUTH_ENTRA_MFA=idp_trusted"
+      assert log =~ "Conditional Access"
     end
   end
 
