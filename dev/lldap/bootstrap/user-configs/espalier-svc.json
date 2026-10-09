@@ -1,0 +1,7 @@
+{
+  "id": "espalier-svc",
+  "email": "espalier-svc@example.org",
+  "password": "dev-service-password",
+  "displayName": "Espalier search account",
+  "groups": ["lldap_strict_readonly"]
+}

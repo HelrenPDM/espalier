@@ -9,7 +9,7 @@ defmodule Espalier.Application do
 
   alias Espalier.Accounts.PasswordPolicy
   alias Espalier.Crypto.Keys
-  alias Espalier.Identity.Oidc
+  alias Espalier.Identity.{Ldap, Oidc}
   alias Espalier.Telemetry.QueryLog
 
   @impl true
@@ -23,6 +23,7 @@ defmodule Espalier.Application do
     PasswordPolicy.load_lists()
     Espalier.RateLimit.init_key(secret_key_base())
     warn_settings()
+    Ldap.log_providers()
 
     children =
       [
@@ -35,6 +36,8 @@ defmodule Espalier.Application do
         Application.get_env(:espalier, :dev_children, []) ++
         oidc() ++
         [
+          # Each LDAP sign-in runs in a task with a hard deadline (task 0007).
+          {Task.Supervisor, name: Espalier.Identity.LdapTaskSupervisor},
           {Espalier.RateLimit, clean_period: :timer.minutes(1)},
           {DNSCluster, query: Application.get_env(:espalier, :dns_cluster_query) || :ignore},
           {Phoenix.PubSub, name: Espalier.PubSub},

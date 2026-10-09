@@ -60,8 +60,15 @@ config :espalier, :rate_limits, %{
   oidc_authorize: {:timer.minutes(1), 30},
   oidc_callback: {:timer.minutes(1), 30},
   oidc_intent: {:timer.minutes(1), 10},
-  oidc_front_channel: {:timer.minutes(1), 60}
+  oidc_front_channel: {:timer.minutes(1), 60},
+  ldap_ip: {:timer.minutes(1), 20},
+  ldap_account: {:timer.minutes(1), 5},
+  ldap_subject: {:timer.minutes(1), 5}
 }
+
+# Failed directory sign-ins answer no earlier than this many milliseconds
+# after the request started (task 0007, step 16).
+config :espalier, Espalier.Accounts.LdapSignIn, failure_floor_ms: 1_000
 
 # Passkeys (task 0005). config/dev.exs and config/test.exs set the relying
 # party id and the origins, and config/runtime.exs derives them from

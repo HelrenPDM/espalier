@@ -42,10 +42,12 @@ defmodule Espalier.SecurityLogTest do
     assert log =~ "[error] session_created"
   end
 
-  test "the vocabulary holds only OWASP names and the operational event" do
-    assert :breach_check_unavailable in SecurityLog.events()
+  test "the vocabulary holds only OWASP names and the operational events" do
+    # breach_check_unavailable (task 0004) and directory_tls_failed (task 0007).
+    operational = [:breach_check_unavailable, :directory_tls_failed]
+    assert Enum.all?(operational, &(&1 in SecurityLog.events()))
 
-    for name <- SecurityLog.events() -- [:breach_check_unavailable] do
+    for name <- SecurityLog.events() -- operational do
       assert Atom.to_string(name) =~
                ~r/\A(authn|authz|input|privilege|excess|malicious|session|user)_[a-z_]+\z/
     end

@@ -17,6 +17,7 @@ pkgs.mkShell {
     pkgs.graphviz
     pkgs.gitleaks
     pkgs.gnumake
+    pkgs.openssl
   ] ++ pkgs.lib.optional pkgs.stdenv.isLinux pkgs.inotify-tools;
 
   shellHook = ''

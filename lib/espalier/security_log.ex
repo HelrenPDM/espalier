@@ -39,7 +39,9 @@ defmodule Espalier.SecurityLog do
     # Rescued wax_ exceptions and rejected clientDataJSON (task 0005).
     :input_validation_fail,
     # Operational event of Espalier.Accounts.BreachedPasswords.
-    :breach_check_unavailable
+    :breach_check_unavailable,
+    # Operational event of the TLS probe after a failed LDAPS connect (task 0007).
+    :directory_tls_failed
   ]
 
   # Failures and rejections log at warning, everything else at info.
@@ -54,7 +56,8 @@ defmodule Espalier.SecurityLog do
     :malicious_csrf,
     :session_use_after_expire,
     :input_validation_fail,
-    :breach_check_unavailable
+    :breach_check_unavailable,
+    :directory_tls_failed
   ]
 
   @attributes [

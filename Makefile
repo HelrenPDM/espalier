@@ -26,8 +26,20 @@ deps: ## fetch Mix and npm dependencies
 	$(NIX) 'npm --prefix frontend ci'
 
 .PHONY: services-up
-services-up: ## start the development services (PostgreSQL, Mailpit)
+services-up: ldap-ca ldap-secrets ## start the development services (PostgreSQL, Mailpit, lldap)
 	docker compose -f compose.dev.yaml up -d --wait
+
+.PHONY: ldap-ca
+ldap-ca: ## create the LDAPS test CA and the lldap server certificate in dev/ldap-ca/
+	$(NIX) "dev/ldap-ca/generate.sh"
+
+.PHONY: ldap-secrets
+ldap-secrets: ## write the lldap container secrets to dev/lldap/secrets.env
+	$(NIX) "dev/lldap/generate-secrets.sh"
+
+.PHONY: services-seed
+services-seed: ## Load the invented lldap users and groups
+	$(NIX) 'set -a; . dev/lldap/secrets.env; set +a; docker compose -f compose.dev.yaml exec -T -e LLDAP_URL=http://localhost:17170 -e LLDAP_ADMIN_USERNAME=admin -e LLDAP_ADMIN_PASSWORD="$$LLDAP_LDAP_USER_PASS" -e USER_CONFIGS_DIR=/bootstrap/user-configs -e GROUP_CONFIGS_DIR=/bootstrap/group-configs lldap /app/bootstrap.sh'
 
 .PHONY: services-down
 services-down: ## stop the development services

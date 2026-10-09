@@ -95,12 +95,13 @@ defmodule Espalier.Accounts.User do
   @doc """
   Changeset for an account that a provider sign-in creates (task 0006): an
   optional verified address and the display name of the provider, else the
-  local part of the address, else `User`.
+  local part of the address, else `User`. A directory sign-in also sets the
+  org unit (task 0007).
   """
   def external_changeset(user, attrs) do
     changeset =
       user
-      |> cast(attrs, [:email, :display_name])
+      |> cast(attrs, [:email, :display_name, :org_unit])
       |> put_default_display_name()
 
     changeset =

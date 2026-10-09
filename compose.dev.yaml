@@ -26,5 +26,26 @@ services:
       - "127.0.0.1:1025:1025"
       - "127.0.0.1:8025:8025"
 
+  # Development directory for the LDAP sign-in (task 0007): LDAPS on 6360
+  # with the test CA of dev/ldap-ca/, plain LDAP on 3890 for the StartTLS
+  # refusal test, and the web UI on 17170, all on loopback. make
+  # services-seed loads the invented users of dev/lldap/bootstrap/.
+  lldap:
+    image: lldap/lldap:v0.6.3
+    ports: ["127.0.0.1:3890:3890", "127.0.0.1:6360:6360", "127.0.0.1:17170:17170"]
+    env_file: dev/lldap/secrets.env
+    environment:
+      LLDAP_LDAP_BASE_DN: dc=example,dc=org
+      LLDAP_LDAPS_OPTIONS__ENABLED: "true"
+      LLDAP_LDAPS_OPTIONS__PORT: "6360"
+      LLDAP_LDAPS_OPTIONS__CERT_FILE: /certs/server.pem
+      LLDAP_LDAPS_OPTIONS__KEY_FILE: /certs/server.key
+    volumes:
+      - ./dev/ldap-ca/server.pem:/certs/server.pem:ro
+      - ./dev/ldap-ca/server.key:/certs/server.key:ro
+      - ./dev/lldap/bootstrap:/bootstrap:ro
+      - lldap-data:/data
+
 volumes:
   db_data:
+  lldap-data:

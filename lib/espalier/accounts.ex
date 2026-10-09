@@ -973,6 +973,12 @@ defmodule Espalier.Accounts do
   An unknown identity gets `{:error, :no_account}` when `provider.provision`
   is false or when its verified address belongs to an account; otherwise
   the account and the identity are created.
+
+  An assertion whose `directory` is set (task 0007, step 17) also writes its
+  org unit into `users.org_unit` and the directory map into the encrypted
+  directory fields of the identity, at creation and at every later
+  sign-in. Like the display name, the org unit is written only when the
+  directory returned one.
   """
   def sign_in_external(provider, %Assertion{} = assertion) do
     case sign_in_external_once(provider, assertion) do
@@ -992,7 +998,7 @@ defmodule Espalier.Accounts do
   defp sign_in_external_once(provider, assertion) do
     Repo.transact(fn ->
       case get_external_identity(provider.key, assertion) do
-        %ExternalIdentity{user_id: user_id} -> known_identity(provider, assertion, user_id)
+        %ExternalIdentity{} = identity -> known_identity(provider, assertion, identity)
         nil -> new_identity(provider, assertion)
       end
     end)
@@ -1018,14 +1024,17 @@ defmodule Espalier.Accounts do
     }
   end
 
-  defp known_identity(provider, assertion, user_id) do
-    user = Repo.get!(User, user_id)
+  defp known_identity(provider, assertion, identity) do
+    user = Repo.get!(User, identity.user_id)
     lock_user!(user)
 
     if user.status != :active do
       {:error, :account_disabled}
     else
-      user = refresh_display_name(user, assertion.display_name)
+      user =
+        user
+        |> refresh_display_name(assertion.display_name)
+        |> refresh_directory(identity, assertion)
 
       {:ok, _} =
         replace_idp_role_grants(
@@ -1050,6 +1059,23 @@ defmodule Espalier.Accounts do
   end
 
   defp refresh_display_name(user, _name), do: user
+
+  defp refresh_directory(user, _identity, %Assertion{directory: nil}), do: user
+
+  defp refresh_directory(user, identity, %Assertion{directory: directory} = assertion) do
+    identity
+    |> Ecto.Changeset.change(directory_fields(directory))
+    |> Repo.update!()
+
+    if is_binary(assertion.org_unit) and assertion.org_unit != user.org_unit do
+      user |> Ecto.Changeset.change(org_unit: assertion.org_unit) |> Repo.update!()
+    else
+      user
+    end
+  end
+
+  defp directory_fields(%{dn: dn, upn: upn, login: login}),
+    do: %{directory_dn: dn, directory_upn: upn, directory_login: login}
 
   defp refresh_email(user, _provider, nil), do: user
 
@@ -1096,7 +1122,8 @@ defmodule Espalier.Accounts do
            %User{}
            |> User.external_changeset(%{
              email: assertion.email,
-             display_name: assertion.display_name
+             display_name: assertion.display_name,
+             org_unit: assertion.org_unit
            })
            |> Repo.insert(),
          {:ok, _identity} <- insert_identity(user, provider, assertion) do
@@ -1115,13 +1142,21 @@ defmodule Espalier.Accounts do
   defp insert_identity(user, provider, identity) do
     %{issuer: issuer, tenant_id: tenant_id, subject: subject} = identity_fields(identity)
 
+    attrs =
+      Map.merge(
+        %{provider_key: provider.key, issuer: issuer, tenant_id: tenant_id, subject: subject},
+        insert_directory_fields(identity)
+      )
+
     %ExternalIdentity{}
-    |> ExternalIdentity.changeset(
-      %{provider_key: provider.key, issuer: issuer, tenant_id: tenant_id, subject: subject},
-      Scope.for_user(user)
-    )
+    |> ExternalIdentity.changeset(attrs, Scope.for_user(user))
     |> Repo.insert()
   end
+
+  defp insert_directory_fields(%Assertion{directory: %{} = directory}),
+    do: directory_fields(directory)
+
+  defp insert_directory_fields(_identity), do: %{}
 
   @doc """
   Checks without writing whether the identity of `assertion` can be linked
@@ -1155,7 +1190,8 @@ defmodule Espalier.Accounts do
   `%Assertion{}`) to the account `user_id` in one transaction. Returns
   `{:ok, :linked}`, `{:ok, :already_linked}`, `{:error, :identity_in_use}`
   or `{:error, :provider_already_linked}`. A new link mails `identity_linked`
-  and logs `user_updated`.
+  and logs `user_updated`. The directory map of an assertion of task 0007
+  goes into the directory fields of the new identity.
   """
   def link_external_identity(user_id, provider, identity) do
     result =

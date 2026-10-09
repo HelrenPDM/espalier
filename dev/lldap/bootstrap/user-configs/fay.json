@@ -1,0 +1,7 @@
+{
+  "id": "fay",
+  "email": "fay@example.org",
+  "password": "dev-password",
+  "displayName": "Fay Okafor",
+  "groups": ["espalier-admins"]
+}

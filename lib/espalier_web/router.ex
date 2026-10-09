@@ -108,6 +108,7 @@ defmodule EspalierWeb.Router do
     post "/auth/recovery/start", Auth.RecoveryController, :start
     post "/auth/recovery/verify", Auth.RecoveryController, :verify
     post "/auth/finish", Auth.FinishController, :create
+    post "/auth/ldap/:provider", Auth.LdapController, :create
   end
 
   scope "/api/auth/oidc", EspalierWeb do
@@ -151,6 +152,7 @@ defmodule EspalierWeb.Router do
     delete "/passkeys/:id", PasskeyController, :delete
     delete "/totp", TotpController, :delete
     post "/recovery-codes", RecoveryCodeController, :create
+    post "/identities/ldap/:provider", LdapIdentityController, :create
   end
 
   # The SPA catch-all stays the last route.

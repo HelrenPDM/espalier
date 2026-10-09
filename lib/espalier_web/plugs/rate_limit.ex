@@ -39,7 +39,15 @@ defmodule EspalierWeb.Plugs.RateLimit do
 
   defp deny(conn, bucket, retry_after_ms) do
     SecurityLog.event(:excess_rate_limit_exceeded, %{ip: conn.remote_ip, reason: bucket})
+    too_many_requests(conn, retry_after_ms)
+  end
 
+  @doc """
+  Sends the halted 429 answer with `retry-after` in whole seconds. A caller
+  that checks a bucket itself, such as the LDAP sign-in service (task
+  0007), logs `excess_rate_limit_exceeded` on its own.
+  """
+  def too_many_requests(conn, retry_after_ms) do
     conn
     |> put_resp_header("retry-after", Integer.to_string(max(div(retry_after_ms + 999, 1000), 1)))
     |> put_resp_content_type("application/json")

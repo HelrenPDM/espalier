@@ -4,7 +4,7 @@ defmodule Espalier.Accounts.FailureCountersTest do
   import Espalier.AccountsFixtures
 
   alias Espalier.Accounts
-  alias Espalier.Accounts.{FailureCounters, MailWorker}
+  alias Espalier.Accounts.{FailureCounter, FailureCounters, MailWorker}
 
   setup do
     %{user: user_fixture(), now: DateTime.utc_now(:second)}
@@ -48,6 +48,29 @@ defmodule Espalier.Accounts.FailureCountersTest do
     assert counter.disabled_at
     assert FailureCounters.check(user, :password, DateTime.add(now, 7200)) == :disabled
     assert FailureCounters.check(user, :totp, now) == :ok
+  end
+
+  test "releasing an older reservation clears a newer lock below the limit" do
+    provider_key = "ldap#{System.unique_integer([:positive])}"
+    subject = "subject-#{System.unique_integer([:positive])}"
+    now = DateTime.utc_now(:second)
+
+    {:ok, _first} = FailureCounters.reserve_directory(provider_key, subject, 3, 30, now)
+    {:ok, second} = FailureCounters.reserve_directory(provider_key, subject, 3, 30, now)
+    {:ok, third} = FailureCounters.reserve_directory(provider_key, subject, 3, 30, now)
+
+    assert third.locked_until
+    assert FailureCounters.directory_failed(third, now) == :limit_reached
+    assert :ok = FailureCounters.release_directory(second)
+
+    counter =
+      Repo.one!(
+        from c in FailureCounter,
+          where: c.provider_key == ^provider_key
+      )
+
+    assert counter.consecutive_failures == 2
+    assert counter.locked_until == nil
   end
 
   test "reaching 5 and 50 logs authn_login_fail_max and authn_login_lock", %{user: user, now: now} do

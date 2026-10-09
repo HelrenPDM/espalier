@@ -6,7 +6,8 @@ defmodule Espalier.Identity.Config do
   `AUTH_PROVIDERS` lists the provider keys in the order of the sign-in page.
   For each key, `<KEY>` is its upper-case form, and `AUTH_<KEY>_TYPE` names
   the provider type: `entra`, `google` or `oidc` (task 0006), each of which
-  yields an `%Espalier.Identity.OidcProvider{}`; task 0007 adds `ldap`. Every
+  yields an `%Espalier.Identity.OidcProvider{}`, or `ldap` (task 0007), which
+  `Espalier.Identity.Ldap.Config.parse!/3` reads. Every
   provider struct carries at least `key`, `type`, `kind`, `label` and
   `start_url`; `kind` is `redirect` (0006) or `credentials` (0007), and
   `start_url` is the path where the sign-in starts.
@@ -38,7 +39,7 @@ defmodule Espalier.Identity.Config do
   | `AUTH_<KEY>_ALLOWED_HOSTS` | all | the issuer host; for `google` also Google's token and JWKS hosts |
   """
 
-  alias Espalier.Identity.{ConfigError, OidcProvider}
+  alias Espalier.Identity.{ConfigError, Ldap, OidcProvider}
 
   @key_format ~r/\A[a-z][a-z0-9_]{0,31}\z/
   @guid ~r/\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/
@@ -115,6 +116,7 @@ defmodule Espalier.Identity.Config do
     case value(env, variable) do
       nil -> raise ConfigError, "#{variable} is required"
       type when type in @oidc_types -> oidc!(key, type, env, config_env)
+      "ldap" -> Ldap.Config.parse!(key, env, config_env)
       type -> raise ConfigError, "#{variable}=#{type} is not supported"
     end
   end
@@ -292,40 +294,45 @@ defmodule Espalier.Identity.Config do
   defp role_claim(%{type: "google"}), do: nil
   defp role_claim(ctx), do: get(ctx, "ROLE_CLAIM") || "roles"
 
-  defp role_map!(ctx) do
-    case get(ctx, "ROLE_MAP") do
-      nil ->
-        []
+  defp role_map!(ctx), do: role_map!(var(ctx, "ROLE_MAP"), get(ctx, "ROLE_MAP"))
 
-      value ->
-        value
-        |> String.split(";")
-        |> Enum.map(&String.trim/1)
-        |> Enum.reject(&(&1 == ""))
-        |> Enum.map(&role_entry!(ctx, &1))
-    end
+  @doc """
+  Parses the role map `value` of the variable `variable`: pairs
+  `role=value` separated by `;`, each split at its first `=`. Returns
+  `[{role, value}]` in configured order; a role may appear more than once.
+  The OIDC types and the LDAP type (task 0007, step 4) share this format,
+  so `Espalier.Identity.Claims.map_roles/2` reads both.
+  """
+  @spec role_map!(String.t(), String.t() | nil) :: [{atom(), String.t()}]
+  def role_map!(_variable, nil), do: []
+
+  def role_map!(variable, value) do
+    value
+    |> String.split(";")
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.map(&role_entry!(variable, &1))
   end
 
-  defp role_entry!(ctx, entry) do
+  defp role_entry!(variable, entry) do
     with [role, claim_value] <- String.split(entry, "=", parts: 2),
          role = String.trim(role),
          claim_value = String.trim(claim_value),
          true <- claim_value != "" do
       cond do
         role == "learner" ->
-          raise ConfigError,
-                "#{var(ctx, "ROLE_MAP")} maps learner, which every signed-in user holds"
+          raise ConfigError, "#{variable} maps learner, which every signed-in user holds"
 
         Map.has_key?(@roles, role) ->
           {Map.fetch!(@roles, role), claim_value}
 
         true ->
           raise ConfigError,
-                "#{var(ctx, "ROLE_MAP")} names a role other than " <>
+                "#{variable} names a role other than " <>
                   "facilitator, author, registrar, analyst and admin"
       end
     else
-      _ -> raise ConfigError, "#{var(ctx, "ROLE_MAP")} must have the form role=value;role=value"
+      _ -> raise ConfigError, "#{variable} must have the form role=value;role=value"
     end
   end
 
