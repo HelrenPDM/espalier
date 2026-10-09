@@ -26,7 +26,8 @@ config :espalier, EspalierWeb.Endpoint,
 # Account, session and mail settings in every environment (README section
 # 6.11). An invalid value stops the boot; Espalier.RuntimeConfig lists the
 # variables and their defaults.
-config :espalier, Espalier.RuntimeConfig.parse!(System.get_env(), config_env())
+settings = Espalier.RuntimeConfig.parse!(System.get_env(), config_env())
+config :espalier, settings
 
 # External identity providers: the full structs for the sign-in code and the
 # public entries for the session payload and GET /auth/providers.
@@ -97,6 +98,22 @@ if config_env() == :prod do
 
   config :espalier, Espalier.Vault, keys: cloak_keys
   config :espalier, Espalier.Hashed.HMAC, secret: hmac_secret
+
+  # Passkeys (task 0005): the relying party id is the host of PUBLIC_URL, and
+  # the only origin is its scheme, host and port (URI.to_string/1 omits the
+  # default port). RuntimeConfig also accepts http, which WebAuthn allows
+  # only on localhost, so production requires https.
+  public_uri = URI.parse(Keyword.fetch!(settings, :public_url))
+
+  if public_uri.scheme != "https" do
+    raise "PUBLIC_URL must use https in production, because passkeys derive their origin from it"
+  end
+
+  config :espalier, :webauthn,
+    rp_id: public_uri.host,
+    origins: [
+      URI.to_string(%URI{scheme: public_uri.scheme, host: public_uri.host, port: public_uri.port})
+    ]
 
   host = System.get_env("PHX_HOST") || "example.com"
 

@@ -6,11 +6,9 @@ title = "Espalier gitleaks configuration"
 [extend]
 useDefault = true
 
-# Allowlist without entries. Every entry names its reason in `description`
-# and matches no more than the finding it accepts (CONTRIBUTING.md). gitleaks
-# rejects an [[allowlists]] table without commits, paths, regexes or
-# stopwords, so the table stays a comment until its first entry:
-#
-# [[allowlists]]
-# description = "<reason>"
-# paths = ['''^<path of the fixture>$''']
+# Every allowlist entry names its reason in `description` and matches no
+# more than the finding it accepts (CONTRIBUTING.md).
+
+[[allowlists]]
+description = "WebAuthn payloads recorded from the Chromium DevTools virtual authenticator in the spike of task 0005 (docs/security/wax-spike.md); test data, no secret"
+paths = ['''^test/fixtures/webauthn/chromium_cdp_es256\.json$''']

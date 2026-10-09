@@ -22,8 +22,8 @@ defmodule EspalierWeb.ConnCase do
 
   use ExUnit.CaseTemplate
 
-  alias Espalier.Accounts.Scope
-  alias Espalier.AccountsFixtures
+  alias Espalier.Accounts.{Scope, UserToken}
+  alias Espalier.{AccountsFixtures, Repo}
   alias EspalierWeb.Plugs.FetchMetadata
 
   using do
@@ -124,6 +124,50 @@ defmodule EspalierWeb.ConnCase do
     conn
     |> Phoenix.ConnTest.init_test_session(%{})
     |> Plug.Conn.put_session(:user_token, token)
+  end
+
+  @doc """
+  Sends a JSON request of the same client: recycles a sent conn, fetches
+  the CSRF token of the session and dispatches. `opts[:ip]` sets the
+  remote address of the request.
+  """
+  def api_request(conn, method, path, body \\ %{}, opts \\ []) do
+    conn = if conn.state == :unset, do: conn, else: next_request(conn)
+    conn = with_csrf_token(conn)
+    conn = if ip = opts[:ip], do: %{conn | remote_ip: ip}, else: conn
+    Phoenix.ConnTest.dispatch(conn, EspalierWeb.Endpoint, method, path, body)
+  end
+
+  @doc """
+  Puts the pending second-factor state of a first factor of `user` into a
+  fresh test session, as `UserAuth.put_pending_second_factor/3` writes it.
+  `attrs` carries `:auth_methods` (default `[:password]`), `:provider_key`
+  and `:idp_sid_hash` (bytes).
+  """
+  def put_pending(conn, user, attrs \\ %{}) do
+    attrs = Map.new(attrs)
+
+    pending = %{
+      "user_id" => user.id,
+      "auth_methods" => Enum.map(Map.get(attrs, :auth_methods, [:password]), &Atom.to_string/1),
+      "provider_key" => attrs[:provider_key],
+      "idp_sid_hash" => attrs[:idp_sid_hash] && Base.encode64(attrs[:idp_sid_hash]),
+      "expires_at" => System.os_time(:second) + 300
+    }
+
+    conn
+    |> Phoenix.ConnTest.init_test_session(%{})
+    |> Plug.Conn.put_session(:pending_second_factor, pending)
+  end
+
+  @doc "Returns the raw bytes of `idp_sid_hash` of the session row of `token`."
+  def raw_idp_sid_hash(token) do
+    %{rows: [[value]]} =
+      Repo.query!("SELECT idp_sid_hash FROM users_tokens WHERE token_hash = $1", [
+        UserToken.hash(token)
+      ])
+
+    value
   end
 
   @doc "Returns an address `{10, a, b, c}` that no other test uses."

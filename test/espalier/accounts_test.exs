@@ -162,6 +162,12 @@ defmodule Espalier.AccountsTest do
       assert Accounts.accept_invitation(token) == {:error, :invalid_token}
     end
 
+    test "fails for a user who enrolled a second factor", %{user: user, token: token} do
+      passkey_fixture(user)
+      assert Accounts.enrolled?(user)
+      assert Accounts.accept_invitation(token) == {:error, :invalid_token}
+    end
+
     test "fails for a disabled user and for a malformed token", %{user: user, token: token} do
       assert Accounts.accept_invitation("not a token!") == {:error, :invalid_token}
       assert Accounts.accept_invitation(nil) == {:error, :invalid_token}
@@ -205,6 +211,16 @@ defmodule Espalier.AccountsTest do
     test "an invitation job for a user with an external identity inserts no row and sends no mail" do
       user = unconfirmed_user_fixture()
       external_identity_fixture(user)
+
+      assert :ok = perform_job(MailWorker, %{kind: "invitation", user_id: user.id})
+      assert Repo.all(from t in UserToken, where: t.user_id == ^user.id) == []
+      assert_no_email_sent()
+    end
+
+    test "an invitation job for an enrolled user inserts no row and sends no mail" do
+      user = unconfirmed_user_fixture()
+      totp_fixture(user)
+      assert Accounts.enrolled?(user)
 
       assert :ok = perform_job(MailWorker, %{kind: "invitation", user_id: user.id})
       assert Repo.all(from t in UserToken, where: t.user_id == ^user.id) == []

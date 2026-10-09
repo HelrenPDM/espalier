@@ -46,8 +46,28 @@ config :espalier, :rate_limits, %{
   invitation_ip: {:timer.minutes(15), 10},
   invitation_target: {:timer.hours(1), 3},
   demo_ip: {:timer.minutes(1), 10},
-  account_change: {:timer.minutes(15), 10}
+  account_change: {:timer.minutes(15), 10},
+  passkey_options_ip: {:timer.minutes(1), 30},
+  passkey_ip: {:timer.minutes(1), 10},
+  second_factor_ip: {:timer.minutes(1), 10},
+  second_factor_user: {:timer.minutes(1), 10},
+  recovery_start_ip: {:timer.minutes(1), 10},
+  recovery_start_target: {:timer.hours(1), 3},
+  recovery_verify_ip: {:timer.minutes(1), 10},
+  recovery_verify_user: {:timer.minutes(15), 10},
+  reauth_user: {:timer.minutes(1), 10},
+  totp_confirm_user: {:timer.minutes(1), 10}
 }
+
+# Passkeys (task 0005). config/dev.exs and config/test.exs set the relying
+# party id and the origins, and config/runtime.exs derives them from
+# PUBLIC_URL in production. No config :wax_ block exists, because
+# Wax.Challenge.new/1 merges that environment into every challenge; every
+# option is passed per call.
+config :espalier, :webauthn, rp_name: "Espalier"
+
+# Issuer shown by authenticator apps for TOTP factors.
+config :espalier, :totp_issuer, "Espalier"
 
 config :espalier, :bootstrap_on_boot, true
 
@@ -80,7 +100,12 @@ config :phoenix, :filter_parameters, [
   "token",
   "code",
   "secret",
-  "recovery_code"
+  "recovery_code",
+  "totp",
+  "passkey",
+  "credential",
+  "response",
+  "rawId"
 ]
 
 # Use Jason for JSON parsing in Phoenix

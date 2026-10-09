@@ -36,6 +36,8 @@ defmodule Espalier.SecurityLog do
     :session_use_after_expire,
     :user_created,
     :user_updated,
+    # Rescued wax_ exceptions and rejected clientDataJSON (task 0005).
+    :input_validation_fail,
     # Operational event of Espalier.Accounts.BreachedPasswords.
     :breach_check_unavailable
   ]
@@ -51,6 +53,7 @@ defmodule Espalier.SecurityLog do
     :excess_sessions_exceeded,
     :malicious_csrf,
     :session_use_after_expire,
+    :input_validation_fail,
     :breach_check_unavailable
   ]
 
@@ -62,7 +65,14 @@ defmodule Espalier.SecurityLog do
     :provider,
     :reason,
     :count,
-    :account_hash
+    :account_hash,
+    # Task 0005: a sign count that does not increase, the first 8 hex
+    # characters of the SHA-256 hash of a credential id, the kind of a factor
+    # change, and the module of a rescued exception (never its message).
+    :risk_signal,
+    :credential_ref,
+    :change,
+    :exception
   ]
 
   @doc "The accepted event names."

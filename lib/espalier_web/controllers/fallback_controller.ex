@@ -2,8 +2,30 @@ defmodule EspalierWeb.FallbackController do
   @moduledoc """
   Translates controller errors into the JSON error body `{"error": code}`
   (README section 6.10). The answers carry a code and no internals.
+
+  Task 0005 adds `authentication_failed` (401) for every failed second
+  factor, passkey sign-in, recovery and re-authentication,
+  `registration_failed` (422) for a failed passkey registration,
+  `invalid_code` (422) for a wrong TOTP confirmation, and the conflicts
+  (409) of the factor rules.
   """
   use EspalierWeb, :controller
+
+  @statuses %{
+    invalid_credentials: :unauthorized,
+    authentication_failed: :unauthorized,
+    unauthenticated: :unauthorized,
+    invalid_token: :bad_request,
+    bad_request: :bad_request,
+    forbidden: :forbidden,
+    not_found: :not_found,
+    registration_failed: :unprocessable_entity,
+    invalid_code: :unprocessable_entity,
+    last_factor: :conflict,
+    admin_passkey_required: :conflict,
+    totp_already_enabled: :conflict,
+    password_required: :conflict
+  }
 
   def call(conn, {:error, %Ecto.Changeset{} = changeset}) do
     conn
@@ -14,17 +36,19 @@ defmodule EspalierWeb.FallbackController do
     })
   end
 
-  def call(conn, {:error, :invalid_credentials}),
-    do: error(conn, :unauthorized, "invalid_credentials")
+  def call(conn, {:error, code}) when is_map_key(@statuses, code) do
+    render_error(conn, code)
+  end
 
-  def call(conn, {:error, :invalid_token}), do: error(conn, :bad_request, "invalid_token")
-  def call(conn, {:error, :bad_request}), do: error(conn, :bad_request, "bad_request")
-  def call(conn, {:error, :forbidden}), do: error(conn, :forbidden, "forbidden")
-  def call(conn, {:error, :not_found}), do: error(conn, :not_found, "not_found")
-
-  defp error(conn, status, code) do
+  @doc """
+  Renders the error body of `code` on `conn`. Controllers that change the
+  session before a failure (WebAuthn ceremonies, the pending second factor)
+  call it with their own conn, because the fallback receives the conn that
+  entered the action.
+  """
+  def render_error(conn, code) when is_map_key(@statuses, code) do
     conn
-    |> put_status(status)
-    |> json(%{error: code})
+    |> put_status(Map.fetch!(@statuses, code))
+    |> json(%{error: Atom.to_string(code)})
   end
 end

@@ -31,7 +31,14 @@ defmodule EspalierWeb.SessionCookieTest do
     assert body["pending"] == nil
     assert body["roles"] == []
     assert body["providers"] == []
-    assert body["flags"] == %{"demo" => false, "local_accounts" => true, "signup" => "closed"}
+
+    assert body["flags"] == %{
+             "admin_passkey_required" => false,
+             "demo" => false,
+             "local_accounts" => true,
+             "signup" => "closed"
+           }
+
     assert [cookie] = get_resp_header(conn, "set-cookie")
     assert cookie =~ "__Host-espalier="
   end

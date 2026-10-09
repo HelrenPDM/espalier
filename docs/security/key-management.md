@@ -135,8 +135,9 @@ The first version has no rotation for `CLOAK_HMAC_SECRET`, because Cloak
 cannot re-hash a value without its plaintext. The secret alone reveals no
 data; together with a dump it allows offline guessing of hashed values. A
 change of the secret also invalidates every stored recovery code, because the
-recovery-code key derives from it (README section 6.6), so every user then
-regenerates the codes. A rotation needs a second hash column per lookup,
+recovery-code key derives from it (`Espalier.Accounts.RecoveryCodes.key/0`,
+README section 6.6), so every user then regenerates the codes with
+`POST /api/me/recovery-codes`. No rotation procedure exists for this secret. A rotation needs a second hash column per lookup,
 filled from the decrypted plaintext, a switch of every lookup, and the removal
 of the old column. That work is a task of its own.
 

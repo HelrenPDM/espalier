@@ -13,7 +13,16 @@ defmodule Espalier.Accounts.User do
 
   require Logger
 
-  alias Espalier.Accounts.{ExternalIdentity, FailureCounter, PasswordPolicy, RoleGrant, UserToken}
+  alias Espalier.Accounts.{
+    ExternalIdentity,
+    FailureCounter,
+    PasswordPolicy,
+    RecoveryCode,
+    RoleGrant,
+    TotpFactor,
+    UserToken,
+    WebauthnCredential
+  }
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
@@ -28,11 +37,16 @@ defmodule Espalier.Accounts.User do
     field :hashed_password, :string, redact: true
     field :confirmed_at, :utc_datetime
     field :last_login_at, :utc_datetime
+    # 64 random bytes, the WebAuthn user.id; no personal data (task 0005).
+    field :webauthn_user_handle, :binary, redact: true
 
     has_many :tokens, UserToken
     has_many :role_grants, RoleGrant
     has_many :external_identities, ExternalIdentity
     has_many :failure_counters, FailureCounter
+    has_many :webauthn_credentials, WebauthnCredential
+    has_one :totp_factor, TotpFactor
+    has_many :recovery_codes, RecoveryCode
 
     timestamps(type: :utc_datetime)
   end

@@ -1,0 +1,42 @@
+{
+  "authentication": {
+    "response": {
+      "authenticatorAttachment": "platform",
+      "clientExtensionResults": {},
+      "id": "ZA1kswzcMX8Ws0PxZLdzjxUei_wlOcoKHYNLVqIxcng",
+      "rawId": "ZA1kswzcMX8Ws0PxZLdzjxUei_wlOcoKHYNLVqIxcng",
+      "response": {
+        "authenticatorData": "SZYN5YgOjGh0NBcPZHZgW4_krrmihjLHmVzzuoMdl2MFAAAAAg",
+        "clientDataJSON": "eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiZm9SVFp3aEZWOFFTbEhLUXNfbzAxUHJZR09qU0tSRTcwNzl5alBvSjhvbyIsIm9yaWdpbiI6Imh0dHA6Ly9sb2NhbGhvc3Q6NDAyMCIsImNyb3NzT3JpZ2luIjpmYWxzZX0",
+        "signature": "MEYCIQCSY5-LvoEfU6WNwd8jdSxIZKvk1biqH5riK4sukZ_icwIhAJ3ZQ8P1c4VGHvcQorMuDxHscI-Ic_m2ohaSu7HQU5ZQ",
+        "userHandle": "uOCnBwHh2-V3_Qu1QWvb19UsEYlGPbvW8RseZvV3-ZfM-yA3z2n_oNMxWdJ-QPM0o9tMPEMnUpVCVHzaKB6ovQ"
+      },
+      "type": "public-key"
+    },
+    "challenge": "foRTZwhFV8QSlHKQs_o01PrYGOjSKRE7079yjPoJ8oo"
+  },
+  "origin": "http://localhost:4020",
+  "rp_id": "localhost",
+  "user_handle": "uOCnBwHh2-V3_Qu1QWvb19UsEYlGPbvW8RseZvV3-ZfM-yA3z2n_oNMxWdJ-QPM0o9tMPEMnUpVCVHzaKB6ovQ",
+  "registration": {
+    "response": {
+      "authenticatorAttachment": "platform",
+      "clientExtensionResults": {},
+      "id": "ZA1kswzcMX8Ws0PxZLdzjxUei_wlOcoKHYNLVqIxcng",
+      "rawId": "ZA1kswzcMX8Ws0PxZLdzjxUei_wlOcoKHYNLVqIxcng",
+      "response": {
+        "attestationObject": "o2NmbXRkbm9uZWdhdHRTdG10oGhhdXRoRGF0YVikSZYN5YgOjGh0NBcPZHZgW4_krrmihjLHmVzzuoMdl2NFAAAAAQECAwQFBgcIAQIDBAUGBwgAIGQNZLMM3DF_FrND8WS3c48VHov8JTnKCh2DS1aiMXJ4pQECAyYgASFYIOheOuJnotMe0sIXILRSIvJq_H2uGpfxunDonSday5W_IlggTXdsfiwwwewbz-9xufbvgt9Y6ocPBj1Ip3KV9bTaglQ",
+        "authenticatorData": "SZYN5YgOjGh0NBcPZHZgW4_krrmihjLHmVzzuoMdl2NFAAAAAQECAwQFBgcIAQIDBAUGBwgAIGQNZLMM3DF_FrND8WS3c48VHov8JTnKCh2DS1aiMXJ4pQECAyYgASFYIOheOuJnotMe0sIXILRSIvJq_H2uGpfxunDonSday5W_IlggTXdsfiwwwewbz-9xufbvgt9Y6ocPBj1Ip3KV9bTaglQ",
+        "clientDataJSON": "eyJ0eXBlIjoid2ViYXV0aG4uY3JlYXRlIiwiY2hhbGxlbmdlIjoiLXJISk1EYXlYUWJ0dXF1T016OG1uRmh3MzVHWUY2a2NEa3BZblU2dWZsRSIsIm9yaWdpbiI6Imh0dHA6Ly9sb2NhbGhvc3Q6NDAyMCIsImNyb3NzT3JpZ2luIjpmYWxzZSwib3RoZXJfa2V5c19jYW5fYmVfYWRkZWRfaGVyZSI6ImRvIG5vdCBjb21wYXJlIGNsaWVudERhdGFKU09OIGFnYWluc3QgYSB0ZW1wbGF0ZS4gU2VlIGh0dHBzOi8vZ29vLmdsL3lhYlBleCJ9",
+        "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE6F464mei0x7SwhcgtFIi8mr8fa4al_G6cOidJ1rLlb9Nd2x-LDDB7BvP73G59u-C31jqhw8GPUincpX1tNqCVA",
+        "publicKeyAlgorithm": -7,
+        "transports": [
+          "internal"
+        ]
+      },
+      "type": "public-key"
+    },
+    "challenge": "-rHJMDayXQbtuquOMz8mnFhw35GYF6kcDkpYnU6uflE"
+  },
+  "note": "Recorded from the Chromium DevTools virtual authenticator. Test data only."
+}

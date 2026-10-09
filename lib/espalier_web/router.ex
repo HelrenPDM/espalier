@@ -92,21 +92,49 @@ defmodule EspalierWeb.Router do
     post "/auth/invitations", Auth.InvitationController, :create
     post "/auth/invitations/accept", Auth.InvitationController, :accept
     post "/auth/demo", Auth.DemoController, :create
+
+    post "/auth/passkey/options", Auth.PasskeyAuthController, :options
+    post "/auth/passkey", Auth.PasskeyAuthController, :create
+    post "/auth/second-factor", Auth.SecondFactorController, :create
+    post "/auth/recovery/start", Auth.RecoveryController, :start
+    post "/auth/recovery/verify", Auth.RecoveryController, :verify
+  end
+
+  # Enrollment, recovery and mfa sessions (task 0005). A route with
+  # :recent_auth names :enrollment first, so a request without a session and
+  # a demo session halt before the recent-auth check.
+  scope "/api/me", EspalierWeb.Me do
+    pipe_through [:api, :enrollment]
+
+    get "/security", SecurityController, :show
+  end
+
+  scope "/api/me", EspalierWeb.Me do
+    pipe_through [:api, :enrollment, :recent_auth]
+
+    post "/passkeys/options", PasskeyController, :options
+    post "/passkeys", PasskeyController, :create
+    post "/totp", TotpController, :create
+    post "/totp/confirm", TotpController, :confirm
+    put "/password", PasswordController, :update
   end
 
   scope "/api/me", EspalierWeb.Me do
     pipe_through [:api, :authenticated]
 
     get "/sessions", SessionController, :index
+    post "/reauth", ReauthController, :create
   end
 
   scope "/api/me", EspalierWeb.Me do
     pipe_through [:api, :authenticated, :recent_auth]
 
     delete "/sessions/:id", SessionController, :delete
-    put "/password", PasswordController, :update
     put "/email", EmailController, :update
     post "/email/confirm", EmailController, :confirm
+    delete "/passkeys/:id", PasskeyController, :delete
+    delete "/totp", TotpController, :delete
+    post "/recovery-codes", RecoveryCodeController, :create
   end
 
   # The SPA catch-all stays the last route.

@@ -28,7 +28,8 @@ defmodule Espalier.Crypto.Rotation do
     [
       Espalier.Crypto.Rotation.Users,
       Espalier.Crypto.Rotation.UsersTokens,
-      Espalier.Crypto.Rotation.ExternalIdentities
+      Espalier.Crypto.Rotation.ExternalIdentities,
+      Espalier.Crypto.Rotation.TotpFactors
     ]
   end
 

@@ -5,7 +5,7 @@ defmodule EspalierWeb.SessionJSON do
   sign-in and sign-out.
   """
 
-  alias Espalier.Accounts.Scope
+  alias Espalier.Accounts.{Factors, Scope}
 
   @doc "Renders the session payload."
   def show(%{scope: scope, pending: pending}) do
@@ -17,6 +17,7 @@ defmodule EspalierWeb.SessionJSON do
       csrf_token: Plug.CSRFProtection.get_csrf_token(),
       providers: Application.get_env(:espalier, :auth_providers, []),
       flags: %{
+        admin_passkey_required: admin_passkey_required?(scope),
         demo: Application.get_env(:espalier, :auth_demo, false),
         local_accounts: Application.get_env(:espalier, :local_accounts, true),
         signup: Atom.to_string(Application.get_env(:espalier, :signup, :closed))
@@ -48,6 +49,11 @@ defmodule EspalierWeb.SessionJSON do
   end
 
   defp session(_scope), do: nil
+
+  defp admin_passkey_required?(%Scope{user: user, roles: roles}) when not is_nil(user),
+    do: Factors.admin_passkey_required?(user, roles)
+
+  defp admin_passkey_required?(_scope), do: false
 
   defp pending(%{expires_at: expires_at}), do: %{next: "second_factor", expires_at: expires_at}
   defp pending(_pending), do: nil

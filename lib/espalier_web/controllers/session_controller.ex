@@ -13,17 +13,24 @@ defmodule EspalierWeb.SessionController do
     |> send_resp(:no_content, "")
   end
 
-  @doc "Renders the session payload for the scope and the pending state of `conn`."
-  def render_session(conn, status \\ :ok) do
+  @doc """
+  Renders the session payload for the scope and the pending state of
+  `conn`, merged with `extra` (such as `recent_auth_until`).
+  """
+  def render_session(conn, status \\ :ok, extra \\ %{}) do
+    conn
+    |> put_status(status)
+    |> json(Map.merge(session_payload(conn), extra))
+  end
+
+  @doc "Returns the session payload of `conn` as a map."
+  def session_payload(conn) do
     pending =
       case UserAuth.fetch_pending_second_factor(conn) do
         {:ok, pending} -> pending
         :error -> nil
       end
 
-    conn
-    |> put_status(status)
-    |> put_view(json: EspalierWeb.SessionJSON)
-    |> render(:show, scope: conn.assigns[:current_scope], pending: pending)
+    EspalierWeb.SessionJSON.show(%{scope: conn.assigns[:current_scope], pending: pending})
   end
 end

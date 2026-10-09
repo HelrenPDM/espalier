@@ -25,7 +25,7 @@ A production line holds:
 | `level` | `info`, `notice`, `warning` or `error` |
 | `message` | the message; for a security event, its name |
 | `request_id` | the id of the HTTP request (`Plug.RequestId`) |
-| `event`, `user_id`, `session_id`, `ip`, `factor`, `provider`, `reason`, `count`, `account_hash` | the attributes of a security event |
+| `event`, `user_id`, `session_id`, `ip`, `factor`, `provider`, `reason`, `count`, `account_hash`, `risk_signal`, `credential_ref`, `change`, `exception` | the attributes of a security event |
 
 Only these metadata keys appear. Values that are no string, number, boolean
 or atom are written with `inspect/1`. JSON encoding escapes control
@@ -43,13 +43,16 @@ everything else at `info`.
 
 The attributes answer when (`time`), where (`ip`, `request_id`), who
 (`user_id`, or `account_hash` for an identifier that matches no account) and
-what (the event name, `factor`, `provider`, `reason`, `count`).
+what (the event name, `factor`, `provider`, `reason`, `count`, `change`,
+`risk_signal`). A passkey appears only as `credential_ref`, the first eight
+hex characters of the SHA-256 hash of its credential id, and a rescued
+exception only by its module in `exception`, never by its message.
 
 | Event | Level | Written by | Attributes |
 |---|---|---|---|
-| `authn_login_success` | info | `Espalier.Accounts.authenticate_password/3` (password accepted, reason `second_factor_pending`); `EspalierWeb.UserAuth.log_in_user/3` (session opened, factor = the methods joined by `+`) | `user_id`, `session_id`, `ip`, `factor`, `provider`, `reason` |
-| `authn_login_successafterfail` | info | `authenticate_password/3` after five or more failures | `user_id`, `ip`, `factor`, `provider`, `count` |
-| `authn_login_fail` | warning | `authenticate_password/3` | `user_id` or `account_hash`, `ip`, `factor`, `provider`, `reason` (`unknown`, `invalid`, `too_long`, `no_password`, `locked`, `disabled`) |
+| `authn_login_success` | info | `Espalier.Accounts.authenticate_password/3` (password accepted, reason `second_factor_pending`); `EspalierWeb.UserAuth.log_in_user/3` (session opened, factor = the methods joined by `+`); `Espalier.Accounts.Factors.verify/5` and `record_success/5` (a passkey, TOTP or recovery-code verification for a second factor, a passkey sign-in, a recovery verification or a step-up); at `warning` with `risk_signal: "sign_count"` and `credential_ref` when the sign count of a passkey does not increase | `user_id`, `session_id`, `ip`, `factor`, `provider`, `reason`, `risk_signal`, `credential_ref` |
+| `authn_login_successafterfail` | info | `authenticate_password/3` and `Factors.record_success/5` after five or more failures | `user_id`, `ip`, `factor`, `provider`, `count` |
+| `authn_login_fail` | warning | `authenticate_password/3`; `Factors.verify/5` and `Factors.log_failure/2` for every failed passkey, TOTP or recovery-code verification | `user_id` or `account_hash`, `ip`, `factor`, `provider`, `reason` (password: `unknown`, `invalid`, `too_long`, `no_password`, `locked`, `disabled`; second factors: for example `invalid_code`, `challenge_invalid`, `invalid_signature`, `user_not_verified`, `algorithm_not_allowed`, `cross_origin`, `user_handle_mismatch`, `credential_not_owned`, `external_identity`, `counter_locked`, `counter_disabled`, `no_pending_state`, `invalid_token`) |
 | `authn_login_fail_max` | warning | `Espalier.Accounts.FailureCounters` at the fifth failure | `user_id`, `factor`, `count` |
 | `authn_login_lock` | warning | `FailureCounters` at the fiftieth failure | `user_id`, `factor`, `count` |
 | `authn_password_change` | info | `Espalier.Accounts.update_user_password/3` | `user_id`, `factor`, `provider` |
@@ -65,14 +68,21 @@ what (the event name, `factor`, `provider`, `reason`, `count`).
 | `session_expired` | info | `get_session_by_token/2` (`idle`, `absolute`), `end_user_sessions/2` (`admin`), `end_all_sessions/1` (`admin_all`) | `user_id`, `session_id`, `reason`, `count` |
 | `session_logout` | info | `log_out_user/1`, `put_pending_second_factor/3`, `delete_session/2`, `create_session/2` (replaced row of another user) | `user_id`, `session_id`, `ip`, `reason` |
 | `user_created` | info | `invite_user/2`, `create_signup_user/1` | `user_id`, `reason` |
-| `user_updated` | info | `confirm_email_change/3`, `disable_user/2` | `user_id`, `reason` |
+| `user_updated` | info | `confirm_email_change/3`, `disable_user/2`; `Espalier.Accounts.Factors.notify_change/3` for a factor change | `user_id`, `reason`; for a factor change `change` (`factor_added`, `factor_removed`, `recovery_codes_regenerated`) and `factor` |
+| `input_validation_fail` | warning | `Espalier.Accounts.Passkeys.ClientData` (rejected `clientDataJSON`), `Espalier.Accounts.Passkeys.WaxCall` (rescued `wax_` exception) | `reason`, `exception` (the module name) |
 | `breach_check_unavailable` | warning | `Espalier.Accounts.BreachedPasswords` | none |
 
 `authz_change` and `session_use_after_expire` belong to the vocabulary and
-are written by later tasks. Tasks 0005 to 0007 add their event names and
+are written by later tasks. Tasks 0006 and 0007 add their event names and
 attribute keys to the allowlists of `Espalier.SecurityLog`, together with the
 events that use them, and a task whose event records a rejection adds it to
 the warning events as well.
+
+The OWASP Logging Vocabulary has no event for the enrollment of a factor, so
+factor changes map to `user_updated` with a `change` attribute. No event of
+its own marks a second-factor counter at 5 or 50 failures:
+`FailureCounters.record_failure/3` writes `authn_login_fail_max` and
+`authn_login_lock` with the `factor` for every kind.
 
 `factor` names one verified factor in the events of a single verification
 step, such as `password` in the events of `authenticate_password/3`, and the
@@ -104,9 +114,16 @@ starts to lock and the `failed_attempts` mail goes out.
 - No full `User-Agent` value; the session row keeps the browser and system
   family only.
 - Request parameters whose key contains `password`, `current_password`,
-  `email`, `token`, `code`, `secret` or `recovery_code` appear as
-  `[FILTERED]` (`config :phoenix, :filter_parameters`), also inside nested
-  maps. Tasks 0005, 0006 and 0009 add their keys.
+  `email`, `token`, `code`, `secret`, `recovery_code`, `totp`, `passkey`,
+  `credential`, `response` or `rawId` appear as `[FILTERED]`
+  (`config :phoenix, :filter_parameters`), also inside nested maps, so TOTP
+  codes and WebAuthn payloads stay out of the request log. The member `id`
+  of a WebAuthn response repeats the credential id, which is no secret; an
+  entry `"id"` would also filter keys such as `user_id`, so the list leaves
+  it out. Tasks 0006 and 0009 add their keys.
+- No TOTP code, recovery code, TOTP secret, WebAuthn challenge or credential
+  id. Security events name a passkey by `credential_ref` only, and mails
+  carry none of these values.
 - No query parameter and no plaintext of an encrypted or hashed column: the
   production Repo runs with `log: false`, and `Espalier.Telemetry.QueryLog`
   logs queries without parameters (task 0003,

@@ -92,19 +92,32 @@ defmodule Espalier.Accounts.UserToken do
   @doc """
   True when `strength` fits the methods of a sign-in (README section 6.2).
 
-  Task 0005 adds the clauses for a recovery code as second factor, for the
-  completion of an enrollment or a recovery (`completes:` in `attrs`), and
-  for the federated enrollment sessions.
+  `mfa` needs a passkey, the provider's MFA, or TOTP or a recovery code
+  together with a password, OIDC or LDAP. The completion of an enrollment
+  (`[:email_code, :totp]`) or of a recovery (`[:recovery_code, :email_code,
+  :totp]`) reaches `mfa` only with the attribute `completes:` of
+  `Espalier.Accounts.Factors.complete_enrollment/3`, which no column
+  stores. Enrollment sessions start from an invitation link or from a
+  federated sign-in without a local factor (tasks 0006 and 0007).
   """
   @spec strength_valid?(atom(), [atom()], map() | keyword()) :: boolean()
   def strength_valid?(strength, methods, attrs \\ %{})
 
+  def strength_valid?(:mfa, [:email_code, :totp], attrs),
+    do: completes(attrs) == :enrollment
+
+  def strength_valid?(:mfa, [:recovery_code, :email_code, :totp], attrs),
+    do: completes(attrs) == :recovery
+
   def strength_valid?(:mfa, methods, _attrs) when is_list(methods) do
     :passkey in methods or :idp_mfa in methods or
-      (:totp in methods and Enum.any?([:password, :oidc, :ldap], &(&1 in methods)))
+      ((:totp in methods or :recovery_code in methods) and
+         Enum.any?([:password, :oidc, :ldap], &(&1 in methods)))
   end
 
-  def strength_valid?(:enrollment, [:email_code], _attrs), do: true
+  def strength_valid?(:enrollment, [first], _attrs) when first in [:email_code, :oidc, :ldap],
+    do: true
+
   def strength_valid?(:demo, [:demo], _attrs), do: true
 
   def strength_valid?(:recovery, methods, _attrs) when is_list(methods) do
@@ -112,6 +125,8 @@ defmodule Espalier.Accounts.UserToken do
   end
 
   def strength_valid?(_strength, _methods, _attrs), do: false
+
+  defp completes(attrs), do: attrs |> Map.new() |> Map.get(:completes)
 
   @doc """
   Builds a session row for `user` and returns `{token, row}`.

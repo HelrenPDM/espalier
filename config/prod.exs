@@ -38,7 +38,11 @@ config :logger, :default_handler,
          :provider,
          :reason,
          :count,
-         :account_hash
+         :account_hash,
+         :risk_signal,
+         :credential_ref,
+         :change,
+         :exception
        ]
      }}
 

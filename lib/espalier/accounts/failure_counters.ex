@@ -24,6 +24,9 @@ defmodule Espalier.Accounts.FailureCounters do
   @base_seconds 30
   @max_seconds 3600
 
+  @doc "The failure that disables an authenticator."
+  def disable_at, do: @disable_at
+
   @doc "Returns `:ok`, `{:locked, until}` or `:disabled` for the authenticator `kind` of `user`."
   def check(user, kind, now \\ DateTime.utc_now()) do
     case Repo.get_by(FailureCounter, user_id: user.id, authenticator: kind) do
@@ -123,5 +126,25 @@ defmodule Espalier.Accounts.FailureCounters do
 
         previous
     end
+  end
+
+  @doc """
+  Sets the count to 0 and clears the lock and the disable mark on every
+  counter of `user` with one update. A completed recovery calls it (task
+  0005), which re-enables disabled authenticators.
+  """
+  def clear_all(user) do
+    {count, _} =
+      Repo.update_all(
+        from(c in FailureCounter, where: c.user_id == ^user.id),
+        set: [
+          consecutive_failures: 0,
+          locked_until: nil,
+          disabled_at: nil,
+          updated_at: DateTime.utc_now(:second)
+        ]
+      )
+
+    count
   end
 end
