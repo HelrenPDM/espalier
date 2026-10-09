@@ -82,6 +82,15 @@ defmodule EspalierWeb.Router do
     get "/providers", ProviderController, :index
   end
 
+  # The only OIDC entry points (task 0006, docs/security/authentication.md).
+  scope "/auth/oidc", EspalierWeb do
+    pipe_through :oidc_transaction
+
+    get "/:provider", OidcController, :authorize
+    get "/:provider/callback", OidcController, :callback
+    get "/:provider/front-channel-logout", OidcController, :front_channel_logout
+  end
+
   scope "/api", EspalierWeb do
     pipe_through :api
 
@@ -98,6 +107,13 @@ defmodule EspalierWeb.Router do
     post "/auth/second-factor", Auth.SecondFactorController, :create
     post "/auth/recovery/start", Auth.RecoveryController, :start
     post "/auth/recovery/verify", Auth.RecoveryController, :verify
+    post "/auth/finish", Auth.FinishController, :create
+  end
+
+  scope "/api/auth/oidc", EspalierWeb do
+    pipe_through [:api, :authenticated]
+
+    post "/:provider/intents", OidcIntentController, :create
   end
 
   # Enrollment, recovery and mfa sessions (task 0005). A route with

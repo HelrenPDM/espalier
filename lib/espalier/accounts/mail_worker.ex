@@ -4,7 +4,7 @@ defmodule Espalier.Accounts.MailWorker do
   nothing about accounts (README section 6.10).
 
   Oban stores job arguments as plain JSON in `oban_jobs`, so the arguments
-  carry only the kind, the user id, a count, a factor name, and addresses
+  carry only the kind, the user id, a count, a factor name, a provider key, and addresses
   encrypted with `Espalier.Vault.encrypt!/1` and Base64
   (`docs/security/crypto-inventory.md`, "Values encrypted outside Ecto
   types"). The worker generates every e-mail token itself, inserts its
@@ -27,7 +27,8 @@ defmodule Espalier.Accounts.MailWorker do
 
   @kinds ~w(invitation signup change_email email_changed password_changed failed_attempts
             factor_added factor_removed recovery_codes_regenerated recovery_used
-            authenticator_disabled recovery_instructions recovery_unavailable none)
+            authenticator_disabled recovery_instructions recovery_unavailable identity_linked
+            none)
 
   # Factor names of the job arguments, mapped without creating atoms.
   @factors %{
@@ -197,6 +198,11 @@ defmodule Espalier.Accounts.MailWorker do
 
   defp run("recovery_unavailable", %{"user_id" => user_id}) do
     with_mailbox(user_id, &UserNotifier.deliver_recovery_unavailable/1)
+  end
+
+  defp run("identity_linked", %{"user_id" => user_id, "provider_key" => provider_key}) do
+    label = Espalier.Identity.provider_label(provider_key)
+    with_mailbox(user_id, &UserNotifier.deliver_identity_linked(&1, label))
   end
 
   defp with_mailbox(user_id, deliver) do

@@ -68,6 +68,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `docs/security/wax-spike.md` with the toolchain check of `wax_` and the
   recorded Chromium virtual authenticator payloads in
   `test/fixtures/webauthn/` (task 0005).
+- OIDC sign-in with `oidcc` 3.9.0 and `oidcc_plug` 0.5.1 for Microsoft Entra
+  ID, Google Workspace and any OIDC provider configured through
+  `AUTH_<KEY>_*` (task 0006): PKCE S256, `state` and `nonce`, the ID token
+  allowlist RS256, PS256 and ES256, `private_key_jwt` with PS256, provider
+  rules for tenant, hosted domain and groups overage, an outbound host
+  allowlist per provider, requests through Req that follow no redirect, a single-use
+  sign-in ticket bound to the transaction cookie, the MFA modes `local` and
+  `idp_trusted`, provisioning, linking and step-up through single-use
+  intents, front-channel and RP-initiated logout, and the mail
+  `identity_linked`.
+- A mock OIDC provider in `test/support/dev_oidc/`, started by `make run`
+  and `make dev-oidc` on port 4010 and by the test suite on port 4011
+  (task 0006).
+- `docs/guides/identity-providers.md` as a draft (task 0006).
 
 ### Changed
 

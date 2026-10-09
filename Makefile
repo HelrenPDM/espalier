@@ -38,8 +38,12 @@ setup: init ## install, compile and set up the database
 	$(NIX) '$(DOTENV) mix ecto.setup'
 
 .PHONY: run
-run: ## start Phoenix with IEx and the Vite dev server
+run: ## start Phoenix with IEx, the Vite dev server and the mock OIDC provider
 	$(NIX) '$(DOTENV) iex -S mix phx.server'
+
+.PHONY: dev-oidc
+dev-oidc: ## Start the mock OIDC provider on port 4010
+	$(NIX) '$(DOTENV) mix espalier.dev_oidc --port 4010'
 
 .PHONY: refresh-db
 refresh-db: ## drop, create and migrate the database

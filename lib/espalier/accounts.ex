@@ -29,6 +29,8 @@ defmodule Espalier.Accounts do
   }
 
   alias Espalier.{Audit, RateLimit, Repo, SecurityLog}
+  alias Espalier.Hashed.HMAC
+  alias Espalier.Identity.{Assertion, Claims}
 
   @factor_password %{factor: :password, provider: :local}
 
@@ -210,7 +212,7 @@ defmodule Espalier.Accounts do
   Creates a session row for `user` and returns `{token, session}`.
 
   `attrs` carries `:auth_methods`, `:strength`, and optionally `:mfa_at`,
-  `:provider_key`, `:idp_sid_hash` (stored as given), `:device_summary`,
+  `:provider_key`, `:idp_sid_hash` (stored as given), `:idp_amr`, `:device_summary`,
   `:replaces` (the raw token the cookie held before this sign-in) and `:now`.
   Raises `ArgumentError` unless `UserToken.strength_valid?/3` holds.
 
@@ -890,13 +892,17 @@ defmodule Espalier.Accounts do
   Replaces the `idp_claim` grants of the user from `provider_key` with
   `roles`. Returns `{:ok, :unchanged}` when the set is equal; otherwise it
   replaces the grants, writes `role.synced`, deletes every session row of
-  the user, and returns `{:ok, :changed}`. `manual` grants stay.
+  the user, and returns `{:ok, :changed}`. `manual` grants and the
+  `idp_claim` grants of other providers stay, so an account with identities
+  at two providers keeps the roles of both.
   """
   def replace_idp_role_grants(%User{} = user, provider_key, roles) do
     current =
       Repo.all(
         from g in RoleGrant,
-          where: g.user_id == ^user.id and g.source == :idp_claim,
+          where:
+            g.user_id == ^user.id and g.source == :idp_claim and
+              g.provider_key == ^provider_key,
           select: g.role
       )
       |> MapSet.new()
@@ -911,7 +917,11 @@ defmodule Espalier.Accounts do
   end
 
   defp write_idp_grants(user, provider_key, current, wanted) do
-    Repo.delete_all(from g in RoleGrant, where: g.user_id == ^user.id and g.source == :idp_claim)
+    Repo.delete_all(
+      from g in RoleGrant,
+        where:
+          g.user_id == ^user.id and g.source == :idp_claim and g.provider_key == ^provider_key
+    )
 
     for role <- wanted do
       %RoleGrant{}
@@ -946,6 +956,404 @@ defmodule Espalier.Accounts do
 
   defp delete_all_sessions(%User{id: user_id}) do
     {count, _} = Repo.delete_all(UserToken.user_sessions_query(user_id))
+    count
+  end
+
+  ## External identities (task 0006)
+
+  @doc """
+  Finds or provisions the account of a validated provider sign-in and
+  returns `{:ok, user}` or `{:error, reason}`.
+
+  The identity is looked up by `provider_key` and `subject_hash` of
+  `ExternalIdentity.hash_input/3`; the e-mail address never finds or links
+  an account (README section 6.2, rule 3). A known identity refreshes the
+  display name, the `idp_claim` grants and a verified address that no
+  other account uses; a disabled user gets `{:error, :account_disabled}`.
+  An unknown identity gets `{:error, :no_account}` when `provider.provision`
+  is false or when its verified address belongs to an account; otherwise
+  the account and the identity are created.
+  """
+  def sign_in_external(provider, %Assertion{} = assertion) do
+    case sign_in_external_once(provider, assertion) do
+      # A concurrent first sign-in of the same identity inserted first; the
+      # unique index rolled this transaction back, and the lookup runs again.
+      {:error, %Ecto.Changeset{}} ->
+        case sign_in_external_once(provider, assertion) do
+          {:error, %Ecto.Changeset{}} -> {:error, :no_account}
+          result -> result
+        end
+
+      result ->
+        result
+    end
+  end
+
+  defp sign_in_external_once(provider, assertion) do
+    Repo.transact(fn ->
+      case get_external_identity(provider.key, assertion) do
+        %ExternalIdentity{user_id: user_id} -> known_identity(provider, assertion, user_id)
+        nil -> new_identity(provider, assertion)
+      end
+    end)
+  end
+
+  defp get_external_identity(provider_key, identity) do
+    %{issuer: issuer, tenant_id: tenant_id, subject: subject} = identity_fields(identity)
+
+    Repo.get_by(ExternalIdentity,
+      provider_key: provider_key,
+      subject_hash: ExternalIdentity.hash_input(issuer, tenant_id, subject)
+    )
+  end
+
+  defp identity_fields(%Assertion{issuer: issuer, tenant_id: tenant_id, subject: subject}),
+    do: %{issuer: issuer, tenant_id: tenant_id, subject: subject}
+
+  defp identity_fields(%{} = identity) do
+    %{
+      issuer: identity[:issuer] || identity["issuer"],
+      tenant_id: identity[:tenant_id] || identity["tenant_id"],
+      subject: identity[:subject] || identity["subject"]
+    }
+  end
+
+  defp known_identity(provider, assertion, user_id) do
+    user = Repo.get!(User, user_id)
+    lock_user!(user)
+
+    if user.status != :active do
+      {:error, :account_disabled}
+    else
+      user = refresh_display_name(user, assertion.display_name)
+
+      {:ok, _} =
+        replace_idp_role_grants(
+          user,
+          provider.key,
+          Claims.map_roles(assertion.roles, provider.role_map)
+        )
+
+      {:ok, refresh_email(user, provider, assertion.email)}
+    end
+  end
+
+  defp refresh_display_name(user, name) when is_binary(name) and name != "" do
+    if name == user.display_name do
+      user
+    else
+      case user |> User.profile_changeset(%{display_name: name}) |> Repo.update() do
+        {:ok, user} -> user
+        {:error, _changeset} -> user
+      end
+    end
+  end
+
+  defp refresh_display_name(user, _name), do: user
+
+  defp refresh_email(user, _provider, nil), do: user
+
+  defp refresh_email(user, provider, email) do
+    email = normalize_email(email)
+
+    taken? =
+      Repo.exists?(from u in User, where: u.email_hash == ^email and u.id != ^user.id)
+
+    if email == user.email or taken? do
+      user
+    else
+      case write_email(user, email) do
+        {:ok, updated} ->
+          SecurityLog.event(:user_updated, %{
+            user_id: user.id,
+            provider: provider.key,
+            change: "email"
+          })
+
+          updated
+
+        {:error, _changeset} ->
+          user
+      end
+    end
+  end
+
+  defp new_identity(provider, assertion) do
+    cond do
+      not provider.provision ->
+        {:error, :no_account}
+
+      is_binary(assertion.email) and get_user_by_email(assertion.email) != nil ->
+        {:error, :no_account}
+
+      true ->
+        provision_user(provider, assertion)
+    end
+  end
+
+  defp provision_user(provider, assertion) do
+    with {:ok, user} <-
+           %User{}
+           |> User.external_changeset(%{
+             email: assertion.email,
+             display_name: assertion.display_name
+           })
+           |> Repo.insert(),
+         {:ok, _identity} <- insert_identity(user, provider, assertion) do
+      {:ok, _} =
+        replace_idp_role_grants(
+          user,
+          provider.key,
+          Claims.map_roles(assertion.roles, provider.role_map)
+        )
+
+      SecurityLog.event(:user_created, %{user_id: user.id, provider: provider.key})
+      {:ok, user}
+    end
+  end
+
+  defp insert_identity(user, provider, identity) do
+    %{issuer: issuer, tenant_id: tenant_id, subject: subject} = identity_fields(identity)
+
+    %ExternalIdentity{}
+    |> ExternalIdentity.changeset(
+      %{provider_key: provider.key, issuer: issuer, tenant_id: tenant_id, subject: subject},
+      Scope.for_user(user)
+    )
+    |> Repo.insert()
+  end
+
+  @doc """
+  Checks without writing whether the identity of `assertion` can be linked
+  to `user_id`: `:ok`, `{:ok, :already_linked}`, `{:error, :identity_in_use}`
+  or `{:error, :provider_already_linked}`.
+  """
+  def check_external_link(user_id, provider, identity) do
+    case get_external_identity(provider.key, identity) do
+      %ExternalIdentity{user_id: ^user_id} ->
+        {:ok, :already_linked}
+
+      %ExternalIdentity{} ->
+        {:error, :identity_in_use}
+
+      nil ->
+        if provider_linked?(user_id, provider.key),
+          do: {:error, :provider_already_linked},
+          else: :ok
+    end
+  end
+
+  @doc "True when the user holds an identity of `provider_key`."
+  def provider_linked?(user_id, provider_key) do
+    Repo.exists?(
+      from i in ExternalIdentity, where: i.user_id == ^user_id and i.provider_key == ^provider_key
+    )
+  end
+
+  @doc """
+  Links an identity (`issuer`, `tenant_id`, `subject`, as a map or an
+  `%Assertion{}`) to the account `user_id` in one transaction. Returns
+  `{:ok, :linked}`, `{:ok, :already_linked}`, `{:error, :identity_in_use}`
+  or `{:error, :provider_already_linked}`. A new link mails `identity_linked`
+  and logs `user_updated`.
+  """
+  def link_external_identity(user_id, provider, identity) do
+    result =
+      Repo.transact(fn ->
+        user = Repo.get!(User, user_id)
+        lock_user!(user)
+
+        case check_external_link(user_id, provider, identity) do
+          :ok -> insert_link(user, provider, identity)
+          other -> other
+        end
+      end)
+
+    with {:ok, :linked} <- result do
+      SecurityLog.event(:user_updated, %{
+        user_id: user_id,
+        provider: provider.key,
+        change: "identity_linked"
+      })
+    end
+
+    result
+  end
+
+  defp insert_link(user, provider, identity) do
+    case insert_identity(user, provider, identity) do
+      {:ok, _identity} ->
+        Oban.insert!(
+          MailWorker.job("identity_linked", %{user_id: user.id, provider_key: provider.key})
+        )
+
+        {:ok, :linked}
+
+      {:error, %Ecto.Changeset{errors: errors}} ->
+        if Keyword.has_key?(errors, :user_id),
+          do: {:error, :provider_already_linked},
+          else: {:error, :identity_in_use}
+    end
+  end
+
+  @doc """
+  Returns `:ok` when the identity of `assertion` belongs to `user_id` and
+  the provider runs in `idp_trusted` mode, the precondition of a step-up at
+  the provider.
+  """
+  def check_external_step_up(user_id, provider, %Assertion{} = assertion) do
+    cond do
+      provider.mfa != :idp_trusted -> {:error, :step_up_not_available}
+      match?(%{user_id: ^user_id}, get_external_identity(provider.key, assertion)) -> :ok
+      true -> {:error, :identity_mismatch}
+    end
+  end
+
+  ## Sign-in tickets and OIDC intents (task 0006)
+
+  @ticket_seconds 60
+  @intent_minutes 5
+
+  @doc """
+  Creates a sign-in ticket for the finish step and returns `{ticket,
+  binding}`, both 32 random bytes in Base64url. The row stores the SHA-256
+  hash of the ticket, the keyed hash of the binding, `idp_sid_hash` as
+  received and, for a link, the identity encrypted in `link_identity`. It
+  expires after 60 seconds.
+  """
+  def create_login_ticket(attrs) do
+    attrs = Map.new(attrs)
+    ticket = UserToken.generate()
+    binding = encode(UserToken.generate())
+
+    link_identity =
+      case attrs[:link_identity] do
+        nil -> nil
+        identity -> identity |> identity_fields() |> Map.new(fn {k, v} -> {to_string(k), v} end)
+      end
+
+    Repo.insert!(%UserToken{
+      context: :login_ticket,
+      token_hash: UserToken.hash(ticket),
+      user_id: Map.fetch!(attrs, :user_id),
+      provider_key: Map.fetch!(attrs, :provider_key),
+      purpose: Map.fetch!(attrs, :purpose),
+      auth_methods: Map.fetch!(attrs, :auth_methods),
+      idp_amr: attrs[:idp_amr],
+      idp_sid_hash: attrs[:idp_sid_hash],
+      binding_hash: binding,
+      link_identity: link_identity && JSON.encode!(link_identity),
+      expires_at: DateTime.add(DateTime.utc_now(:second), @ticket_seconds, :second)
+    })
+
+    {encode(ticket), binding}
+  end
+
+  @doc """
+  Consumes a sign-in ticket with its binding. The row is deleted in one
+  statement before the binding is compared, so a second caller finds
+  nothing, also after a mismatch. Returns `{:ok, ticket}` with
+  the stored fields and the decoded `link_identity`, or `{:error, :invalid}`
+  for a missing or expired row and a binding mismatch.
+  """
+  def consume_login_ticket(ticket, binding) do
+    with {:ok, row} <- take_token(ticket, :login_ticket),
+         true <- is_binary(binding),
+         true <- Plug.Crypto.secure_compare(HMAC.hash(binding), row.binding_hash || "") do
+      {:ok,
+       %{
+         user_id: row.user_id,
+         provider_key: row.provider_key,
+         purpose: row.purpose,
+         auth_methods: row.auth_methods,
+         idp_amr: row.idp_amr,
+         idp_sid_hash: row.idp_sid_hash,
+         link_identity: row.link_identity && JSON.decode!(row.link_identity)
+       }}
+    else
+      _ -> {:error, :invalid}
+    end
+  end
+
+  @doc """
+  Creates an intent for linking or a step-up at `provider`, valid for 5
+  minutes and bound to the session row of `scope` through the keyed hash of
+  its id. Returns the token in Base64url.
+  """
+  def create_oidc_intent(
+        %Scope{user: user, session: %UserToken{id: session_id}},
+        provider,
+        purpose
+      )
+      when purpose in ["link", "step_up"] do
+    token = UserToken.generate()
+
+    Repo.insert!(%UserToken{
+      context: :oidc_intent,
+      token_hash: UserToken.hash(token),
+      user_id: user.id,
+      provider_key: provider.key,
+      purpose: purpose,
+      binding_hash: session_id,
+      expires_at: DateTime.add(DateTime.utc_now(:second), @intent_minutes, :minute)
+    })
+
+    encode(token)
+  end
+
+  @doc """
+  Consumes an intent. The row is deleted in every case. Returns
+  `{:ok, %{user_id: user_id, purpose: purpose}}`, `{:error, :invalid}` for a
+  missing or expired row and a row of another provider, or
+  `{:error, :session_mismatch}` when `session_id` is `nil` or another
+  session row than the one that created the intent.
+  """
+  def consume_oidc_intent(token, provider_key, session_id) do
+    with {:ok, row} <- take_token(token, :oidc_intent),
+         true <- row.provider_key == provider_key do
+      if is_binary(session_id) and
+           Plug.Crypto.secure_compare(HMAC.hash(session_id), row.binding_hash || ""),
+         do: {:ok, %{user_id: row.user_id, purpose: row.purpose}},
+         else: {:error, :session_mismatch}
+    else
+      _ -> {:error, :invalid}
+    end
+  end
+
+  # Deletes the row of a token in one statement and returns it when it has
+  # not expired.
+  defp take_token(token, context) when is_binary(token) do
+    with {:ok, raw} <- Base.url_decode64(token, padding: false),
+         {1, [row]} <-
+           Repo.delete_all(
+             from(t in UserToken.by_hash_and_context_query(UserToken.hash(raw), context),
+               select: t
+             )
+           ),
+         true <- DateTime.after?(row.expires_at, DateTime.utc_now()) do
+      {:ok, row}
+    else
+      _ -> :error
+    end
+  end
+
+  defp take_token(_token, _context), do: :error
+
+  defp encode(bytes), do: Base.url_encode64(bytes, padding: false)
+
+  @doc """
+  Deletes every session row of `provider_key` whose `idp_sid_hash` equals
+  `UserToken.hash_idp_sid(sid)` (front-channel logout) and returns the count.
+  """
+  def delete_sessions_by_idp_sid(provider_key, sid) when is_binary(sid) do
+    {count, _} =
+      Repo.delete_all(
+        from t in UserToken,
+          where:
+            t.context == :session and t.provider_key == ^provider_key and
+              t.idp_sid_hash == ^UserToken.hash_idp_sid(sid)
+      )
+
     count
   end
 

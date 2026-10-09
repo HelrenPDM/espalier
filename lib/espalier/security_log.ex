@@ -72,7 +72,11 @@ defmodule Espalier.SecurityLog do
     :risk_signal,
     :credential_ref,
     :change,
-    :exception
+    :exception,
+    # Task 0006: the purpose of an OIDC flow (sign_in, link, step_up) and the
+    # trigger of a session end (front_channel).
+    :purpose,
+    :trigger
   ]
 
   @doc "The accepted event names."

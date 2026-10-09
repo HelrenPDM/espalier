@@ -27,7 +27,7 @@ defmodule EspalierWeb.UserAuth do
   @doc """
   Logs the user in with the attributes of `Accounts.create_session/2`
   (`auth_methods:`, `strength:`, and optionally `mfa_at:`, `provider_key:`,
-  `idp_sid_hash:`). The security events carry `provider:`, which defaults
+  `idp_sid_hash:`, `idp_amr:`). The security events carry `provider:`, which defaults
   to the `provider_key` or `local`.
 
   Returns the conn; the controller renders the session payload, which
@@ -251,10 +251,12 @@ defmodule EspalierWeb.UserAuth do
   is reissued with `mfa_at` now and `method` appended to `auth_methods`,
   and the previous row is deleted in the same transaction. The copy keeps
   every other column, among them `expires_at`, `provider_key` and the
-  bytes of `idp_sid_hash`. Returns `{:ok, conn}` with a renewed session
-  and CSRF token, or `{:error, :not_found}`.
+  bytes of `idp_sid_hash`. `changes` are merged into the changes of the
+  reissue, such as `idp_amr` after a step-up at the provider (task 0006).
+  Returns `{:ok, conn}` with a renewed session and CSRF token, or
+  `{:error, :not_found}`.
   """
-  def step_up(conn, method) do
+  def step_up(conn, method, changes \\ %{}) do
     %Scope{session: session} = conn.assigns.current_scope
 
     methods =
@@ -264,10 +266,13 @@ defmodule EspalierWeb.UserAuth do
 
     with token when is_binary(token) <- get_session(conn, :user_token),
          {:ok, new_token} <-
-           Accounts.reissue_session(token, %{
-             mfa_at: DateTime.utc_now(:second),
-             auth_methods: methods
-           }) do
+           Accounts.reissue_session(
+             token,
+             Map.merge(
+               %{mfa_at: DateTime.utc_now(:second), auth_methods: methods},
+               Map.new(changes)
+             )
+           ) do
       {:ok, put_reissued_session(conn, new_token)}
     else
       _ -> {:error, :not_found}

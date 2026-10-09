@@ -9,6 +9,7 @@ defmodule Espalier.Application do
 
   alias Espalier.Accounts.PasswordPolicy
   alias Espalier.Crypto.Keys
+  alias Espalier.Identity.Oidc
   alias Espalier.Telemetry.QueryLog
 
   @impl true
@@ -31,6 +32,8 @@ defmodule Espalier.Application do
         {Oban, Application.fetch_env!(:espalier, Oban)}
       ] ++
         bootstrap() ++
+        Application.get_env(:espalier, :dev_children, []) ++
+        oidc() ++
         [
           {Espalier.RateLimit, clean_period: :timer.minutes(1)},
           {DNSCluster, query: Application.get_env(:espalier, :dns_cluster_query) || :ignore},
@@ -50,6 +53,14 @@ defmodule Espalier.Application do
   defp bootstrap do
     if Application.get_env(:espalier, :bootstrap_on_boot, false),
       do: [Espalier.Accounts.Bootstrap],
+      else: []
+  end
+
+  # One configuration worker per OIDC provider (task 0006). The test suite
+  # starts the supervisor per test.
+  defp oidc do
+    if Oidc.oidc_env(:start_supervisor, true),
+      do: [Oidc.Supervisor],
       else: []
   end
 

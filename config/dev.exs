@@ -94,3 +94,25 @@ config :swoosh, :api_client, false
 # and CLOAK_HMAC_SECRET (config/runtime.exs).
 config :espalier, Espalier.Vault, keys: [{1, Base.encode64(String.duplicate("d", 32))}]
 config :espalier, Espalier.Hashed.HMAC, secret: Base.encode64(String.duplicate("h", 32))
+
+# Mock OIDC provider of test/support/dev_oidc/ (task 0006, `make dev-oidc`).
+# The fixture secret works only against the mock, and the tenant id is
+# invented. allow_unsafe_http admits the http:// end-session endpoint of the
+# mock on localhost; no other configuration sets it.
+oidc_public_url =
+  case String.trim(System.get_env("PUBLIC_URL", "")) do
+    "" -> "http://localhost:5173"
+    url -> url |> String.trim("\"") |> String.trim_trailing("/")
+  end
+
+config :espalier, :dev_children, [{Espalier.DevOidc, port: 4010}]
+
+config :espalier, Espalier.DevOidc,
+  client_id: "espalier-dev",
+  client_secret: "dev-oidc-fixture-secret",
+  tenant_id: "3f0c2a9e-7b1d-4e5a-8c6f-2d9b0e4a1c7d",
+  redirect_uris:
+    for(key <- ["entra", "google", "oidc"], do: "#{oidc_public_url}/auth/oidc/#{key}/callback"),
+  post_logout_redirect_uris: ["#{oidc_public_url}/signed-out"]
+
+config :espalier, Espalier.Identity.Oidc, allow_unsafe_http: true

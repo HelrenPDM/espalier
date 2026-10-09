@@ -38,6 +38,7 @@ defmodule Espalier.Accounts.ExternalIdentity do
     |> put_subject_hash()
     |> validate_required([:provider_key, :issuer, :subject, :subject_hash])
     |> put_change(:user_id, user_scope.user.id)
+    |> unique_constraint([:user_id, :provider_key])
     |> unique_constraint([:provider_key, :subject_hash])
   end
 

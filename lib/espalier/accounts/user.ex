@@ -93,6 +93,32 @@ defmodule Espalier.Accounts.User do
   end
 
   @doc """
+  Changeset for an account that a provider sign-in creates (task 0006): an
+  optional verified address and the display name of the provider, else the
+  local part of the address, else `User`.
+  """
+  def external_changeset(user, attrs) do
+    changeset =
+      user
+      |> cast(attrs, [:email, :display_name])
+      |> put_default_display_name()
+
+    changeset =
+      if get_change(changeset, :email), do: validate_email(changeset), else: changeset
+
+    changeset
+    |> put_fallback_display_name()
+    |> validate_required([:display_name])
+    |> validate_display_name()
+  end
+
+  defp put_fallback_display_name(changeset) do
+    if get_field(changeset, :display_name) in [nil, ""],
+      do: put_change(changeset, :display_name, "User"),
+      else: changeset
+  end
+
+  @doc """
   Changeset that sets a confirmed new address, from the e-mail change token.
   """
   def email_changeset(user, attrs) do
