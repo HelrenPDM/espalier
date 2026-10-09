@@ -444,7 +444,9 @@ of the user.
   authorization request with `max_age=0`, followed by a check of `auth_time`;
   Entra ID sends `auth_time` and `sid` only as configured optional claims, and
   the spike of task 0006 saw no `amr`, so `idp_trusted` mode rests on the
-  operator's statement for Entra ID.
+  operator's statement for Entra ID, which needs an application-scoped
+  Conditional Access policy that enforces MFA; security defaults do not
+  suffice.
 - **Logout.** RP-initiated logout through `:oidcc_logout.initiate_url/3` where
   the provider offers an `end_session_endpoint`, with the post-logout redirect
   URI `PUBLIC_URL/signed-out`. `DELETE /api/session` returns the `logout_url`

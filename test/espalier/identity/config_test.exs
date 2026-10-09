@@ -340,6 +340,19 @@ defmodule Espalier.Identity.ConfigTest do
         end)
 
       assert log =~ "AUTH_WARNED_MFA=idp_trusted"
+      refute log =~ "Conditional Access"
+
+      entra = parse!(entra(%{"MFA" => "idp_trusted"}), :test)
+
+      log =
+        capture_log([level: :warning], fn ->
+          Espalier.Identity.Oidc.Supervisor.init(
+            providers: [%{entra | client_auth: :client_secret_basic}]
+          )
+        end)
+
+      assert log =~ "AUTH_ENTRA_MFA=idp_trusted"
+      assert log =~ "Conditional Access"
     end
   end
 

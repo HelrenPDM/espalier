@@ -245,7 +245,7 @@ credential and two test users.
 | Step-up with `max_age=0` | Entra ID asks for the credentials and the second factor again and returns a fresh `auth_time`. |
 | Endpoint hosts | The authorization, token, JWKS and end-session endpoints of the tenant document lie on `login.microsoftonline.com`, the default of `AUTH_<KEY>_ALLOWED_HOSTS`. |
 | Front-channel logout | The request carries `sid` only, without `iss`, and ends the sessions of that provider session. |
-| Security defaults | A new user must register the Authenticator app at the first sign-in. |
+| Security defaults | A new user must register the Authenticator app at the first sign-in. Later sign-ins asked for no second factor, except the step-up with `max_age=0`, and in `idp_trusted` mode still became sessions with `idp_mfa`, because the ID token carries no `amr`. |
 
 Because Entra ID sends no `amr`, every Entra sign-in in `idp_trusted` mode
 rests on an application-scoped Conditional Access policy that enforces
