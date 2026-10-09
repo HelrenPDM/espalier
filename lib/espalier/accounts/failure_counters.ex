@@ -284,10 +284,11 @@ defmodule Espalier.Accounts.FailureCounters do
   end
 
   defp give_back(counter, reservation) do
-    changes = [consecutive_failures: max(counter.consecutive_failures - 1, 0)]
+    count = max(counter.consecutive_failures - 1, 0)
+    changes = [consecutive_failures: count]
 
     changes =
-      if counter.locked_until == reservation.locked_until,
+      if count < reservation.limit or counter.locked_until == reservation.locked_until,
         do: Keyword.put(changes, :locked_until, reservation.previous_locked_until),
         else: changes
 

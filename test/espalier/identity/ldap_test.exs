@@ -483,13 +483,21 @@ defmodule Espalier.Identity.LdapTest do
 
     test "a task past its deadline is killed and returns unavailable" do
       config = ldap_config(timeout_ms: 50)
+      test_process = self()
 
       expect(ClientMock, :open, fn _hosts, _opts ->
-        Process.sleep(1_000)
-        {:ok, @c1}
+        send(test_process, {:open_started, self()})
+
+        receive do
+          :continue -> {:ok, @c1}
+        end
       end)
 
-      assert {:error, :unavailable, nil, nil} = Ldap.authenticate(config, "jdoe", @password)
+      authentication =
+        Task.async(fn -> Ldap.authenticate(config, "jdoe", @password) end)
+
+      assert_receive {:open_started, _ldap_process}
+      assert {:error, :unavailable, nil, nil} = Task.await(authentication)
     end
   end
 
