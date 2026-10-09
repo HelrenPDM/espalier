@@ -1,14 +1,13 @@
 # Authentication and sessions
 
 This document describes the sign-in pathways, the second factors, the
-sessions, the abuse protection and the password rules of tasks 0004, 0005
-and 0006 (ASVS 6.1.1 to 6.1.3, 7.1.1 to 7.1.3, 7.6.1 and 8.1.1). The
+sessions, the abuse protection and the password rules of tasks 0004 to 0007
+(ASVS 6.1.1 to 6.1.3, 7.1.1 to 7.1.3, 7.6.1 and 8.1.1). The
 verification matrix is [`asvs-l2.md`](asvs-l2.md), the log inventory is
 [`logging.md`](logging.md), the operator guide for identity providers is
 [`../guides/identity-providers.md`](../guides/identity-providers.md), and
-the plan is README sections 6.2 to 6.7, 6.10 and 6.11. Task 0007 adds its
-pathway to this document. The toolchain check of the passkey
-library is [`wax-spike.md`](wax-spike.md).
+the plan is README sections 6.2 to 6.8, 6.10 and 6.11. The toolchain check
+of the passkey library is [`wax-spike.md`](wax-spike.md).
 
 ## Pathways and session strength
 
@@ -34,6 +33,8 @@ factor and a second factor (ASVS 6.3.3).
 | OIDC, `idp_trusted` mode | the same routes | the provider sign-in with a multi-factor `amr`, or without `amr` | full session | `oidc`, `idp_mfa` | `mfa` |
 | OIDC link | `POST /api/auth/oidc/:provider/intents` (`link`), then the OIDC routes | an `mfa` session with a second factor in the last 10 minutes, and the provider sign-in in the same browser session | the identity is linked at `POST /api/auth/finish`; the session stays | unchanged | `mfa` |
 | OIDC step-up (`idp_trusted` only) | `POST /api/auth/oidc/:provider/intents` (`step_up`), then the OIDC routes with `max_age=0` | an `mfa` session of a user with an identity of the provider | the session row is reissued with `mfa_at` now and the provider's `amr` | `idp_mfa` is appended | `mfa` |
+| LDAP and Active Directory | `POST /api/auth/ldap/:provider` | the directory bind | `{"next": "second_factor"}` with the pending state for an enrolled user, then `POST /api/auth/second-factor`; otherwise an enrollment session, 30 minutes, with `{"next": "enroll_second_factor"}` | `ldap`, then `ldap` and `totp`, `passkey` or `recovery_code` | `enrollment`, then `mfa` |
+| LDAP link | `POST /api/me/identities/ldap/:provider` | an `mfa` session with a second factor in the last 10 minutes, and the directory bind | the identity is linked; the session stays | unchanged | `mfa` |
 | Demo (`AUTH_DEMO=true` only) | `POST /api/auth/demo` | choice of slot 1 to 20 | demo session; the flag `demo` of the session payload marks every page | `demo` | `demo` |
 
 Passkey sign-in serves only accounts without an external identity. A user
@@ -193,6 +194,121 @@ provisioning on.
   outlives the platform session and the other way round, except through the
   two paths above (ASVS 7.1.3, 7.6.1).
 
+## LDAP and Active Directory sign-in
+
+Task 0007 adds the sign-in with an account of the organization's directory,
+Active Directory or a generic LDAP server (README section 6.8). The operator
+guide [`identity-providers.md`](../guides/identity-providers.md) lists the
+variables. The directory bind is the first factor, and every directory
+sign-in ends in `put_pending_second_factor/3` or in an enrollment session of
+`log_in_user/3`; a full session always needs a local passkey or TOTP factor
+(ASVS 6.1.3, 6.3.3). `AUTH_<KEY>_MFA` accepts only `local`, so the directory
+reports no authentication strength, and the bind counts as a single factor
+(ASVS 6.8.4).
+
+### Entry points and answers
+
+| Route | Pipelines | Answers |
+|---|---|---|
+| `POST /api/auth/ldap/:provider` | `:api` (session, CSRF, Fetch Metadata), bucket `ldap_ip` | `200 {"next": "second_factor"}`, `200 {"next": "enroll_second_factor"}`, `401 invalid_credentials`, `409 link_required`, `429 rate_limited`, `404 unknown_provider` |
+| `POST /api/me/identities/ldap/:provider` | `:api`, `:authenticated`, `:recent_auth`, bucket `ldap_ip` | `200 {"status": "linked"}` or `{"status": "already_linked"}`, `409 identity_in_use` or `provider_already_linked`, `401 invalid_credentials`, `429 rate_limited`, `403 reauth_required` |
+
+Every authentication failure answers the same `401 invalid_credentials`:
+an unknown user, two matching entries, a wrong password, a disabled entry, a
+locked or disabled counter, subject throttling, an unreachable directory, a
+timeout, a referral, a failed group lookup, a rejected bind and a disabled
+platform account (ASVS 6.3.8, 16.5.1). Each answers no earlier than
+`failure_floor_ms` (1,000 milliseconds) after the request started, because no
+dummy password check applies and an unknown user needs one connection where
+a wrong password needs two. `409 link_required` follows only a successful
+bind, when the directory's address belongs to another account, so it reveals
+nothing to a caller without the password.
+
+### Flow
+
+`Espalier.Accounts.LdapSignIn` runs the sign-in and the link;
+`Espalier.Identity.Ldap` wraps `:eldap`
+([`auth-ldap.puml`](../architecture/auth-ldap.puml)).
+
+1. The username and the password must be valid UTF-8 and not blank after
+   trimming, the username at most 256 bytes and the password at most 1,024.
+   `:eldap` blocks only the empty charlist, and an empty binary password
+   would go out as an unauthenticated bind. The password receives no Unicode
+   normalization and goes to the directory as sent.
+2. The bucket `ldap_account` counts the provider key and the normalized
+   username before any directory call.
+3. The sign-in runs in a task under `Espalier.Identity.LdapTaskSupervisor`
+   with a deadline of three times `AUTH_<KEY>_TIMEOUT_MS`; the kill of the
+   task ends its connections (ASVS 16.5.2).
+4. Connection 1: the service account binds, searches the person below the
+   base DN with filters built by the `:eldap` constructors (ASVS 1.2.6),
+   requires exactly one entry, rejects a disabled Active Directory entry,
+   and checks each mapped group with a base search on the person's DN.
+5. The bucket `ldap_subject` counts the directory subject, and
+   `FailureCounters.reserve_directory/5` reserves the attempt.
+6. Connection 2: a new connection binds with the DN that the directory
+   returned and the password. Only the bare `:ok` counts as success.
+7. A success deletes the counter row, and `Accounts.sign_in_external/2`
+   finds or provisions the account by provider key and subject
+   (`objectGUID` or `entryUUID`), refreshes the display name, the org unit,
+   the encrypted directory attributes and the `idp_claim` grants.
+
+Each connection closes in an `after` block, and no request reaches a handle
+after an error or timeout, because `:eldap` does not match search responses
+by message id. An unreachable directory, a failed group lookup, a referral
+and a timeout fail the sign-in (ASVS 16.5.3). No `{log, fun}` option reaches
+`:eldap`, because it would log the bind request with the password, and an
+exception inside the task is logged by its module only (ASVS 16.2.5).
+
+### Transport
+
+The trust anchors of every directory connection come only from
+`AUTH_<KEY>_CA_CERT_FILE`, and the operating system trust store is not used
+(ASVS 12.3.4). Every connection verifies the peer (`verify: :verify_peer`)
+and the host name through `server_name_indication`, which StartTLS would
+otherwise check against the peer IP address (ASVS 12.3.2), and allows TLS 1.3
+and TLS 1.2 only (ASVS 12.1.1). `AUTH_<KEY>_TLS=none` stops the boot outside
+dev and test, and a StartTLS answer other than the bare `:ok`, such as a
+referral that leaves the connection in plain text, aborts the sign-in
+(ASVS 12.3.1). A failed LDAPS connect starts at most one TLS probe per
+provider and minute, which logs the TLS alert as `directory_tls_failed`
+without credentials (ASVS 16.3.4).
+
+The service account authenticates with a password in a simple bind, because
+`:eldap` offers no SASL bind. This is the deviation from ASVS 13.2.1 recorded
+in [`asvs-l2.md`](asvs-l2.md); the mitigations are a dedicated service
+account that can only read user objects below the base DN (ASVS 13.2.2), the
+password from the runtime environment (ASVS 13.3.1), TLS outside dev and
+test, and the rotation of that password, which the guide describes.
+
+### Identity and linking
+
+- Directory identities are keyed by provider key, the issuer
+  `"ldap:" <> key` and the subject (`objectGUID` as UUID, or `entryUUID`),
+  never by e-mail address, `userPrincipalName` or `sAMAccountName`
+  (ASVS 6.8.1). A change of `AUTH_<KEY>_BASE_DN` keeps every identity. A
+  directory bind returns no signed assertion, so ASVS 6.8.2 does not apply
+  to it.
+- A link needs an `mfa` session with a second factor in the last 10 minutes
+  (403 `reauth_required` otherwise) and passes the same throttling, counter
+  reservation and failure floor as the sign-in. A new link mails
+  `identity_linked` and logs `user_updated` (ASVS 6.3.7). The link never
+  creates a user.
+- After a link, the account signs in only through the directory and its
+  local second factor. Password sign-in, passkey sign-in without a prior
+  first factor and the recovery pathway serve only accounts without an
+  external identity, so they end for that account, and the stored password
+  serves no sign-in.
+- The plan defines no route that removes an external identity. An account
+  that holds an identity of an LDAP provider has no sign-in pathway once that
+  provider key leaves `AUTH_PROVIDERS`, unless it holds an identity of
+  another configured provider, and the admin reset of decision D11 does not
+  restore access, because it sends an invitation only to accounts without an
+  external identity.
+- The directory's password policy governs directory passwords: length,
+  composition, expiry and history are the directory's rules, and the
+  password rules of the section "Passwords" apply to local passwords only.
+
 ## Sessions
 
 ### Settings
@@ -312,6 +428,16 @@ logs `excess_rate_limit_exceeded`.
 | `oidc_callback` | 1 minute | 30 | client IP | `GET /auth/oidc/:provider/callback` |
 | `oidc_intent` | 1 minute | 10 | keyed hash of the session user id | `POST /api/auth/oidc/:provider/intents` |
 | `oidc_front_channel` | 1 minute | 60 | client IP | `GET /auth/oidc/:provider/front-channel-logout` |
+| `ldap_ip` | 1 minute | 20 | client IP | `POST /api/auth/ldap/:provider`, `POST /api/me/identities/ldap/:provider` |
+| `ldap_account` | 1 minute | 5 | keyed hash of the provider key and the trimmed, lower-case username | the same routes, inside `Espalier.Accounts.LdapSignIn` |
+| `ldap_subject` | 1 minute | 5 | keyed hash of the provider key and the directory subject | the same routes, between the search and the user bind |
+
+One Active Directory account answers to `sAMAccountName` and to
+`userPrincipalName` and so owns two `ldap_account` buckets; `ldap_subject`
+counts both names together. A denial in `ldap_subject` answers like a lock
+with `401 invalid_credentials`, because a 429 after the search would reveal
+that the name exists. `LdapSignIn` logs `excess_rate_limit_exceeded` for the
+two account buckets itself.
 
 Account keys are HMAC-SHA256 under a key derived once at boot from
 `SECRET_KEY_BASE`, so the limiter holds no address. Known and unknown
@@ -361,6 +487,58 @@ a credential id disable the owner's passkeys from rotating addresses.
 Protection against malicious lockout: the counters lock one authenticator,
 never the account. A locked password leaves passkey sign-in available, and
 the lock lasts at most one hour until the disable limit.
+
+### Directory failure counters
+
+Directory accounts follow their own counter policy (task 0007), because the
+platform must stay below the directory's own lockout threshold. A row of the
+authenticator `ldap` carries `provider_key` and `subject_hash`, the keyed hash
+of the same input as `external_identities.subject_hash`, and no `user_id`, so
+the count exists before the platform account does.
+
+- `reserve_directory/5` counts an attempt before its bind. In one short
+  transaction it creates the row if needed, locks it with `FOR UPDATE`,
+  refuses the attempt without a bind when the row is disabled or locked, and
+  raises the count to `n`. From `n = AUTH_<KEY>_FAILURE_LIMIT` on, it locks
+  the row for `AUTH_<KEY>_LOCK_MINUTES`. Concurrent requests therefore cannot
+  pass the limit together, and the row lock never spans a directory call.
+- A success deletes the row. A wrong password keeps the reserved count; the
+  count equal to the limit logs `authn_login_fail_max`, and the fiftieth
+  failure sets `disabled_at` and logs `authn_login_lock`. Every other
+  failure after the reservation (an unreachable directory, a timeout, a
+  referral, a rejected bind, an internal error) gives the attempt back: the
+  count drops by one, and a lock that this attempt set is undone. A task that
+  is killed after its reservation keeps the count, which errs towards the
+  directory's threshold.
+- Deviation from README section 6.10, fixed lock: a directory account is
+  locked for a fixed `AUTH_<KEY>_LOCK_MINUTES` from the configured limit on,
+  instead of the delay that starts at the fifth failure with 30 seconds and
+  doubles up to one hour. The limit must lie below the directory's lockout
+  threshold and the lock period must cover the directory's lockout counter
+  reset time, so that the directory's own counter has reset when the next
+  bind arrives.
+- Deviation from README section 6.10, admin reset: a disabled authenticator
+  stays disabled until recovery, but the recovery pathway serves only local
+  accounts without an external identity, and `FailureCounters.clear_all/1`
+  never sees directory rows. A locked or disabled directory counter is
+  therefore cleared by an admin with `reset_directory_for_user/2` (the admin
+  action "reset failure counters" of task 0015) or by the operator with
+  `Espalier.Release.reset_directory_lock/2`, which also covers a person
+  without a platform account. Both write the audit event
+  `failure_counter.reset` and log `user_updated`.
+
+Malicious lockout of a directory account: a person who knows a user name can
+start the platform lock without the password. The lock blocks only the
+directory pathway of that account on the platform, and the directory's own
+lockout stays out of reach while the two settings hold. After the first lock,
+one attempt per lock period reaches the directory, so the counter reaches 50
+and disables the pathway after 50 minus `AUTH_<KEY>_FAILURE_LIMIT` further
+lock periods; with a limit of 4 and 30 minutes, that takes 23 hours. A
+directory-only account signs in only through its directory, with its passkey
+as second factor after the bind, so the lock keeps it out of the platform
+until the lock period ends; the buckets `ldap_account` and `ldap_subject` slow
+the attempt rate further. An admin or the operator undoes the lock or the
+disable mark as described above.
 
 ## Second factors
 
@@ -424,7 +602,8 @@ passkey gate on the admin routes. The value `false` logs a warning at boot.
   same characters. ASVS 5.0.0 6.2.8 asks for verification exactly as received;
   README section 15, decision D12, follows NIST, and `asvs-l2.md` records the
   deviation. Directory passwords never pass through this module and go to the
-  LDAP server unchanged (task 0007 step 8).
+  LDAP server unchanged (task 0007 step 8); the directory's password policy
+  governs them.
 - **Length.** 15 to 128 code points, counted after normalization
   (`too_short`, `too_long`). Up to 128 code points are accepted (ASVS 6.2.9).
 - **Common passwords.** The lowercase password must not be in
@@ -469,6 +648,11 @@ status and timing for known and unknown accounts (ASVS 6.3.8):
   for SMTP.
 - Every failure of a second factor, a passkey sign-in, a recovery
   verification and a step-up answers the same 401 `authentication_failed`.
+- `POST /api/auth/ldap/:provider` answers the same 401
+  `invalid_credentials` for an unknown user, a wrong password, a disabled
+  entry or account, a lock, subject throttling and a directory error, each no
+  earlier than one second after the request started (section "LDAP and
+  Active Directory sign-in").
 - `test/espalier_web/enumeration_timing_test.exs` (`mix test --only timing`)
   sends 40 sign-ins with the production Argon2 parameters and asserts that
   the medians for known and unknown addresses differ by less than 25 percent.
@@ -489,7 +673,7 @@ status and timing for known and unknown accounts (ASVS 6.3.8):
 | `recovery_used` | a recovery code as second factor, and every recovery verification | the account (ASVS 6.3.7) |
 | `recovery_instructions` | `POST /api/auth/recovery/start` for an active local user with unused recovery codes | the account; the link `/recover#token=` lives 10 minutes, only the link of the latest request works, also when its mail jobs run out of order, and the link opens one recovery session |
 | `recovery_unavailable` | the same request for an active local user without unused recovery codes | the account; the mail explains the admin-assisted reset (decision D11) and carries no link |
-| `identity_linked` | a link of an identity provider at `POST /api/auth/finish` (task 0006) | the account; the mail names the provider and the time |
+| `identity_linked` | a link of an identity provider at `POST /api/auth/finish` (task 0006) or of a directory account at `POST /api/me/identities/ldap/:provider` (task 0007) | the account; the mail names the provider and the time |
 
 No mail contains a code, a TOTP secret, a credential id or a session token.
 
@@ -521,8 +705,10 @@ logs a warning.
 An operator grants a role to a federated account, or to any account, with
 `bin/espalier eval 'Espalier.Release.grant_role("admin", "a@example.org")'`,
 which is an explicit operator action. `Espalier.Release.invite_user/1` invites
-an address or resends an invitation, and `Espalier.Release.end_all_sessions/0`
-ends every session. These functions insert jobs without processing them; the
+an address or resends an invitation, `Espalier.Release.end_all_sessions/0`
+ends every session, `Espalier.Release.reset_directory_lock/2` clears the
+directory failure counter of a user name, and `Espalier.Release.check_ldap/1`
+checks the connection to a directory step by step. These functions insert jobs without processing them; the
 running application sends the mails.
 
 ## Roles and checks

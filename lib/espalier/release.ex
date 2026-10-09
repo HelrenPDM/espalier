@@ -6,8 +6,9 @@ defmodule Espalier.Release do
   @app :espalier
 
   alias Espalier.Accounts
-  alias Espalier.Accounts.{RoleGrant, Scope}
+  alias Espalier.Accounts.{FailureCounters, RoleGrant, Scope}
   alias Espalier.Crypto.{Keys, Rotation}
+  alias Espalier.Identity.Ldap
 
   def migrate do
     load_app()
@@ -103,6 +104,81 @@ defmodule Espalier.Release do
   def end_all_sessions do
     start_app()
     print(Accounts.end_all_sessions(Scope.system()))
+  end
+
+  @doc """
+  Checks the connection to the LDAP provider `provider_key` and prints one
+  line per step: for `ldaps` first the TLS handshake, because `:eldap`
+  reports every connect failure as `connect failed`, then the connect, the
+  StartTLS step for `starttls`, the service bind and a base-scope search on
+  the base DN. It prints no password and no directory data beyond the step
+  results.
+
+      bin/espalier eval 'Espalier.Release.check_ldap("ldap")'
+  """
+  def check_ldap(provider_key) when is_binary(provider_key) do
+    load_app()
+
+    case Ldap.provider(provider_key) do
+      {:ok, config} ->
+        if config.tls == :ldaps, do: print_tls_probe(config)
+        steps = Ldap.check_service(config)
+
+        for {step, result} <- steps do
+          IO.puts("#{step}: #{format_step(result)}")
+        end
+
+        if Enum.all?(steps, &(elem(&1, 1) == :ok)), do: :ok, else: :error
+
+      :error ->
+        print({:error, :unknown_provider})
+    end
+  end
+
+  defp print_tls_probe(config) do
+    case Ldap.tls_probe(config) do
+      :ok -> IO.puts("tls_handshake: ok")
+      {:error, reason} -> IO.puts("tls_handshake: error #{Ldap.reason_tag(reason)}")
+    end
+  end
+
+  defp format_step(:ok), do: "ok"
+  defp format_step({:error, reason}), do: "error #{reason}"
+
+  @doc """
+  Clears the directory failure counter of `username` at the LDAP provider
+  `provider_key`, also for a person without a platform account (task 0007,
+  step 15). It looks the person up through the service account and prints
+  `:ok`, `{:error, :not_found}` or `{:error, :unavailable}`.
+
+      bin/espalier eval 'Espalier.Release.reset_directory_lock("ldap", "jdoe")'
+  """
+  def reset_directory_lock(provider_key, username)
+      when is_binary(provider_key) and is_binary(username) do
+    start_app()
+
+    result =
+      with {:ok, config} <- provider_or_unavailable(provider_key),
+           {:ok, entry} <- lookup_for_reset(config, username) do
+        FailureCounters.reset_directory(Scope.system(), provider_key, entry.subject)
+      end
+
+    print(result)
+  end
+
+  defp provider_or_unavailable(provider_key) do
+    case Ldap.provider(provider_key) do
+      {:ok, config} -> {:ok, config}
+      :error -> {:error, :unavailable}
+    end
+  end
+
+  defp lookup_for_reset(config, username) do
+    case Ldap.lookup(config, username) do
+      {:ok, entry} -> {:ok, entry}
+      {:error, :not_found} -> {:error, :not_found}
+      {:error, _reason} -> {:error, :unavailable}
+    end
   end
 
   defp print(result) do

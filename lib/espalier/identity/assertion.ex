@@ -6,6 +6,11 @@ defmodule Espalier.Identity.Assertion do
   (`Espalier.Accounts.ExternalIdentity.hash_input/3`); `subject` is `oid`
   for Entra ID and `sub` otherwise. `email` holds only a verified address,
   and it never finds or links an account (README section 6.2, rule 3).
+
+  A directory sign-in (task 0007, step 17) builds the same struct with the
+  issuer `"ldap:" <> provider_key`, the matched group DNs as `roles`, the
+  org unit, and `directory` with the keys `dn`, `upn` and `login`. Every
+  OIDC assertion carries `directory: nil`.
   """
 
   defstruct [
@@ -18,6 +23,8 @@ defmodule Espalier.Identity.Assertion do
     :amr,
     :auth_time,
     :sid,
+    :org_unit,
+    :directory,
     roles: []
   ]
 
@@ -31,6 +38,8 @@ defmodule Espalier.Identity.Assertion do
           roles: [String.t()],
           amr: [String.t()] | nil,
           auth_time: integer() | nil,
-          sid: String.t() | nil
+          sid: String.t() | nil,
+          org_unit: String.t() | nil,
+          directory: %{dn: String.t(), upn: String.t() | nil, login: String.t() | nil} | nil
         }
 end

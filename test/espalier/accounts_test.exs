@@ -21,6 +21,29 @@ defmodule Espalier.AccountsTest do
     end
   end
 
+  describe "create_session/2 for the directory pathway (task 0007, step 18)" do
+    test "a directory bind alone opens an enrollment session of 30 minutes" do
+      user = user_fixture()
+      now = DateTime.utc_now(:second)
+
+      assert {token, session} =
+               Accounts.create_session(user, %{auth_methods: [:ldap], strength: :enrollment})
+
+      assert is_binary(token)
+      assert session.strength == :enrollment
+      assert session.auth_methods == [:ldap]
+      assert_in_delta DateTime.diff(session.expires_at, now, :second), 30 * 60, 5
+    end
+
+    test "a directory bind alone never opens an mfa session" do
+      user = user_fixture()
+
+      assert_raise ArgumentError, fn ->
+        Accounts.create_session(user, %{auth_methods: [:ldap], strength: :mfa})
+      end
+    end
+  end
+
   describe "get_user!/1" do
     test "raises if id is invalid" do
       assert_raise Ecto.NoResultsError, fn ->

@@ -71,8 +71,14 @@ config :espalier, :rate_limits, %{
   oidc_authorize: {:timer.minutes(1), 1_000_000},
   oidc_callback: {:timer.minutes(1), 1_000_000},
   oidc_intent: {:timer.minutes(1), 1_000_000},
-  oidc_front_channel: {:timer.minutes(1), 1_000_000}
+  oidc_front_channel: {:timer.minutes(1), 1_000_000},
+  ldap_ip: {:timer.minutes(1), 1_000_000},
+  ldap_account: {:timer.minutes(1), 1_000_000},
+  ldap_subject: {:timer.minutes(1), 1_000_000}
 }
+
+# The LDAP tests that measure the floor set it themselves.
+config :espalier, Espalier.Accounts.LdapSignIn, failure_floor_ms: 0
 
 # Passkeys: the SPA origin of PUBLIC_URL (task 0005).
 config :espalier, :webauthn, rp_id: "localhost", origins: ["http://localhost:5173"]

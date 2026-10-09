@@ -1,0 +1,7 @@
+{
+  "id": "emil",
+  "email": "emil@example.org",
+  "password": "dev-password",
+  "displayName": "Emil Jürgens",
+  "groups": ["espalier-authors"]
+}

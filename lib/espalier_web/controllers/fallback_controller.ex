@@ -12,6 +12,9 @@ defmodule EspalierWeb.FallbackController do
   Task 0006 adds `ticket_invalid` (401) for a failed finish step,
   `unknown_provider` (404), `step_up_not_available` (422), and the link
   conflicts `identity_in_use` and `provider_already_linked` (409).
+
+  Task 0007 adds `link_required` (409) for a directory sign-in whose
+  e-mail address belongs to another account.
   """
   use EspalierWeb, :controller
 
@@ -33,7 +36,8 @@ defmodule EspalierWeb.FallbackController do
     unknown_provider: :not_found,
     step_up_not_available: :unprocessable_entity,
     identity_in_use: :conflict,
-    provider_already_linked: :conflict
+    provider_already_linked: :conflict,
+    link_required: :conflict
   }
 
   def call(conn, {:error, %Ecto.Changeset{} = changeset}) do
