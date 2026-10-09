@@ -507,7 +507,9 @@ the count exists before the platform account does.
   failure sets `disabled_at` and logs `authn_login_lock`. Every other
   failure after the reservation (an unreachable directory, a timeout, a
   referral, a rejected bind, an internal error) gives the attempt back: the
-  count drops by one, and a lock that this attempt set is undone. A task that
+  count drops by one, and the lock returns to its value before the
+  reservation when this attempt set it or when the count falls below the
+  limit, also when a later concurrent attempt set the lock. A task that
   is killed after its reservation keeps the count, which errs towards the
   directory's threshold.
 - Deviation from README section 6.10, fixed lock: a directory account is

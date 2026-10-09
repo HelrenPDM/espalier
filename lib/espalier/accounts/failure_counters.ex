@@ -268,8 +268,10 @@ defmodule Espalier.Accounts.FailureCounters do
   @doc """
   Gives back a reservation whose attempt failed for another reason than a
   wrong password: lowers the count by one, not below 0, and restores the
-  previous lock when the row still holds the lock of this reservation. A
-  missing row means that a concurrent success deleted it.
+  lock from before the reservation when the row still holds the lock of
+  this reservation, or when the count falls below the limit, because a
+  later concurrent reservation may have set the lock. A missing row means
+  that a concurrent success deleted it.
   """
   def release_directory(%{id: id} = reservation) do
     {:ok, _result} =
