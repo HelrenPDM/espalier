@@ -14,9 +14,10 @@ defmodule EspalierWeb.OidcController do
     starts at `POST /api/auth/finish` (ASVS 7.6.2).
   - `front_channel_logout/2` ends the sessions of a provider `sid`.
 
-  Every failure drops the transaction, logs `authn_login_fail` with
-  `provider`, `purpose` and the reason tag, and redirects to
-  `/auth/finish?error=<code>`. No error term of oidcc reaches the log, only
+  Every failure logs `authn_login_fail` with `provider`, `purpose` and the
+  reason tag and redirects to `/auth/finish?error=<code>`. A callback failure
+  drops the transaction only after the response's `state` matched it, so a
+  forged callback leaves a sign-in in progress intact. No error term of oidcc reaches the log, only
   its reason tag (ASVS 16.2.5).
   """
   use EspalierWeb, :controller
@@ -166,13 +167,28 @@ defmodule EspalierWeb.OidcController do
     end
   end
 
+  # Until the response is bound to the transaction of this browser, a failure
+  # keeps the transaction cookie: a forged cross-site request to the callback,
+  # with or without `error`, cannot end a sign-in in progress. Every later
+  # failure drops it.
   defp finish_flow(conn, provider, params) do
     tx = get_session(conn, "oidc")
     purpose = if is_map(tx), do: tx["purpose"]
 
-    with :ok <- provider_error(params, purpose),
-         {:ok, configuration} <- configuration(provider, purpose),
-         :ok <- check_transaction(tx, provider, purpose),
+    with {:ok, configuration} <- configuration(provider, purpose),
+         :ok <- check_bound(conn, tx, params, purpose) do
+      finish_bound(conn, provider, params, tx, configuration)
+    else
+      {:error, purpose, reason, code} ->
+        fail(conn, provider, purpose, reason, code, keep_transaction: true)
+    end
+  end
+
+  defp finish_bound(conn, provider, params, tx, configuration) do
+    purpose = tx["purpose"]
+
+    with :ok <- check_provider(tx, provider, purpose),
+         :ok <- provider_error(params, purpose),
          :ok <- check_iss(params, provider, configuration, purpose),
          {:ok, conn, id_token, claims} <- redeem_code(conn, provider, purpose),
          {:ok, assertion} <- rules(provider, id_token, claims, tx),
@@ -183,6 +199,39 @@ defmodule EspalierWeb.OidcController do
     end
   end
 
+  defp check_bound(conn, tx, params, purpose) do
+    cond do
+      not (is_map(tx) and is_binary(tx["provider_key"])) ->
+        {:error, purpose, :missing_transaction, "oidc_failed"}
+
+      not state_verified?(conn, params) ->
+        {:error, purpose, :state_not_verified, "oidc_failed"}
+
+      true ->
+        :ok
+    end
+  end
+
+  # Oidcc.Plug.Authorize keeps :erlang.phash2/1 of the state it sent in its
+  # session entry, and AuthorizationCallback compares it the same way. The
+  # check runs here first, because the plug deletes its entry on every call.
+  defp state_verified?(conn, %{"state" => state}) when is_binary(state) do
+    case get_session(conn, Authorize.get_session_name()) do
+      %{state_verifier: verifier} -> :erlang.phash2(state) == verifier
+      _missing -> false
+    end
+  end
+
+  defp state_verified?(_conn, _params), do: false
+
+  # The provider key of the transaction must equal the path segment: a
+  # response that arrives at another provider's redirect URI ends before any
+  # token request (RFC 9700, section 4.4.2.2).
+  defp check_provider(%{"provider_key" => key}, %{key: key}, _purpose), do: :ok
+
+  defp check_provider(_tx, _provider, purpose),
+    do: {:error, purpose, :provider_mismatch, "oidc_failed"}
+
   defp provider_error(%{"error" => "access_denied"}, purpose),
     do: {:error, purpose, :access_denied, "oidc_cancelled"}
 
@@ -190,17 +239,6 @@ defmodule EspalierWeb.OidcController do
     do: {:error, purpose, :provider_error, "oidc_failed"}
 
   defp provider_error(_params, _purpose), do: :ok
-
-  # The provider key of the transaction must equal the path segment: a
-  # response that arrives at another provider's redirect URI ends before any
-  # token request (RFC 9700, section 4.4.2.2).
-  defp check_transaction(%{"provider_key" => key}, %{key: key}, _purpose), do: :ok
-
-  defp check_transaction(%{"provider_key" => _other}, _provider, purpose),
-    do: {:error, purpose, :provider_mismatch, "oidc_failed"}
-
-  defp check_transaction(_tx, _provider, purpose),
-    do: {:error, purpose, :missing_transaction, "oidc_failed"}
 
   # RFC 9207: a provider that advertises the iss parameter must send it.
   defp check_iss(params, provider, configuration, purpose) do
@@ -373,7 +411,7 @@ defmodule EspalierWeb.OidcController do
 
   ## Helpers
 
-  defp fail(conn, provider, purpose, reason, code) do
+  defp fail(conn, provider, purpose, reason, code, opts \\ []) do
     SecurityLog.event(:authn_login_fail, %{
       provider: provider.key,
       purpose: purpose,
@@ -381,9 +419,12 @@ defmodule EspalierWeb.OidcController do
       ip: conn.remote_ip
     })
 
-    conn
-    |> configure_session(drop: true)
-    |> redirect(to: "/auth/finish?error=" <> code)
+    conn =
+      if Keyword.get(opts, :keep_transaction, false),
+        do: conn,
+        else: configure_session(conn, drop: true)
+
+    redirect(conn, to: "/auth/finish?error=" <> code)
   end
 
   defp unknown_provider(conn) do

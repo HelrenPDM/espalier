@@ -115,8 +115,12 @@ These routes are the only OIDC entry points (ASVS 6.3.4):
    oidcc_plug, and redirects with PKCE S256, `state`, `nonce` and the scopes
    `openid`, `profile` and `email`. No request carries `prompt=none`
    (ASVS 7.6.2).
-2. The callback checks the transaction, the provider of the redirect URI and
-   the RFC 9207 `iss` parameter where the provider advertises it, redeems the
+2. The callback first binds the response to the transaction of this
+   browser: the transaction must exist and `state` must match it. A failure
+   up to here keeps the transaction cookie, so a forged cross-site request
+   to the callback cannot end a sign-in in progress. The callback then
+   checks the provider of the redirect URI, an `error` answer and the RFC
+   9207 `iss` parameter where the provider advertises it, redeems the
    code once with the client secret or a `private_key_jwt` assertion, and
    validates the ID token: signature with a key of the configured issuer's
    JWKS, algorithm RS256, PS256 or ES256, `iss`, `aud` equal to the client

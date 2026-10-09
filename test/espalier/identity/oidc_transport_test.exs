@@ -5,22 +5,9 @@ defmodule Espalier.Identity.OidcTransportTest do
 
   alias Espalier.Identity.{Oidc, OidcProvider}
   alias Espalier.Identity.Oidc.HttpAdapter
+  alias Espalier.Test.CountingPlug
   alias EspalierWeb.OidcController
   alias X509.Certificate.Extension
-
-  defmodule CountingPlug do
-    @moduledoc false
-    @behaviour Plug
-
-    @impl Plug
-    def init(counter), do: counter
-
-    @impl Plug
-    def call(conn, counter) do
-      :counters.add(counter, 1, 1)
-      Plug.Conn.send_resp(conn, 200, "{}")
-    end
-  end
 
   defp request_opts_safe?(request_opts) do
     not Map.has_key?(request_opts, :ssl) and

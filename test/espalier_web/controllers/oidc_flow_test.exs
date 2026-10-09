@@ -478,6 +478,29 @@ defmodule EspalierWeb.OidcFlowTest do
       assert json_response(finish(conn3, ticket), 401) == %{"error" => "ticket_invalid"}
     end
 
+    test "a forged callback leaves the sign-in in progress intact", %{conn: conn} do
+      setup_providers([entra()])
+
+      {conn, location} = authorize(conn, "entra")
+      callback_url = decide(location, "ada")
+
+      for forged <- [
+            "/auth/oidc/entra/callback?error=access_denied&state=forged",
+            "/auth/oidc/entra/callback?error=access_denied",
+            "/auth/oidc/entra/callback?code=x&state=forged"
+          ] do
+        ref = attach_security_events()
+        forged_conn = navigate(browser(conn), forged)
+
+        assert finish_error(redirected_to(forged_conn)) == "oidc_failed", forged
+        assert_fail_event(ref, :state_not_verified)
+        assert get_resp_cookies(forged_conn) == %{}
+      end
+
+      {conn, location} = callback(conn, callback_url)
+      assert json_response(finish(conn, ticket(location)), 200)
+    end
+
     test "a malformed callback parameter fails without a 500", %{conn: conn} do
       setup_providers([entra()])
       ref = attach_security_events()

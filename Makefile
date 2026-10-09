@@ -43,7 +43,7 @@ run: ## start Phoenix with IEx, the Vite dev server and the mock OIDC provider
 
 .PHONY: dev-oidc
 dev-oidc: ## Start the mock OIDC provider on port 4010
-	$(NIX) "mix espalier.dev_oidc --port 4010"
+	$(NIX) '$(DOTENV) mix espalier.dev_oidc --port 4010'
 
 .PHONY: refresh-db
 refresh-db: ## drop, create and migrate the database
