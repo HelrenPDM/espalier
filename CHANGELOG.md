@@ -73,7 +73,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `AUTH_<KEY>_*` (task 0006): PKCE S256, `state` and `nonce`, the ID token
   allowlist RS256, PS256 and ES256, `private_key_jwt` with PS256, provider
   rules for tenant, hosted domain and groups overage, an outbound host
-  allowlist per provider, requests that follow no redirect, a single-use
+  allowlist per provider, requests through Req that follow no redirect, a single-use
   sign-in ticket bound to the transaction cookie, the MFA modes `local` and
   `idp_trusted`, provisioning, linking and step-up through single-use
   intents, front-channel and RP-initiated logout, and the mail

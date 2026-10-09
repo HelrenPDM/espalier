@@ -4,7 +4,9 @@ defmodule Espalier.Identity.Oidc.HttpAdapter do
 
   It uses Req without following redirects, so discovery, JWKS, token and
   pushed authorization requests fail on redirect responses. Req verifies TLS
-  certificates by default.
+  certificates and host names by default. A transport failure returns the
+  `Req.TransportError`, which the callback reports as `oidc_unavailable`
+  with the tag of its reason (`Espalier.Identity.Oidc.reason_tag/1`).
   """
   @behaviour :oidcc_http_adapter
 
@@ -58,8 +60,10 @@ defmodule Espalier.Identity.Oidc.HttpAdapter do
     headers = headers(headers)
 
     headers =
-      [{"content-type", to_string(content_type)}
-       | Enum.reject(headers, &(elem(&1, 0) == "content-type"))]
+      [
+        {"content-type", to_string(content_type)}
+        | Enum.reject(headers, &(elem(&1, 0) == "content-type"))
+      ]
 
     {url, headers, body(body)}
   end

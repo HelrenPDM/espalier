@@ -30,9 +30,10 @@ defmodule EspalierWeb.OidcController do
   alias EspalierWeb.TransactionCookie
   alias Oidcc.Plug.{AuthorizationCallback, Authorize}
 
-  # Errors of a provider that cannot be reached during the token request, or
-  # whose worker lost its configuration after the check of the action.
-  @unreachable [:failed_connect, :timeout, :socket_closed_remotely, :provider_not_ready]
+  # A provider whose worker lost its configuration after the check of the
+  # action; transport errors of Espalier.Identity.Oidc.HttpAdapter count as
+  # unreachable as well (callback_result/2).
+  @unreachable [:provider_not_ready]
 
   plug RateLimit, [bucket: :oidc_authorize] when action in [:authorize]
   plug RateLimit, [bucket: :oidc_callback] when action in [:callback]
@@ -268,6 +269,9 @@ defmodule EspalierWeb.OidcController do
     :exit, _reason -> :exit
   end
 
+  defp unreachable?(%Req.TransportError{}, _tag), do: true
+  defp unreachable?(_reason, tag), do: tag in @unreachable
+
   defp callback_result(conn, purpose) do
     case conn.private[AuthorizationCallback] do
       {:ok, {%Oidcc.Token{id: %Oidcc.Token.Id{token: id_token, claims: claims}}, _userinfo}} ->
@@ -275,7 +279,7 @@ defmodule EspalierWeb.OidcController do
 
       {:error, reason} ->
         tag = Oidc.reason_tag(reason)
-        code = if tag in @unreachable, do: "oidc_unavailable", else: "oidc_failed"
+        code = if unreachable?(reason, tag), do: "oidc_unavailable", else: "oidc_failed"
         {:error, purpose, tag, code}
 
       _other ->

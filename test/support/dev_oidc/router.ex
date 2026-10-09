@@ -95,9 +95,12 @@ defmodule Espalier.DevOidc.Router do
     issuer = DevOidc.issuer(profile)
 
     token_host =
-      if DevOidc.switch?(profile, :foreign_token_endpoint),
-        do: DevOidc.issuer(profile, "127.0.0.1"),
-        else: issuer
+      cond do
+        DevOidc.switch?(profile, :foreign_token_endpoint) -> DevOidc.issuer(profile, "127.0.0.1")
+        # Port 1 on the loopback interface refuses every connection.
+        DevOidc.switch?(profile, :unreachable_token_endpoint) -> "http://localhost:1"
+        true -> issuer
+      end
 
     algs =
       if DevOidc.switch?(profile, :advertise_weak_algs),

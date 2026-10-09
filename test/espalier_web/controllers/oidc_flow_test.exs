@@ -439,6 +439,16 @@ defmodule EspalierWeb.OidcFlowTest do
       assert [%{host: "127.0.0.1"}] = token_requests(:oidc)
     end
 
+    test "an unreachable token endpoint ends in oidc_unavailable", %{conn: conn} do
+      DevOidc.put_switch(:oidc, :unreachable_token_endpoint)
+      setup_providers([oidc(%{"PROVISION" => "true"})])
+      ref = attach_security_events()
+
+      assert error_of(to_callback(conn, "oidc", "olga")) == "oidc_unavailable"
+      assert_fail_event(ref, :econnrefused)
+      assert ticket_rows() == 0
+    end
+
     test "a rotated key is fetched for its new kid", %{conn: conn} do
       setup_providers([entra()])
       assert {_conn, _body, 200} = sign_in(conn, "entra", "ada")

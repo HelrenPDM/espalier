@@ -128,5 +128,9 @@ defmodule Espalier.Identity.OidcEndpointsTest do
     assert Oidc.reason_tag({:http_error, 503, "body"}) == :http_error
     assert Oidc.reason_tag({"no atom"}) == :unknown
     assert Oidc.reason_tag("text") == :unknown
+    assert Oidc.reason_tag(%Req.TransportError{reason: :econnrefused}) == :econnrefused
+
+    assert Oidc.reason_tag(%Req.TransportError{reason: {:tls_alert, :bad_certificate}}) ==
+             :tls_alert
   end
 end

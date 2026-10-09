@@ -71,7 +71,9 @@ defmodule Espalier.Identity.Oidc do
   @doc """
   The `request_opts` of every request to a provider: discovery and JWKS
   (worker), pushed authorization (`Authorize`), token (`AuthorizationCallback`).
-  No `ssl` key, so `:httpc` keeps its default TLS options.
+  No `ssl` key: `Espalier.Identity.Oidc.HttpAdapter` sends every request
+  through Req, which verifies the certificate and the host name with the
+  CA store of the system.
   """
   @spec request_opts() :: map()
   def request_opts, do: %{http_adapter: {Espalier.Identity.Oidc.HttpAdapter, %{}}}
@@ -184,11 +186,20 @@ defmodule Espalier.Identity.Oidc do
 
   @doc """
   Reduces an error term to its reason tag, the first atom of the term, so
-  no token or claim reaches the log. Terms without an atom map to
-  `:unknown`.
+  no token or claim reaches the log. An exception, such as the
+  `Req.TransportError` of an unreachable provider, yields the tag of its
+  `reason` (for example `econnrefused`, `timeout` or `tls_alert`) or its
+  module. Terms without an atom map to `:unknown`.
   """
   @spec reason_tag(term()) :: atom()
   def reason_tag(reason) when is_atom(reason) and not is_nil(reason), do: reason
+
+  def reason_tag(%{__exception__: true} = exception) do
+    case Map.get(exception, :reason) do
+      nil -> exception.__struct__
+      reason -> reason_tag(reason)
+    end
+  end
 
   def reason_tag(reason) when is_tuple(reason) do
     reason |> Tuple.to_list() |> Enum.find(:unknown, &(is_atom(&1) and not is_nil(&1)))
