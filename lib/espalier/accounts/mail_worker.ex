@@ -4,11 +4,12 @@ defmodule Espalier.Accounts.MailWorker do
   nothing about accounts (README section 6.10).
 
   Oban stores job arguments as plain JSON in `oban_jobs`, so the arguments
-  carry only the kind, the user id, a count, and addresses encrypted with
-  `Espalier.Vault.encrypt!/1` and Base64 (`docs/security/crypto-inventory.md`,
-  "Values encrypted outside Ecto types"). The worker generates every e-mail
-  token itself, inserts its hashed row and sends the link, so a raw token
-  never reaches the database or the job table.
+  carry only the kind, the user id, a count, a factor name, and addresses
+  encrypted with `Espalier.Vault.encrypt!/1` and Base64
+  (`docs/security/crypto-inventory.md`, "Values encrypted outside Ecto
+  types"). The worker generates every e-mail token itself, inserts its
+  hashed row and sends the link, so a raw token never reaches the database
+  or the job table.
 
   A skipped job returns `:ok` and logs nothing about the address. A failed
   delivery logs a warning with the job id and the mail kind, without the
@@ -16,13 +17,25 @@ defmodule Espalier.Accounts.MailWorker do
   """
   use Oban.Worker, queue: :mail, max_attempts: 5
 
+  import Ecto.Query
+
   require Logger
 
   alias Espalier.Accounts
   alias Espalier.Accounts.{User, UserNotifier, UserToken}
   alias Espalier.Repo
 
-  @kinds ~w(invitation signup change_email email_changed password_changed failed_attempts none)
+  @kinds ~w(invitation signup change_email email_changed password_changed failed_attempts
+            factor_added factor_removed recovery_codes_regenerated recovery_used
+            authenticator_disabled recovery_instructions recovery_unavailable none)
+
+  # Factor names of the job arguments, mapped without creating atoms.
+  @factors %{
+    "password" => :password,
+    "passkey" => :passkey,
+    "totp" => :totp,
+    "recovery_code" => :recovery_code
+  }
 
   @doc "Builds a job of `kind`; addresses in `args` must already be encrypted with `encrypt_arg/1`."
   def job(kind, args \\ %{}) when kind in @kinds do
@@ -43,7 +56,7 @@ defmodule Espalier.Accounts.MailWorker do
 
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"kind" => kind} = args} = job) do
-    case run(kind, args) do
+    case run(kind, args, job) do
       {:ok, _email} ->
         :ok
 
@@ -54,6 +67,55 @@ defmodule Espalier.Accounts.MailWorker do
         Logger.warning("mail delivery failed: job #{job.id}, kind #{kind}")
         {:error, :delivery_failed}
     end
+  end
+
+  # Only the link of the latest recovery request works. Jobs can run out of
+  # request order, because the mail queue runs five at a time and a failed
+  # delivery retries later. The transaction locks the user row, and a job
+  # yields to a newer recovery_instructions job of the same user; Oban job
+  # ids follow the insert order of the requests.
+  defp run("recovery_instructions", %{"user_id" => user_id}, job) do
+    with %User{email: email} = user when is_binary(email) <- Accounts.get_user(user_id),
+         true <- Accounts.local_account?(user),
+         {:ok, token} <- replace_recovery_token(user, job) do
+      UserNotifier.deliver_recovery_instructions(user, UserNotifier.recovery_url(token))
+    else
+      _ -> :skip
+    end
+  end
+
+  defp run(kind, args, _job), do: run(kind, args)
+
+  defp replace_recovery_token(user, job) do
+    {token, row} = UserToken.build_email_token(user, :recovery_email, user.email)
+
+    Repo.transact(fn ->
+      Accounts.lock_user!(user)
+
+      if newer_recovery_request?(user, job) do
+        {:error, :superseded}
+      else
+        Repo.delete_all(
+          from t in UserToken, where: t.user_id == ^user.id and t.context == :recovery_email
+        )
+
+        Repo.insert!(row)
+        {:ok, token}
+      end
+    end)
+  end
+
+  # A job that Oban.Testing.perform_job/3 builds has no id and no successor.
+  defp newer_recovery_request?(_user, %Oban.Job{id: nil}), do: false
+
+  defp newer_recovery_request?(user, %Oban.Job{id: id}) do
+    Repo.exists?(
+      from j in Oban.Job,
+        where: j.worker == ^inspect(__MODULE__) and j.id > ^id,
+        where: j.state not in ["discarded", "cancelled"],
+        where: fragment("?->>'kind'", j.args) == "recovery_instructions",
+        where: fragment("?->>'user_id'", j.args) == ^user.id
+    )
   end
 
   defp run("none", _args), do: :skip
@@ -105,13 +167,42 @@ defmodule Espalier.Accounts.MailWorker do
     end
   end
 
-  defp run("failed_attempts", %{"user_id" => user_id, "count" => count}) do
-    case Accounts.get_user(user_id) do
-      %User{email: email} = user when is_binary(email) ->
-        UserNotifier.deliver_failed_attempts(user, count)
+  defp run("failed_attempts", %{"user_id" => user_id, "count" => count} = args) do
+    factor = Map.get(@factors, args["factor"], :password)
+    with_mailbox(user_id, &UserNotifier.deliver_failed_attempts(&1, count, factor))
+  end
 
-      _ ->
-        :skip
+  defp run("factor_added", %{"user_id" => user_id, "factor" => factor}) do
+    with_mailbox(user_id, &UserNotifier.deliver_factor_added(&1, Map.fetch!(@factors, factor)))
+  end
+
+  defp run("factor_removed", %{"user_id" => user_id, "factor" => factor}) do
+    with_mailbox(user_id, &UserNotifier.deliver_factor_removed(&1, Map.fetch!(@factors, factor)))
+  end
+
+  defp run("recovery_codes_regenerated", %{"user_id" => user_id}) do
+    with_mailbox(user_id, &UserNotifier.deliver_recovery_codes_regenerated/1)
+  end
+
+  defp run("recovery_used", %{"user_id" => user_id, "count" => remaining}) do
+    with_mailbox(user_id, &UserNotifier.deliver_recovery_used(&1, remaining))
+  end
+
+  defp run("authenticator_disabled", %{"user_id" => user_id, "factor" => factor}) do
+    with_mailbox(
+      user_id,
+      &UserNotifier.deliver_authenticator_disabled(&1, Map.fetch!(@factors, factor))
+    )
+  end
+
+  defp run("recovery_unavailable", %{"user_id" => user_id}) do
+    with_mailbox(user_id, &UserNotifier.deliver_recovery_unavailable/1)
+  end
+
+  defp with_mailbox(user_id, deliver) do
+    case Accounts.get_user(user_id) do
+      %User{email: email} = user when is_binary(email) -> deliver.(user)
+      _ -> :skip
     end
   end
 

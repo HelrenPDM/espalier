@@ -8,8 +8,19 @@ defmodule Espalier.AccountsFixtures do
   import Ecto.Query
 
   alias Espalier.Accounts
-  alias Espalier.Accounts.{ExternalIdentity, Scope, User, UserToken}
-  alias Espalier.Repo
+
+  alias Espalier.Accounts.{
+    ExternalIdentity,
+    RecoveryCodes,
+    Scope,
+    Totp,
+    TotpFactor,
+    User,
+    UserToken,
+    WebauthnCredential
+  }
+
+  alias Espalier.{Repo, SoftAuthenticator}
 
   def unique_user_email, do: "user#{System.unique_integer([:positive])}@example.com"
   def valid_user_password, do: "plum orbit lantern 4719"
@@ -121,5 +132,60 @@ defmodule Espalier.AccountsFixtures do
   @doc "Returns the session row of a raw token."
   def session_row(token) do
     Repo.one(from t in UserToken, where: t.token_hash == ^UserToken.hash(token))
+  end
+
+  @doc """
+  Registers a passkey of a new soft authenticator for `user`, without a
+  ceremony, and returns `{authenticator, credential}`. The authenticator
+  carries the user handle of the user.
+  """
+  def passkey_fixture(user, opts \\ []) do
+    user = Accounts.ensure_webauthn_user_handle(user)
+
+    authenticator =
+      SoftAuthenticator.new(Keyword.put(opts, :user_handle, user.webauthn_user_handle))
+
+    credential =
+      %WebauthnCredential{}
+      |> WebauthnCredential.changeset(
+        %{
+          credential_id: authenticator.credential_id,
+          cose_key: SoftAuthenticator.cose_key(authenticator),
+          sign_count: authenticator.sign_count,
+          transports: ["internal"]
+        },
+        Scope.for_user(user)
+      )
+      |> Repo.insert!()
+
+    {authenticator, credential}
+  end
+
+  @doc """
+  Gives the user a confirmed TOTP factor and returns `{factor, secret}`.
+  """
+  def totp_fixture(user, attrs \\ %{}) do
+    secret = NimbleTOTP.secret()
+
+    factor =
+      %TotpFactor{}
+      |> TotpFactor.changeset(
+        Map.merge(%{enabled_at: DateTime.utc_now(:second)}, Map.new(attrs)),
+        Scope.for_user(user)
+      )
+      |> Totp.put_secret(secret)
+      |> Repo.insert!()
+
+    {factor, secret}
+  end
+
+  @doc "The TOTP code of `secret` for the current step."
+  def totp_code(secret, now \\ System.os_time(:second)) do
+    NimbleTOTP.verification_code(secret, time: now)
+  end
+
+  @doc "Gives the user ten recovery codes and returns their display forms."
+  def recovery_codes_fixture(user) do
+    RecoveryCodes.generate(Scope.for_user(user))
   end
 end

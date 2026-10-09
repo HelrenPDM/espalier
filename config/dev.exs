@@ -77,6 +77,9 @@ config :espalier, Espalier.Mailer,
 # Do not include metadata nor timestamps in development logs
 config :logger, :default_formatter, format: "[$level] $message\n"
 
+# Passkeys: the browser opens the SPA on the Vite port (task 0005).
+config :espalier, :webauthn, rp_id: "localhost", origins: ["http://localhost:5173"]
+
 # Set a higher stacktrace during development. Avoid configuring such
 # in production as building large stacktraces may be expensive.
 config :phoenix, :stacktrace_depth, 20

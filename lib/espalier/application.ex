@@ -68,6 +68,10 @@ defmodule Espalier.Application do
       )
     end
 
+    if not Application.get_env(:espalier, :admin_require_passkey, true) do
+      Logger.warning("ADMIN_REQUIRE_PASSKEY=false: admins may sign in and work without a passkey")
+    end
+
     if Application.get_env(:espalier, Espalier.Mailer)[:adapter] ==
          Espalier.Mailer.DisabledAdapter do
       Logger.warning("SMTP_HOST is not set: this instance delivers no mail")

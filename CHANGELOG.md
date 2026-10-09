@@ -53,8 +53,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `test/docs/asvs_matrix_test.exs` in `make check`, which compares the ASVS
   matrix, its ownership table and the security requirements of the task specs
   (task 0004a).
+- Second factors for local accounts (task 0005): discoverable passkeys with
+  `wax_` 0.7.0 and the checks it leaves to the application, TOTP with
+  `nimble_totp` 1.0.0 and a QR code from `eqrcode`, and ten single-use
+  recovery codes of 128 bits stored as HMAC-SHA256. A password sign-in
+  completes with `POST /api/auth/second-factor`, a passkey alone signs in a
+  local account, an invited person enrolls a factor before any other page,
+  and a person who lost the factors recovers with a saved recovery code and a
+  link sent by e-mail. Factor changes need a second factor from the last 10
+  minutes, and `POST /api/me/reauth` provides it.
+- `ADMIN_REQUIRE_PASSKEY` (default `true`): the last passkey of an admin
+  cannot be removed, and the session payload flags an admin without a
+  passkey (task 0005).
+- `docs/security/wax-spike.md` with the toolchain check of `wax_` and the
+  recorded Chromium virtual authenticator payloads in
+  `test/fixtures/webauthn/` (task 0005).
 
 ### Changed
+
+- Production requires an `https` `PUBLIC_URL`, because the passkey origin
+  and relying party id derive from it (task 0005).
+- `PUT /api/me/password` sets the password without the current one in an
+  enrollment or recovery session (task 0005).
 
 - The ownership table of the ASVS matrix names every row, and the matrix
   records the decided deviations for RS256, SHA-1, the previous TOTP step, the

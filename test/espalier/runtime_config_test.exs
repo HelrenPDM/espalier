@@ -15,6 +15,25 @@ defmodule Espalier.RuntimeConfigTest do
     assert config[:trusted_proxies] == []
     assert config[:public_url] == "http://localhost:5173"
     assert config[:mail_from] == {"Espalier", "noreply@localhost"}
+    assert config[:admin_require_passkey] == true
+  end
+
+  test "ADMIN_REQUIRE_PASSKEY accepts only true and false" do
+    assert RuntimeConfig.parse!(%{"ADMIN_REQUIRE_PASSKEY" => "false"}, :dev)[
+             :admin_require_passkey
+           ] ==
+             false
+
+    assert RuntimeConfig.parse!(%{"ADMIN_REQUIRE_PASSKEY" => "true"}, :dev)[
+             :admin_require_passkey
+           ] ==
+             true
+
+    for value <- ["TRUE", "1", "yes"] do
+      assert_raise ArgumentError, "ADMIN_REQUIRE_PASSKEY must be true or false", fn ->
+        RuntimeConfig.parse!(%{"ADMIN_REQUIRE_PASSKEY" => value}, :dev)
+      end
+    end
   end
 
   test "parses the values and strips one pair of surrounding quotes" do

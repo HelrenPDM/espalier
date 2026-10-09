@@ -1,7 +1,8 @@
 defmodule Espalier.Accounts.PurgeExpiredTokensWorker do
   @moduledoc """
   Daily job (Oban cron, 02:00 UTC) that deletes every token row past
-  `expires_at` and every session row idle for `SESSION_IDLE_MINUTES`.
+  `expires_at`, every session row idle for `SESSION_IDLE_MINUTES` and
+  every WebAuthn challenge past `expires_at`.
   """
   use Oban.Worker, queue: :default
 
@@ -9,7 +10,7 @@ defmodule Espalier.Accounts.PurgeExpiredTokensWorker do
 
   require Logger
 
-  alias Espalier.Accounts.UserToken
+  alias Espalier.Accounts.{AuthChallenge, UserToken}
   alias Espalier.Repo
 
   @impl Oban.Worker
@@ -25,7 +26,13 @@ defmodule Espalier.Accounts.PurgeExpiredTokensWorker do
         from t in UserToken, where: t.context == :session and t.last_seen_at <= ^idle_since
       )
 
-    Logger.info("purged #{expired} expired token rows and #{idle} idle session rows")
+    {challenges, _} = Repo.delete_all(from c in AuthChallenge, where: c.expires_at < ^now)
+
+    Logger.info(
+      "purged #{expired} expired token rows, #{idle} idle session rows and " <>
+        "#{challenges} expired challenges"
+    )
+
     :ok
   end
 end

@@ -21,30 +21,49 @@ defmodule Espalier.Accounts.SessionsTest do
       assert DateTime.diff(session.expires_at, session.authenticated_at, :hour) == 24
     end
 
+    # Rows of 0004 step 45 and of 0005 step 12: {strength, methods, attrs}.
     @accepted [
-      {:mfa, [:password, :totp]},
-      {:mfa, [:oidc, :totp]},
-      {:mfa, [:ldap, :totp]},
-      {:mfa, [:passkey]},
-      {:mfa, [:oidc, :idp_mfa]},
-      {:enrollment, [:email_code]},
-      {:demo, [:demo]},
-      {:recovery, [:recovery_code, :email_code]}
+      {:mfa, [:password, :totp], []},
+      {:mfa, [:oidc, :totp], []},
+      {:mfa, [:ldap, :totp], []},
+      {:mfa, [:passkey], []},
+      {:mfa, [:oidc, :idp_mfa], []},
+      {:enrollment, [:email_code], []},
+      {:demo, [:demo], []},
+      {:recovery, [:recovery_code, :email_code], []},
+      {:mfa, [:password, :recovery_code], []},
+      {:mfa, [:oidc, :recovery_code], []},
+      {:mfa, [:ldap, :recovery_code], []},
+      {:mfa, [:email_code, :totp], [completes: :enrollment]},
+      {:mfa, [:recovery_code, :email_code, :totp], [completes: :recovery]},
+      {:mfa, [:email_code, :passkey], []},
+      {:mfa, [:recovery_code, :email_code, :passkey], []},
+      {:enrollment, [:oidc], []},
+      {:enrollment, [:ldap], []}
     ]
 
     @rejected [
-      {:mfa, [:password]},
-      {:mfa, [:email_code]},
-      {:enrollment, [:password]},
-      {:demo, [:password]}
+      {:mfa, [:password], []},
+      {:mfa, [:email_code], []},
+      {:enrollment, [:password], []},
+      {:demo, [:password], []},
+      {:mfa, [:email_code, :totp], []},
+      {:mfa, [:email_code, :totp], [completes: :recovery]},
+      {:mfa, [:recovery_code, :email_code, :totp], []},
+      {:mfa, [:recovery_code, :email_code, :totp], [completes: :enrollment]},
+      {:mfa, [:recovery_code], []},
+      {:mfa, [:recovery_code, :email_code], []},
+      {:enrollment, [:oidc, :totp], []},
+      {:enrollment, [:passkey], []}
     ]
 
-    for {strength, methods} <- @accepted do
-      test "accepts #{inspect(methods)} with #{strength}", %{user: user} do
+    for {strength, methods, attrs} <- @accepted do
+      test "accepts #{inspect(methods)} with #{strength} #{inspect(attrs)}", %{user: user} do
         assert {_token, session} =
-                 Accounts.create_session(user,
-                   strength: unquote(strength),
-                   auth_methods: unquote(methods)
+                 Accounts.create_session(
+                   user,
+                   [strength: unquote(strength), auth_methods: unquote(methods)] ++
+                     unquote(attrs)
                  )
 
         assert session.strength == unquote(strength)
@@ -52,12 +71,12 @@ defmodule Espalier.Accounts.SessionsTest do
       end
     end
 
-    for {strength, methods} <- @rejected do
-      test "raises for #{inspect(methods)} with #{strength}", %{user: user} do
+    for {strength, methods, attrs} <- @rejected do
+      test "raises for #{inspect(methods)} with #{strength} #{inspect(attrs)}", %{user: user} do
         assert_raise ArgumentError, fn ->
-          Accounts.create_session(user,
-            strength: unquote(strength),
-            auth_methods: unquote(methods)
+          Accounts.create_session(
+            user,
+            [strength: unquote(strength), auth_methods: unquote(methods)] ++ unquote(attrs)
           )
         end
       end

@@ -20,6 +20,7 @@ defmodule Espalier.RuntimeConfig do
   | `TRUSTED_PROXIES` | `:trusted_proxies` | none |
   | `PUBLIC_URL` | `:public_url` | `http://localhost:5173`, required in production |
   | `MAIL_FROM` | `:mail_from` | `Espalier <noreply@localhost>`, required in production with `SMTP_HOST` |
+  | `ADMIN_REQUIRE_PASSKEY` | `:admin_require_passkey` | `true` |
   """
 
   @doc "Returns the settings as a keyword list for `config :espalier`."
@@ -53,7 +54,8 @@ defmodule Espalier.RuntimeConfig do
       bootstrap_admin_emails: emails!(env, "BOOTSTRAP_ADMIN_EMAILS"),
       trusted_proxies: env |> list("TRUSTED_PROXIES") |> Enum.map(&proxy!/1),
       public_url: public_url!(env, config_env),
-      mail_from: mail_from!(env, config_env)
+      mail_from: mail_from!(env, config_env),
+      admin_require_passkey: boolean!(env, "ADMIN_REQUIRE_PASSKEY", true)
     ]
   end
 

@@ -71,6 +71,11 @@ defmodule Espalier.MixProject do
       {:argon2_elixir, "~> 4.1"},
       {:hammer, "~> 7.5"},
       {:oban, "~> 2.24"},
+      {:wax_, "~> 0.7.0"},
+      {:x509, "~> 0.9"},
+      {:cbor, "~> 1.0"},
+      {:nimble_totp, "~> 1.0"},
+      {:eqrcode, "~> 0.2.1"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:sobelow, "~> 0.16", only: [:dev, :test], runtime: false, warn_if_outdated: true},
       {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false}

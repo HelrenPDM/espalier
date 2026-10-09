@@ -5,8 +5,9 @@ defmodule EspalierWeb.UserAuth do
   (README sections 6.2, 6.5 and 6.12).
 
   The Plug session of every `/api` route is the cookie `__Host-espalier`. It
-  holds `user_token` after sign-in, `_csrf_token`, and during sign-in
-  `pending_second_factor`. Every pathway ends in `log_in_user/3`, which
+  holds `user_token` after sign-in, `_csrf_token`, during sign-in
+  `pending_second_factor` with `pending_second_factor_failures`, and the
+  id of a running WebAuthn ceremony under `webauthn_ceremony`. Every pathway ends in `log_in_user/3`, which
   creates the session row with its methods and strength, deletes the row the
   cookie held before, renews the session and rotates the CSRF token.
 
@@ -232,13 +233,44 @@ defmodule EspalierWeb.UserAuth do
 
   @doc """
   Answers 403 `reauth_required` unless the session recorded a second factor
-  within the last 10 minutes (port of `require_sudo_mode/2`).
+  within the last 10 minutes (port of `require_sudo_mode/2`). Enrollment and
+  recovery sessions pass: they reach only the routes of the `:enrollment`
+  pipeline, which every route of this plug also runs.
   """
   def require_recent_auth(conn, _opts) do
-    if Scope.recent_auth?(conn.assigns[:current_scope]) do
+    if strength(conn) in [:enrollment, :recovery] or
+         Scope.recent_auth?(conn.assigns[:current_scope]) do
       conn
     else
       deny(conn, "reauth_required")
+    end
+  end
+
+  @doc """
+  Records a second factor `method` on the current session: the session row
+  is reissued with `mfa_at` now and `method` appended to `auth_methods`,
+  and the previous row is deleted in the same transaction. The copy keeps
+  every other column, among them `expires_at`, `provider_key` and the
+  bytes of `idp_sid_hash`. Returns `{:ok, conn}` with a renewed session
+  and CSRF token, or `{:error, :not_found}`.
+  """
+  def step_up(conn, method) do
+    %Scope{session: session} = conn.assigns.current_scope
+
+    methods =
+      if method in session.auth_methods,
+        do: session.auth_methods,
+        else: session.auth_methods ++ [method]
+
+    with token when is_binary(token) <- get_session(conn, :user_token),
+         {:ok, new_token} <-
+           Accounts.reissue_session(token, %{
+             mfa_at: DateTime.utc_now(:second),
+             auth_methods: methods
+           }) do
+      {:ok, put_reissued_session(conn, new_token)}
+    else
+      _ -> {:error, :not_found}
     end
   end
 

@@ -57,8 +57,21 @@ config :espalier, :rate_limits, %{
   invitation_ip: {:timer.minutes(1), 1_000_000},
   invitation_target: {:timer.minutes(1), 1_000_000},
   demo_ip: {:timer.minutes(1), 1_000_000},
-  account_change: {:timer.minutes(1), 1_000_000}
+  account_change: {:timer.minutes(1), 1_000_000},
+  passkey_options_ip: {:timer.minutes(1), 1_000_000},
+  passkey_ip: {:timer.minutes(1), 1_000_000},
+  second_factor_ip: {:timer.minutes(1), 1_000_000},
+  second_factor_user: {:timer.minutes(1), 1_000_000},
+  recovery_start_ip: {:timer.minutes(1), 1_000_000},
+  recovery_start_target: {:timer.minutes(1), 1_000_000},
+  recovery_verify_ip: {:timer.minutes(1), 1_000_000},
+  recovery_verify_user: {:timer.minutes(1), 1_000_000},
+  reauth_user: {:timer.minutes(1), 1_000_000},
+  totp_confirm_user: {:timer.minutes(1), 1_000_000}
 }
+
+# Passkeys: the SPA origin of PUBLIC_URL (task 0005).
+config :espalier, :webauthn, rp_id: "localhost", origins: ["http://localhost:5173"]
 
 # Requests from the tests stub the Pwned Passwords API.
 config :espalier, Espalier.Accounts.BreachedPasswords,

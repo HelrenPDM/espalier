@@ -383,6 +383,115 @@ This list holds exactly the rows whose `Task` column names this task, as the own
 - [ ] `grep -n "second-factor {totp | passkey | recovery_code}" docs/architecture/auth-local.puml` finds the request of step 14, and the same diagram names the TOTP check against `last_used_step`.
 - [ ] `make check` passes.
 
+## Addendum: implementation
+The implementation departs from the steps above in the points below, and later
+tasks rely on the implemented form.
+
+- Spike (step 1.6, criterion (b)): with `pubKeyCredParams` in the order of
+  step 6 (-8, -7, -257), the virtual authenticator of Chromium 147 creates an
+  EdDSA credential, so criterion (b), which names -7, fails although
+  `Wax.register/3` and `Wax.authenticate/6` verify that credential. The spike
+  script therefore takes `SPIKE_ALGS=es256`, which offers -7 alone; that run
+  meets every criterion and recorded `test/fixtures/webauthn/chromium_cdp_es256.json`.
+  `docs/security/wax-spike.md` reports both runs, and the verdict is GO.
+- Results (steps 7, 8, 10 and 11): `Passkeys.register/4` returns
+  `{:ok, credential}`, and `Passkeys.authenticate/4` returns
+  `{:ok, %{user: user, credential: credential, risk_signal: nil | "sign_count"}}`.
+  Every failure is `{:error, reason}` with an atom; the structs of `wax_`
+  map to their `reason` (for example `:user_not_verified`) or to a name such
+  as `:invalid_signature` or `:challenge_expired`. `Passkeys` also has
+  `registration_options/1`, `authentication_options/1`,
+  `new_registration_challenge/1`, `new_authentication_challenge/1`,
+  `list_credentials/1`, `get_credential/2` and `delete_credential/2`.
+  `Totp.verify/3` returns `:ok` or `{:error, :invalid_code}`,
+  `Totp.confirm/3` takes `now` as third argument, and `Totp` has `enabled?/1`
+  and `get_enabled/1`. `RecoveryCodes.use/2` keeps its name of README section
+  6.12, so the module excludes `Kernel.use/2` from its imports;
+  `RecoveryCodes.any?/1` tells whether the user holds any code row.
+- `Totp.secret!/1` also accepts a plain binary, because the struct that
+  `Repo.insert/1` returns holds the cast value and only a loaded factor holds
+  `fn -> secret end`.
+- Shared verification path (steps 14, 16, 18 to 20):
+  `Espalier.Accounts.Factors.verify(user, kind, fun, meta, opts)` checks the
+  counter of `kind`, runs `fun`, records a failure against `user` and mails
+  `authenticator_disabled` at the fiftieth, or resets the counter, mails
+  `failed_attempts` with the factor after five or more failures and logs the
+  success. `Factors.record_success/5` serves the discoverable passkey sign-in,
+  which checks no counter of the owner, and `Factors.log_failure/2` the
+  failures without a counter. `Factors.notify_change/3` enqueues the mails
+  `factor_added`, `factor_removed` and `recovery_codes_regenerated` and logs
+  `user_updated`. `FailureCounters.disable_at/0` returns 50.
+- TOTP confirmation (steps 10, 16 and 18): `POST /api/me/totp/confirm` runs
+  through `Factors.verify/5` with `events: false`, so a failure counts and
+  logs `authn_login_fail`, and a success writes no `authn_login_success` and
+  no `failed_attempts` mail. In a `recovery` session the option
+  `allow_disabled: true` lets a disabled `:totp` counter pass, so a recovery
+  can replace a TOTP factor that 50 failures disabled; a locked counter still
+  fails.
+- Web layer: `EspalierWeb.WebauthnCeremony` (`start/4`, `finish/3`) keeps
+  the ceremony id of step 5, `EspalierWeb.FactorInput` parses the factor of
+  `POST /api/auth/second-factor` and `POST /api/me/reauth`, and
+  `EspalierWeb.Me.FactorResponse` renders `other_sessions` with
+  `Accounts.count_other_sessions/3`. `FallbackController.render_error/2`
+  renders an error on a conn whose session the action changed, and
+  `SessionController.render_session/3` and `session_payload/1` add fields to
+  the session payload.
+- Response bodies (steps 15 and 17): the field `session` of an upgrading
+  `POST /api/me/passkeys` or `POST /api/me/totp/confirm` holds the whole body
+  of `GET /api/session`, so the strength sits at `session.session.strength`
+  and the new CSRF token at `session.csrf_token`. The field appears whenever
+  the strength changes; `recovery_codes` appears when codes were issued.
+- Request bodies: a body without exactly one factor key answers 400
+  `bad_request` on `POST /api/auth/second-factor` and `POST /api/me/reauth`,
+  as do a missing `credential`, `code`, `email`, `token` or `recovery_code`
+  and an unknown `purpose` of `POST /api/auth/passkey/options`.
+- Security events: `ClientData.check/3` logs `input_validation_fail` with
+  the reason itself, and `WaxCall.run/1` logs it with `exception` and the
+  reason `wax_exception`. A failed discoverable sign-in logs
+  `authn_login_fail` without `user_id`. Failures without a pending state log
+  the reason `no_pending_state`, and an unknown recovery token logs
+  `invalid_token`. `Espalier.Logger.JSONFormatter` also lists the four new
+  attribute keys in its default metadata.
+- Recovery (step 16): `Recovery.resolve_token/2` accepts a token only when it
+  was sent to the user's current address and the user is an active local
+  account, and the `recovery_instructions` job checks `local_account?/1`
+  before it creates the token.
+- Factor rules (step 12): `Factors.removable?/2` checks the admin rule before
+  the last-factor rule, so the last passkey of an admin answers
+  `admin_passkey_required` also when a TOTP factor remains.
+  `Factors.admin_passkey_required?/2` takes the roles of the scope.
+- Parameter filter (steps 2 and 21): the member `id` of a WebAuthn response
+  repeats `rawId`, and step 2 leaves `id` unfiltered, so the router log of
+  `POST /api/auth/passkey`, which receives the response as its whole body,
+  shows the credential id under `id`. The test asserts `"rawId" => "[FILTERED]"`
+  and the absence of every other member value; the registration of
+  `POST /api/me/passkeys` sits under `credential` and leaves no value at all.
+- Production configuration (step 2): `config/runtime.exs` raises a
+  `RuntimeError` that names `PUBLIC_URL` for a scheme other than `https`. A
+  production image started with an `http` `PUBLIC_URL`, such as the
+  `.env.example` value for local development, stops at boot.
+- Concurrency: `Accounts.lock_user!/1` locks the user row inside a
+  transaction. `Factors.remove/2` checks `removable?/2` and deletes the
+  factor under that lock, so two concurrent removals cannot leave an account
+  without a second factor or an admin without a passkey. `Totp.start_enrollment/1`
+  and `RecoveryCodes.generate/1` take the same lock, so concurrent calls
+  leave one unconfirmed TOTP row and one set of ten codes.
+  `Recovery.resolve_token/2` returns `{:ok, user, token_row}`, and
+  `Recovery.verify/4` takes the row and locks it before the code is checked,
+  so a link opens one recovery session also under concurrent requests. The
+  `recovery_instructions` job locks the user row and sends nothing when a
+  newer `recovery_instructions` job of the same user exists (Oban job ids
+  follow the request order), so a retried or delayed job of an earlier
+  request never replaces the link of a later one.
+- The password job `failed_attempts` carries `factor: "password"`.
+- Test support: `Espalier.SoftAuthenticator` also has `new/1`,
+  `put_user_handle/2`, `cose_key/2` and the option `:bad_signature`;
+  `Espalier.AccountsFixtures` has `passkey_fixture/2`, `totp_fixture/2`,
+  `totp_code/2` and `recovery_codes_fixture/1`; `ConnCase` has
+  `api_request/5`, `put_pending/3` and `raw_idp_sid_hash/1`; and
+  `Espalier.Test.LogForwarder` forwards the log events of the test process
+  for the formatter test of step 20.
+
 ## Notes
 - `wax_` 0.7.0 (Hex, 2025-05-18; source github.com/tanguilp/wax) has one maintainer and no independent security review, according to its README. Its documentation states a challenge timeout of `20 * 60` seconds, and `Wax.Challenge` sets `timeout: 120` (issue #58), so every call passes `timeout: 300` and the browser gets 300000 ms, the default that WebAuthn Level 3 recommends. Issue #59 reports that `Wax.register/3` accepts any COSE algorithm, RS1 (-65535) included; issue #60 reports that `crossOrigin` and `topOrigin` are dropped and that BS without BE is accepted; issue #61 and PR #62 report exceptions on malformed clientDataJSON. Each of these is a check in step 9.
 - `wax_` 0.7.0 ties the attestation format to the requested conveyance: with `"none"`, a response with `packed` and `x5c`, `tpm`, `android-key` or `fido-u2f` fails with `:invalid_attestation_conveyance_preference`, and with `"direct"`, the format `none` of synced passkeys fails (issue #51, fix in the open PR #55). The platform requests `"none"` in every ceremony.

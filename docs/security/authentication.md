@@ -1,11 +1,12 @@
 # Authentication and sessions
 
-This document describes the sign-in pathways, the sessions, the abuse
-protection and the password rules of task 0004 (ASVS 6.1.1 to 6.1.3, 7.1.1,
-7.1.2 and 8.1.1). The verification matrix is [`asvs-l2.md`](asvs-l2.md), the
-log inventory is [`logging.md`](logging.md), and the plan is README sections
-6.2 to 6.5, 6.10 and 6.11. Tasks 0005 to 0007 add their pathways and factors
-to this document.
+This document describes the sign-in pathways, the second factors, the
+sessions, the abuse protection and the password rules of tasks 0004 and 0005
+(ASVS 6.1.1 to 6.1.3, 7.1.1, 7.1.2 and 8.1.1). The verification matrix is
+[`asvs-l2.md`](asvs-l2.md), the log inventory is [`logging.md`](logging.md),
+and the plan is README sections 6.2 to 6.6, 6.10 and 6.11. Tasks 0006 and
+0007 add their pathways to this document. The toolchain check of the passkey
+library is [`wax-spike.md`](wax-spike.md).
 
 ## Pathways and session strength
 
@@ -13,35 +14,68 @@ Every pathway ends in `EspalierWeb.UserAuth.log_in_user/3`, which calls
 `Espalier.Accounts.create_session/2`. That function raises `ArgumentError`
 unless `Espalier.Accounts.UserToken.strength_valid?/3` accepts the strength for
 the methods of the sign-in, so a password alone never opens a session
-(ASVS 6.3.4). README section 6.2 lists every pathway of the platform; this
-task implements three of them and the state in between.
+(ASVS 6.3.4). README section 6.2 lists every pathway of the platform. A
+local account reaches a full session only with a passkey, or with a first
+factor and a second factor (ASVS 6.3.3).
 
 | Pathway | Route | First step | Result | Methods | Strength |
 |---|---|---|---|---|---|
-| Password | `POST /api/auth/password` | Argon2id verification | pending second-factor state in the session cookie, five minutes; no session row (task 0005 completes it) | `password` | none until the second factor |
+| Password | `POST /api/auth/password` | Argon2id verification | pending second-factor state in the session cookie, five minutes; no session row | `password` | none until the second factor |
+| Second factor | `POST /api/auth/second-factor` | the pending state of a first factor | full session; the row keeps `provider_key` and `idp_sid_hash` of the pending state | the first factor and `totp`, `passkey` or `recovery_code` | `mfa` |
+| Passkey (local accounts only) | `POST /api/auth/passkey/options` and `POST /api/auth/passkey` | discoverable WebAuthn credential with user verification | full session | `passkey` | `mfa` |
 | Invitation | `POST /api/auth/invitations/accept` | single-use e-mail link, 10 minutes | enrollment session, 30 minutes; it reaches only the `:enrollment` pipeline | `email_code` | `enrollment` |
+| Enrollment | `POST /api/me/passkeys`, or `PUT /api/me/password` and `POST /api/me/totp/confirm` | an enrollment session | full session, and ten recovery codes when the user holds none | `email_code` and `passkey` or `totp` | `mfa` |
+| Recovery (local accounts only) | `POST /api/auth/recovery/start` and `POST /api/auth/recovery/verify` | a link sent by e-mail, 10 minutes, and a saved recovery code | recovery session, 30 minutes; it reaches only the `:enrollment` pipeline | `recovery_code`, `email_code` | `recovery` |
+| Completed recovery | `POST /api/me/passkeys` or `POST /api/me/totp/confirm` | a recovery session | full session, ten new recovery codes, every failure counter cleared | `recovery_code`, `email_code` and `passkey` or `totp` | `mfa` |
+| Step-up | `POST /api/me/reauth` | an `mfa` session and a TOTP code or a passkey | the session row is reissued with `mfa_at` now | the method is appended | `mfa` |
 | Demo (`AUTH_DEMO=true` only) | `POST /api/auth/demo` | choice of slot 1 to 20 | demo session; the flag `demo` of the session payload marks every page | `demo` | `demo` |
 
-The strength check of this task accepts:
+Passkey sign-in serves only accounts without an external identity. A user
+with an `external_identities` row signs in through the provider or the
+directory and uses a local passkey only as second factor, so the provider or
+the directory can still block the account, `idp_claim` grants are replaced at
+each sign-in, and the session row carries the `provider_key`. With
+`LOCAL_ACCOUNTS=false`, the passkey sign-in and both recovery routes answer
+404; the purposes `second_factor` and `reauth` of the passkey options stay
+available for federated users with a local passkey.
+
+The strength check accepts:
 
 | Strength | Methods |
 |---|---|
-| `mfa` | a list with `passkey`, a list with `idp_mfa`, or `totp` together with `password`, `oidc` or `ldap` |
-| `enrollment` | exactly `[email_code]` |
+| `mfa` | a list with `passkey`, a list with `idp_mfa`, or `totp` or `recovery_code` together with `password`, `oidc` or `ldap`; `[email_code, totp]` only with `completes: :enrollment`, and `[recovery_code, email_code, totp]` only with `completes: :recovery` |
+| `enrollment` | exactly `[email_code]`, `[oidc]` or `[ldap]` (the last two for a first federated sign-in without a local factor, tasks 0006 and 0007) |
 | `demo` | exactly `[demo]` |
 | `recovery` | `recovery_code` and `email_code` |
 
-Task 0005 adds the clauses for a recovery code as second factor, for the
-completion of an enrollment or a recovery, and for the federated enrollment
-sessions. Every other combination raises.
+`completes:` is an attribute of `Espalier.Accounts.Factors.complete_enrollment/3`;
+`create_session/2` reads it for the check and stores it in no column. Every
+other combination raises `ArgumentError`.
 
 `require_authenticated_user/2` passes the strengths `mfa` and `demo` and
 answers 403 `enrollment_required` for `enrollment` and `recovery`.
 `require_enrollment_session/2` passes `enrollment`, `recovery` and `mfa` and
 answers 403 `forbidden` for `demo`. `require_recent_auth/2` answers 403
 `reauth_required` unless the session recorded a second factor (`mfa_at`)
-within the last 10 minutes; it guards the password change, the e-mail change
-and the ending of a session (ASVS 7.5.1).
+within the last 10 minutes, or the session has the strength `enrollment` or
+`recovery`, which reaches only the routes of the `:enrollment` pipeline. It
+guards the password change, the e-mail change, the ending of a session and
+every factor change (ASVS 7.5.1). A route with both pipelines names
+`:enrollment` first, so a request without a session and a demo session halt
+before the recent-auth check.
+
+| Pipelines | Routes |
+|---|---|
+| `:enrollment` | `GET /api/me/security` |
+| `:enrollment`, `:recent_auth` | `POST /api/me/passkeys/options`, `POST /api/me/passkeys`, `POST /api/me/totp`, `POST /api/me/totp/confirm`, `PUT /api/me/password` |
+| `:authenticated` | `GET /api/me/sessions`, `POST /api/me/reauth` |
+| `:authenticated`, `:recent_auth` | `DELETE /api/me/sessions/:id`, `PUT /api/me/email`, `POST /api/me/email/confirm`, `DELETE /api/me/passkeys/:id`, `DELETE /api/me/totp`, `POST /api/me/recovery-codes` |
+
+In an `enrollment` or `recovery` session, `PUT /api/me/password` sets the
+password without the current one. Such a session exists only for a user
+without a second factor, or after a saved recovery code and a link sent by
+e-mail, so a forgotten-password reset never bypasses an enabled second factor
+(ASVS 6.4.3).
 
 ## Sessions
 
@@ -101,15 +135,19 @@ succeeds.
 | User ends a session (`DELETE /api/me/sessions/:id`, recent second factor) | that row is deleted (ASVS 7.5.2) |
 | Admin ends sessions (`end_user_sessions/2`, `end_all_sessions/1`, `Espalier.Release.end_all_sessions/0`) | the rows of one user or of all users are deleted (ASVS 7.4.5) |
 | Invitation accepted | every token row of the user is deleted, which makes the link single-use |
+| Second factor, passkey sign-in, recovery verification, completed enrollment or recovery | `log_in_user/3` creates a new row with a new token and deletes the row the cookie held (ASVS 7.2.4) |
+| Step-up (`POST /api/me/reauth`) | `EspalierWeb.UserAuth.step_up/2` reissues the row with `mfa_at` now (ASVS 7.2.4) |
+| Factor added or removed, completed recovery | the answer carries `other_sessions`, the number of the user's other live sessions, so the SPA offers `DELETE /api/me/sessions/:id` for them (ASVS 7.4.3) |
 
 `reissue_session/2` replaces a row by a copy with a new token in one
-transaction and keeps `expires_at`; task 0005 uses it for the step-up.
+transaction and keeps every other column, among them `expires_at`,
+`provider_key` and the bytes of `idp_sid_hash`; `step_up/2` uses it.
 
 ### Cookies and CSRF
 
 | Cookie | Attributes | Content |
 |---|---|---|
-| `__Host-espalier` | `Secure`, `HttpOnly`, `Path=/`, no `Domain`, `SameSite=Strict`, encrypted and signed (`Plug.Session` cookie store with `encryption_salt`) | the session token, the CSRF token, the pending second-factor state, and the WebAuthn ceremony id of task 0005; no personal data |
+| `__Host-espalier` | `Secure`, `HttpOnly`, `Path=/`, no `Domain`, `SameSite=Strict`, encrypted and signed (`Plug.Session` cookie store with `encryption_salt`) | the session token, the CSRF token, the pending second-factor state with its failure count (`pending_second_factor_failures`), and the id of a running WebAuthn ceremony (`webauthn_ceremony`, the id of an `auth_challenges` row); no personal data |
 | `__Host-espalier_tx` | as above with `SameSite=Lax` and `Max-Age=600` | the data of one OIDC flow (task 0006) |
 
 The options live in `EspalierWeb.TransactionCookie`. The CSRF defense has three
@@ -144,6 +182,16 @@ logs `excess_rate_limit_exceeded`.
 | `invitation_target` | 1 hour | 3 | keyed hash of the normalized address | `POST /api/auth/invitations` |
 | `demo_ip` | 1 minute | 10 | client IP | `POST /api/auth/demo` |
 | `account_change` | 15 minutes | 10 | keyed hash of the user id | `PUT /api/me/password`, `PUT /api/me/email` |
+| `passkey_options_ip` | 1 minute | 30 | client IP | `POST /api/auth/passkey/options` |
+| `passkey_ip` | 1 minute | 10 | client IP | `POST /api/auth/passkey` |
+| `second_factor_ip` | 1 minute | 10 | client IP | `POST /api/auth/second-factor` |
+| `second_factor_user` | 1 minute | 10 | keyed hash of the pending user id | `POST /api/auth/second-factor` |
+| `recovery_start_ip` | 1 minute | 10 | client IP | `POST /api/auth/recovery/start` |
+| `recovery_start_target` | 1 hour | 3 | keyed hash of the normalized address | `POST /api/auth/recovery/start` |
+| `recovery_verify_ip` | 1 minute | 10 | client IP | `POST /api/auth/recovery/verify` |
+| `recovery_verify_user` | 15 minutes | 10 | keyed hash of the user id that the e-mail token resolves to | `POST /api/auth/recovery/verify` |
+| `reauth_user` | 1 minute | 10 | keyed hash of the session user id | `POST /api/me/reauth` |
+| `totp_confirm_user` | 1 minute | 10 | keyed hash of the session user id | `POST /api/me/totp/confirm` |
 
 Account keys are HMAC-SHA256 under a key derived once at boot from
 `SECRET_KEY_BASE`, so the limiter holds no address. Known and unknown
@@ -156,24 +204,91 @@ would need a shared backend such as `hammer_backend_redis`.
 ### Failure counters
 
 `Espalier.Accounts.FailureCounters` keeps one row per user and authenticator
-in `failure_counters` (README section 6.10):
+in `failure_counters` (README section 6.10). The kinds are `:password` and
+the second factors `:totp`, `:passkey` and `:recovery_code`
+(`Espalier.Accounts.Factors.verify/5`):
 
 - From the fifth consecutive failure, the authenticator is locked for
   `min(30 * 2^(n - 5), 3600)` seconds after failure `n`: 30 seconds after the
   fifth, 60 after the sixth, 960 after the tenth, and one hour from the
   twelfth. Reaching 5 logs `authn_login_fail_max`.
-- The fiftieth failure disables the authenticator and logs `authn_login_lock`.
-  The limit stays below the NIST limit of 100. Only a completed recovery
-  (task 0005) or an admin (task 0015) clears `disabled_at`.
+- The fiftieth failure disables the authenticator and logs `authn_login_lock`;
+  for a second factor it also sends the mail `authenticator_disabled`. The
+  limit stays below the NIST limit of 100. Only a completed recovery
+  (`FailureCounters.clear_all/1`) or an admin (task 0015) clears
+  `disabled_at`. The confirmation of a new TOTP factor in a recovery session
+  passes a disabled `:totp` counter, so a recovery can replace that factor.
 - An attempt against a locked or disabled authenticator is rejected without
   verification and without counting, with the same answer as a wrong password.
 - A success resets the count and the lock. A success after five or more
   failures sends the mail `failed_attempts` and logs
   `authn_login_successafterfail`.
 
+A failure counts only against the user that the request identifies before
+any verification: the pending user on `POST /api/auth/second-factor` (also
+when the assertion names a credential of another account), the session user
+on `POST /api/me/reauth` and `POST /api/me/totp/confirm`, and the user that
+the e-mail token resolves to on `POST /api/auth/recovery/verify`.
+
+A failed discoverable passkey sign-in (`POST /api/auth/passkey`) counts only
+per IP, in the bucket `passkey_ip`, whatever the reason of the failure, and
+never against the owner of the credential. Credential ids are no secret:
+`allowCredentials` of the second-factor options lists them to anyone who
+holds the password. A valid signature cannot be guessed, so counting a wrong
+one against the owner adds no protection, and it would let anyone who knows
+a credential id disable the owner's passkeys from rotating addresses.
+
 Protection against malicious lockout: the counters lock one authenticator,
-never the account. A locked password leaves passkey sign-in (task 0005)
-available, and the lock lasts at most one hour until the disable limit.
+never the account. A locked password leaves passkey sign-in available, and
+the lock lasts at most one hour until the disable limit.
+
+## Second factors
+
+The second factors of README section 6.6 live in `Espalier.Accounts.Passkeys`,
+`Espalier.Accounts.Totp` and `Espalier.Accounts.RecoveryCodes`; the rules
+that combine them live in `Espalier.Accounts.Factors`.
+
+**Passkeys** (`wax_` 0.7.0, [`wax-spike.md`](wax-spike.md)). Registration and
+authentication use attestation `"none"`, `user_verification: "required"`, the
+relying party id and the exact origin list of `config :espalier, :webauthn`
+(in production the host and the origin of `PUBLIC_URL`, which must use
+`https`) and 300 seconds. Credentials are discoverable. The application adds
+the checks that `wax_` leaves open:
+
+| Check | Module |
+|---|---|
+| Each challenge is stored in `auth_challenges` with its purpose and its user (or none for a sign-in), lives 300 seconds, and is deleted before it is checked, so it works once | `Espalier.Accounts.Challenges` |
+| `clientDataJSON` must have the expected `type`, a base64url `challenge`, an origin of the list, `crossOrigin` absent or `false` and no `topOrigin` (`wax_` issue #60) | `Espalier.Accounts.Passkeys.ClientData` |
+| The COSE algorithm of a new credential must be -7, -8 or -257 (`wax_` issue #59, decision D13) | `Espalier.Accounts.Passkeys.Checks.algorithm_allowed?/1` |
+| Authenticator data with the backup state set and backup eligibility unset fails | `Checks.backup_flags_valid?/1` |
+| The `userHandle` must belong to the owner of the credential; a discoverable sign-in requires it | `Checks.user_handle_valid?/3` |
+| A sign count that does not increase is logged as `risk_signal: "sign_count"`; the stored count never decreases | `Checks.sign_count/2` |
+| Every `wax_` call is wrapped; a raised exception fails the ceremony and is logged without its message (`wax_` issue #61) | `Espalier.Accounts.Passkeys.WaxCall` |
+
+The WebAuthn user handle is 64 random bytes in `users.webauthn_user_handle`
+and holds no personal data.
+
+**TOTP** (`nimble_totp` 1.0.0). A 20-byte secret, encrypted with the closure
+type in `totp_factors.secret`, counts once a valid code confirms it.
+Verification accepts the current and the previous 30-second step (decision
+D15) and stores the matched step in `last_used_step` with a conditional
+update, so each code works once (ASVS 6.5.1). Codes are HMAC-SHA-1 values
+(decision D14). TOTP is a second factor only, so its enrollment in an
+enrollment or recovery session needs a password or an external identity
+first (409 `password_required`).
+
+**Recovery codes.** Ten codes of 128 bits each, shown once as 26 base32
+characters in groups of four, stored as HMAC-SHA256 under
+`Espalier.Accounts.RecoveryCodes.key/0` with `used_at`. Regeneration replaces
+every earlier code.
+
+**Factor rules.** A user is enrolled with a passkey, or with a confirmed TOTP
+factor together with a password or an external identity. The last remaining
+second factor cannot be removed (409 `last_factor`). With
+`ADMIN_REQUIRE_PASSKEY=true` (default) the last passkey of an admin cannot be
+removed (409 `admin_passkey_required`), and `flags.admin_passkey_required` of
+`GET /api/session` marks an admin without a passkey; task 0015 adds the
+passkey gate on the admin routes. The value `false` logs a warning at boot.
 
 ## Passwords
 
@@ -213,7 +328,8 @@ available, and the lock lasts at most one hour until the disable limit.
 
 Users change the password with `PUT /api/me/password` and both the current
 and the new password (ASVS 6.2.2, 6.2.3); a wrong current password counts as
-a password failure.
+a password failure. Enrollment and recovery sessions set it without the
+current one (section "Pathways and session strength").
 
 ## Enumeration
 
@@ -225,10 +341,14 @@ status and timing for known and unknown accounts (ASVS 6.3.8):
   locked counter and a stored value that is no Argon2 hash. Every branch runs
   one Argon2 verification; branches without a usable hash run
   `Argon2.no_user_verify/0`.
-- `POST /api/auth/invitations` and `PUT /api/me/email` always answer 202.
-  Every request causes one lookup and one job insert (an invitation, a
-  `signup` job, a `change_email` job or the no-op job `none`), and every mail
-  goes out through Oban, so the answer does not wait for SMTP.
+- `POST /api/auth/invitations`, `PUT /api/me/email` and
+  `POST /api/auth/recovery/start` always answer 202. Every request causes one
+  lookup and one job insert (an invitation, a `signup` job, a `change_email`
+  job, `recovery_instructions`, `recovery_unavailable` or the no-op job
+  `none`), and every mail goes out through Oban, so the answer does not wait
+  for SMTP.
+- Every failure of a second factor, a passkey sign-in, a recovery
+  verification and a step-up answers the same 401 `authentication_failed`.
 - `test/espalier_web/enumeration_timing_test.exs` (`mix test --only timing`)
   sends 40 sign-ins with the production Argon2 parameters and asserts that
   the medians for known and unknown addresses differ by less than 25 percent.
@@ -241,7 +361,16 @@ status and timing for known and unknown accounts (ASVS 6.3.8):
 | `change_email` | `PUT /api/me/email` | the new address; the link `/account/email/confirm#token=` lives 10 minutes |
 | `email_changed` | confirmed e-mail change | the old address (ASVS 6.3.7) |
 | `password_changed` | password change | the account (ASVS 6.3.7) |
-| `failed_attempts` | password sign-in after five or more failures | the account (ASVS 6.3.5) |
+| `failed_attempts` | sign-in with the password or a second factor after five or more failures of that factor; the mail names the factor | the account (ASVS 6.3.5) |
+| `authenticator_disabled` | the fiftieth failure of a second factor | the account (ASVS 6.3.5) |
+| `factor_added` | passkey registered, TOTP confirmed | the account (ASVS 6.3.7) |
+| `factor_removed` | passkey or TOTP removed, TOTP replaced in a recovery session | the account (ASVS 6.3.7) |
+| `recovery_codes_regenerated` | `POST /api/me/recovery-codes` | the account (ASVS 6.3.7) |
+| `recovery_used` | a recovery code as second factor, and every recovery verification | the account (ASVS 6.3.7) |
+| `recovery_instructions` | `POST /api/auth/recovery/start` for an active local user with unused recovery codes | the account; the link `/recover#token=` lives 10 minutes, only the link of the latest request works, also when its mail jobs run out of order, and the link opens one recovery session |
+| `recovery_unavailable` | the same request for an active local user without unused recovery codes | the account; the mail explains the admin-assisted reset (decision D11) and carries no link |
+
+No mail contains a code, a TOTP secret, a credential id or a session token.
 
 Tokens travel in the URL fragment, so they reach neither the server log nor
 the `Referer` header. Users without an address receive no mail. Production

@@ -17,11 +17,13 @@ defmodule Espalier.Accounts do
     ApiClient,
     Demo,
     ExternalIdentity,
+    Factors,
     FailureCounters,
     MailWorker,
     PasswordPolicy,
     RoleGrant,
     Scope,
+    Totp,
     User,
     UserToken
   }
@@ -76,11 +78,24 @@ defmodule Espalier.Accounts do
   def local_account?(%User{}), do: false
 
   @doc """
-  True when the user holds a local second factor.
-
-  Task 0005 implements it as "holds a passkey or an active TOTP factor".
+  True when the user holds a local second factor: a passkey or a confirmed
+  TOTP factor (`Espalier.Accounts.Factors`).
   """
-  def enrolled?(%User{}), do: false
+  def enrolled?(%User{} = user), do: Factors.holds_passkey?(user) or Totp.enabled?(user)
+
+  @doc """
+  Sets a random 64-byte WebAuthn user handle when the user has none, and
+  returns the reloaded user. The conditional update keeps one handle under
+  concurrent requests; the handle holds no personal data.
+  """
+  def ensure_webauthn_user_handle(%User{} = user) do
+    Repo.update_all(
+      from(u in User, where: u.id == ^user.id and is_nil(u.webauthn_user_handle)),
+      set: [webauthn_user_handle: :crypto.strong_rand_bytes(64)]
+    )
+
+    Repo.get!(User, user.id)
+  end
 
   @doc """
   True for an active local user with an address, without an external
@@ -153,7 +168,14 @@ defmodule Espalier.Accounts do
     previous = FailureCounters.reset(user, :password)
 
     if previous >= 5 do
-      Oban.insert!(MailWorker.job("failed_attempts", %{user_id: user.id, count: previous}))
+      Oban.insert!(
+        MailWorker.job("failed_attempts", %{
+          user_id: user.id,
+          count: previous,
+          factor: "password"
+        })
+      )
+
       SecurityLog.event(:authn_login_successafterfail, Map.put(log, :count, previous))
     end
 
@@ -212,7 +234,7 @@ defmodule Espalier.Accounts do
     {:ok, session} =
       Repo.transact(fn ->
         delete_replaced_session(user, attrs[:replaces])
-        Repo.one!(from u in User, where: u.id == ^user.id, lock: "FOR UPDATE", select: u.id)
+        lock_user!(user)
         trim_sessions(user, now)
         {:ok, Repo.insert!(row)}
       end)
@@ -312,6 +334,15 @@ defmodule Espalier.Accounts do
     })
 
     {:error, :expired}
+  end
+
+  @doc """
+  Locks the row of the user until the end of the running transaction, which
+  serializes the changes of one account: sessions, factors and recovery
+  codes. Call it inside `Repo.transact/1`.
+  """
+  def lock_user!(%User{id: user_id}) do
+    Repo.one!(from u in User, where: u.id == ^user_id, lock: "FOR UPDATE", select: u.id)
   end
 
   @doc "Sets `last_login_at` of the user to now."
@@ -414,6 +445,14 @@ defmodule Espalier.Accounts do
             :strength,
             :device_summary
           ])
+    )
+  end
+
+  @doc "Counts the live sessions of a user other than `session_id`."
+  def count_other_sessions(%User{id: user_id}, session_id, now \\ DateTime.utc_now()) do
+    Repo.aggregate(
+      from(t in live_sessions_query(user_id, now), where: t.id != ^session_id),
+      :count
     )
   end
 
