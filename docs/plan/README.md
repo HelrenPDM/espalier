@@ -433,16 +433,18 @@ of the user.
   both through `quirks.document_overrides`; without the first override, `oidcc`
   drops PKCE without warning. Client authentication uses a certificate
   (`private_key_jwt`) with PS256 assertions, the algorithm that Microsoft
-  documents (decision D13); a spike in task 0006 verifies which key id and
-  audience Entra accepts and that it accepts PS256 alone. Client secrets are
-  allowed only in development.
+  documents (decision D13); the spike of task 0006 (2026-10-09) showed that
+  Entra accepts the key id as `x5t`, the issuer as audience and PS256. Client
+  secrets are allowed only in development.
 - **Google Workspace.** `hd` must equal the configured domain; identity key
   issuer and `sub`.
 - **Linking and step-up.** `POST /api/auth/oidc/:provider/intents` creates a
   single-use intent (5 minutes, bound to the creating session) for linking an
   identity or for a step-up. A step-up for `idp_trusted` users is a new
   authorization request with `max_age=0`, followed by a check of `auth_time`;
-  Entra ID sends `auth_time`, `amr` and `sid` only as configured optional claims.
+  Entra ID sends `auth_time` and `sid` only as configured optional claims, and
+  the spike of task 0006 saw no `amr`, so `idp_trusted` mode rests on the
+  operator's statement for Entra ID.
 - **Logout.** RP-initiated logout through `:oidcc_logout.initiate_url/3` where
   the provider offers an `end_session_endpoint`, with the post-logout redirect
   URI `PUBLIC_URL/signed-out`. `DELETE /api/session` returns the `logout_url`
@@ -1169,7 +1171,7 @@ Each task has a GitHub issue under its milestone, and
 | D1 | Project name | Decided: Espalier (module `Espalier`, app `:espalier`). A tree trained along a frame stands for guided growth without ranking. On 2026-10-07 the name was free on Hex, and no GitHub learning project used it. |
 | D2 | License | Decided: Apache-2.0. |
 | D3 | Public repository host | Decided: a public GitHub repository is the only host. It runs CI with GitHub Actions and accepts issues and pull requests (task 0002). |
-| D4 | Entra ID test tenant | Decided: a test tenant is provided before the spike in 0006. The spike checks the key id and audience of the client assertion, PS256 against RS256, whether `max_age=0` forces re-authentication, whether the ID token carries `auth_time`, `amr` and `sid`, and the query parameters of front-channel logout. |
+| D4 | Entra ID test tenant | Decided: a test tenant is provided before the spike in 0006. The spike checks the key id and audience of the client assertion, PS256 against RS256, whether `max_age=0` forces re-authentication, whether the ID token carries `auth_time`, `amr` and `sid`, and the query parameters of front-channel logout. Done on 2026-10-09 in a Microsoft 365 business tenant of the maintainer; the identity provider guide records the results. |
 | D5 | Defaults for demo instances | Decided: `TRACKING_DETAIL=minimal`, `REGISTRAR_ENABLED=false`, `AUTH_DEMO=true`, no external identity provider. `.env.demo.example` holds these values, and `make demo-env` and `make demo-up` start a demo instance (task 0017). |
 | D6 | SAML | Later: a SAML adapter only when an adopter needs it. |
 | D7 | TypeScript 7 | Later: evaluate after 0012, once the frontend has tests. |
@@ -1178,7 +1180,7 @@ Each task has a GitHub issue under its milestone, and
 | D10 | Breached-password check | Decided: `PASSWORD_BREACH_CHECK=off` with the bundled lists. `hibp` stays available as an option; the GDPR workstream assesses it before anyone enables it. |
 | D11 | Recovery without any factor | Decided: admin-assisted reset after identity verification by the organization (`POST /api/admin/users/:id/reset-factors`, task 0015), logged and notified. No self-service path without a recovery code. |
 | D12 | Password normalization | Decided: passwords are normalized to Unicode NFC (`String.normalize(password, :nfc)`) in `PasswordPolicy.prepare/1` before every length check, blocklist check, hash and verification. This follows NIST SP 800-63B-4 section 3.1.1.2 and deviates from ASVS 6.2.8, which asks for verification exactly as received; the matrix records the deviation. The platform stores no passwords before this rule applies, so no rehash migration is needed. |
-| D13 | RS256 | Decided: RS256 stays only for verification, where a provider or an authenticator offers no other algorithm. The ID token allowlist keeps RS256 next to PS256 and ES256, because the discovery documents of Google and Entra ID list RS256 as their only signing algorithm (retrieved 2026-10-08). Passkeys keep COSE -257 next to -7 and -8, because the FIDO metadata lists the Windows Hello authenticators with RS256 only and WebAuthn Level 3 asks relying parties to offer it. Every `private_key_jwt` client assertion uses PS256 alone, the algorithm that Microsoft documents for Entra ID, and a provider that accepts no PS256 authenticates the client with a secret. oidcc signs no request object and no DPoP proof, because task 0006 switches both off. The spike of decision D4 checks that Entra accepts PS256; when it does not, the `entra` list becomes `["RS256"]`. ASVS Appendix C lists RSASSA-PKCS1-v1_5 as disallowed, so the matrix records RS256 as a deviation from ASVS 11.6.1. |
+| D13 | RS256 | Decided: RS256 stays only for verification, where a provider or an authenticator offers no other algorithm. The ID token allowlist keeps RS256 next to PS256 and ES256, because the discovery documents of Google and Entra ID list RS256 as their only signing algorithm (retrieved 2026-10-08). Passkeys keep COSE -257 next to -7 and -8, because the FIDO metadata lists the Windows Hello authenticators with RS256 only and WebAuthn Level 3 asks relying parties to offer it. Every `private_key_jwt` client assertion uses PS256 alone, the algorithm that Microsoft documents for Entra ID, and a provider that accepts no PS256 authenticates the client with a secret. oidcc signs no request object and no DPoP proof, because task 0006 switches both off. The spike of decision D4 showed on 2026-10-09 that Entra accepts PS256. ASVS Appendix C lists RSASSA-PKCS1-v1_5 as disallowed, so the matrix records RS256 as a deviation from ASVS 11.6.1. |
 | D14 | SHA-1 | Decided: TOTP computes HMAC-SHA-1, as RFC 6238 defines it by default and as `nimble_totp` 1.0.0 offers it (task 0005), and the breached-password check sends the SHA-1 prefix that the Pwned Passwords range API defines (task 0004). ASVS Appendix C rates both as legacy, and the matrix records each use as a deviation from ASVS 11.4.1. |
 | D15 | Announced deviations | Decided: the ownership table marks the deviations that the task specs announce, as it marks 6.2.8: the previous TOTP step under ASVS 6.5.5 (task 0005), the password bind of the directory service account under ASVS 13.2.1 (task 0007), and `code`, `state` and the OIDC intent in a query string under ASVS 14.2.1 (task 0011, with the measures of task 0006). The section "Deviations" of the matrix holds each entry with rule and reason. |
 | D16 | ASVS scan rows | Decided: every row of the matrix appears in the ownership table of task 0004 (step 42), and the section "Security requirements" of each task spec lists exactly the rows whose `Task` column names that task. `test/docs/asvs_matrix_test.exs` checks both rules in `make check`. |
@@ -1189,7 +1191,7 @@ Each task has a GitHub issue under its milestone, and
 | Risk | Mitigation |
 |---|---|
 | For users in many groups, Entra ID replaces the groups claim with an overage indicator. | The Entra preset maps App Roles (`roles` claim). A groups overage indicator fails the sign-in. |
-| Entra ID may reject the client assertion that `oidcc` builds (only `kid` in the header, audience defaults to the issuer). | Spike in 0006 against a tenant (D4). Fallback: a callback controller around `Oidcc.Token.retrieve/3` with an explicit `audience`. |
+| Entra ID may reject the client assertion that `oidcc` builds (only `kid` in the header, audience defaults to the issuer). | Spike in 0006 against a tenant (D4), 2026-10-09: Entra accepts the assertion with the key id `x5t` and the issuer as audience, so the fallback around `Oidcc.Token.retrieve/3` is not needed. |
 | `cloak` and `cloak_ecto` have no maintainer activity since 2024 and carry two advisories. | Only AES-GCM and HMAC are used, both unaffected. The strict wrapper and an own rotation function cover known defects. Fallback type on `:crypto` (6.9). |
 | `wax_` has one maintainer, no independent security review, and gaps that the application must close. | Spike first in 0005, recorded in `docs/security/wax-spike.md`; the application checks listed in 6.6 each have a test; the repository watches for a `wax_` 0.8 release. |
 | The first directory or federated sign-in enrolls a second factor on the strength of the first factor alone. | The user receives a notification for every new factor; admins can reset factors (D11). |

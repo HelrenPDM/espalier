@@ -144,7 +144,10 @@ These routes are the only OIDC entry points (ASVS 6.3.4):
 
 A missing `amr` keeps the operator's statement that the provider enforces
 multi-factor sign-in (README section 6.2, rule 4), and the boot logs a
-warning for every provider in `idp_trusted` mode (ASVS 6.8.4). In `local`
+warning for every provider in `idp_trusted` mode (ASVS 6.8.4). Entra ID
+sends no `amr`, also after a sign-in with MFA (spike of task 0006,
+2026-10-09), so for Entra ID that statement, backed by Conditional Access or
+security defaults, is the only basis of `idp_trusted` mode. In `local`
 mode, whoever passes the provider's sign-in first for a new account binds
 the first local factor; the guide states this for operators who switch
 provisioning on.

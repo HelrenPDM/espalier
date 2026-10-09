@@ -128,7 +128,7 @@ defmodule Espalier.Identity.ConfigTest do
                start_url: "/auth/oidc/entra",
                tenant_id: @tenant,
                client_auth: :private_key_jwt,
-               kid_format: :x5t_s256,
+               kid_format: :x5t,
                role_claim: "roles",
                mfa: :local,
                mfa_amr: ["mfa"],

@@ -81,7 +81,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - A mock OIDC provider in `test/support/dev_oidc/`, started by `make run`
   and `make dev-oidc` on port 4010 and by the test suite on port 4011
   (task 0006).
-- `docs/guides/identity-providers.md` as a draft (task 0006).
+- `docs/guides/identity-providers.md` as a draft, with the results of the
+  Entra spike; client certificates name themselves by the `x5t` key id,
+  the only format that Entra ID accepts (task 0006).
 
 ### Changed
 
