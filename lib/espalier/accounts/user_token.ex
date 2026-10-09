@@ -11,6 +11,13 @@ defmodule Espalier.Accounts.UserToken do
   `idp_sid_hash` is a plain `:binary` field: its value comes once from
   `hash_idp_sid/1` and is copied unchanged from row to row. The type
   `Espalier.Hashed.HMAC` would hash every copy a second time.
+
+  Sign-in tickets (`login_ticket`) and OIDC intents (`oidc_intent`) of task
+  0006 carry `purpose`, the keyed hash `binding_hash` (the ticket's binding
+  or the id of the session that created an intent) and, for a link ticket,
+  the encrypted `link_identity`. These three stay `nil` on session rows, so
+  a session copy never meets a value in a keyed-hash field. `idp_amr` holds
+  the provider's `amr` values of a federated sign-in.
   """
   use Ecto.Schema
   import Ecto.Query
@@ -26,7 +33,7 @@ defmodule Espalier.Accounts.UserToken do
   # Enrollment and recovery sessions live 30 minutes (README section 6.5).
   @limited_session_minutes 30
 
-  @contexts [:session, :invite, :change_email, :recovery_email, :login_ticket]
+  @contexts [:session, :invite, :change_email, :recovery_email, :login_ticket, :oidc_intent]
   @methods [
     :passkey,
     :password,
@@ -53,6 +60,10 @@ defmodule Espalier.Accounts.UserToken do
     field :mfa_at, :utc_datetime
     field :provider_key, :string
     field :idp_sid_hash, :binary, redact: true
+    field :idp_amr, {:array, :string}
+    field :purpose, :string
+    field :binding_hash, Espalier.Hashed.HMAC, redact: true
+    field :link_identity, Espalier.Encrypted.Binary, redact: true
     field :device_summary, :string
     field :last_seen_at, :utc_datetime
     field :expires_at, :utc_datetime
@@ -158,6 +169,7 @@ defmodule Espalier.Accounts.UserToken do
        mfa_at: Map.get(attrs, :mfa_at),
        provider_key: Map.get(attrs, :provider_key),
        idp_sid_hash: Map.get(attrs, :idp_sid_hash),
+       idp_amr: Map.get(attrs, :idp_amr),
        device_summary: Map.get(attrs, :device_summary)
      }}
   end

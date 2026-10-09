@@ -1,11 +1,13 @@
 # Authentication and sessions
 
 This document describes the sign-in pathways, the second factors, the
-sessions, the abuse protection and the password rules of tasks 0004 and 0005
-(ASVS 6.1.1 to 6.1.3, 7.1.1, 7.1.2 and 8.1.1). The verification matrix is
-[`asvs-l2.md`](asvs-l2.md), the log inventory is [`logging.md`](logging.md),
-and the plan is README sections 6.2 to 6.6, 6.10 and 6.11. Tasks 0006 and
-0007 add their pathways to this document. The toolchain check of the passkey
+sessions, the abuse protection and the password rules of tasks 0004, 0005
+and 0006 (ASVS 6.1.1 to 6.1.3, 7.1.1 to 7.1.3, 7.6.1 and 8.1.1). The
+verification matrix is [`asvs-l2.md`](asvs-l2.md), the log inventory is
+[`logging.md`](logging.md), the operator guide for identity providers is
+[`../guides/identity-providers.md`](../guides/identity-providers.md), and
+the plan is README sections 6.2 to 6.7, 6.10 and 6.11. Task 0007 adds its
+pathway to this document. The toolchain check of the passkey
 library is [`wax-spike.md`](wax-spike.md).
 
 ## Pathways and session strength
@@ -28,6 +30,10 @@ factor and a second factor (ASVS 6.3.3).
 | Recovery (local accounts only) | `POST /api/auth/recovery/start` and `POST /api/auth/recovery/verify` | a link sent by e-mail, 10 minutes, and a saved recovery code | recovery session, 30 minutes; it reaches only the `:enrollment` pipeline | `recovery_code`, `email_code` | `recovery` |
 | Completed recovery | `POST /api/me/passkeys` or `POST /api/me/totp/confirm` | a recovery session | full session, ten new recovery codes, every failure counter cleared | `recovery_code`, `email_code` and `passkey` or `totp` | `mfa` |
 | Step-up | `POST /api/me/reauth` | an `mfa` session and a TOTP code or a passkey | the session row is reissued with `mfa_at` now | the method is appended | `mfa` |
+| OIDC, `local` mode | `GET /auth/oidc/:provider`, the callback and `POST /api/auth/finish` | the provider sign-in | `{"next": "second_factor"}` with the pending state for an enrolled user, then `POST /api/auth/second-factor`; otherwise an enrollment session, 30 minutes, with `{"next": "enroll_second_factor"}` | `oidc`, then `oidc` and `totp`, `passkey` or `recovery_code` | `enrollment`, then `mfa` |
+| OIDC, `idp_trusted` mode | the same routes | the provider sign-in with a multi-factor `amr`, or without `amr` | full session | `oidc`, `idp_mfa` | `mfa` |
+| OIDC link | `POST /api/auth/oidc/:provider/intents` (`link`), then the OIDC routes | an `mfa` session with a second factor in the last 10 minutes, and the provider sign-in in the same browser session | the identity is linked at `POST /api/auth/finish`; the session stays | unchanged | `mfa` |
+| OIDC step-up (`idp_trusted` only) | `POST /api/auth/oidc/:provider/intents` (`step_up`), then the OIDC routes with `max_age=0` | an `mfa` session of a user with an identity of the provider | the session row is reissued with `mfa_at` now and the provider's `amr` | `idp_mfa` is appended | `mfa` |
 | Demo (`AUTH_DEMO=true` only) | `POST /api/auth/demo` | choice of slot 1 to 20 | demo session; the flag `demo` of the session payload marks every page | `demo` | `demo` |
 
 Passkey sign-in serves only accounts without an external identity. A user
@@ -76,6 +82,108 @@ password without the current one. Such a session exists only for a user
 without a second factor, or after a saved recovery code and a link sent by
 e-mail, so a forgotten-password reset never bypasses an enabled second factor
 (ASVS 6.4.3).
+
+## OIDC sign-in
+
+Task 0006 adds the sign-in through Microsoft Entra ID, Google Workspace and
+any OIDC provider that the operator configures (README section 6.7). The
+operator guide [`identity-providers.md`](../guides/identity-providers.md)
+lists the variables. The provider sign-in is the first step, and every OIDC
+sign-in ends in `log_in_user/3` or `put_pending_second_factor/3` of the local
+pathways (ASVS 6.3.4).
+
+### Entry points
+
+These routes are the only OIDC entry points (ASVS 6.3.4):
+
+| Route | Pipeline | Purpose |
+|---|---|---|
+| `GET /auth/oidc/:provider` | `:oidc_transaction` | starts the authorization request; with `?intent=` a link or a step-up |
+| `GET /auth/oidc/:provider/callback` | `:oidc_transaction` | redeems the code, validates the ID token and redirects to `/auth/finish#ticket=` or `/auth/finish?error=` |
+| `GET /auth/oidc/:provider/front-channel-logout` | `:oidc_transaction` | ends the sessions of a provider `sid` |
+| `POST /api/auth/finish` | `:api` | turns the ticket into the result of the sign-in |
+| `POST /api/auth/oidc/:provider/intents` | `:api`, `:authenticated` | creates an intent for a link or a step-up |
+
+`GET /auth/providers` of task 0004 lists the configured providers with `kind`
+`redirect` and `start_url` `/auth/oidc/<key>`.
+
+### Flow
+
+1. `authorize` stores the transaction (provider key, purpose, user id, time)
+   in the transaction cookie `__Host-espalier_tx` (`SameSite=Lax`, 10
+   minutes, encrypted), next to the nonce and the PKCE verifier of
+   oidcc_plug, and redirects with PKCE S256, `state`, `nonce` and the scopes
+   `openid`, `profile` and `email`. No request carries `prompt=none`
+   (ASVS 7.6.2).
+2. The callback checks the transaction, the provider of the redirect URI and
+   the RFC 9207 `iss` parameter where the provider advertises it, redeems the
+   code once with the client secret or a `private_key_jwt` assertion, and
+   validates the ID token: signature with a key of the configured issuer's
+   JWKS, algorithm RS256, PS256 or ES256, `iss`, `aud` equal to the client
+   id, `exp` and `nonce`. The provider rules check the tenant (Entra ID), the
+   hosted domain (Google) and the groups overage. The access and refresh
+   tokens are dropped. The callback creates no session; it stores a 32-byte
+   binding in the transaction cookie and redirects to
+   `/auth/finish#ticket=<ticket>`, a single-use ticket of 60 seconds.
+3. `POST /api/auth/finish` consumes the ticket with the binding of the same
+   browser and deletes the transaction cookie. A ticket in another browser
+   fails with 401 `ticket_invalid` (ASVS 2.3.1).
+
+### Modes and session strength
+
+| Mode | Provider result | Answer of the finish step | Methods | Strength |
+|---|---|---|---|---|
+| `local` (default) | any sign-in, user with a passkey or TOTP factor | `{"next": "second_factor"}`; the pending state keeps `provider_key` and the bytes of `idp_sid_hash` | `oidc`, then the second factor | `mfa` after `POST /api/auth/second-factor` |
+| `local` | first sign-in without a local factor | `{"next": "enroll_second_factor"}` and an enrollment session, 30 minutes | `oidc` | `enrollment`, then `mfa` after a passkey or TOTP |
+| `idp_trusted` | `amr` with a value of `AUTH_<KEY>_MFA_AMR` (default `mfa`), or no `amr` | the session payload | `oidc`, `idp_mfa`; the row stores the provider's `amr` in `idp_amr` | `mfa` |
+| `idp_trusted` | `amr` without such a value, for example `["pwd"]` | as in `local` mode | as in `local` mode | as in `local` mode |
+
+A missing `amr` keeps the operator's statement that the provider enforces
+multi-factor sign-in (README section 6.2, rule 4), and the boot logs a
+warning for every provider in `idp_trusted` mode (ASVS 6.8.4). In `local`
+mode, whoever passes the provider's sign-in first for a new account binds
+the first local factor; the guide states this for operators who switch
+provisioning on.
+
+### Linking and step-up
+
+- A link needs an `mfa` session with a second factor in the last 10 minutes
+  (403 `reauth_required` otherwise, ASVS 7.5.1) and no identity of the same
+  provider (409 `provider_already_linked`). The intent works once, for 5
+  minutes, and only in the browser session that created it. The callback
+  writes no identity; `POST /api/auth/finish` links it for the account of
+  the current session, which must be the account of the ticket, and mails
+  `identity_linked`.
+- A step-up needs an identity of the provider and `idp_trusted` mode (422
+  `step_up_not_available` otherwise); users of `local` providers step up
+  with `POST /api/me/reauth`. The authorization request carries `max_age=0`,
+  the ID token must carry an `auth_time` from the request on (60 seconds of
+  clock skew) and a multi-factor `amr`, and the finish step reissues the
+  session row with `mfa_at` now (ASVS 7.2.4).
+- Password sign-in, discoverable passkey sign-in and self-service recovery
+  serve only accounts without an external identity. After a link, the
+  account signs in only through the provider, and its passkeys, TOTP factor
+  and recovery codes serve as second factor after the provider sign-in.
+
+### Logout
+
+- Front-channel logout: Entra ID loads `GET /auth/oidc/:provider/front-channel-logout`
+  in an iframe. The request carries no platform cookie; every session row of
+  the provider whose `idp_sid_hash` equals the keyed hash of `sid` ends. A
+  present `iss` must equal the provider's issuer. The answer is always 200
+  with an empty body and `Cache-Control: no-store`. The rows of the second
+  factor, the enrollment, a step-up and a password change keep the bytes of
+  `idp_sid_hash`, so the logout reaches each of them.
+- RP-initiated logout: `DELETE /api/session` of an OIDC session answers 200
+  with `{"logout_url": ...}` when the provider's discovery document names an
+  `end_session_endpoint` on its allowed hosts. The URL carries `client_id`
+  and `post_logout_redirect_uri` (`PUBLIC_URL/signed-out`) and no
+  `id_token_hint`, because the platform keeps no ID token. Every other
+  sign-out, also for Google, answers 204.
+- Back-channel logout does not exist, because neither oidcc 3.9.0 nor Entra
+  ID offers it (ASVS 10.5.5 does not apply). A provider session therefore
+  outlives the platform session and the other way round, except through the
+  two paths above (ASVS 7.1.3, 7.6.1).
 
 ## Sessions
 
@@ -176,7 +284,7 @@ logs `excess_rate_limit_exceeded`.
 
 | Bucket | Window | Limit | Key | Routes |
 |---|---|---|---|---|
-| `auth_ip` | 1 minute | 30 | client IP (IPv6 reduced to /64) | `POST /api/auth/password`, `POST /api/auth/invitations/accept` |
+| `auth_ip` | 1 minute | 30 | client IP (IPv6 reduced to /64) | `POST /api/auth/password`, `POST /api/auth/invitations/accept`, `POST /api/auth/finish` |
 | `password_account` | 15 minutes | 10 | keyed hash of the normalized address | `POST /api/auth/password` |
 | `invitation_ip` | 15 minutes | 10 | client IP | `POST /api/auth/invitations` |
 | `invitation_target` | 1 hour | 3 | keyed hash of the normalized address | `POST /api/auth/invitations` |
@@ -192,6 +300,10 @@ logs `excess_rate_limit_exceeded`.
 | `recovery_verify_user` | 15 minutes | 10 | keyed hash of the user id that the e-mail token resolves to | `POST /api/auth/recovery/verify` |
 | `reauth_user` | 1 minute | 10 | keyed hash of the session user id | `POST /api/me/reauth` |
 | `totp_confirm_user` | 1 minute | 10 | keyed hash of the session user id | `POST /api/me/totp/confirm` |
+| `oidc_authorize` | 1 minute | 30 | client IP | `GET /auth/oidc/:provider` |
+| `oidc_callback` | 1 minute | 30 | client IP | `GET /auth/oidc/:provider/callback` |
+| `oidc_intent` | 1 minute | 10 | keyed hash of the session user id | `POST /api/auth/oidc/:provider/intents` |
+| `oidc_front_channel` | 1 minute | 60 | client IP | `GET /auth/oidc/:provider/front-channel-logout` |
 
 Account keys are HMAC-SHA256 under a key derived once at boot from
 `SECRET_KEY_BASE`, so the limiter holds no address. Known and unknown
@@ -359,7 +471,7 @@ status and timing for known and unknown accounts (ASVS 6.3.8):
 |---|---|---|
 | `invitation` | invitation by an admin, a release function or the bootstrap; a request with `SIGNUP=invite` or `domain` | the invited address; the link `/invite#token=` lives 10 minutes |
 | `change_email` | `PUT /api/me/email` | the new address; the link `/account/email/confirm#token=` lives 10 minutes |
-| `email_changed` | confirmed e-mail change | the old address (ASVS 6.3.7) |
+| `email_changed` | confirmed e-mail change; a new verified address from an identity provider at sign-in (task 0006) | the old address (ASVS 6.3.7) |
 | `password_changed` | password change | the account (ASVS 6.3.7) |
 | `failed_attempts` | sign-in with the password or a second factor after five or more failures of that factor; the mail names the factor | the account (ASVS 6.3.5) |
 | `authenticator_disabled` | the fiftieth failure of a second factor | the account (ASVS 6.3.5) |
@@ -369,6 +481,7 @@ status and timing for known and unknown accounts (ASVS 6.3.8):
 | `recovery_used` | a recovery code as second factor, and every recovery verification | the account (ASVS 6.3.7) |
 | `recovery_instructions` | `POST /api/auth/recovery/start` for an active local user with unused recovery codes | the account; the link `/recover#token=` lives 10 minutes, only the link of the latest request works, also when its mail jobs run out of order, and the link opens one recovery session |
 | `recovery_unavailable` | the same request for an active local user without unused recovery codes | the account; the mail explains the admin-assisted reset (decision D11) and carries no link |
+| `identity_linked` | a link of an identity provider at `POST /api/auth/finish` (task 0006) | the account; the mail names the provider and the time |
 
 No mail contains a code, a TOTP secret, a credential id or a session token.
 

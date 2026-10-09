@@ -42,7 +42,9 @@ config :logger, :default_handler,
          :risk_signal,
          :credential_ref,
          :change,
-         :exception
+         :exception,
+         :purpose,
+         :trigger
        ]
      }}
 

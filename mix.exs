@@ -45,7 +45,10 @@ defmodule Espalier.MixProject do
   end
 
   # Specifies which paths to compile per environment.
+  # The mock OIDC provider of test/support/dev_oidc/ runs in dev and test
+  # only (task 0006).
   defp elixirc_paths(:test), do: ["lib", "test/support"]
+  defp elixirc_paths(:dev), do: ["lib", "test/support/dev_oidc"]
   defp elixirc_paths(_), do: ["lib"]
 
   # Specifies your project dependencies.
@@ -76,6 +79,12 @@ defmodule Espalier.MixProject do
       {:cbor, "~> 1.0"},
       {:nimble_totp, "~> 1.0"},
       {:eqrcode, "~> 0.2.1"},
+      # oidcc is listed directly, because oidcc_plug 0.5.1 accepts oidcc ~> 3.7,
+      # and oidcc 3.2.0-beta.1 through 3.8.x accept an encrypted ID token
+      # without a signature (CVE-2026-75759, task 0006).
+      {:oidcc, "~> 3.9"},
+      {:oidcc_plug, "~> 0.5.1"},
+      {:jose, "~> 1.11"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:sobelow, "~> 0.16", only: [:dev, :test], runtime: false, warn_if_outdated: true},
       {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false}

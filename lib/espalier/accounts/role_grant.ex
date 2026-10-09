@@ -1,8 +1,9 @@
 defmodule Espalier.Accounts.RoleGrant do
   @moduledoc """
   A role of a user beyond `learner`. Grants with source `manual` come from an
-  admin or a release function; grants with source `idp_claim` are replaced at
-  every federated sign-in (README section 6.11).
+  admin or a release function; grants with source `idp_claim` carry the
+  `provider_key` of their provider and are replaced at every sign-in through
+  that provider (README section 6.11).
   """
   use Ecto.Schema
   import Ecto.Changeset
@@ -26,6 +27,6 @@ defmodule Espalier.Accounts.RoleGrant do
     |> cast(attrs, [:role, :source, :provider_key])
     |> validate_required([:role, :source])
     |> put_change(:user_id, user_scope.user.id)
-    |> unique_constraint([:user_id, :role, :source])
+    |> unique_constraint([:user_id, :role, :source, :provider_key])
   end
 end

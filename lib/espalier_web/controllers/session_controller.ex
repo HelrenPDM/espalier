@@ -1,16 +1,65 @@
 defmodule EspalierWeb.SessionController do
   use EspalierWeb, :controller
 
+  alias Espalier.Accounts.{Scope, UserToken}
+  alias Espalier.Identity
+  alias Espalier.Identity.Oidc
   alias EspalierWeb.UserAuth
 
   def show(conn, _params) do
     render_session(conn)
   end
 
+  @doc """
+  Signs out. For a session of an OIDC provider with an end-session endpoint
+  on its allowed hosts, the answer is 200 with the RP-initiated logout URL
+  (task 0006, step 13); every other sign-out answers 204.
+  """
   def delete(conn, _params) do
-    conn
-    |> UserAuth.log_out_user()
-    |> send_resp(:no_content, "")
+    logout_url = rp_logout_url(conn.assigns[:current_scope])
+    conn = UserAuth.log_out_user(conn)
+
+    case logout_url do
+      nil -> send_resp(conn, :no_content, "")
+      url -> json(conn, %{logout_url: url})
+    end
+  end
+
+  # The URL carries client_id and post_logout_redirect_uri and no
+  # id_token_hint, because the platform keeps no ID token. The Erlang
+  # function is called, because Oidcc.Logout.initiate_url/3 of oidcc 3.9.0
+  # raises for :undefined.
+  defp rp_logout_url(%Scope{session: %UserToken{provider_key: key}}) when is_binary(key) do
+    with {:ok, provider} <- Identity.fetch_oidc_provider(key),
+         {:ok, configuration} <- Oidc.provider_configuration(provider),
+         :ok <- Oidc.check_endpoints(provider, configuration),
+         {:ok, client_context} <-
+           Oidcc.ClientContext.from_configuration_worker(
+             provider.worker,
+             provider.client_id,
+             :unauthenticated,
+             %{}
+           ),
+         {:ok, url} <-
+           :oidcc_logout.initiate_url(
+             :undefined,
+             Oidcc.ClientContext.struct_to_record(client_context),
+             %{post_logout_redirect_uri: signed_out_url()}
+           ) do
+      IO.chardata_to_string(url)
+    else
+      _ -> nil
+    end
+  catch
+    # The worker call exits while the worker waits for a slow provider; the
+    # sign-out then ends the platform session only.
+    :exit, _reason -> nil
+  end
+
+  defp rp_logout_url(_scope), do: nil
+
+  defp signed_out_url do
+    String.trim_trailing(Application.fetch_env!(:espalier, :public_url), "/") <> "/signed-out"
   end
 
   @doc """

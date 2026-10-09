@@ -56,7 +56,11 @@ config :espalier, :rate_limits, %{
   recovery_verify_ip: {:timer.minutes(1), 10},
   recovery_verify_user: {:timer.minutes(15), 10},
   reauth_user: {:timer.minutes(1), 10},
-  totp_confirm_user: {:timer.minutes(1), 10}
+  totp_confirm_user: {:timer.minutes(1), 10},
+  oidc_authorize: {:timer.minutes(1), 30},
+  oidc_callback: {:timer.minutes(1), 30},
+  oidc_intent: {:timer.minutes(1), 10},
+  oidc_front_channel: {:timer.minutes(1), 60}
 }
 
 # Passkeys (task 0005). config/dev.exs and config/test.exs set the relying
@@ -105,7 +109,13 @@ config :phoenix, :filter_parameters, [
   "passkey",
   "credential",
   "response",
-  "rawId"
+  "rawId",
+  "state",
+  "session_state",
+  "ticket",
+  "intent",
+  "sid",
+  "id_token"
 ]
 
 # Use Jason for JSON parsing in Phoenix

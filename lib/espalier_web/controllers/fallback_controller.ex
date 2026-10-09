@@ -8,6 +8,10 @@ defmodule EspalierWeb.FallbackController do
   `registration_failed` (422) for a failed passkey registration,
   `invalid_code` (422) for a wrong TOTP confirmation, and the conflicts
   (409) of the factor rules.
+
+  Task 0006 adds `ticket_invalid` (401) for a failed finish step,
+  `unknown_provider` (404), `step_up_not_available` (422), and the link
+  conflicts `identity_in_use` and `provider_already_linked` (409).
   """
   use EspalierWeb, :controller
 
@@ -24,7 +28,12 @@ defmodule EspalierWeb.FallbackController do
     last_factor: :conflict,
     admin_passkey_required: :conflict,
     totp_already_enabled: :conflict,
-    password_required: :conflict
+    password_required: :conflict,
+    ticket_invalid: :unauthorized,
+    unknown_provider: :not_found,
+    step_up_not_available: :unprocessable_entity,
+    identity_in_use: :conflict,
+    provider_already_linked: :conflict
   }
 
   def call(conn, {:error, %Ecto.Changeset{} = changeset}) do

@@ -169,6 +169,22 @@ defmodule Espalier.Accounts.UserNotifier do
     """)
   end
 
+  @doc """
+  Tells the user that the provider `provider_label` was linked to the
+  account (task 0006).
+  """
+  def deliver_identity_linked(user, provider_label) do
+    deliver(user.email, "A sign-in provider was linked", """
+    Hi #{user.display_name},
+
+    #{provider_label} was linked to your Espalier account on
+    #{Calendar.strftime(DateTime.utc_now(), "%Y-%m-%d at %H:%M UTC")}. You now sign in
+    through #{provider_label}.
+
+    If you did not link this provider, contact your administrator.
+    """)
+  end
+
   @doc "Delivers the recovery link, valid for 10 minutes."
   def deliver_recovery_instructions(user, url) do
     deliver(user.email, "Recover your Espalier account", """
