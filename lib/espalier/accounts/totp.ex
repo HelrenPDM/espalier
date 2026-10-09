@@ -11,6 +11,7 @@ defmodule Espalier.Accounts.Totp do
 
   import Ecto.Query
 
+  alias Espalier.Accounts
   alias Espalier.Accounts.{Factors, Scope, TotpFactor, User}
   alias Espalier.Repo
 
@@ -44,14 +45,16 @@ defmodule Espalier.Accounts.Totp do
   An enabled factor answers `{:error, :totp_already_enabled}` in an `mfa`
   session; in a `recovery` session it is deleted in the same transaction
   and the user receives the mail "factor removed". An unconfirmed factor is
-  replaced. Returns `{:ok, %{qr_svg_data_url:, secret_base32:,
-  otpauth_uri:}}`.
+  replaced. The transaction locks the user row first, so concurrent starts
+  run one after the other and the last one leaves the only row. Returns
+  `{:ok, %{qr_svg_data_url:, secret_base32:, otpauth_uri:}}`.
   """
   def start_enrollment(%Scope{user: user, session: session} = scope) do
     strength = session && session.strength
 
     Repo.transact(fn ->
-      existing = Repo.one(from f in TotpFactor, where: f.user_id == ^user.id, lock: "FOR UPDATE")
+      Accounts.lock_user!(user)
+      existing = Repo.one(from f in TotpFactor, where: f.user_id == ^user.id)
 
       if existing && existing.enabled_at && strength != :recovery,
         do: {:error, :totp_already_enabled},

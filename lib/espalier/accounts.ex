@@ -234,7 +234,7 @@ defmodule Espalier.Accounts do
     {:ok, session} =
       Repo.transact(fn ->
         delete_replaced_session(user, attrs[:replaces])
-        Repo.one!(from u in User, where: u.id == ^user.id, lock: "FOR UPDATE", select: u.id)
+        lock_user!(user)
         trim_sessions(user, now)
         {:ok, Repo.insert!(row)}
       end)
@@ -334,6 +334,15 @@ defmodule Espalier.Accounts do
     })
 
     {:error, :expired}
+  end
+
+  @doc """
+  Locks the row of the user until the end of the running transaction, which
+  serializes the changes of one account: sessions, factors and recovery
+  codes. Call it inside `Repo.transact/1`.
+  """
+  def lock_user!(%User{id: user_id}) do
+    Repo.one!(from u in User, where: u.id == ^user_id, lock: "FOR UPDATE", select: u.id)
   end
 
   @doc "Sets `last_login_at` of the user to now."

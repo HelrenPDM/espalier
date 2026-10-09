@@ -54,8 +54,7 @@ defmodule EspalierWeb.Me.TotpController do
   def delete(conn, _params) do
     scope = conn.assigns.current_scope
 
-    with :ok <- Factors.removable?(scope.user, :totp),
-         :ok <- Totp.disable(scope) do
+    with :ok <- Factors.remove(scope, :totp) do
       Factors.notify_change(scope.user, :factor_removed, :totp)
       FactorResponse.render(conn, %{})
     end

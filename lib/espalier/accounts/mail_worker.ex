@@ -56,7 +56,7 @@ defmodule Espalier.Accounts.MailWorker do
 
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"kind" => kind} = args} = job) do
-    case run(kind, args) do
+    case run(kind, args, job) do
       {:ok, _email} ->
         :ok
 
@@ -67,6 +67,55 @@ defmodule Espalier.Accounts.MailWorker do
         Logger.warning("mail delivery failed: job #{job.id}, kind #{kind}")
         {:error, :delivery_failed}
     end
+  end
+
+  # Only the link of the latest recovery request works. Jobs can run out of
+  # request order, because the mail queue runs five at a time and a failed
+  # delivery retries later. The transaction locks the user row, and a job
+  # yields to a newer recovery_instructions job of the same user; Oban job
+  # ids follow the insert order of the requests.
+  defp run("recovery_instructions", %{"user_id" => user_id}, job) do
+    with %User{email: email} = user when is_binary(email) <- Accounts.get_user(user_id),
+         true <- Accounts.local_account?(user),
+         {:ok, token} <- replace_recovery_token(user, job) do
+      UserNotifier.deliver_recovery_instructions(user, UserNotifier.recovery_url(token))
+    else
+      _ -> :skip
+    end
+  end
+
+  defp run(kind, args, _job), do: run(kind, args)
+
+  defp replace_recovery_token(user, job) do
+    {token, row} = UserToken.build_email_token(user, :recovery_email, user.email)
+
+    Repo.transact(fn ->
+      Accounts.lock_user!(user)
+
+      if newer_recovery_request?(user, job) do
+        {:error, :superseded}
+      else
+        Repo.delete_all(
+          from t in UserToken, where: t.user_id == ^user.id and t.context == :recovery_email
+        )
+
+        Repo.insert!(row)
+        {:ok, token}
+      end
+    end)
+  end
+
+  # A job that Oban.Testing.perform_job/3 builds has no id and no successor.
+  defp newer_recovery_request?(_user, %Oban.Job{id: nil}), do: false
+
+  defp newer_recovery_request?(user, %Oban.Job{id: id}) do
+    Repo.exists?(
+      from j in Oban.Job,
+        where: j.worker == ^inspect(__MODULE__) and j.id > ^id,
+        where: j.state not in ["discarded", "cancelled"],
+        where: fragment("?->>'kind'", j.args) == "recovery_instructions",
+        where: fragment("?->>'user_id'", j.args) == ^user.id
+    )
   end
 
   defp run("none", _args), do: :skip
@@ -144,27 +193,6 @@ defmodule Espalier.Accounts.MailWorker do
       user_id,
       &UserNotifier.deliver_authenticator_disabled(&1, Map.fetch!(@factors, factor))
     )
-  end
-
-  # Only the link of the latest request works: the worker deletes the earlier
-  # recovery tokens of the user before it inserts the new one.
-  defp run("recovery_instructions", %{"user_id" => user_id}) do
-    with %User{email: email} = user when is_binary(email) <- Accounts.get_user(user_id),
-         true <- Accounts.local_account?(user) do
-      {token, row} = UserToken.build_email_token(user, :recovery_email, email)
-
-      Repo.transact(fn ->
-        Repo.delete_all(
-          from t in UserToken, where: t.user_id == ^user.id and t.context == :recovery_email
-        )
-
-        {:ok, Repo.insert!(row)}
-      end)
-
-      UserNotifier.deliver_recovery_instructions(user, UserNotifier.recovery_url(token))
-    else
-      _ -> :skip
-    end
   end
 
   defp run("recovery_unavailable", %{"user_id" => user_id}) do

@@ -15,6 +15,7 @@ defmodule Espalier.Accounts.RecoveryCodes do
   import Kernel, except: [use: 2]
   import Ecto.Query
 
+  alias Espalier.Accounts
   alias Espalier.Accounts.{RecoveryCode, Scope, User}
   alias Espalier.Repo
 
@@ -24,7 +25,9 @@ defmodule Espalier.Accounts.RecoveryCodes do
 
   @doc """
   Replaces the user's codes by ten new ones in one transaction and returns
-  their display forms, such as `ABCD-EFGH-IJKL-MNOP-QRST-UVWX-YZ`.
+  their display forms, such as `ABCD-EFGH-IJKL-MNOP-QRST-UVWX-YZ`. The
+  transaction locks the user row first, so concurrent regenerations leave
+  one set.
   """
   def generate(%Scope{user: %User{} = user}) do
     codes =
@@ -34,6 +37,7 @@ defmodule Espalier.Accounts.RecoveryCodes do
 
     {:ok, _} =
       Repo.transact(fn ->
+        Accounts.lock_user!(user)
         Repo.delete_all(from r in RecoveryCode, where: r.user_id == ^user.id)
 
         rows =

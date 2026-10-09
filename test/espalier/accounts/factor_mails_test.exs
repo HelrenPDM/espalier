@@ -31,7 +31,8 @@ defmodule Espalier.Accounts.FactorMailsTest do
     Factors.notify_change(user, :factor_removed, :passkey)
     Factors.notify_change(user, :factor_removed, :totp)
     Factors.notify_change(user, :recovery_codes_regenerated, :recovery_code)
-    assert {:ok, 9} = Recovery.verify(user, hd(codes), %{})
+    {_token, recovery_link} = email_token_fixture(user, :recovery_email)
+    assert {:ok, 9} = Recovery.verify(user, recovery_link, hd(codes), %{})
 
     for _ <- 1..5, do: FailureCounters.record_failure(user, :totp, now)
     Repo.update_all(Espalier.Accounts.FailureCounter, set: [locked_until: nil])

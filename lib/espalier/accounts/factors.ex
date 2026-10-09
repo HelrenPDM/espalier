@@ -80,6 +80,39 @@ defmodule Espalier.Accounts.Factors do
   defp totp_after?(user, factor),
     do: factor != :totp and Totp.enabled?(user) and first_factor?(user)
 
+  @doc """
+  Removes `factor` (`{:passkey, credential}` or `:totp`) of the scope's user
+  after `removable?/2`. The check and the deletion run in one transaction
+  that locks the user row first, so concurrent removals run one after the
+  other and the second sees the state after the first. Returns `:ok`,
+  `{:error, :last_factor}`, `{:error, :admin_passkey_required}` or
+  `{:error, :not_found}`.
+  """
+  def remove(%Scope{user: %User{} = user} = scope, factor) do
+    result =
+      Repo.transact(fn ->
+        Accounts.lock_user!(user)
+
+        with :ok <- removable?(user, factor),
+             :ok <- delete_factor(scope, factor) do
+          {:ok, factor}
+        end
+      end)
+
+    with {:ok, _factor} <- result, do: :ok
+  end
+
+  defp delete_factor(%Scope{user: user}, {:passkey, %WebauthnCredential{id: id}}) do
+    case Repo.delete_all(
+           from c in WebauthnCredential, where: c.id == ^id and c.user_id == ^user.id
+         ) do
+      {1, _} -> :ok
+      _ -> {:error, :not_found}
+    end
+  end
+
+  defp delete_factor(scope, :totp), do: Totp.disable(scope)
+
   defp admin_requires_passkey?(user) do
     Application.get_env(:espalier, :admin_require_passkey, true) and
       :admin in Accounts.roles_for(user)

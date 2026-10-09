@@ -84,6 +84,23 @@ defmodule Espalier.Accounts.FactorsTest do
       assert Factors.removable?(user, {:passkey, first}) == :ok
     end
 
+    test "of two concurrent removals of the last two passkeys exactly one succeeds" do
+      user = user_fixture()
+      {_authenticator, first} = passkey_fixture(user)
+      {_authenticator, second} = passkey_fixture(user)
+      scope = Scope.for_user(user)
+
+      results =
+        [first, second]
+        |> Enum.map(fn credential ->
+          Task.async(fn -> Factors.remove(scope, {:passkey, credential}) end)
+        end)
+        |> Enum.map(&Task.await/1)
+
+      assert Enum.sort(results) == [:ok, {:error, :last_factor}]
+      assert Factors.holds_passkey?(user)
+    end
+
     test "admin_passkey_required?/2 holds for an admin without a passkey" do
       user = admin(user_fixture())
       assert Factors.admin_passkey_required?(user, [:learner, :admin])

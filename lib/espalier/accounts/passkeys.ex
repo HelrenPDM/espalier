@@ -79,14 +79,6 @@ defmodule Espalier.Accounts.Passkeys do
     end
   end
 
-  @doc "Deletes a passkey of the scope's user."
-  def delete_credential(
-        %Scope{user: %User{id: user_id}},
-        %WebauthnCredential{user_id: user_id} = credential
-      ) do
-    Repo.delete(credential)
-  end
-
   @doc """
   Verifies a RegistrationResponseJSON against the challenge row and stores
   the credential for the scope's user. `params` may carry `"nickname"`.

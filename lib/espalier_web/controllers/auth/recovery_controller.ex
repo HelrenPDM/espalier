@@ -39,9 +39,9 @@ defmodule EspalierWeb.Auth.RecoveryController do
   def verify(conn, %{"token" => token, "recovery_code" => code})
       when is_binary(token) and is_binary(code) do
     case Recovery.resolve_token(token) do
-      {:ok, user} ->
+      {:ok, user, row} ->
         conn = RateLimit.check_account(conn, :recovery_verify_user, user.id)
-        if conn.halted, do: conn, else: verify_code(conn, user, code)
+        if conn.halted, do: conn, else: verify_code(conn, user, row, code)
 
       :error ->
         Factors.log_failure(%{ip: conn.remote_ip, factor: :recovery_code}, :invalid_token)
@@ -51,8 +51,8 @@ defmodule EspalierWeb.Auth.RecoveryController do
 
   def verify(_conn, _params), do: {:error, :bad_request}
 
-  defp verify_code(conn, user, code) do
-    case Recovery.verify(user, code, %{ip: conn.remote_ip}) do
+  defp verify_code(conn, user, row, code) do
+    case Recovery.verify(user, row, code, %{ip: conn.remote_ip}) do
       {:ok, _remaining} ->
         conn
         |> UserAuth.log_in_user(user,

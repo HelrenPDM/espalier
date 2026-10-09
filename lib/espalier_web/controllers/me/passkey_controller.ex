@@ -50,8 +50,7 @@ defmodule EspalierWeb.Me.PasskeyController do
     scope = conn.assigns.current_scope
 
     with %{} = credential <- Passkeys.get_credential(scope, id) || {:error, :not_found},
-         :ok <- Factors.removable?(scope.user, {:passkey, credential}),
-         {:ok, _deleted} <- Passkeys.delete_credential(scope, credential) do
+         :ok <- Factors.remove(scope, {:passkey, credential}) do
       Factors.notify_change(scope.user, :factor_removed, :passkey)
       FactorResponse.render(conn, %{})
     end

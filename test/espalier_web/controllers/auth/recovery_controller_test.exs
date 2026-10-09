@@ -209,11 +209,11 @@ defmodule EspalierWeb.Auth.RecoveryControllerTest do
     start(conn, user.email)
     token = mailed_token()
 
-    assert {:ok, resolved} = Recovery.resolve_token(token)
+    assert {:ok, resolved, %UserToken{context: :recovery_email}} = Recovery.resolve_token(token)
     assert resolved.id == user.id
 
-    assert Recovery.resolve_token(token, DateTime.add(DateTime.utc_now(), 9, :minute)) ==
-             {:ok, resolved}
+    assert {:ok, ^resolved, _row} =
+             Recovery.resolve_token(token, DateTime.add(DateTime.utc_now(), 9, :minute))
 
     assert Recovery.resolve_token(token, DateTime.add(DateTime.utc_now(), 11, :minute)) == :error
 
@@ -226,6 +226,45 @@ defmodule EspalierWeb.Auth.RecoveryControllerTest do
 
     conn = verify(api_conn(), token, code)
     assert json_response(conn, 401) == %{"error" => "authentication_failed"}
+  end
+
+  test "of two concurrent verifications of one link exactly one opens a session",
+       %{conn: conn, user: user, codes: [first, second | _]} do
+    start(conn, user.email)
+    {:ok, user, row} = Recovery.resolve_token(mailed_token())
+
+    results =
+      [first, second]
+      |> Enum.map(fn code -> Task.async(fn -> Recovery.verify(user, row, code, %{}) end) end)
+      |> Enum.map(&Task.await/1)
+
+    assert [{:error, :invalid_token}, {:ok, 9}] = Enum.sort(results)
+    assert RecoveryCodes.remaining(user) == 9
+  end
+
+  test "a job that runs after a newer request of the same user sends no link",
+       %{conn: conn, user: user, codes: [code | _]} do
+    start(conn, user.email)
+    start(conn, user.email)
+
+    [older, newer] =
+      Repo.all(
+        from j in Oban.Job, where: j.worker == "Espalier.Accounts.MailWorker", order_by: j.id
+      )
+
+    # The newer job runs first, as after a retry of the older one.
+    assert :ok = MailWorker.perform(newer)
+    assert_received {:email, newer_mail}
+    assert :ok = MailWorker.perform(older)
+    refute_received {:email, _older_mail}
+
+    assert [_one] =
+             Repo.all(
+               from t in UserToken, where: t.user_id == ^user.id and t.context == :recovery_email
+             )
+
+    conn = verify(api_conn(), extract_link_token(newer_mail), code)
+    assert json_response(conn, 200)["session"]["strength"] == "recovery"
   end
 
   test "a token of another context or a malformed request fails", %{conn: conn, user: user} do

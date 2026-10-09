@@ -74,6 +74,14 @@ defmodule Espalier.Accounts.RecoveryCodesTest do
     assert RecoveryCodes.use(other, code) == {:error, :invalid_code}
   end
 
+  test "concurrent regenerations leave one set of ten", %{user: user} do
+    [user, user]
+    |> Enum.map(fn user -> Task.async(fn -> RecoveryCodes.generate(Scope.for_user(user)) end) end)
+    |> Enum.map(&Task.await/1)
+
+    assert RecoveryCodes.remaining(user) == 10
+  end
+
   test "regeneration makes every earlier code fail", %{user: user, codes: codes} do
     new_codes = RecoveryCodes.generate(Scope.for_user(user))
     for code <- codes, do: assert(RecoveryCodes.use(user, code) == {:error, :invalid_code})

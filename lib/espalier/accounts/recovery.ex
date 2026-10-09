@@ -73,17 +73,17 @@ defmodule Espalier.Accounts.Recovery do
   @doc """
   Resolves a recovery e-mail token by hash, context and age to its active
   local user. The token must have been sent to the user's current address.
-  Returns `{:ok, user}` or `:error`.
+  Returns `{:ok, user, token_row}` or `:error`.
   """
   def resolve_token(token, now \\ DateTime.utc_now()) do
     with {:ok, query} <- UserToken.verify_email_token_query(token, :recovery_email, now),
-         {%User{} = user, _row} <-
+         {%User{} = user, row} <-
            Repo.one(
              from [t, u] in query,
                where: t.sent_to_hash == u.email_hash and u.status == :active
            ),
          true <- Accounts.local_account?(user) do
-      {:ok, user}
+      {:ok, user, row}
     else
       _ -> :error
     end
@@ -91,11 +91,42 @@ defmodule Espalier.Accounts.Recovery do
 
   @doc """
   Verifies a saved recovery code for `user` behind the failure counter of
-  kind `:recovery_code`. On success it deletes the user's recovery e-mail
-  tokens and mails "recovery used". Returns `{:ok, remaining}` or
-  `{:error, reason}`; a failure leaves the e-mail token valid.
+  kind `:recovery_code`, for the e-mail token row of `resolve_token/2`.
+
+  The transaction locks the token row before the code is checked, and a
+  success deletes the user's recovery e-mail tokens in it. A concurrent
+  verification of the same link waits for the lock and then finds no row,
+  so the link opens one recovery session. A failure leaves the token valid.
+  A success mails "recovery used". Returns `{:ok, remaining}` or
+  `{:error, reason}`.
   """
-  def verify(%User{} = user, code, meta) do
+  def verify(%User{} = user, %UserToken{id: token_id}, code, meta) do
+    {:ok, result} =
+      Repo.transact(fn ->
+        claimed =
+          Repo.one(
+            from t in UserToken,
+              where:
+                t.id == ^token_id and t.user_id == ^user.id and t.context == :recovery_email and
+                  t.expires_at > ^DateTime.utc_now(),
+              lock: "FOR UPDATE",
+              select: t.id
+          )
+
+        {:ok, verify_claimed(user, claimed, code, meta)}
+      end)
+
+    result
+  end
+
+  defp verify_claimed(user, nil, _code, meta) do
+    Factors.log_failure(
+      %{user_id: user.id, ip: meta[:ip], factor: :recovery_code},
+      :invalid_token
+    )
+  end
+
+  defp verify_claimed(user, _token_id, code, meta) do
     with {:ok, remaining} <-
            Factors.verify(user, :recovery_code, fn -> RecoveryCodes.use(user, code) end, meta) do
       Repo.delete_all(

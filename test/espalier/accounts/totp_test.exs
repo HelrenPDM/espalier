@@ -127,6 +127,21 @@ defmodule Espalier.Accounts.TotpTest do
       refute Totp.enabled?(user)
     end
 
+    test "concurrent starts leave one unconfirmed factor" do
+      user = user_fixture()
+      scope = %Scope{user: user, session: %Espalier.Accounts.UserToken{strength: :mfa}}
+
+      results =
+        [scope, scope]
+        |> Enum.map(fn scope -> Task.async(fn -> Totp.start_enrollment(scope) end) end)
+        |> Enum.map(&Task.await/1)
+
+      assert [{:ok, _first}, {:ok, second}] = results
+      assert [factor] = Repo.all(from f in TotpFactor, where: f.user_id == ^user.id)
+      assert is_nil(factor.enabled_at)
+      assert is_binary(second.secret_base32)
+    end
+
     test "confirm/3 enables the factor and uses the code" do
       user = user_fixture()
       scope = %Scope{user: user, session: %Espalier.Accounts.UserToken{strength: :mfa}}

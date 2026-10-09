@@ -470,6 +470,19 @@ tasks rely on the implemented form.
   `RuntimeError` that names `PUBLIC_URL` for a scheme other than `https`. A
   production image started with an `http` `PUBLIC_URL`, such as the
   `.env.example` value for local development, stops at boot.
+- Concurrency: `Accounts.lock_user!/1` locks the user row inside a
+  transaction. `Factors.remove/2` checks `removable?/2` and deletes the
+  factor under that lock, so two concurrent removals cannot leave an account
+  without a second factor or an admin without a passkey. `Totp.start_enrollment/1`
+  and `RecoveryCodes.generate/1` take the same lock, so concurrent calls
+  leave one unconfirmed TOTP row and one set of ten codes.
+  `Recovery.resolve_token/2` returns `{:ok, user, token_row}`, and
+  `Recovery.verify/4` takes the row and locks it before the code is checked,
+  so a link opens one recovery session also under concurrent requests. The
+  `recovery_instructions` job locks the user row and sends nothing when a
+  newer `recovery_instructions` job of the same user exists (Oban job ids
+  follow the request order), so a retried or delayed job of an earlier
+  request never replaces the link of a later one.
 - The password job `failed_attempts` carries `factor: "password"`.
 - Test support: `Espalier.SoftAuthenticator` also has `new/1`,
   `put_user_handle/2`, `cose_key/2` and the option `:bad_signature`;

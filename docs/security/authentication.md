@@ -367,7 +367,7 @@ status and timing for known and unknown accounts (ASVS 6.3.8):
 | `factor_removed` | passkey or TOTP removed, TOTP replaced in a recovery session | the account (ASVS 6.3.7) |
 | `recovery_codes_regenerated` | `POST /api/me/recovery-codes` | the account (ASVS 6.3.7) |
 | `recovery_used` | a recovery code as second factor, and every recovery verification | the account (ASVS 6.3.7) |
-| `recovery_instructions` | `POST /api/auth/recovery/start` for an active local user with unused recovery codes | the account; the link `/recover#token=` lives 10 minutes, and only the link of the latest request works |
+| `recovery_instructions` | `POST /api/auth/recovery/start` for an active local user with unused recovery codes | the account; the link `/recover#token=` lives 10 minutes, only the link of the latest request works, also when its mail jobs run out of order, and the link opens one recovery session |
 | `recovery_unavailable` | the same request for an active local user without unused recovery codes | the account; the mail explains the admin-assisted reset (decision D11) and carries no link |
 
 No mail contains a code, a TOTP secret, a credential id or a session token.
