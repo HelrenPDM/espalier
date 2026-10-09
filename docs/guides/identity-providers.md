@@ -248,10 +248,11 @@ credential and two test users.
 | Security defaults | A new user must register the Authenticator app at the first sign-in. |
 
 Because Entra ID sends no `amr`, every Entra sign-in in `idp_trusted` mode
-rests on the operator's statement that the tenant enforces multi-factor
-sign-in, for example through Conditional Access or security defaults. With
-`local` mode, the person confirms each sign-in with a local passkey or TOTP
-code.
+rests on an application-scoped Conditional Access policy that enforces
+multi-factor sign-in. Security defaults alone are not sufficient evidence:
+they require registration and challenge conditionally, but do not ensure MFA
+on every application sign-in. With `local` mode, the person confirms each
+sign-in with a local passkey or TOTP code.
 
 ## Google Workspace
 
