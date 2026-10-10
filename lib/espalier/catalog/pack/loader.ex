@@ -298,7 +298,11 @@ defmodule Espalier.Catalog.Pack.Loader do
           )
       end
     else
-      add_tree_error(tree, rel, "the pack takes longer than #{parse_budget()[:pack_timeout_ms]} ms to load")
+      add_tree_error(
+        tree,
+        rel,
+        "the pack takes longer than #{parse_budget()[:pack_timeout_ms]} ms to load"
+      )
     end
   end
 
