@@ -24,7 +24,7 @@ the order of the tasks.
 | 0006 | [OIDC sign-in with oidcc and the mock provider](0006-oidc.md) | M1 Accounts | 0005 | [#6](https://github.com/HelrenPDM/espalier/issues/6) (closed) | Done |
 | 0007 | [LDAP and Active Directory sign-in](0007-ldap.md) | M1 Accounts | 0006 | [#7](https://github.com/HelrenPDM/espalier/issues/7) (closed) | Done |
 | 0008 | [Catalog schemas, content pack importer and demo pack](0008-catalog-content-packs.md) | M2 Content | 0001, 0004a | [#8](https://github.com/HelrenPDM/espalier/issues/8) (closed) | Done |
-| 0009 | [Learner API with OpenAPI](0009-learner-api.md) | M3 Learning | 0004, 0004a, 0008 | [#9](https://github.com/HelrenPDM/espalier/issues/9) | To do |
+| 0009 | [Learner API with OpenAPI](0009-learner-api.md) | M3 Learning | 0004, 0004a, 0008 | [#9](https://github.com/HelrenPDM/espalier/issues/9) (closed) | Done |
 | 0010 | [Frontend shell: Tailwind, routing, i18n, API client](0010-frontend-shell.md) | M3 Learning | 0004, 0004a | [#10](https://github.com/HelrenPDM/espalier/issues/10) | To do |
 | 0011 | [Account UI: sign-in, enrollment, recovery and security settings](0011-account-ui.md) | M3 Learning | 0007, 0009, 0010 | [#11](https://github.com/HelrenPDM/espalier/issues/11) | To do |
 | 0012 | [Player and learner UI](0012-player-learner-ui.md) | M3 Learning | 0009, 0010 | [#12](https://github.com/HelrenPDM/espalier/issues/12) | To do |
