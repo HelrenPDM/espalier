@@ -160,13 +160,159 @@ defmodule Espalier.Catalog.Pack.Schema.Pack do
       "`locale` must be a language tag such as `en` or `de-DE`"
     )
     |> Cast.validate_max_length(:locale)
-    |> Cast.validate_regex(
-      :license,
-      @license_regex,
-      "`license` must be an SPDX license identifier or expression such as `CC0-1.0`"
-    )
+    |> validate_license(:license)
     |> Cast.validate_max_length(:version)
   end
+
+  defp validate_license(changeset, field) do
+    case get_change(changeset, field) do
+      value when is_binary(value) ->
+        if valid_license?(value),
+          do: changeset,
+          else: Cast.add(changeset, field, "`license` must be an SPDX license identifier or expression such as `CC0-1.0`")
+
+      _ ->
+        changeset
+    end
+  end
+
+  defp valid_license?(value) do
+    case tokenize(value) do
+      {:ok, tokens} ->
+        case parse_expression(tokens) do
+          {:ok, []} -> true
+          _ -> false
+        end
+
+      :error ->
+        false
+    end
+  end
+
+  defp parse_expression(tokens), do: parse_or(tokens)
+
+  defp parse_or(tokens) do
+    case parse_and(tokens) do
+      {:ok, rest} ->
+        case rest do
+          [{:op, "OR"} | more] ->
+            case parse_or(more) do
+              {:ok, after_or} -> {:ok, after_or}
+              :error -> :error
+            end
+
+          _ ->
+            {:ok, rest}
+        end
+
+      :error ->
+        :error
+    end
+  end
+
+  defp parse_and(tokens) do
+    case parse_with(tokens) do
+      {:ok, rest} ->
+        case rest do
+          [{:op, "AND"} | more] ->
+            case parse_and(more) do
+              {:ok, after_and} -> {:ok, after_and}
+              :error -> :error
+            end
+
+          _ ->
+            {:ok, rest}
+        end
+
+      :error ->
+        :error
+    end
+  end
+
+  defp parse_with(tokens) do
+    case parse_primary(tokens) do
+      {:ok, rest} ->
+        case rest do
+          [{:op, "WITH"} | more] ->
+            case parse_exception(more) do
+              {:ok, after_exception} -> {:ok, after_exception}
+              :error -> :error
+            end
+
+          _ ->
+            {:ok, rest}
+        end
+
+      :error ->
+        :error
+    end
+  end
+
+  defp parse_primary(tokens) do
+    case tokens do
+      [{:lparen} | rest] ->
+        case parse_expression(rest) do
+          {:ok, [{:rparen} | rest]} -> {:ok, rest}
+          _ -> :error
+        end
+
+      [{:id, id} | rest] when id in @spdx_license_ids ->
+        {:ok, rest}
+
+      _ ->
+        :error
+    end
+  end
+
+  defp parse_exception(tokens) do
+    case tokens do
+      [{:id, id} | rest] when id in @spdx_exceptions -> {:ok, rest}
+      _ -> :error
+    end
+  end
+
+  defp tokenize(value) do
+    chars = String.to_charlist(String.trim(value))
+    tokenize_chars(chars, [])
+  end
+
+  defp tokenize_chars([], acc), do: {:ok, Enum.reverse(acc)}
+
+  defp tokenize_chars(chars, acc) do
+    cond do
+      chars == [] ->
+        {:ok, Enum.reverse(acc)}
+
+      hd(chars) == ?\s ->
+        tokenize_chars(tl(chars), acc)
+
+      hd(chars) == ?( ->
+        tokenize_chars(tl(chars), [{:lparen} | acc])
+
+      hd(chars) == ?) ->
+        tokenize_chars(tl(chars), [{:rparen} | acc])
+
+      true ->
+        {word_chars, rest} = Enum.split_while(chars, &token_char?/1)
+
+        if word_chars == [] do
+          :error
+        else
+          word = List.to_string(word_chars)
+
+          token =
+            cond do
+              word in ["AND", "OR", "WITH"] -> {:op, word}
+              String.match?(word, ~r/\A[A-Za-z0-9.+-]+\z/) -> {:id, word}
+              true -> nil
+            end
+
+          if is_nil(token), do: :error, else: tokenize_chars(rest, [token | acc])
+        end
+    end
+  end
+
+  defp token_char?(char), do: char in ?A..?Z or char in ?a..?z or char in ?0..?9 or char in [?., ?+, ?-]
 
   # A value of another type fails the cast, which leaves it out of the
   # changes, so the raw value comes from `attrs`. Its type error is replaced,

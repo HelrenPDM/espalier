@@ -25,7 +25,7 @@ defmodule Espalier.Catalog.PackImport do
   @doc false
   def changeset(pack_import, attrs) do
     pack_import
-    |> cast(attrs, [:pack_key, :pack_version, :status, :report, :payload, :imported_by_id])
+    |> cast(attrs, [:pack_key, :pack_version, :status, :report, :payload])
     |> validate_required([:status, :report])
   end
 end
