@@ -1,0 +1,13 @@
+number: 2
+title: Checking
+summary: How to check generated text.
+phases: [apply, update]
+single_path: true
+refresher_unit: true
+areas_elsewhere:
+  self:
+    where: format:workshop
+    reason: The workshop practises judging which tasks an assistant may support.
+  social:
+    where: module:1
+    reason: Module 1 covers agreeing in a team how assistant use is made visible.

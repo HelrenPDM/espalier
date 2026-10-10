@@ -1,0 +1,24 @@
+- kind: self_assessment
+  title: Where do you stand?
+  config:
+    question: How often do you use a writing assistant?
+- kind: overview
+  title: Overview
+  config:
+    intro: Two short modules.
+- kind: module
+  title: Basics
+  module: 1
+- kind: module
+  title: Checking
+  module: 2
+- kind: credential
+  title: Credential
+  config:
+    intro: Pass the exam to receive the credential.
+- kind: companion_formats
+  title: Companion formats
+  config:
+    intro: Formats outside the platform.
+- kind: feedback
+  title: Feedback

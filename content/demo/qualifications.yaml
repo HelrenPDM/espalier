@@ -1,0 +1,33 @@
+- code: basics
+  title: AI assistant basics
+  audience: Everyone who uses or plans to use an AI writing assistant for office work.
+  unlocks:
+    - Draft internal texts with an approved AI writing assistant
+    - Summarize non-confidential documents with an approved AI writing assistant
+  add_on: false
+  validity_kind: months
+  validity_months: 12
+  refresher_mode: update_unit
+  phases: [orient, understand, apply, anchor]
+  requirements:
+    - kind: module_completed
+      target: 1
+    - kind: module_completed
+      target: 2
+    - kind: assessment_passed
+      target: module-1-exam
+    - kind: policy_acknowledged
+      target: usage-policy
+- code: workshop
+  title: AI assistants in the team
+  audience: Holders of the credential AI assistant basics who share documents with a team.
+  unlocks:
+    - Coordinate how a team marks the use of an AI writing assistant in shared documents
+  add_on: true
+  validity_kind: none
+  phases: [anchor]
+  requirements:
+    - kind: qualification_held
+      target: basics
+    - kind: attendance
+      target: workshop

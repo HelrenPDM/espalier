@@ -1,0 +1,7 @@
+- key: m1-exam
+  title: Basics exam
+  kind: exam
+  counts_for_credential: true
+  max_wrong: 1
+  core_required: true
+  items: [m1-exam-1, m1-exam-2]

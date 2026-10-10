@@ -1,0 +1,16 @@
+intro: Tell us what you think.
+questions:
+  - key: useful
+    kind: single_choice
+    label: Was the course useful?
+    options:
+      - key: "yes"
+        label: "Yes"
+      - key: "no"
+        label: "No"
+  - key: rating
+    kind: scale
+    label: How do you rate the course?
+  - key: comment
+    kind: free_text
+    label: Anything else?

@@ -1,0 +1,4 @@
+- key: everyone
+  label: Everyone
+  description: Every learner starts here.
+  default_path: short

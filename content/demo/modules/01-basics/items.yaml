@@ -1,0 +1,210 @@
+- key: m1-how-models-write
+  kind: single_choice
+  lesson: 01-first-lesson
+  stem: How does a language model produce the text of its answer?
+  core: false
+  phase: understand
+  provenance: invented
+  objectives: [m1-subject-next-word]
+  rules: [1]
+  reveals: [01-first-lesson]
+  options:
+    - key: likely-words
+      label: It continues the text with words that are likely after the words before.
+      correct: true
+      feedback: Right. The model continues text from probabilities that it learned in training.
+    - key: fact-database
+      label: It looks up the answer in a database of checked facts.
+      correct: false
+      feedback: A language model holds no database of checked facts. It continues text from learned probabilities.
+    - key: copied-document
+      label: It copies the best matching document from the internet.
+      correct: false
+      feedback: The model writes new text word by word. It does not copy a document that it has found.
+- key: m1-fluent-figure
+  kind: single_choice
+  lesson: 01-first-lesson
+  stem: An assistant answers in fluent sentences and names an exact figure. What does the fluent wording tell you about the figure?
+  core: false
+  phase: understand
+  provenance: invented
+  objectives: [m1-subject-next-word]
+  rules: [1, 3]
+  reveals: []
+  options:
+    - key: nothing
+      label: Nothing. The figure still needs a check against a source.
+      correct: true
+      feedback: Right. Fluent wording follows from likely word sequences and says nothing about the figure.
+    - key: figure-correct
+      label: The figure is correct, because the assistant sounds confident.
+      correct: false
+      feedback: A confident tone comes from likely wording. The figure can still be wrong.
+    - key: figure-verified
+      label: The figure comes from a verified source.
+      correct: false
+      feedback: The assistant names no source here, so nothing shows that the figure was verified.
+- key: m1-why-answers-vary
+  kind: multiple_choice
+  lesson: 02-second-lesson
+  stem: Why can the same prompt produce different answers? Select every correct reason.
+  core: false
+  phase: understand
+  provenance: invented
+  objectives: [m1-subject-varying-answers]
+  rules: [2]
+  reveals: []
+  options:
+    - key: chance-choice
+      label: At each step the model chooses by chance among several likely next words.
+      correct: true
+      feedback: Right. This choice by chance is called sampling.
+    - key: earlier-turns
+      label: Earlier messages in the same conversation change what the model takes into account.
+      correct: true
+      feedback: Right. The model writes from everything that is in its context, including earlier messages.
+    - key: new-source
+      label: The model looks up a new source for each answer.
+      correct: false
+      feedback: The model looks nothing up while it writes. Its probabilities come from training.
+    - key: manual-edit
+      label: A person edits the answers before you see them.
+      correct: false
+      feedback: Nobody edits the answers. The variation comes from the way the model chooses its words.
+- key: m1-before-use
+  kind: single_choice
+  lesson: 03-third-lesson
+  stem: A generated summary of a meeting names a date and a person. What do you do before you send the summary to others?
+  core: false
+  phase: apply
+  provenance: invented
+  objectives: [m1-method-check-claims]
+  rules: [3]
+  reveals: []
+  options:
+    - key: check-source
+      label: I check the date and the name against the meeting notes.
+      correct: true
+      feedback: Right. Names and dates need a check against a reliable source before you use them.
+    - key: ask-assistant
+      label: I ask the assistant whether its summary is correct.
+      correct: false
+      feedback: The assistant answers from the same probabilities again. Only a source can confirm the date and the name.
+    - key: send-directly
+      label: I send it as it is, because a summary adds no new facts.
+      correct: false
+      feedback: A generated summary can add or change facts. The date and the name need a check first.
+- key: m1-first-task-poll
+  kind: poll
+  lesson: 03-third-lesson
+  stem: For which task would you most like to use an assistant first?
+  core: false
+  phase: orient
+  provenance: invented
+  rules: []
+  reveals: []
+  options:
+    - key: emails
+      label: Drafting emails
+      correct: false
+      feedback: Thank you for your answer.
+    - key: summaries
+      label: Summarizing documents
+      correct: false
+      feedback: Thank you for your answer.
+    - key: research
+      label: Finding information on a topic
+      correct: false
+      feedback: Thank you for your answer.
+    - key: no-task
+      label: None of these tasks
+      correct: false
+      feedback: Thank you for your answer.
+- key: m1-exam-next-word
+  kind: single_choice
+  stem: What does a language model do when it writes an answer?
+  core: false
+  phase: anchor
+  provenance: invented
+  objectives: [m1-subject-next-word]
+  rules: [1]
+  reveals: []
+  options:
+    - key: continue-text
+      label: It continues the text with likely words, based on probabilities learned in training.
+      correct: true
+      feedback: Right. A language model continues text from learned probabilities.
+    - key: retrieve-facts
+      label: It retrieves verified facts from a knowledge base.
+      correct: false
+      feedback: A language model retrieves no verified facts. It continues text from learned probabilities.
+    - key: store-documents
+      label: It stores your documents and repeats them on request.
+      correct: false
+      feedback: The model writes new text from learned probabilities and repeats no stored document.
+- key: m1-exam-varying-answers
+  kind: multiple_choice
+  stem: You send the same prompt twice and receive two different answers. Which statements are true? Select every true statement.
+  core: false
+  phase: anchor
+  provenance: invented
+  objectives: [m1-subject-varying-answers]
+  rules: [2]
+  reveals: []
+  options:
+    - key: both-fluent
+      label: Both answers can read well and still differ in their facts.
+      correct: true
+      feedback: Right. Fluent wording says nothing about the facts in an answer.
+    - key: expected-variation
+      label: Different answers to the same prompt are expected behaviour of the model.
+      correct: true
+      feedback: Right. The model chooses by chance among likely next words, so answers vary.
+    - key: technical-fault
+      label: One of the two answers must be the result of a technical fault.
+      correct: false
+      feedback: Variation is part of how the model works and points to no fault.
+- key: m1-exam-check-claims
+  kind: single_choice
+  stem: Which parts of a generated report need a check against a source before you use the report?
+  core: true
+  phase: anchor
+  provenance: invented
+  objectives: [m1-method-check-claims]
+  rules: [3]
+  reveals: []
+  options:
+    - key: all-claims
+      label: Every name, number, date and quotation in the report.
+      correct: true
+      feedback: Right. Each of these needs a check against a reliable source.
+    - key: unusual-parts
+      label: Only the passages that sound unusual.
+      correct: false
+      feedback: Wrong statements often sound ordinary. Every name, number, date and quotation needs a check.
+    - key: nothing-approved
+      label: Nothing, as long as the assistant is approved for use.
+      correct: false
+      feedback: An approved tool still produces likely wording. Its statements need a check before you use them.
+- key: m1-exam-confident-answer
+  kind: single_choice
+  stem: An answer of an assistant sounds confident and gives many details. What does this tell you about the answer?
+  core: false
+  phase: anchor
+  provenance: invented
+  objectives: [m1-subject-next-word]
+  rules: [1]
+  reveals: []
+  options:
+    - key: draft-only
+      label: Nothing about its correctness. The answer is a draft whose statements still need a check.
+      correct: true
+      feedback: Right. Confidence and detail follow from likely wording and confirm no statement.
+    - key: verified-result
+      label: The answer is a verified result.
+      correct: false
+      feedback: The model verifies nothing while it writes. The answer is a draft.
+    - key: quoted-source
+      label: The answer quotes a reliable source.
+      correct: false
+      feedback: The answer names no source, and the model writes new text instead of quoting.

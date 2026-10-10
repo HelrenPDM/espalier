@@ -1,0 +1,25 @@
+- key: m1-subject-next-word
+  statement: Learners can explain that an assistant continues text from probabilities.
+  area: subject
+  depth: know
+  phase: understand
+  domain: drafting
+  taught_in: [01-intro]
+- key: m1-method-build-prompt
+  statement: Learners can build a prompt from task, context and format.
+  area: method
+  depth: apply
+  phase: apply
+  taught_in: [02-practice]
+- key: m1-self-judge-tasks
+  statement: Learners can judge which of their tasks an assistant may support.
+  area: self
+  depth: judge
+  phase: anchor
+  taught_in: [02-practice]
+- key: m1-social-agree-team
+  statement: Learners can agree with their team how assistant use is made visible.
+  area: social
+  depth: judge
+  phase: anchor
+  taught_in: [02-practice]

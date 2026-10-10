@@ -1,0 +1,27 @@
+- kind: self_assessment
+  title: Where you start
+  config:
+    question: How do you use AI assistants at work today?
+- kind: overview
+  title: Overview
+  config:
+    intro: This demo program shows how a learning program on AI writing assistants in an office can be built. All of its content is invented for demonstration, including the rules, the items, the sources and the companion formats, and none of it describes a real organization, product or study.
+- kind: module
+  title: How language models work
+  module: 1
+  config: {}
+- kind: module
+  title: Checking the output
+  module: 2
+  config: {}
+- kind: credential
+  title: Your credential
+  config:
+    intro: Complete both modules, pass the exam of module 1 and acknowledge the usage policy to receive the credential AI assistant basics.
+- kind: companion_formats
+  title: Beyond the platform
+  config:
+    intro: Some topics need a conversation with colleagues. The formats below take place outside the platform, and you can mark the ones that interest you.
+- kind: feedback
+  title: Your feedback
+  config: {}

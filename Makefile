@@ -46,8 +46,9 @@ services-down: ## stop the development services
 	docker compose -f compose.dev.yaml down
 
 .PHONY: setup
-setup: init ## install, compile and set up the database
+setup: init ## install, compile, set up the database and import the demo pack
 	$(NIX) '$(DOTENV) mix ecto.setup'
+	$(NIX) '$(DOTENV) mix espalier.import content/demo'
 
 .PHONY: run
 run: ## start Phoenix with IEx, the Vite dev server and the mock OIDC provider
@@ -58,8 +59,9 @@ dev-oidc: ## Start the mock OIDC provider on port 4010
 	$(NIX) '$(DOTENV) mix espalier.dev_oidc --port 4010'
 
 .PHONY: refresh-db
-refresh-db: ## drop, create and migrate the database
+refresh-db: ## drop, create and migrate the database and import the demo pack
 	$(NIX) '$(DOTENV) mix do ecto.drop, ecto.create, ecto.migrate'
+	$(NIX) '$(DOTENV) mix espalier.import content/demo'
 
 .PHONY: lint
 lint: ## format and fix the code of both projects
@@ -119,6 +121,10 @@ secrets-scan: ## scan the Git history for secrets
 .PHONY: docs
 docs: ## render PlantUML diagrams to docs/architecture/out/
 	$(NIX) 'plantuml -tsvg -o out docs/architecture/*.puml'
+
+.PHONY: spdx-lists
+spdx-lists: ## write the SPDX license and exception ids of the pinned nixpkgs to priv/spdx/
+	scripts/spdx-lists.sh
 
 .PHONY: docker-build
 docker-build: ## build the production image IMAGE:TAG (default espalier:latest)

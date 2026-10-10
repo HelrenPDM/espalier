@@ -1,0 +1,16 @@
+- key: daily-users
+  label: I use an AI assistant almost every day
+  description: You already work with an assistant and want to check your routines against the rules of this program.
+  default_path: short
+- key: occasional-users
+  label: I use an AI assistant now and then
+  description: You have tried an assistant for some tasks and want to use it with more confidence.
+  default_path: short
+- key: non-users
+  label: I do not use AI at work
+  description: You have not used an assistant at work so far and want to know how it works before you start.
+  default_path: full
+- key: stopped-users
+  label: I tried AI at work and stopped
+  description: You used an assistant for a while, stopped, and want to see whether a different approach fits your work.
+  default_path: full

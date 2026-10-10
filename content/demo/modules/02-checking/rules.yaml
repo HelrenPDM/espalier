@@ -1,0 +1,12 @@
+- number: 1
+  statement: A clear prompt names the task, the context, the format and a constraint.
+  action: Check that your prompt contains all four parts before you send it.
+- number: 2
+  statement: Every statement that a reader could act on needs a check against a source.
+  action: Mark each such statement in the draft and check it before the release.
+- number: 3
+  statement: A generated text is released only after the release checks.
+  action: Run the release checklist and confirm it with your initials.
+- number: 4
+  statement: Output that you cannot check stays out of the released text.
+  action: Ask again with a clearer prompt, or write the passage yourself.

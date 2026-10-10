@@ -1,0 +1,11 @@
+- key: workshop
+  title: Workshop
+  description: A facilitated session in teams.
+  phases: [anchor]
+  attendance_counts: true
+  objectives: [m1-self-judge-tasks, m1-social-agree-team]
+- key: handbook
+  title: Handbook
+  description: A printable summary of the rules.
+  phases: [update]
+  attendance_counts: false

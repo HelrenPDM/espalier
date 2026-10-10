@@ -1,0 +1,13 @@
+- key: vendor-guide
+  title: User guide of a writing assistant (fictional example source)
+  publisher: Example Assistant Vendor (fictional example publisher)
+  url: https://example.org/writing-assistant-guide
+  edition_date: "2026-03-01"
+  retrieved_on: "2026-09-15"
+  kind: other
+- key: office-study
+  title: Interviews on writing assistants in office work (fictional example source)
+  publisher: Example Institute for Office Work (fictional example publisher)
+  edition_date: "2025-11-20"
+  retrieved_on: "2026-09-15"
+  kind: other

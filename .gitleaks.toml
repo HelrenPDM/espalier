@@ -18,3 +18,15 @@ description = "Invented tenant id of the mock OIDC provider in the commented dev
 condition = "AND"
 paths = ['''^\.env\.example$''']
 regexes = ['''^3f0c2a9e-7b1d-4e5a-8c6f-2d9b0e4a1c7d$''']
+
+[[allowlists]]
+description = "Key of a learning objective of the demo pack, fixed by task 0008 step 12 and README section 11; the rule generic-api-key reads the YAML field `key:` as an API key, no secret"
+condition = "AND"
+paths = ['''^content/demo/modules/02-checking/objectives\.yaml$''']
+regexes = ['''^m2-subject-prompt-parts$''']
+
+[[allowlists]]
+description = "Key of a learning objective in an alignment test of task 0008; the rule generic-api-key reads `key:` as an API key, no secret"
+condition = "AND"
+paths = ['''^test/espalier/catalog/alignment_test\.exs$''']
+regexes = ['''^m1-subject-anchored$''']

@@ -1,0 +1,30 @@
+- code: basics
+  title: Basics
+  audience: Everyone who drafts text with an assistant.
+  unlocks:
+    - Draft internal notes with an assistant
+  add_on: false
+  validity_kind: months
+  validity_months: 12
+  refresher_mode: update_unit
+  phases: [orient, understand, apply]
+  requirements:
+    - kind: module_completed
+      target: 1
+    - kind: assessment_passed
+      target: m1-exam
+    - kind: policy_acknowledged
+      target: usage-policy
+- code: workshop
+  title: Workshop add-on
+  audience: Holders of the basics credential.
+  unlocks:
+    - Coach colleagues
+  add_on: true
+  validity_kind: none
+  phases: [anchor]
+  requirements:
+    - kind: qualification_held
+      target: basics
+    - kind: attendance
+      target: workshop

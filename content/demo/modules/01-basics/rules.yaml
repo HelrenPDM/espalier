@@ -1,0 +1,19 @@
+- number: 1
+  statement: Generated text follows likely wording and carries no check of its own.
+  action: Treat every generated statement as a draft until you have checked it.
+- number: 2
+  statement: The same request can produce different answers.
+  action: Keep the version you have checked, and expect a new run to differ from it.
+  cite: ["vendor-guide#Limitations"]
+- number: 3
+  statement: Names, numbers, dates and quotations in generated text need a source.
+  action: Check each of them against a reliable source before you use the text.
+- number: 4
+  statement: Inputs to an assistant follow the input rules of your organization.
+  action: Read the input rules before you paste a document or personal data into a prompt.
+- number: 5
+  statement: You decide which of your tasks an assistant may support.
+  action: Keep tasks that need your own judgement about people, such as assessments, to yourself.
+- number: 6
+  statement: Your team can see where an assistant contributed to shared work.
+  action: Mark the use of an assistant in shared documents in the way your team has agreed.
