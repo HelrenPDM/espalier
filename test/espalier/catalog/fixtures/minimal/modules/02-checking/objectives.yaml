@@ -1,0 +1,12 @@
+- key: m2-subject-judge-drafts
+  statement: Learners can judge from two compared drafts which statements need a check.
+  area: subject
+  depth: judge
+  phase: apply
+  taught_in: [01-check]
+- key: m2-method-release-check
+  statement: Learners can run the release checks and confirm them with their initials.
+  area: method
+  depth: apply
+  phase: anchor
+  taught_in: [01-check]

@@ -1,0 +1,7 @@
+number: 1
+title: Basics
+summary: How a writing assistant produces text.
+phases: [orient, understand]
+domains: [drafting]
+single_path: false
+refresher_unit: false

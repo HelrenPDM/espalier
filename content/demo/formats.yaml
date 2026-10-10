@@ -1,0 +1,16 @@
+- key: handbook
+  title: Printed handbook
+  description: A printable summary of all rules with their actions, for reference at the desk.
+  phases: [anchor, update]
+  attendance_counts: false
+- key: workshop
+  title: Team workshop
+  description: A two-hour session in which a team decides which of its tasks an assistant may support and agrees how the use of an assistant is made visible in shared work.
+  phases: [apply, anchor]
+  attendance_counts: true
+  objectives: [m1-self-own-responsibility, m1-social-team-transparency]
+- key: help-desk
+  title: Help desk
+  description: A contact point for questions about AI writing assistants that come up in daily work.
+  phases: [anchor, update]
+  attendance_counts: false

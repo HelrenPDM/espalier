@@ -1,0 +1,11 @@
+- key: module-1-exam
+  title: Exam of module 1
+  kind: exam
+  counts_for_credential: true
+  max_wrong: 1
+  core_required: true
+  items:
+    - m1-exam-next-word
+    - m1-exam-varying-answers
+    - m1-exam-check-claims
+    - m1-exam-confident-answer

@@ -1,0 +1,18 @@
+- key: m2-subject-prompt-parts
+  statement: Learners can build a prompt from task, context, format and constraint.
+  area: subject
+  depth: apply
+  phase: apply
+  taught_in: [01-first-lesson]
+- key: m2-method-judge-output
+  statement: Learners can judge from two compared drafts which statements need a check against a source.
+  area: method
+  depth: judge
+  phase: apply
+  taught_in: [02-second-lesson]
+- key: m2-method-release-check
+  statement: Learners can run the release checks on a generated text and confirm them with their initials.
+  area: method
+  depth: apply
+  phase: anchor
+  taught_in: [02-second-lesson]

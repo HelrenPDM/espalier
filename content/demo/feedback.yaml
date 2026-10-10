@@ -1,0 +1,18 @@
+intro: Your answers help to improve this program.
+questions:
+  - key: usefulness
+    kind: single_choice
+    label: How useful was this program for your daily work?
+    options:
+      - key: very-useful
+        label: Very useful
+      - key: somewhat-useful
+        label: Somewhat useful
+      - key: not-useful
+        label: Not useful
+  - key: clarity
+    kind: scale
+    label: How clear were the explanations, from 1 (unclear) to 5 (very clear)?
+  - key: suggestion
+    kind: free_text
+    label: What should the program add or change?

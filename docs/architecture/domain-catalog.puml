@@ -158,9 +158,9 @@ package "Catalog" {
   }
 }
 
-Program "1" *-- "1..*" Station
+Program "1" *-- "0..*" Station
 Program "1" *-- "0..*" Segment
-Program "1" *-- "1..*" Qualification
+Program "1" *-- "0..*" Qualification
 Program "1" *-- "1..*" Module
 Program "1" *-- "0..*" CompanionFormat
 Program "1" *-- "0..*" GlossaryTerm

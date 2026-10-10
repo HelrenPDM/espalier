@@ -1,0 +1,7 @@
+- number: 1
+  statement: Check every generated statement before you use it.
+  action: Compare the statement with a source.
+  cite: ["fictional-guide#Section 1"]
+- number: 2
+  statement: Name the use of an assistant in shared work.
+  action: Add a note to the document.

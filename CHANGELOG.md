@@ -84,6 +84,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `docs/guides/identity-providers.md` as a draft, with the results of the
   Entra spike; client certificates name themselves by the `x5t` key id,
   the only format that Entra ID accepts (task 0006).
+- The catalog: programs, stations, segments, qualifications with their
+  requirements, modules, learning objectives in the four CORE competence
+  areas, lessons with blocks, rules, items with options, assessments,
+  companion formats, glossary terms, sources and citations, with the join
+  tables `objective_lessons`, `item_objectives` and `format_objectives` for
+  constructive alignment (task 0008).
+- Content packs in YAML and Markdown: `mix espalier.validate` checks a pack
+  directory with file and line per finding, `mix espalier.import` and
+  `Espalier.Release.import_pack/2` store it as a draft `PackImport` and
+  publish it in one transaction by stable keys, and `mix espalier.alignment`
+  prints the alignment matrix as text, CSV or JSON. The validator applies the
+  four alignment checks of domain rule 14: the findings of checks 1 to 3 are
+  errors with `alignment: strict` (the default) and warnings with
+  `alignment: warn`, and the findings of check 4 are warnings in both modes
+  (task 0008).
+- The neutral demo pack `content/demo/` ("AI assistant basics (demo)"),
+  imported by `make setup` and `make refresh-db`, and the dependency
+  `yaml_elixir` 2.12 (task 0008).
 
 ### Changed
 

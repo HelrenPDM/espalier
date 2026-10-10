@@ -1,0 +1,110 @@
+- key: m1-choice
+  kind: single_choice
+  lesson: 01-intro
+  stem: What does a [[term:assistant]] do?
+  core: false
+  phase: understand
+  provenance: invented
+  objectives: [m1-subject-next-word]
+  rules: [1]
+  reveals: [01-intro]
+  cite: ["fictional-guide#Section 1"]
+  options:
+    - key: a
+      label: It continues text.
+      correct: true
+      feedback: Right.
+    - key: b
+      label: It looks up facts.
+      correct: false
+      feedback: Not quite.
+- key: m1-multi
+  kind: multiple_choice
+  lesson: 01-intro
+  stem: Which statements are true?
+  core: false
+  phase: understand
+  provenance: invented
+  objectives: [m1-subject-next-word]
+  rules: [1]
+  options:
+    - key: a
+      label: Answers can vary.
+      correct: true
+      feedback: Right.
+    - key: b
+      label: Answers are always correct.
+      correct: false
+      feedback: No.
+- key: m1-poll
+  kind: poll
+  lesson: 01-intro
+  stem: How often do you use an assistant?
+  core: false
+  phase: orient
+  provenance: invented
+  options:
+    - key: often
+      label: Often
+      correct: false
+      feedback: Thanks.
+    - key: rarely
+      label: Rarely
+      correct: false
+      feedback: Thanks.
+- key: m1-slots
+  kind: slot_builder
+  lesson: 02-practice
+  stem: Build a prompt.
+  core: false
+  phase: apply
+  provenance: invented
+  objectives: [m1-method-build-prompt]
+  rules: [2]
+  config:
+    slots:
+      - key: task
+        label: Task
+        options:
+          - key: summary
+            label: Write a summary
+            correct: true
+            feedback: Clear task.
+          - key: something
+            label: Do something
+            correct: false
+            feedback: Too vague.
+- key: m1-exam-1
+  kind: single_choice
+  stem: What does an assistant continue?
+  core: true
+  phase: understand
+  provenance: invented
+  objectives: [m1-subject-next-word]
+  rules: [1]
+  options:
+    - key: a
+      label: Text
+      correct: true
+      feedback: Right.
+    - key: b
+      label: Images
+      correct: false
+      feedback: No.
+- key: m1-exam-2
+  kind: multiple_choice
+  stem: Which checks apply?
+  core: false
+  phase: understand
+  provenance: invented
+  objectives: [m1-subject-next-word]
+  rules: [1]
+  options:
+    - key: a
+      label: Compare with a source
+      correct: true
+      feedback: Right.
+    - key: b
+      label: Trust the output
+      correct: false
+      feedback: No.

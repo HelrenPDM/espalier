@@ -1,0 +1,106 @@
+- key: m2-prompt-builder
+  kind: slot_builder
+  lesson: 01-first-lesson
+  stem: Build a prompt for a short notice that tells your team that the weekly meeting moves to another day. Choose one option for each part of the prompt.
+  core: false
+  phase: apply
+  provenance: invented
+  objectives: [m2-subject-prompt-parts]
+  rules: [1]
+  reveals: []
+  config:
+    slots:
+      - key: task
+        label: Task
+        options:
+          - key: task-clear
+            label: Write a notice to my team that our weekly meeting moves from Tuesday to Thursday.
+            correct: true
+            feedback: This names what the assistant should write and what the notice is about.
+          - key: task-vague
+            label: Write something about the meeting.
+            correct: false
+            feedback: This leaves the task open, so the assistant has to guess what you need.
+      - key: context
+        label: Context
+        options:
+          - key: context-team
+            label: The team has eight members, and the meeting keeps its time and its room.
+            correct: true
+            feedback: This gives the assistant the facts that the notice needs.
+          - key: context-none
+            label: Leave out any background.
+            correct: false
+            feedback: Without background, the assistant fills the gaps with guesses.
+      - key: format
+        label: Format
+        options:
+          - key: format-short
+            label: Three sentences in plain language, without a subject line.
+            correct: true
+            feedback: This sets the length and the style of the notice.
+          - key: format-open
+            label: Any length and any style.
+            correct: false
+            feedback: An open format often gives a long text that you then have to shorten.
+      - key: constraint
+        label: Constraint
+        options:
+          - key: constraint-no-reasons
+            label: Do not invent reasons for the change.
+            correct: true
+            feedback: This keeps the assistant from adding statements that nobody has checked.
+          - key: constraint-more-interesting
+            label: Add details that make the notice more interesting.
+            correct: false
+            feedback: This invites the assistant to invent details that you would then have to check.
+- key: m2-judge-drafts
+  kind: classification
+  lesson: 02-second-lesson
+  stem: Sort each statement of a generated draft notice by what it needs before the release.
+  core: false
+  phase: apply
+  provenance: invented
+  objectives: [m2-method-judge-output]
+  rules: [2, 4]
+  reveals: []
+  config:
+    categories:
+      - key: needs-source
+        label: Check against a source
+      - key: needs-rewrite
+        label: Rewrite or remove
+      - key: ready
+        label: Ready to use
+    cases:
+      - key: case-figure
+        text: The new filing process saves 40 percent of the working time.
+        feedback: A figure is a statement that readers rely on, so it needs a check against a source.
+      - key: case-claim
+        text: Everyone obviously agrees that the old process was a failure.
+        feedback: Nobody can check this statement, and its tone does not suit a notice. Rewrite it or remove it.
+      - key: case-thanks
+        text: Thank you for reading this notice.
+        feedback: A courtesy line states no fact and can stay as it is.
+    expected:
+      case-figure: needs-source
+      case-claim: needs-rewrite
+      case-thanks: ready
+- key: m2-release-drill
+  kind: checklist_drill
+  lesson: 02-second-lesson
+  stem: Run the release checks on your draft notice and confirm them with your initials.
+  core: false
+  phase: anchor
+  provenance: invented
+  objectives: [m2-method-release-check]
+  rules: [3]
+  reveals: []
+  config:
+    checks:
+      - key: facts-checked
+        label: Every name, number and date in the draft is checked against a source.
+        required: true
+      - key: second-reader
+        label: A colleague has read the draft.
+        required: false

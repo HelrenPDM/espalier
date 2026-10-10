@@ -1,0 +1,35 @@
+- key: m1-subject-next-word
+  statement: Learners can explain that a language model continues text from probabilities learned in training.
+  area: subject
+  depth: know
+  phase: understand
+  domain: research
+  taught_in: [01-first-lesson]
+- key: m1-subject-varying-answers
+  statement: Learners can explain why the same prompt can produce different answers.
+  area: subject
+  depth: know
+  phase: understand
+  domain: drafting
+  taught_in: [02-second-lesson]
+- key: m1-method-check-claims
+  statement: Learners can name the checks that a generated statement needs before it is used.
+  area: method
+  depth: know
+  phase: understand
+  domain: research
+  taught_in: [03-third-lesson]
+- key: m1-self-own-responsibility
+  statement: Learners can judge which of their own tasks an assistant may support and which they keep to themselves.
+  area: self
+  depth: judge
+  phase: anchor
+  domain: drafting
+  taught_in: [03-third-lesson]
+- key: m1-social-team-transparency
+  statement: Learners can agree with their team how the use of an assistant is made visible in shared work.
+  area: social
+  depth: judge
+  phase: anchor
+  domain: drafting
+  taught_in: [03-third-lesson]

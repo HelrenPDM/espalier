@@ -1,0 +1,24 @@
+- slug: llm
+  label: language model
+  short_text: A program that continues text with words that are likely after the words before, based on probabilities learned in training.
+- slug: prompt
+  label: prompt
+  short_text: The text you give an assistant to describe what it should do.
+- slug: sampling
+  label: sampling
+  short_text: The chance-based choice among several likely next words, which makes answers to the same prompt vary.
+- slug: training-data
+  label: training data
+  short_text: The texts from which a model learned its probabilities before it was released.
+- slug: context-window
+  label: context window
+  short_text: The amount of text that a model can take into account at once, including the prompt and the conversation so far.
+- slug: hallucination
+  label: hallucination
+  short_text: A fluent statement in generated text that no source supports.
+- slug: source-check
+  label: source check
+  short_text: The comparison of a generated statement with a reliable source before the statement is used.
+- slug: personal-data
+  label: personal data
+  short_text: Information that relates to an identified or identifiable person.

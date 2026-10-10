@@ -7,8 +7,10 @@ defmodule Espalier.Release do
 
   alias Espalier.Accounts
   alias Espalier.Accounts.{FailureCounters, RoleGrant, Scope}
+  alias Espalier.Catalog.Pack.Report
   alias Espalier.Crypto.{Keys, Rotation}
   alias Espalier.Identity.Ldap
+  alias Espalier.Repo
 
   def migrate do
     load_app()
@@ -178,6 +180,38 @@ defmodule Espalier.Release do
       {:ok, entry} -> {:ok, entry}
       {:error, :not_found} -> {:error, :not_found}
       {:error, _reason} -> {:error, :unavailable}
+    end
+  end
+
+  @doc """
+  Imports the content pack at `path` as `mix espalier.import` does (task
+  0008, step 11), inside `Ecto.Migrator.with_repo/2` and without starting
+  the application. It prints the report in the form of
+  `mix espalier.validate` and a line with the outcome, and publishes a
+  validated import unless `draft: true` is given, which stops after the
+  draft.
+
+  Returns `{:ok, pack_import}` with the published import or the draft, and
+  `{:error, reason}` otherwise: the failed import, the changeset of an import
+  that could not be stored, `:not_validated`, or the reason why the repo did
+  not start.
+
+      bin/espalier eval 'Espalier.Release.import_pack("/srv/packs/my-pack")'
+      bin/espalier eval 'Espalier.Release.import_pack("/srv/packs/my-pack", draft: true)'
+
+  The image holds no content pack, so the operator mounts the pack
+  directory into the container, read-only, for example with
+  `docker compose run --rm -v "$PWD/content/demo:/srv/packs/my-pack:ro" app`
+  in front of the command.
+  """
+  @spec import_pack(Path.t(), keyword()) :: {:ok, Ecto.Schema.schema()} | {:error, term()}
+  def import_pack(path, opts \\ []) when is_binary(path) and is_list(opts) do
+    load_app()
+    draft? = Keyword.get(opts, :draft, false)
+
+    case Ecto.Migrator.with_repo(Repo, fn _repo -> Report.run_import(path, draft: draft?) end) do
+      {:ok, result, _apps} -> result
+      {:error, reason} -> {:error, reason}
     end
   end
 

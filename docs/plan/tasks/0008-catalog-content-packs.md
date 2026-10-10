@@ -207,3 +207,180 @@ This list holds exactly the rows whose `Task` column names this task, as the own
 - The catalog tables hold no personal data and no encrypted or keyed-hash column. This task therefore registers no rotation-only schema `Espalier.Crypto.Rotation.<Table>` in `lib/espalier/crypto/rotation/` and in `Espalier.Crypto.Rotation.schemas/0`, and it adds no row to `docs/security/crypto-inventory.md`. The catalog schemas declare no Cloak field, so the assertion of 0003 in `rotation_test.exs` that `uncovered(SchemaRules.app_schemas(), Rotation.schemas())` returns `[]` and the check of `inventory_test.exs` hold with them.
 - `alias Espalier.Catalog.Module` hides Elixir's `Module` in the module that declares the alias. Refer to the schema as `Catalog.Module`, or alias it with `as: CatalogModule`.
 - `content/demo/` is the only content pack in this repository (README section 11).
+
+## Addendum: implementation
+The implementation departs from the steps above in the points below, and later
+tasks rely on the implemented form.
+
+- Catalog context (step 2): `mix phx.gen.context` generated create, update,
+  delete and change functions for programs, with a test and a fixture
+  module. Only the publisher writes catalog rows (README principle 5), so
+  `Espalier.Catalog` keeps the reads `list_programs/0`, `get_program!/1` and
+  `get_program_by_slug/1`, and the generated test and fixture module are
+  removed.
+- Schemas (steps 2 to 4): the generated `*_id` fields are `belongs_to`
+  associations, and the parents carry the matching `has_many`. Besides the
+  `many_to_many` associations of step 3, `Item` has `rules`, `reveals` and
+  `assessments`, `Lesson` and `Rule` have the inverse associations, and
+  `Qualification` has `prerequisites`. `Program.status` defaults to `draft`.
+  A composite unique index of step 4 replaces the generated index on its
+  first column. The join tables have no timestamps,
+  `assessment_items.position` is `NOT NULL`, and `programs.slug`,
+  `options.key`, `pack_imports.status` and `pack_imports.report` are
+  `NOT NULL`. `pack_imports.pack_key` has an index for the lookup of the
+  last published import (0016 step 1). The citation check constraint is
+  named `citations_one_parent`.
+- Loader limits (step 6): besides the node limit, `LineIndex.build/2` stops
+  at a nesting deeper than 32 levels (`LineIndex.max_depth/0`), both in a
+  token pass of `:yamerl_parser` before `:yamerl_constr.string/2` builds any
+  node and in the walk. The walk also stops once the strings of a text
+  (map keys and values) hold more than 2 MiB
+  (`LineIndex.max_string_bytes/0`), so that an alias cannot multiply a long
+  string, and an escape that names no Unicode scalar value (`"\uDC00"`) is
+  an error. The loader rejects a file above 1 MiB
+  (`Loader.max_file_bytes/0`) before reading it, a control character other
+  than tab, line feed and carriage return in the raw text or in a decoded
+  string (`LineIndex.control_character/1`), and an anchor on a flow
+  collection or on an empty value, which yamerl 0.10.0 attaches to the
+  wrong node (`a: &x ~` anchors a null correctly). Both YAML passes of a
+  file run in a process of their own within `Loader.parse_budget/0` (10
+  seconds and 33,554,432 heap words by default, configurable under
+  `config :espalier, Espalier.Catalog.Pack.Loader`), because yamerl needs
+  time that grows with the square of the length of a flow collection in the
+  position of an implicit key. A watchdog ends that process when its caller
+  dies. Once the time budget of the whole pack has passed
+  (`pack_timeout_ms`, 60 seconds by default), the loader reads no further
+  file, so a load ends within that budget plus the budget of the file that
+  was being parsed. The decoded data of
+  all files of a pack (`:erlang.external_size/1` of each YAML document, front
+  matter and lesson's blocks) must stay within 32 MiB
+  (`Loader.max_pack_bytes/0`); the file that crosses it gets the error, and
+  no further file is read. An alias node reports the line of its anchor.
+- Loader walk (step 6): directories are listed with `:file.list_dir_all/1`,
+  and an entry name that is not valid UTF-8 is an error that names the
+  parent directory. Unknown files and directories are walked for links but
+  not read. A module directory name and a lesson key match the key format,
+  every module holds at least one lesson, every lesson at least one block,
+  and every text is valid UTF-8. Errors on the pack directory itself have
+  the file `.`. `LineIndex.build/2` takes `first_line:`, so that front matter
+  lines are lines of the lesson file, and `LineIndex.line/2` returns the
+  line of the longest indexed prefix of a path. `Loader.pack_meta/1` reads
+  only `pack.yaml` for the importer when `load/1` fails.
+- Directives (step 7): a `placeholder` block needs `key`, and a provenance
+  other than `placeholder` on it is an error; the provenance `placeholder`
+  is allowed on placeholder blocks only. A duplicate attribute and a
+  malformed attribute list are errors. A body keeps its lines without the
+  leading and trailing blank lines and must not be empty.
+- Validator (step 8): `Validator.run/1` returns `errors`, `warnings` and the
+  normalized `payload`, which is present whenever the checks before the
+  alignment report no error; `validate/1` returns the first two.
+  `Validator.alignment_entries/2` places the findings of `Alignment.check/1`.
+  The checks run in three stages (file schemas, cross-file checks,
+  alignment), each only when the stages before it report no error.
+- Strict casting (steps 5 and 8): unknown fields are errors, no type is
+  converted (`"1"` is no integer), every string is non-empty, and a YAML
+  null counts as absent. Booleans are required wherever their column is
+  `NOT NULL`, lists are optional, and the lists of assessment items,
+  feedback questions, qualification requirements, slots, categories, cases
+  and checks must not be empty. A list of keys or numbers holds no
+  duplicate. A blank string is a value, so a blank requirement target is
+  an error. A `module_completed` target is a YAML integer, and the payload
+  stores it as a string. Every string bound for a `varchar(255)` column holds
+  at most 255 code points, every integer lies in the range of `integer`,
+  and no string holds U+0000. A station `config` holds strings, integers,
+  booleans, null, lists and maps with string keys; no float and no integer
+  beyond 9,007,199,254,740,991 in either direction, so that the payload
+  survives the `jsonb` column and a JavaScript client reads it exactly.
+  Dates match `YYYY-MM-DD`, and the payload holds `Date.to_iso8601/1` of
+  the date. A `schema` that is no integer gets the message with the
+  supported versions as well.
+- Further checks (step 8): `url` is an absolute `http` or `https` URL,
+  `locale` a language tag and `license` an SPDX identifier or expression.
+  Module numbers are unique in the pack and lesson positions in their
+  module. A self-assessment station exists exactly when `segments.yaml`
+  has entries, and a feedback station exactly when `feedback.yaml` exists.
+  A self-assessment `config` holds `question`, and the `overview`,
+  `credential` and `companion_formats` configs hold `intro`. `module` is
+  required on module stations and not allowed on others, and the config of
+  the feedback station must not name `intro` or `questions`.
+  `validity_months` is allowed only with `validity_kind: months`, and
+  `refresher_mode` is not allowed with `none`. Glossary references are
+  checked in every string of every file and in every block body, and an
+  error in a block is reported at its opening line. A reference holds a
+  slug of at most 255 and a label of at most 1,000 characters (code points)
+  (`[[term:` without such a closing counts as unclosed), so that the scan
+  takes linear time.
+- Report bounds (steps 8 and 9): `Espalier.Catalog.Pack.Entries` bounds
+  every list that leaves `Loader.load/1` and `Validator.run/1`. A file keeps
+  at most 100 entries in sort order, followed by one closing entry ("and
+  2,341 further errors in this file") at the line of the last kept entry,
+  which carries the member `omitted`. Every string member is shortened to at
+  most 1,000 code points with the marker `[…]`, and every control character
+  (C0, DEL, C1, U+2028, U+2029) and every byte outside valid UTF-8 is written
+  as `\xNN`, so that each entry prints as one line. `Report.stored/2` keeps
+  at most 1,000 errors and 1,000 warnings with a closing entry at file `.`,
+  line 1, so that a stored report stays within a few MB. The directive
+  splitter stops collecting after 100 errors per lesson body.
+- Payload (step 9): the top-level keys are `schema`, `key`, `title`,
+  `locale`, `license`, `version`, `alignment`, `sources`, `glossary`,
+  `segments`, `stations`, `qualifications`, `formats` and `modules`, and a
+  module holds `lessons`, `objectives`, `rules`, `items` and `assessments`.
+  Positions are implicit in list order, except the `position` of lessons.
+  A question of the feedback station holds `options` (`[]` unless it is a
+  `single_choice`). `areas_elsewhere` holds only the areas that the module
+  names.
+- Alignment (step 13): `check/1` runs in strict mode for every value of
+  `alignment` other than `warn`. An objective without both a lesson and
+  evidence gets two findings of check 1. A format carries an area for
+  check 3 whether or not its attendance counts. `matrix/1` on a
+  `%Program{}` also skips the rows of an archived module.
+- Publisher (step 10): qualifications are upserted after assessments. Rows
+  are replaced per parent only for the parents in the payload, so an
+  archived item, lesson or qualification keeps its options, blocks, join
+  rows and requirements. A row is archived when its id is not among the
+  ids of this publish, and a row that is already archived keeps its first
+  `archived_at`. `publish/1` re-reads the import with `FOR UPDATE` and
+  answers `{:error, :not_validated}` also for a stale struct of an import
+  that has been published since. The rows replaced per parent (blocks,
+  options, citations, requirements, stations and the join rows) go to the
+  database with `Repo.insert_all/3` in chunks below the parameter limit of
+  PostgreSQL, with ids from `Ecto.UUID.generate/0` and the time of the
+  publish as `inserted_at` and `updated_at`. The transaction runs with the
+  timeout of `Publisher.transaction_timeout/0` (10 minutes by default,
+  `config :espalier, Espalier.Catalog.Pack.Publisher, transaction_timeout:`),
+  because a pack near the loader limits takes longer to publish than the
+  default of 15 seconds. A payload that the tables reject raises
+  and rolls back; the validator bounds every value so that a validated
+  payload is storable.
+- Importer (step 9): `import/2` returns `{:ok, pack_import}` for a
+  `validated` and for a `failed` import. `report` holds string keys before
+  the insert, so the returned struct equals the struct read back.
+- Mix tasks and release (steps 11 and 13): `Espalier.Catalog.Pack.Report`
+  holds the line forms, the matrix formats and `run_import/2`, which
+  `mix espalier.import` and `Espalier.Release.import_pack/2` share. CSV
+  records end with CRLF (RFC 4180). With `--format json`, errors of the
+  loader or of the checks before the alignment are printed in the form of
+  `mix espalier.validate`. `mix espalier.import` starts the application with
+  Oban queues and plugins, the admin bootstrap and the development children
+  switched off when the application is not running yet.
+- Acceptance: on a host whose development database runs on
+  `DATABASE_PORT` (5433 in `.env.example`), `nix-shell --run` loads no
+  `.env`, so `mix test test/espalier/catalog` and the second
+  `mix espalier.import content/demo` need `DATABASE_PORT=5433` in their
+  environment (as `make test` and `$(DOTENV)` provide), and the `psql`
+  checks need `-p 5433`. `mix espalier.validate` and `mix espalier.alignment`
+  open no database connection and need neither.
+- Security requirement 1.3.3: besides module numbers, enum values and the
+  keys with the prefixes `item:`, `format:` and `module:`, the CSV of
+  `mix espalier.alignment` holds the objective and lesson keys of the
+  matrix without a prefix. Every non-empty field still starts with a
+  lowercase letter or a digit, so none starts a spreadsheet formula.
+- Demo pack (step 12): module 2 has `domains: []`. The domains of the
+  objectives of module 1 are `research` for `m1-subject-next-word` and
+  `m1-method-check-claims`, `drafting` for the others. Lesson
+  `01-first-lesson` of module 1 is the lesson excerpt of README section 11.
+  The core exam item is `m1-exam-check-claims`, the item with `reveals` is
+  `m1-how-models-write` (it reveals `01-first-lesson`, whose explanation is
+  collapsed on the short path), and the checklist drill has one required
+  and one optional check. Poll options carry `correct: false` and a neutral
+  `feedback`.

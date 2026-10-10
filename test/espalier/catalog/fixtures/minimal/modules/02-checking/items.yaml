@@ -1,0 +1,42 @@
+- key: m2-classify
+  kind: classification
+  lesson: 01-check
+  stem: Which statements need a check?
+  core: false
+  phase: apply
+  provenance: invented
+  objectives: [m2-subject-judge-drafts]
+  rules: [1]
+  config:
+    categories:
+      - key: check
+        label: Needs a check
+      - key: fine
+        label: Fine as is
+    cases:
+      - key: number
+        text: The report names a number.
+        feedback: Numbers need a source.
+      - key: greeting
+        text: The mail opens with a greeting.
+        feedback: A greeting needs no source.
+    expected:
+      number: check
+      greeting: fine
+- key: m2-drill
+  kind: checklist_drill
+  lesson: 01-check
+  stem: Release the text.
+  core: false
+  phase: anchor
+  provenance: invented
+  objectives: [m2-method-release-check]
+  rules: [1]
+  config:
+    checks:
+      - key: facts
+        label: Facts checked against a source
+        required: true
+      - key: tone
+        label: Tone fits the audience
+        required: false

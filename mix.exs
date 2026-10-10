@@ -85,6 +85,7 @@ defmodule Espalier.MixProject do
       {:oidcc, "~> 3.9"},
       {:oidcc_plug, "~> 0.5.1"},
       {:jose, "~> 1.11"},
+      {:yaml_elixir, "~> 2.12"},
       {:mox, "~> 1.3", only: :test},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:sobelow, "~> 0.16", only: [:dev, :test], runtime: false, warn_if_outdated: true},

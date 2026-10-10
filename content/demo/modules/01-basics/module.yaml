@@ -1,0 +1,7 @@
+number: 1
+title: How language models work
+summary: How an AI writing assistant produces text, why its answers vary, and which checks a generated statement needs before you use it.
+phases: [orient, understand, apply, anchor]
+domains: [drafting, research]
+single_path: false
+refresher_unit: false

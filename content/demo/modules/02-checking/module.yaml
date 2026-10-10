@@ -1,0 +1,14 @@
+number: 2
+title: Checking the output
+summary: How to build a clear prompt, judge a generated draft and release it after the release checks. The module also serves as the refresher unit of the credential.
+phases: [apply, anchor, update]
+domains: []
+single_path: true
+refresher_unit: true
+areas_elsewhere:
+  self:
+    where: format:workshop
+    reason: The workshop practises deciding which of one's own tasks an assistant may support.
+  social:
+    where: format:workshop
+    reason: The workshop practises agreeing in a team how the use of an assistant is made visible.
