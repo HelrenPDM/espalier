@@ -64,6 +64,23 @@ defmodule Espalier.Catalog.ImporterTest do
       assert pack_import.imported_by_id == nil
       assert Repo.get!(PackImport, pack_import.id).imported_by_id == nil
     end
+
+    test "the changeset of an import takes no actor id, which only the importer sets" do
+      actor_id = Ecto.UUID.generate()
+
+      changeset =
+        PackImport.changeset(%PackImport{}, %{
+          "status" => "failed",
+          "report" => %{"errors" => [], "warnings" => []},
+          "imported_by_id" => actor_id
+        })
+
+      assert changeset.valid?
+      refute Map.has_key?(changeset.changes, :imported_by_id)
+
+      assert {:ok, pack_import} = Importer.import(demo_path(), actor_id)
+      assert Repo.get!(PackImport, pack_import.id).imported_by_id == actor_id
+    end
   end
 
   describe "import/2 of a pack with an orphan exam item" do

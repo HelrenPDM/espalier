@@ -99,6 +99,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   errors with `alignment: strict` (the default) and warnings with
   `alignment: warn`, and the findings of check 4 are warnings in both modes
   (task 0008).
+- The `license` of a pack is checked against the SPDX license expression
+  grammar and the ids of the SPDX License List in `priv/spdx/`, which
+  `make spdx-lists` writes from the pinned nixpkgs (task 0008).
 - The neutral demo pack `content/demo/` ("AI assistant basics (demo)"),
   imported by `make setup` and `make refresh-db`, and the dependency
   `yaml_elixir` 2.12 (task 0008).

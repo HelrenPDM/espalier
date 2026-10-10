@@ -122,6 +122,10 @@ secrets-scan: ## scan the Git history for secrets
 docs: ## render PlantUML diagrams to docs/architecture/out/
 	$(NIX) 'plantuml -tsvg -o out docs/architecture/*.puml'
 
+.PHONY: spdx-lists
+spdx-lists: ## write the SPDX license and exception ids of the pinned nixpkgs to priv/spdx/
+	scripts/spdx-lists.sh
+
 .PHONY: docker-build
 docker-build: ## build the production image IMAGE:TAG (default espalier:latest)
 	docker build -t $(IMAGE):$(TAG) .

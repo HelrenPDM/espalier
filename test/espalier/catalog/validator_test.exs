@@ -3,7 +3,7 @@ defmodule Espalier.Catalog.ValidatorTest do
 
   import Espalier.PackFixtures
 
-  alias Espalier.Catalog.Pack.{Loader, Validator}
+  alias Espalier.Catalog.Pack.{Loader, Spdx, Validator}
 
   @module1 "modules/01-basics/module.yaml"
   @module2 "modules/02-checking/module.yaml"
@@ -15,6 +15,11 @@ defmodule Espalier.Catalog.ValidatorTest do
   @assessment1 "modules/01-basics/assessment.yaml"
   @intro "modules/01-basics/lessons/01-intro.md"
   @practice "modules/01-basics/lessons/02-practice.md"
+
+  defp license_message,
+    do:
+      "`license` must be an SPDX license expression such as `CC0-1.0` or " <>
+        "`MIT OR Apache-2.0`, with ids of SPDX License List #{Spdx.list_version()}"
 
   defp run!(pack) do
     assert {:ok, loaded} = Loader.load(pack)
@@ -189,8 +194,7 @@ defmodule Espalier.Catalog.ValidatorTest do
                {"pack.yaml", 2,
                 ~s(`key` value `"minimal-pack\\n"` does not match the key format `^[a-z0-9][a-z0-9-]*$`)},
                {"pack.yaml", 4, "`locale` must be a language tag such as `en` or `de-DE`"},
-               {"pack.yaml", 5,
-                "`license` must be an SPDX license identifier or expression such as `CC0-1.0`"},
+               {"pack.yaml", 5, license_message()},
                {"qualifications.yaml", 17,
                 "the `target` of a `policy_acknowledged` requirement must be a string in the key format"}
              ]
@@ -298,8 +302,7 @@ defmodule Espalier.Catalog.ValidatorTest do
 
       assert errors(pack) == [
                {"pack.yaml", 4, "`locale` must be a language tag such as `en` or `de-DE`"},
-               {"pack.yaml", 5,
-                "`license` must be an SPDX license identifier or expression such as `CC0-1.0`"}
+               {"pack.yaml", 5, license_message()}
              ]
     end
 

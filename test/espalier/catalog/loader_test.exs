@@ -660,6 +660,31 @@ defmodule Espalier.Catalog.LoaderTest do
     write!(pack, dir <> "/lessons/01-a.md", @front)
   end
 
+  describe "load/1 walk limits" do
+    test "stops the walk with one error when the pack directory holds more than 20,000 entries" do
+      pack = copy_pack!("minimal")
+      extra = path(pack, "extra")
+      File.mkdir_p!(extra)
+      for index <- 1..Loader.max_walk_entries(), do: File.touch!(Path.join(extra, "f#{index}"))
+
+      assert {:error, [%{file: ".", line: 1, message: message}]} = Loader.load(pack)
+      assert message == "the pack directory holds more than 20,000 entries"
+    end
+
+    test "stops the walk with one error at a directory deeper than 32 levels" do
+      pack = copy_pack!("minimal")
+      deep = Enum.map_join(1..(Loader.max_walk_depth() + 1), "/", &"d#{&1}")
+      File.mkdir_p!(path(pack, deep))
+
+      assert {:error, [%{file: ".", line: 1, message: message}]} = Loader.load(pack)
+      assert message == "the pack directory nests deeper than 32 levels"
+
+      pack = copy_pack!("minimal")
+      File.mkdir_p!(path(pack, Enum.map_join(1..Loader.max_walk_depth(), "/", &"d#{&1}")))
+      assert {:ok, _loaded} = Loader.load(pack)
+    end
+  end
+
   describe "pack_meta/1" do
     test "returns key and version of pack.yaml" do
       assert Loader.pack_meta(fixture_path("minimal")) == %{key: "minimal-pack", version: "0.1.0"}
@@ -778,6 +803,14 @@ defmodule Espalier.Catalog.LoaderBudgetTest do
              max_heap_words: 33_554_432,
              pack_timeout_ms: 60_000
            ]
+  end
+
+  test "a pack whose time budget runs out during the walk gets one error and no file is read" do
+    pack = copy_pack!("minimal")
+    put_budget(pack_timeout_ms: 0)
+
+    assert Loader.load(pack) ==
+             {:error, [%{file: ".", line: 1, message: "the pack takes longer than 0 ms to load"}]}
   end
 
   test "a pack stops loading once its time budget has passed" do

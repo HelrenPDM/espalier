@@ -9,7 +9,11 @@ defmodule Espalier.Catalog.Pack.Loader do
   are not valid UTF-8, and rejects every such name without reading or
   following the entry; the error names the parent directory (`.` for the
   root) and the name with every byte outside printable ASCII, the backtick
-  and the backslash written as `\\xNN`. It reads only the files of the pack format, with `File.read/1` on
+  and the backslash written as `\\xNN`. The walk stops with one error at
+  `.`, and the loader then reads no file, when the time budget of the pack
+  passes (it starts before the walk), when the pack directory holds more
+  than 20,000 entries or when a directory lies deeper than 32 levels. The
+  loader reads only the files of the pack format, with `File.read/1` on
   paths built from the root and the listed names, so that no read follows a
   link or leaves the pack:
 
@@ -80,6 +84,10 @@ defmodule Espalier.Catalog.Pack.Loader do
   @module_files ~w(module.yaml objectives.yaml rules.yaml items.yaml assessment.yaml)
   @max_file_bytes 1_048_576
   @max_pack_bytes 32 * 1_048_576
+  # The walk of the pack directory: entries and levels below the pack
+  # directory. The pack format needs four levels and a few hundred entries.
+  @max_walk_entries 20_000
+  @max_walk_depth 32
 
   # The budget of one YAML parse. yamerl 0.10.0 needs time that grows with the
   # square of the length of a flow collection in the position of an implicit
@@ -132,6 +140,14 @@ defmodule Espalier.Catalog.Pack.Loader do
   @spec max_pack_bytes() :: pos_integer()
   def max_pack_bytes, do: @max_pack_bytes
 
+  @doc "The maximum number of entries (files and directories) of a pack directory."
+  @spec max_walk_entries() :: pos_integer()
+  def max_walk_entries, do: @max_walk_entries
+
+  @doc "The maximum level of a directory below the pack directory."
+  @spec max_walk_depth() :: pos_integer()
+  def max_walk_depth, do: @max_walk_depth
+
   @doc """
   The budget of one YAML parse, `timeout_ms` (default 10,000) and
   `max_heap_words` (default 33,554,432 words, 256 MiB on a 64-bit system),
@@ -169,6 +185,16 @@ defmodule Espalier.Catalog.Pack.Loader do
   defp load_root(root) do
     deadline = System.monotonic_time(:millisecond) + parse_budget()[:pack_timeout_ms]
     tree = walk(root, deadline)
+
+    # A walk that stopped saw only part of the pack, so no file is read.
+    if tree.stopped do
+      {:error, finish(tree.errors)}
+    else
+      read_root(root, tree, deadline)
+    end
+  end
+
+  defp read_root(root, tree, deadline) do
     {files, file_errors, used} = read_top_files(root, tree, %{bytes: 0, deadline: deadline})
     {modules, module_errors, _used} = read_modules(root, tree, used)
 
@@ -217,50 +243,80 @@ defmodule Espalier.Catalog.Pack.Loader do
     end
   end
 
+  # The walk stops with one error at the pack directory when the deadline of
+  # the pack passes, when the pack holds more than max_walk_entries/0
+  # entries, or when a directory lies deeper than max_walk_depth/0 levels.
   defp walk(root, deadline) do
-    walk_dir(root, "", %{files: MapSet.new(), dirs: MapSet.new(), errors: [], deadline: deadline})
+    tree = %{
+      files: MapSet.new(),
+      dirs: MapSet.new(),
+      errors: [],
+      deadline: deadline,
+      entries: 0,
+      stopped: false
+    }
+
+    walk_dir(root, "", tree)
+  end
+
+  defp walk_dir(root, rel, tree) do
+    cond do
+      System.monotonic_time(:millisecond) >= tree.deadline ->
+        stop_walk(
+          tree,
+          "the pack takes longer than #{parse_budget()[:pack_timeout_ms]} ms to load"
+        )
+
+      depth(rel) > @max_walk_depth ->
+        stop_walk(tree, "the pack directory nests deeper than #{@max_walk_depth} levels")
+
+      true ->
+        list_dir(root, rel, tree)
+    end
   end
 
   # `:file.list_dir_all/1` returns a name that is valid UTF-8 as a charlist
   # and any other name as a binary of its raw bytes. `File.ls/1` would drop
   # the latter, so that the walk would not see a link with such a name.
-  defp walk_dir(root, rel, tree) do
-    if System.monotonic_time(:millisecond) < tree.deadline do
-      case :file.list_dir_all(Path.join(root, rel)) do
-        {:ok, entries} ->
-          {names, raw_names} = Enum.split_with(entries, &is_list/1)
+  defp list_dir(root, rel, tree) do
+    case :file.list_dir_all(Path.join(root, rel)) do
+      {:ok, entries} when tree.entries + length(entries) > @max_walk_entries ->
+        stop_walk(tree, "the pack directory holds more than 20,000 entries")
 
-          tree =
-            raw_names
-            |> Enum.sort()
-            |> Enum.reduce(tree, fn raw, tree ->
-              add_tree_error(
-                tree,
-                dir_label(rel),
-                "the entry name `#{escape(raw)}` is not valid UTF-8"
-              )
-            end)
+      {:ok, entries} ->
+        {names, raw_names} = Enum.split_with(entries, &is_list/1)
+        tree = %{tree | entries: tree.entries + length(entries)}
 
-          names
-          |> Enum.map(&List.to_string/1)
+        tree =
+          raw_names
           |> Enum.sort()
-          |> Enum.reduce(tree, &walk_entry(root, join(rel, &1), &2))
+          |> Enum.reduce(tree, fn raw, tree ->
+            add_tree_error(
+              tree,
+              dir_label(rel),
+              "the entry name `#{escape(raw)}` is not valid UTF-8"
+            )
+          end)
 
-        {:error, reason} ->
-          add_tree_error(
-            tree,
-            dir_label(rel),
-            "cannot list the directory: #{:file.format_error(reason)}"
-          )
-      end
-    else
-      add_tree_error(
-        tree,
-        dir_label(rel),
-        "the pack takes longer than #{parse_budget()[:pack_timeout_ms]} ms to load"
-      )
+        names
+        |> Enum.map(&List.to_string/1)
+        |> Enum.sort()
+        |> Enum.reduce(tree, &walk_entry(root, join(rel, &1), &2))
+
+      {:error, reason} ->
+        add_tree_error(
+          tree,
+          dir_label(rel),
+          "cannot list the directory: #{:file.format_error(reason)}"
+        )
     end
   end
+
+  defp depth(""), do: 0
+  defp depth(rel), do: rel |> String.split("/") |> length()
+
+  defp stop_walk(tree, message),
+    do: %{add_tree_error(tree, ".", message) | stopped: true}
 
   defp dir_label(""), do: "."
   defp dir_label(rel), do: rel
@@ -275,34 +331,28 @@ defmodule Espalier.Catalog.Pack.Loader do
     end
   end
 
+  defp walk_entry(_root, _rel, %{stopped: true} = tree), do: tree
+
   defp walk_entry(root, rel, tree) do
-    if System.monotonic_time(:millisecond) < tree.deadline do
-      case File.lstat(Path.join(root, rel)) do
-        {:ok, %File.Stat{type: :directory}} ->
-          walk_dir(root, rel, %{tree | dirs: MapSet.put(tree.dirs, rel)})
+    case File.lstat(Path.join(root, rel)) do
+      {:ok, %File.Stat{type: :directory}} ->
+        walk_dir(root, rel, %{tree | dirs: MapSet.put(tree.dirs, rel)})
 
-        {:ok, %File.Stat{type: :regular}} ->
-          %{tree | files: MapSet.put(tree.files, rel)}
+      {:ok, %File.Stat{type: :regular}} ->
+        %{tree | files: MapSet.put(tree.files, rel)}
 
-        {:ok, %File.Stat{type: :symlink}} ->
-          add_tree_error(tree, rel, "symbolic links are not allowed in a pack")
+      {:ok, %File.Stat{type: :symlink}} ->
+        add_tree_error(tree, rel, "symbolic links are not allowed in a pack")
 
-        {:ok, %File.Stat{}} ->
-          add_tree_error(tree, rel, "only directories and regular files are allowed in a pack")
+      {:ok, %File.Stat{}} ->
+        add_tree_error(tree, rel, "only directories and regular files are allowed in a pack")
 
-        {:error, reason} ->
-          add_tree_error(
-            tree,
-            rel,
-            "cannot read the file information: #{:file.format_error(reason)}"
-          )
-      end
-    else
-      add_tree_error(
-        tree,
-        rel,
-        "the pack takes longer than #{parse_budget()[:pack_timeout_ms]} ms to load"
-      )
+      {:error, reason} ->
+        add_tree_error(
+          tree,
+          rel,
+          "cannot read the file information: #{:file.format_error(reason)}"
+        )
     end
   end
 

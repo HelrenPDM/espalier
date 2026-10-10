@@ -259,7 +259,11 @@ tasks rely on the implemented form.
 - Loader walk (step 6): directories are listed with `:file.list_dir_all/1`,
   and an entry name that is not valid UTF-8 is an error that names the
   parent directory. Unknown files and directories are walked for links but
-  not read. A module directory name and a lesson key match the key format,
+  not read. The deadline of the pack starts before the walk, and the walk
+  stops with one error at `.` when the deadline passes, when the pack
+  directory holds more than 20,000 entries (`Loader.max_walk_entries/0`)
+  or when a directory lies deeper than 32 levels
+  (`Loader.max_walk_depth/0`); the loader then reads no file. A module directory name and a lesson key match the key format,
   every module holds at least one lesson, every lesson at least one block,
   and every text is valid UTF-8. Errors on the pack directory itself have
   the file `.`. `LineIndex.build/2` takes `first_line:`, so that front matter
@@ -295,7 +299,13 @@ tasks rely on the implemented form.
   the date. A `schema` that is no integer gets the message with the
   supported versions as well.
 - Further checks (step 8): `url` is an absolute `http` or `https` URL,
-  `locale` a language tag and `license` an SPDX identifier or expression.
+  `locale` a language tag. `license` is a license expression of the SPDX
+  specification (with `+`, `LicenseRef-`, `DocumentRef-` and
+  `AdditionRef-`) whose license and exception ids are on the SPDX License
+  List, matched without regard to case (`Espalier.Catalog.Pack.Spdx`). The
+  ids of SPDX License List 3.28.0 lie in `priv/spdx/`, and
+  `make spdx-lists` writes them from the package `spdx-license-list-data`
+  of the nixpkgs commit that `shell.nix` pins.
   Module numbers are unique in the pack and lesson positions in their
   module. A self-assessment station exists exactly when `segments.yaml`
   has entries, and a feedback station exactly when `feedback.yaml` exists.
@@ -355,6 +365,8 @@ tasks rely on the implemented form.
 - Importer (step 9): `import/2` returns `{:ok, pack_import}` for a
   `validated` and for a `failed` import. `report` holds string keys before
   the insert, so the returned struct equals the struct read back.
+  `PackImport.changeset/2` does not cast `imported_by_id`; only the
+  importer sets it on the struct (review of PR #23).
 - Mix tasks and release (steps 11 and 13): `Espalier.Catalog.Pack.Report`
   holds the line forms, the matrix formats and `run_import/2`, which
   `mix espalier.import` and `Espalier.Release.import_pack/2` share. CSV
