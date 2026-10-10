@@ -1,10 +1,30 @@
 defmodule EspalierWeb.SessionController do
   use EspalierWeb, :controller
+  use OpenApiSpex.ControllerSpecs
+
+  alias EspalierWeb.ApiSpec.Responses
+  alias EspalierWeb.Schemas.SessionPayload
+
+  # OpenAPI operations of task 0009 (README section 6.12). They describe the
+  # route; validation and error bodies stay those of task 0004.
+  tags ["Session"]
 
   alias Espalier.Accounts.{Scope, UserToken}
   alias Espalier.Identity
   alias Espalier.Identity.Oidc
   alias EspalierWeb.UserAuth
+
+  operation :show,
+    summary: "Read the session payload",
+    description:
+      "The user, roles, session strength, CSRF token, providers and flags; `user`, " <>
+        "`session` and `pending` are `null` when absent.",
+    security: Responses.public(),
+    responses:
+      Map.merge(
+        %{200 => {"The session payload", "application/json", SessionPayload}},
+        Responses.errors([{403, ["cross_site_request"]}])
+      )
 
   def show(conn, _params) do
     render_session(conn)
@@ -15,6 +35,15 @@ defmodule EspalierWeb.SessionController do
   on its allowed hosts, the answer is 200 with the RP-initiated logout URL
   (task 0006, step 13); every other sign-out answers 204.
   """
+  operation :delete,
+    summary: "Sign out",
+    security: Responses.csrf(),
+    responses:
+      Map.merge(
+        %{204 => "Signed out"},
+        Responses.errors([{403, ["csrf", "cross_site_request"]}])
+      )
+
   def delete(conn, _params) do
     logout_url = rp_logout_url(conn.assigns[:current_scope])
     conn = UserAuth.log_out_user(conn)

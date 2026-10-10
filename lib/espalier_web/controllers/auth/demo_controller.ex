@@ -5,6 +5,15 @@ defmodule EspalierWeb.Auth.DemoController do
   `provider_key`, and the security events carry the provider `demo`.
   """
   use EspalierWeb, :controller
+  use OpenApiSpex.ControllerSpecs
+
+  alias EspalierWeb.ApiSpec.Responses
+  alias EspalierWeb.Schemas.{DemoSignInRequest, SessionPayload}
+
+  # OpenAPI operations of task 0009 (README section 6.12). They describe the
+  # route; validation and error bodies stay those of task 0004.
+  tags ["Session"]
+  security Responses.csrf()
 
   alias Espalier.Accounts.Demo
   alias EspalierWeb.Plugs.RateLimit
@@ -14,6 +23,21 @@ defmodule EspalierWeb.Auth.DemoController do
 
   plug :require_demo
   plug RateLimit, [bucket: :demo_ip] when action in [:create]
+
+  operation :create,
+    summary: "Sign in to a demo account",
+    description: "Only with `AUTH_DEMO=true`; otherwise 404.",
+    request_body: {"The demo slot", "application/json", DemoSignInRequest, required: true},
+    responses:
+      Map.merge(
+        %{200 => {"The session payload", "application/json", SessionPayload}},
+        Responses.errors([
+          {400, ["bad_request"]},
+          {403, ["csrf", "cross_site_request"]},
+          {404, ["not_found"]},
+          {429, ["rate_limited"]}
+        ])
+      )
 
   def create(conn, %{"slot" => slot}) when is_integer(slot) do
     if slot in Demo.slots() do

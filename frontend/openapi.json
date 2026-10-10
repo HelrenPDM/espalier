@@ -1,0 +1,4020 @@
+{
+  "components": {
+    "responses": {},
+    "schemas": {
+      "Accepted": {
+        "additionalProperties": false,
+        "description": "The request was accepted.",
+        "properties": {
+          "status": {
+            "enum": [
+              "accepted"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "Accepted",
+        "type": "object"
+      },
+      "ProgramView": {
+        "additionalProperties": false,
+        "description": "A published program.",
+        "properties": {
+          "companion_formats": {
+            "items": {
+              "$ref": "#/components/schemas/CompanionFormatView"
+            },
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "locale": {
+            "type": "string"
+          },
+          "modules": {
+            "description": "The modules in number order.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "number": {
+                  "type": "integer"
+                },
+                "phases": {
+                  "items": {
+                    "enum": [
+                      "orient",
+                      "understand",
+                      "apply",
+                      "anchor",
+                      "update"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "single_path": {
+                  "description": "True when the module ignores the path.",
+                  "type": "boolean"
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "number",
+                "phases",
+                "single_path",
+                "summary",
+                "title"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "pack_version": {
+            "type": "string"
+          },
+          "segments": {
+            "description": "The segments of the self-assessment station.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "default_path": {
+                  "enum": [
+                    "short",
+                    "full"
+                  ],
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "key": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "default_path",
+                "description",
+                "key",
+                "label"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "stations": {
+            "description": "The stations of the learner journey in order.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "intro": {
+                  "description": "The introduction of the station.",
+                  "nullable": true,
+                  "type": "string"
+                },
+                "kind": {
+                  "enum": [
+                    "self_assessment",
+                    "overview",
+                    "module",
+                    "credential",
+                    "companion_formats",
+                    "feedback"
+                  ],
+                  "type": "string"
+                },
+                "module_id": {
+                  "description": "The module of a module station.",
+                  "format": "uuid",
+                  "nullable": true,
+                  "type": "string"
+                },
+                "position": {
+                  "type": "integer"
+                },
+                "question": {
+                  "description": "The question of the self-assessment station.",
+                  "nullable": true,
+                  "type": "string"
+                },
+                "questions": {
+                  "description": "The questions of the feedback station.",
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "key": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "enum": [
+                          "single_choice",
+                          "scale",
+                          "free_text"
+                        ],
+                        "type": "string"
+                      },
+                      "label": {
+                        "type": "string"
+                      },
+                      "options": {
+                        "description": "The options of a `single_choice` question.",
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "key": {
+                              "type": "string"
+                            },
+                            "label": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "key",
+                            "label"
+                          ],
+                          "type": "object"
+                        },
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "key",
+                      "kind",
+                      "label",
+                      "options"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "title": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "intro",
+                "kind",
+                "module_id",
+                "position",
+                "question",
+                "questions",
+                "title"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "companion_formats",
+          "id",
+          "locale",
+          "modules",
+          "pack_version",
+          "segments",
+          "slug",
+          "stations",
+          "title"
+        ],
+        "title": "ProgramView",
+        "type": "object"
+      },
+      "Handbook": {
+        "additionalProperties": false,
+        "description": "Every rule with its statement and action.",
+        "properties": {
+          "modules": {
+            "description": "The modules in number order with their rules.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "number": {
+                  "type": "integer"
+                },
+                "rules": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "action": {
+                        "type": "string"
+                      },
+                      "number": {
+                        "type": "integer"
+                      },
+                      "statement": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "number",
+                      "statement"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "title": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "number",
+                "rules",
+                "title"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "placeholders": {
+            "description": "The keys of the policies that placeholder blocks name.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "modules",
+          "placeholders"
+        ],
+        "title": "Handbook",
+        "type": "object"
+      },
+      "NextStep": {
+        "additionalProperties": false,
+        "description": "The sign-in continues with a second factor.",
+        "properties": {
+          "next": {
+            "enum": [
+              "second_factor"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "next"
+        ],
+        "title": "NextStep",
+        "type": "object"
+      },
+      "EmailChangeRequest": {
+        "additionalProperties": false,
+        "description": "Requests an e-mail change; the link goes to the new address.",
+        "properties": {
+          "email": {
+            "description": "The new e-mail address.",
+            "maxLength": 160,
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "EmailChangeRequest",
+        "type": "object"
+      },
+      "ObjectiveEvidence": {
+        "additionalProperties": false,
+        "description": "An item or a format that shows the objective.",
+        "properties": {
+          "id": {
+            "description": "The id of the item or of the companion format.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "item",
+              "format"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind"
+        ],
+        "title": "ObjectiveEvidence",
+        "type": "object"
+      },
+      "EmailConfirmRequest": {
+        "additionalProperties": false,
+        "description": "Confirms an e-mail change.",
+        "properties": {
+          "token": {
+            "description": "The token of the confirmation link.",
+            "maxLength": 255,
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "title": "EmailConfirmRequest",
+        "type": "object"
+      },
+      "InvitationAcceptRequest": {
+        "additionalProperties": false,
+        "description": "Accepts an invitation and opens an enrollment session.",
+        "properties": {
+          "token": {
+            "description": "The token of the invitation link.",
+            "maxLength": 255,
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "title": "InvitationAcceptRequest",
+        "type": "object"
+      },
+      "AttemptRequest": {
+        "additionalProperties": false,
+        "description": "The answers of an exam attempt.",
+        "properties": {
+          "answers": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Answer"
+            },
+            "description": "Every item id of the exam mapped to its answer. A missing or unknown item id answers 422 with `fields.answers` `incomplete`.",
+            "maxProperties": 200,
+            "type": "object"
+          }
+        },
+        "required": [
+          "answers"
+        ],
+        "title": "AttemptRequest",
+        "type": "object"
+      },
+      "EmptyRequest": {
+        "additionalProperties": false,
+        "description": "No members.",
+        "properties": {},
+        "title": "EmptyRequest",
+        "type": "object"
+      },
+      "Answer": {
+        "additionalProperties": false,
+        "description": "An answer to an item, with the members of the item's kind.",
+        "properties": {
+          "cases": {
+            "additionalProperties": {
+              "description": "The category key chosen for the case.",
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[a-z0-9][a-z0-9-]*$(?!\\n)",
+              "type": "string"
+            },
+            "description": "Case key to the chosen category key.",
+            "maxProperties": 100,
+            "type": "object"
+          },
+          "checks": {
+            "description": "The keys of the checks that are set.",
+            "items": {
+              "description": "A check key.",
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[a-z0-9][a-z0-9-]*$(?!\\n)",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "initials": {
+            "description": "The initials that confirm a checklist drill; 2 to 5 characters count.",
+            "maxLength": 16,
+            "type": "string"
+          },
+          "options": {
+            "description": "The chosen option keys.",
+            "items": {
+              "description": "An option key.",
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[a-z0-9][a-z0-9-]*$(?!\\n)",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "slots": {
+            "additionalProperties": {
+              "description": "The option key chosen for the slot.",
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[a-z0-9][a-z0-9-]*$(?!\\n)",
+              "type": "string"
+            },
+            "description": "Slot key to the chosen option key.",
+            "maxProperties": 100,
+            "type": "object"
+          }
+        },
+        "title": "Answer",
+        "type": "object"
+      },
+      "PasswordChangeRequest": {
+        "additionalProperties": false,
+        "description": "Changes the password.",
+        "properties": {
+          "current_password": {
+            "description": "The current password.",
+            "maxLength": 128,
+            "type": "string"
+          },
+          "password": {
+            "description": "The new password, 15 to 128 code points after NFC.",
+            "maxLength": 128,
+            "minLength": 15,
+            "type": "string"
+          }
+        },
+        "required": [
+          "password"
+        ],
+        "title": "PasswordChangeRequest",
+        "type": "object"
+      },
+      "Error": {
+        "description": "An error code without internals.",
+        "properties": {
+          "error": {
+            "description": "The error code.",
+            "type": "string"
+          },
+          "fields": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "description": "For `validation_failed`: the error codes per member.",
+            "type": "object"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "title": "Error",
+        "type": "object"
+      },
+      "ItemView": {
+        "additionalProperties": false,
+        "description": "A practice or exam item without its answer key.",
+        "properties": {
+          "cases": {
+            "description": "The cases of a classification.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "text": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "key",
+                "text"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "categories": {
+            "description": "The categories of a classification.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "key",
+                "label"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "checks": {
+            "description": "The checks of a checklist drill.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "required": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "key",
+                "label",
+                "required"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "single_choice",
+              "multiple_choice",
+              "slot_builder",
+              "classification",
+              "checklist_drill",
+              "poll"
+            ],
+            "type": "string"
+          },
+          "lesson_id": {
+            "description": "The lesson of a practice item.",
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "objective_keys": {
+            "description": "The sorted keys of the objectives the item serves.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "options": {
+            "description": "The options of a choice item or a poll.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "key",
+                "label"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "provenance": {
+            "enum": [
+              "invented",
+              "sourced",
+              "vendor_statement",
+              "assumption",
+              "placeholder"
+            ],
+            "type": "string"
+          },
+          "slots": {
+            "description": "The slots of a slot builder with their options.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "options": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "key": {
+                        "type": "string"
+                      },
+                      "label": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "key",
+                      "label"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "key",
+                "label",
+                "options"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "stem": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "cases",
+          "categories",
+          "checks",
+          "id",
+          "key",
+          "kind",
+          "lesson_id",
+          "objective_keys",
+          "options",
+          "provenance",
+          "slots",
+          "stem"
+        ],
+        "title": "ItemView",
+        "type": "object"
+      },
+      "ModuleView": {
+        "additionalProperties": false,
+        "description": "The content of a module without answer keys.",
+        "properties": {
+          "exams": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "counts_for_credential": {
+                  "type": "boolean"
+                },
+                "id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "items": {
+                  "description": "The exam items in order.",
+                  "items": {
+                    "$ref": "#/components/schemas/ItemView"
+                  },
+                  "type": "array"
+                },
+                "key": {
+                  "type": "string"
+                },
+                "max_wrong": {
+                  "type": "integer"
+                },
+                "title": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "counts_for_credential",
+                "id",
+                "items",
+                "key",
+                "max_wrong",
+                "title"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "lessons": {
+            "description": "The lessons in position order.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "blocks": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "body": {
+                        "description": "Markdown.",
+                        "type": "string"
+                      },
+                      "citations": {
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "locator": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "source": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "edition_date": {
+                                  "format": "date",
+                                  "type": "string"
+                                },
+                                "key": {
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "enum": [
+                                    "law",
+                                    "guidance",
+                                    "vendor",
+                                    "study",
+                                    "press",
+                                    "other"
+                                  ],
+                                  "type": "string"
+                                },
+                                "publisher": {
+                                  "type": "string"
+                                },
+                                "retrieved_on": {
+                                  "format": "date",
+                                  "type": "string"
+                                },
+                                "title": {
+                                  "type": "string"
+                                },
+                                "url": {
+                                  "nullable": true,
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "edition_date",
+                                "key",
+                                "kind",
+                                "publisher",
+                                "retrieved_on",
+                                "title",
+                                "url"
+                              ],
+                              "type": "object"
+                            }
+                          },
+                          "required": [
+                            "locator",
+                            "source"
+                          ],
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "collapsed_on": {
+                        "description": "The paths on which the block starts collapsed.",
+                        "items": {
+                          "enum": [
+                            "short",
+                            "full"
+                          ],
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "kind": {
+                        "enum": [
+                          "text",
+                          "explanation",
+                          "example",
+                          "case_comparison",
+                          "quote",
+                          "callout",
+                          "placeholder"
+                        ],
+                        "type": "string"
+                      },
+                      "placeholder_key": {
+                        "description": "The policy that a placeholder block renders.",
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "provenance": {
+                        "enum": [
+                          "invented",
+                          "sourced",
+                          "vendor_statement",
+                          "assumption",
+                          "placeholder"
+                        ],
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "body",
+                      "citations",
+                      "collapsed_on",
+                      "kind",
+                      "placeholder_key",
+                      "provenance"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "key": {
+                  "type": "string"
+                },
+                "position": {
+                  "type": "integer"
+                },
+                "title": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "blocks",
+                "id",
+                "key",
+                "position",
+                "title"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "number": {
+            "type": "integer"
+          },
+          "objectives": {
+            "description": "The objectives of the topic in position order.",
+            "items": {
+              "$ref": "#/components/schemas/ObjectiveView"
+            },
+            "type": "array"
+          },
+          "phases": {
+            "items": {
+              "enum": [
+                "orient",
+                "understand",
+                "apply",
+                "anchor",
+                "update"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "practice_items": {
+            "description": "The items that no exam lists.",
+            "items": {
+              "$ref": "#/components/schemas/ItemView"
+            },
+            "type": "array"
+          },
+          "program_slug": {
+            "type": "string"
+          },
+          "rules": {
+            "description": "The rules in number order.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "action": {
+                  "type": "string"
+                },
+                "citations": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "locator": {
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "source": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "edition_date": {
+                            "format": "date",
+                            "type": "string"
+                          },
+                          "key": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "enum": [
+                              "law",
+                              "guidance",
+                              "vendor",
+                              "study",
+                              "press",
+                              "other"
+                            ],
+                            "type": "string"
+                          },
+                          "publisher": {
+                            "type": "string"
+                          },
+                          "retrieved_on": {
+                            "format": "date",
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "url": {
+                            "nullable": true,
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "edition_date",
+                          "key",
+                          "kind",
+                          "publisher",
+                          "retrieved_on",
+                          "title",
+                          "url"
+                        ],
+                        "type": "object"
+                      }
+                    },
+                    "required": [
+                      "locator",
+                      "source"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "number": {
+                  "type": "integer"
+                },
+                "statement": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "action",
+                "citations",
+                "id",
+                "number",
+                "statement"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "single_path": {
+            "description": "True when the module ignores the path.",
+            "type": "boolean"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "exams",
+          "id",
+          "lessons",
+          "number",
+          "objectives",
+          "phases",
+          "practice_items",
+          "program_slug",
+          "rules",
+          "single_path",
+          "summary",
+          "title"
+        ],
+        "title": "ModuleView",
+        "type": "object"
+      },
+      "SessionPayload": {
+        "additionalProperties": false,
+        "description": "The session of the browser.",
+        "properties": {
+          "csrf_token": {
+            "description": "The token for the `x-csrf-token` header.",
+            "type": "string"
+          },
+          "flags": {
+            "additionalProperties": false,
+            "properties": {
+              "admin_passkey_required": {
+                "type": "boolean"
+              },
+              "demo": {
+                "description": "Mirrors `AUTH_DEMO`.",
+                "type": "boolean"
+              },
+              "local_accounts": {
+                "type": "boolean"
+              },
+              "signup": {
+                "enum": [
+                  "closed",
+                  "invite",
+                  "domain"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "admin_passkey_required",
+              "demo",
+              "local_accounts",
+              "signup"
+            ],
+            "type": "object"
+          },
+          "pending": {
+            "additionalProperties": false,
+            "description": "The pending second-factor state after a first factor.",
+            "nullable": true,
+            "properties": {
+              "expires_at": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "next": {
+                "enum": [
+                  "second_factor"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "expires_at",
+              "next"
+            ],
+            "type": "object"
+          },
+          "providers": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "key": {
+                  "description": "The provider key of the configuration.",
+                  "type": "string"
+                },
+                "kind": {
+                  "description": "A redirect to the provider or a credentials form.",
+                  "enum": [
+                    "redirect",
+                    "credentials"
+                  ],
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "start_url": {
+                  "description": "The path where the sign-in starts.",
+                  "type": "string"
+                },
+                "type": {
+                  "enum": [
+                    "entra",
+                    "google",
+                    "oidc",
+                    "ldap"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "key",
+                "kind",
+                "label",
+                "start_url",
+                "type"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "roles": {
+            "items": {
+              "enum": [
+                "learner",
+                "facilitator",
+                "author",
+                "registrar",
+                "analyst",
+                "admin"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "session": {
+            "additionalProperties": false,
+            "nullable": true,
+            "properties": {
+              "auth_methods": {
+                "items": {
+                  "enum": [
+                    "passkey",
+                    "password",
+                    "totp",
+                    "recovery_code",
+                    "email_code",
+                    "oidc",
+                    "ldap",
+                    "idp_mfa",
+                    "demo"
+                  ],
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "expires_at": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "idle_timeout_minutes": {
+                "type": "integer"
+              },
+              "provider_key": {
+                "description": "The provider of the session row; `null` for local and demo.",
+                "nullable": true,
+                "type": "string"
+              },
+              "recent_auth_until": {
+                "description": "The end of the 10-minute window of a recent second factor.",
+                "format": "date-time",
+                "nullable": true,
+                "type": "string"
+              },
+              "strength": {
+                "enum": [
+                  "mfa",
+                  "recovery",
+                  "enrollment",
+                  "demo"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "auth_methods",
+              "expires_at",
+              "idle_timeout_minutes",
+              "provider_key",
+              "recent_auth_until",
+              "strength"
+            ],
+            "type": "object"
+          },
+          "user": {
+            "additionalProperties": false,
+            "nullable": true,
+            "properties": {
+              "display_name": {
+                "nullable": true,
+                "type": "string"
+              },
+              "email": {
+                "description": "`null` for demo accounts and accounts without an address.",
+                "nullable": true,
+                "type": "string"
+              },
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "locale": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "display_name",
+              "email",
+              "id",
+              "locale"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "csrf_token",
+          "flags",
+          "pending",
+          "providers",
+          "roles",
+          "session",
+          "user"
+        ],
+        "title": "SessionPayload",
+        "type": "object"
+      },
+      "EnrollmentRequest": {
+        "additionalProperties": false,
+        "description": "Enrolls the signed-in user in a program.",
+        "properties": {
+          "path": {
+            "description": "The path preselected from the segment default.",
+            "enum": [
+              "short",
+              "full"
+            ],
+            "type": "string"
+          },
+          "program_slug": {
+            "description": "The slug of a published program.",
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "^[a-z0-9][a-z0-9-]*$(?!\\n)",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "program_slug"
+        ],
+        "title": "EnrollmentRequest",
+        "type": "object"
+      },
+      "ModuleCompletionView": {
+        "additionalProperties": false,
+        "description": "The completion of a module.",
+        "properties": {
+          "completed_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "module_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "completed_at",
+          "module_id"
+        ],
+        "title": "ModuleCompletionView",
+        "type": "object"
+      },
+      "ItemResponseRequest": {
+        "additionalProperties": false,
+        "description": "A practice answer. The answer is evaluated and stored nowhere.",
+        "properties": {
+          "answer": {
+            "$ref": "#/components/schemas/Answer"
+          }
+        },
+        "required": [
+          "answer"
+        ],
+        "title": "ItemResponseRequest",
+        "type": "object"
+      },
+      "ItemResult": {
+        "additionalProperties": false,
+        "description": "The evaluation of an answer.",
+        "properties": {
+          "correct": {
+            "description": "`null` for a poll.",
+            "nullable": true,
+            "type": "boolean"
+          },
+          "item_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "option_feedback": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "choice": {
+                  "nullable": true,
+                  "type": "string"
+                },
+                "correct": {
+                  "type": "boolean"
+                },
+                "expected": {
+                  "nullable": true,
+                  "type": "string"
+                },
+                "feedback": {
+                  "nullable": true,
+                  "type": "string"
+                },
+                "key": {
+                  "description": "The key of the option, slot, case or check.",
+                  "type": "string"
+                },
+                "required": {
+                  "type": "boolean"
+                },
+                "selected": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "correct",
+                "key"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "reveals": {
+            "description": "Lessons whose explanations expand after a wrong answer on the short path; empty unless the answer is wrong.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "rules": {
+            "description": "The rules that the item refers to.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "action": {
+                  "type": "string"
+                },
+                "id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "number": {
+                  "type": "integer"
+                },
+                "statement": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "action",
+                "id",
+                "number",
+                "statement"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "correct",
+          "item_id",
+          "option_feedback",
+          "reveals",
+          "rules"
+        ],
+        "title": "ItemResult",
+        "type": "object"
+      },
+      "InvitationRequest": {
+        "additionalProperties": false,
+        "description": "A self-service invitation request.",
+        "properties": {
+          "email": {
+            "description": "The e-mail address to invite.",
+            "maxLength": 160,
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "InvitationRequest",
+        "type": "object"
+      },
+      "ObjectiveView": {
+        "additionalProperties": false,
+        "description": "A learning objective of the topic.",
+        "properties": {
+          "area": {
+            "description": "The CORE competence area.",
+            "enum": [
+              "subject",
+              "method",
+              "self",
+              "social"
+            ],
+            "type": "string"
+          },
+          "depth": {
+            "enum": [
+              "know",
+              "apply",
+              "judge"
+            ],
+            "type": "string"
+          },
+          "domain": {
+            "description": "One of the module's content domains.",
+            "nullable": true,
+            "type": "string"
+          },
+          "evidence": {
+            "description": "The evidence items ordered by key, followed by the evidence formats ordered by key.",
+            "items": {
+              "$ref": "#/components/schemas/ObjectiveEvidence"
+            },
+            "type": "array"
+          },
+          "key": {
+            "type": "string"
+          },
+          "lesson_ids": {
+            "description": "The teaching lessons, in lesson position order.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "phase": {
+            "enum": [
+              "orient",
+              "understand",
+              "apply",
+              "anchor",
+              "update"
+            ],
+            "type": "string"
+          },
+          "statement": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "area",
+          "depth",
+          "domain",
+          "evidence",
+          "key",
+          "lesson_ids",
+          "phase",
+          "statement"
+        ],
+        "title": "ObjectiveView",
+        "type": "object"
+      },
+      "Progress": {
+        "additionalProperties": false,
+        "description": "The progress of the signed-in user in a program.",
+        "properties": {
+          "answered_item_ids": {
+            "description": "The answered items; present only with `TRACKING_DETAIL=standard`.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "completed_module_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "enrollment": {
+            "additionalProperties": false,
+            "description": "The enrollment, or `null` without one.",
+            "nullable": true,
+            "properties": {
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "path": {
+                "enum": [
+                  "short",
+                  "full"
+                ],
+                "type": "string"
+              },
+              "path_chosen_manually": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "id",
+              "path",
+              "path_chosen_manually"
+            ],
+            "type": "object"
+          },
+          "exams": {
+            "description": "Per exam with an attempt: `passed` when any attempt passed, otherwise the outcome of the latest attempt.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "assessment_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "outcome": {
+                  "enum": [
+                    "passed",
+                    "failed_core",
+                    "failed_errors"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "assessment_id",
+                "outcome"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "objectives": {
+            "description": "Every objective of the program, ordered by module number and position.",
+            "items": {
+              "$ref": "#/components/schemas/ObjectiveProgress"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "completed_module_ids",
+          "enrollment",
+          "exams",
+          "objectives"
+        ],
+        "title": "Progress",
+        "type": "object"
+      },
+      "EnrollmentView": {
+        "additionalProperties": false,
+        "description": "The enrollment of the signed-in user.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "path": {
+            "enum": [
+              "short",
+              "full"
+            ],
+            "type": "string"
+          },
+          "path_chosen_manually": {
+            "description": "True after the learner chose the path by hand.",
+            "type": "boolean"
+          },
+          "program_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "path",
+          "path_chosen_manually",
+          "program_id",
+          "started_at"
+        ],
+        "title": "EnrollmentView",
+        "type": "object"
+      },
+      "EnrollmentPathRequest": {
+        "additionalProperties": false,
+        "description": "Sets the path by the learner's choice.",
+        "properties": {
+          "path": {
+            "description": "The path the learner chose.",
+            "enum": [
+              "short",
+              "full"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "EnrollmentPathRequest",
+        "type": "object"
+      },
+      "ObjectiveProgress": {
+        "additionalProperties": false,
+        "description": "Whether the learner's records show evidence.",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "evidenced",
+              "open"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "status"
+        ],
+        "title": "ObjectiveProgress",
+        "type": "object"
+      },
+      "ProviderList": {
+        "additionalProperties": false,
+        "description": "The external identity providers.",
+        "properties": {
+          "providers": {
+            "description": "In configured order.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "key": {
+                  "description": "The provider key of the configuration.",
+                  "type": "string"
+                },
+                "kind": {
+                  "description": "A redirect to the provider or a credentials form.",
+                  "enum": [
+                    "redirect",
+                    "credentials"
+                  ],
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "start_url": {
+                  "description": "The path where the sign-in starts.",
+                  "type": "string"
+                },
+                "type": {
+                  "enum": [
+                    "entra",
+                    "google",
+                    "oidc",
+                    "ldap"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "key",
+                "kind",
+                "label",
+                "start_url",
+                "type"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "providers"
+        ],
+        "title": "ProviderList",
+        "type": "object"
+      },
+      "Glossary": {
+        "additionalProperties": false,
+        "description": "The glossary of a program.",
+        "properties": {
+          "terms": {
+            "description": "The terms ordered by slug.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "label": {
+                  "type": "string"
+                },
+                "short_text": {
+                  "type": "string"
+                },
+                "slug": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "label",
+                "short_text",
+                "slug"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "terms"
+        ],
+        "title": "Glossary",
+        "type": "object"
+      },
+      "ProgramList": {
+        "additionalProperties": false,
+        "description": "The published programs, ordered by slug.",
+        "properties": {
+          "programs": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "locale": {
+                  "description": "The language tag of the content.",
+                  "type": "string"
+                },
+                "slug": {
+                  "description": "The key of the content pack.",
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "locale",
+                "slug",
+                "title"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "programs"
+        ],
+        "title": "ProgramList",
+        "type": "object"
+      },
+      "CompanionFormatView": {
+        "additionalProperties": false,
+        "description": "A format held outside the platform.",
+        "properties": {
+          "attendance_counts": {
+            "description": "True when an attendance certificate provides evidence.",
+            "type": "boolean"
+          },
+          "description": {
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "phases": {
+            "items": {
+              "enum": [
+                "orient",
+                "understand",
+                "apply",
+                "anchor",
+                "update"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "attendance_counts",
+          "description",
+          "id",
+          "key",
+          "phases",
+          "title"
+        ],
+        "title": "CompanionFormatView",
+        "type": "object"
+      },
+      "PasswordSignInRequest": {
+        "additionalProperties": false,
+        "description": "A password sign-in; it yields the pending second-factor state.",
+        "properties": {
+          "email": {
+            "description": "The e-mail address.",
+            "maxLength": 160,
+            "type": "string"
+          },
+          "password": {
+            "description": "The password.",
+            "maxLength": 128,
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "PasswordSignInRequest",
+        "type": "object"
+      },
+      "DemoSignInRequest": {
+        "additionalProperties": false,
+        "description": "A demo sign-in with `AUTH_DEMO=true`.",
+        "properties": {
+          "slot": {
+            "maximum": 20,
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "slot"
+        ],
+        "title": "DemoSignInRequest",
+        "type": "object"
+      },
+      "AssessmentsOpenError": {
+        "additionalProperties": false,
+        "description": "The open exams of the module.",
+        "properties": {
+          "assessments": {
+            "description": "The exams without a passed attempt.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "key": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "key",
+                "title"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "error": {
+            "enum": [
+              "assessments_open"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "assessments",
+          "error"
+        ],
+        "title": "AssessmentsOpenError",
+        "type": "object"
+      },
+      "AttemptResult": {
+        "additionalProperties": false,
+        "description": "An exam attempt under the pass rule.",
+        "properties": {
+          "assessment_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "core_failed": {
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "number": {
+            "description": "The number of the attempt, from 1.",
+            "type": "integer"
+          },
+          "outcome": {
+            "enum": [
+              "passed",
+              "failed_core",
+              "failed_errors"
+            ],
+            "type": "string"
+          },
+          "results": {
+            "description": "The evaluation per item in exam order.",
+            "items": {
+              "$ref": "#/components/schemas/ItemResult"
+            },
+            "type": "array"
+          },
+          "submitted_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "wrong_count": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "assessment_id",
+          "core_failed",
+          "id",
+          "number",
+          "outcome",
+          "results",
+          "submitted_at",
+          "wrong_count"
+        ],
+        "title": "AttemptResult",
+        "type": "object"
+      },
+      "SessionList": {
+        "additionalProperties": false,
+        "description": "The sessions of the signed-in user.",
+        "properties": {
+          "sessions": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "auth_methods": {
+                  "items": {
+                    "enum": [
+                      "passkey",
+                      "password",
+                      "totp",
+                      "recovery_code",
+                      "email_code",
+                      "oidc",
+                      "ldap",
+                      "idp_mfa",
+                      "demo"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "authenticated_at": {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                "current": {
+                  "description": "True on the calling session.",
+                  "type": "boolean"
+                },
+                "device": {
+                  "description": "The device summary of the user agent.",
+                  "nullable": true,
+                  "type": "string"
+                },
+                "expires_at": {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                "id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "last_seen_at": {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                "strength": {
+                  "enum": [
+                    "mfa",
+                    "recovery",
+                    "enrollment",
+                    "demo"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "auth_methods",
+                "authenticated_at",
+                "current",
+                "device",
+                "expires_at",
+                "id",
+                "last_seen_at",
+                "strength"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "sessions"
+        ],
+        "title": "SessionList",
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "csrf_header": {
+        "description": "The CSRF token of the session payload, sent with every mutating request.",
+        "in": "header",
+        "name": "x-csrf-token",
+        "type": "apiKey"
+      },
+      "session_cookie": {
+        "description": "The session cookie of the backend-for-frontend session.",
+        "in": "cookie",
+        "name": "__Host-espalier",
+        "type": "apiKey"
+      }
+    }
+  },
+  "info": {
+    "title": "Espalier API",
+    "version": "0.1.0"
+  },
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/assessments/{id}/attempts": {
+      "post": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.AttemptController.create",
+        "parameters": [
+          {
+            "description": "The exam id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttemptRequest"
+              }
+            }
+          },
+          "description": "The answers",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttemptResult"
+                }
+              }
+            },
+            "description": "The attempt"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `enrollment_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_enrolled`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `rate_limited`",
+            "headers": {
+              "retry-after": {
+                "description": "Seconds until the bucket admits the next request.",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "style": "simple"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Submit an exam attempt",
+        "tags": [
+          "Learning"
+        ]
+      }
+    },
+    "/api/auth/demo": {
+      "post": {
+        "callbacks": {},
+        "description": "Only with `AUTH_DEMO=true`; otherwise 404.",
+        "operationId": "EspalierWeb.Auth.DemoController.create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemoSignInRequest"
+              }
+            }
+          },
+          "description": "The demo slot",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionPayload"
+                }
+              }
+            },
+            "description": "The session payload"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `bad_request`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `rate_limited`",
+            "headers": {
+              "retry-after": {
+                "description": "Seconds until the bucket admits the next request.",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "style": "simple"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "csrf_header": []
+          }
+        ],
+        "summary": "Sign in to a demo account",
+        "tags": [
+          "Session"
+        ]
+      }
+    },
+    "/api/auth/invitations": {
+      "post": {
+        "callbacks": {},
+        "description": "Self-service invitation with `SIGNUP=invite` or `domain`; the answer is the same for every address. `SIGNUP=closed` and `LOCAL_ACCOUNTS=false` answer 404.",
+        "operationId": "EspalierWeb.Auth.InvitationController.create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvitationRequest"
+              }
+            }
+          },
+          "description": "The address",
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Accepted"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `bad_request`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `rate_limited`",
+            "headers": {
+              "retry-after": {
+                "description": "Seconds until the bucket admits the next request.",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "style": "simple"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "csrf_header": []
+          }
+        ],
+        "summary": "Request an invitation",
+        "tags": [
+          "Session"
+        ]
+      }
+    },
+    "/api/auth/invitations/accept": {
+      "post": {
+        "callbacks": {},
+        "description": "Opens an enrollment session, which reaches only the enrollment routes.",
+        "operationId": "EspalierWeb.Auth.InvitationController.accept",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvitationAcceptRequest"
+              }
+            }
+          },
+          "description": "The invitation token",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionPayload"
+                }
+              }
+            },
+            "description": "The session payload"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `invalid_token`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `rate_limited`",
+            "headers": {
+              "retry-after": {
+                "description": "Seconds until the bucket admits the next request.",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "style": "simple"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "csrf_header": []
+          }
+        ],
+        "summary": "Accept an invitation",
+        "tags": [
+          "Session"
+        ]
+      }
+    },
+    "/api/auth/password": {
+      "post": {
+        "callbacks": {},
+        "description": "A correct password yields the pending second-factor state for five minutes and never a session. Known and unknown addresses receive the same answer.",
+        "operationId": "EspalierWeb.Auth.PasswordController.create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordSignInRequest"
+              }
+            }
+          },
+          "description": "The address and the password",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NextStep"
+                }
+              }
+            },
+            "description": "The next step"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `bad_request`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `invalid_credentials`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `rate_limited`",
+            "headers": {
+              "retry-after": {
+                "description": "Seconds until the bucket admits the next request.",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "style": "simple"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "csrf_header": []
+          }
+        ],
+        "summary": "Sign in with a password",
+        "tags": [
+          "Session"
+        ]
+      }
+    },
+    "/api/enrollments": {
+      "post": {
+        "callbacks": {},
+        "description": "Creates the enrollment (201). An existing enrollment answers 200 and takes the given path only while the learner has not chosen a path by hand.",
+        "operationId": "EspalierWeb.EnrollmentController.create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnrollmentRequest"
+              }
+            }
+          },
+          "description": "The program and the path",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnrollmentView"
+                }
+              }
+            },
+            "description": "The existing enrollment"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnrollmentView"
+                }
+              }
+            },
+            "description": "The new enrollment"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `enrollment_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `rate_limited`",
+            "headers": {
+              "retry-after": {
+                "description": "Seconds until the bucket admits the next request.",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "style": "simple"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Enroll in a program",
+        "tags": [
+          "Learning"
+        ]
+      }
+    },
+    "/api/enrollments/{id}": {
+      "patch": {
+        "callbacks": {},
+        "description": "Sets the path and marks it as chosen by the learner.",
+        "operationId": "EspalierWeb.EnrollmentController.update",
+        "parameters": [
+          {
+            "description": "The enrollment id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnrollmentPathRequest"
+              }
+            }
+          },
+          "description": "The path",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnrollmentView"
+                }
+              }
+            },
+            "description": "The enrollment"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `enrollment_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `rate_limited`",
+            "headers": {
+              "retry-after": {
+                "description": "Seconds until the bucket admits the next request.",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "style": "simple"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Choose the path",
+        "tags": [
+          "Learning"
+        ]
+      }
+    },
+    "/api/items/{id}/responses": {
+      "post": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.ItemResponseController.create",
+        "parameters": [
+          {
+            "description": "The item id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ItemResponseRequest"
+              }
+            }
+          },
+          "description": "The answer",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemResult"
+                }
+              }
+            },
+            "description": "The evaluation"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `enrollment_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_enrolled`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `rate_limited`",
+            "headers": {
+              "retry-after": {
+                "description": "Seconds until the bucket admits the next request.",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "style": "simple"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Answer a practice item",
+        "tags": [
+          "Learning"
+        ]
+      }
+    },
+    "/api/me/email": {
+      "put": {
+        "callbacks": {},
+        "description": "Sends a confirmation link to the new address; the answer is the same for every address. Needs a second factor within the last 10 minutes.",
+        "operationId": "EspalierWeb.Me.EmailController.update",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailChangeRequest"
+              }
+            }
+          },
+          "description": "The new address",
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Accepted"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `bad_request`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `rate_limited`",
+            "headers": {
+              "retry-after": {
+                "description": "Seconds until the bucket admits the next request.",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "style": "simple"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Request an e-mail change",
+        "tags": [
+          "Account"
+        ]
+      }
+    },
+    "/api/me/email/confirm": {
+      "post": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Me.EmailController.confirm",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailConfirmRequest"
+              }
+            }
+          },
+          "description": "The confirmation token",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionPayload"
+                }
+              }
+            },
+            "description": "The session payload"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `invalid_token`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Confirm an e-mail change",
+        "tags": [
+          "Account"
+        ]
+      }
+    },
+    "/api/me/password": {
+      "put": {
+        "callbacks": {},
+        "description": "Needs `current_password` and a second factor within the last 10 minutes; an enrollment or recovery session sets the password without them. Ends every other session and answers with a new session payload and CSRF token.",
+        "operationId": "EspalierWeb.Me.PasswordController.update",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordChangeRequest"
+              }
+            }
+          },
+          "description": "The current and the new password",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionPayload"
+                }
+              }
+            },
+            "description": "The session payload"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `rate_limited`",
+            "headers": {
+              "retry-after": {
+                "description": "Seconds until the bucket admits the next request.",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "style": "simple"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Change the password",
+        "tags": [
+          "Account"
+        ]
+      }
+    },
+    "/api/me/progress": {
+      "get": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Me.ProgressController.show",
+        "parameters": [
+          {
+            "description": "The slug of a published program.",
+            "in": "query",
+            "name": "program",
+            "required": true,
+            "schema": {
+              "description": "The slug of a published program.",
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[a-z0-9][a-z0-9-]*$(?!\\n)",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Progress"
+                }
+              }
+            },
+            "description": "The progress"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `enrollment_required`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "Read the own progress in a program",
+        "tags": [
+          "Learning"
+        ]
+      }
+    },
+    "/api/me/sessions": {
+      "get": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Me.SessionController.index",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionList"
+                }
+              }
+            },
+            "description": "The sessions"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `enrollment_required`, `cross_site_request`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "List the own sessions",
+        "tags": [
+          "Account"
+        ]
+      }
+    },
+    "/api/me/sessions/{id}": {
+      "delete": {
+        "callbacks": {},
+        "description": "Needs a second factor within the last 10 minutes.",
+        "operationId": "EspalierWeb.Me.SessionController.delete",
+        "parameters": [
+          {
+            "description": "The session id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Session ended"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "End one of the own sessions",
+        "tags": [
+          "Account"
+        ]
+      }
+    },
+    "/api/modules/{id}": {
+      "get": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.ModuleController.show",
+        "parameters": [
+          {
+            "description": "The module id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModuleView"
+                }
+              }
+            },
+            "description": "The module"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `enrollment_required`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "Read a module",
+        "tags": [
+          "Catalog"
+        ]
+      }
+    },
+    "/api/modules/{id}/completion": {
+      "post": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.ModuleCompletionController.create",
+        "parameters": [
+          {
+            "description": "The module id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyRequest"
+              }
+            }
+          },
+          "description": "No members",
+          "required": false
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModuleCompletionView"
+                }
+              }
+            },
+            "description": "The completion"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `enrollment_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/AssessmentsOpenError"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "`assessments_open` with the open exams, or `not_enrolled`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `rate_limited`",
+            "headers": {
+              "retry-after": {
+                "description": "Seconds until the bucket admits the next request.",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "style": "simple"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Complete a module",
+        "tags": [
+          "Learning"
+        ]
+      }
+    },
+    "/api/programs": {
+      "get": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.ProgramController.index",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgramList"
+                }
+              }
+            },
+            "description": "The published programs"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `enrollment_required`, `cross_site_request`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "List the published programs",
+        "tags": [
+          "Catalog"
+        ]
+      }
+    },
+    "/api/programs/{slug}": {
+      "get": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.ProgramController.show",
+        "parameters": [
+          {
+            "description": "The slug of a published program.",
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "description": "The slug of a published program.",
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[a-z0-9][a-z0-9-]*$(?!\\n)",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgramView"
+                }
+              }
+            },
+            "description": "The program"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `enrollment_required`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "Read a program",
+        "tags": [
+          "Catalog"
+        ]
+      }
+    },
+    "/api/programs/{slug}/glossary": {
+      "get": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.ProgramController.glossary",
+        "parameters": [
+          {
+            "description": "The slug of a published program.",
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "description": "The slug of a published program.",
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[a-z0-9][a-z0-9-]*$(?!\\n)",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Glossary"
+                }
+              }
+            },
+            "description": "The glossary"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `enrollment_required`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "Read the glossary of a program",
+        "tags": [
+          "Catalog"
+        ]
+      }
+    },
+    "/api/programs/{slug}/handbook": {
+      "get": {
+        "callbacks": {},
+        "description": "Every rule with its statement and action grouped by module, plus the keys of the program's placeholder blocks (README section 7, domain rule 10).",
+        "operationId": "EspalierWeb.ProgramController.handbook",
+        "parameters": [
+          {
+            "description": "The slug of a published program.",
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "description": "The slug of a published program.",
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[a-z0-9][a-z0-9-]*$(?!\\n)",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Handbook"
+                }
+              }
+            },
+            "description": "The handbook"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `enrollment_required`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "Read the handbook of a program",
+        "tags": [
+          "Catalog"
+        ]
+      }
+    },
+    "/api/session": {
+      "delete": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.SessionController.delete",
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": "Signed out"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `csrf`, `cross_site_request`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": []
+          }
+        ],
+        "summary": "Sign out",
+        "tags": [
+          "Session"
+        ]
+      },
+      "get": {
+        "callbacks": {},
+        "description": "The user, roles, session strength, CSRF token, providers and flags; `user`, `session` and `pending` are `null` when absent.",
+        "operationId": "EspalierWeb.SessionController.show",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionPayload"
+                }
+              }
+            },
+            "description": "The session payload"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `cross_site_request`"
+          }
+        },
+        "security": [
+          {}
+        ],
+        "summary": "Read the session payload",
+        "tags": [
+          "Session"
+        ]
+      }
+    },
+    "/auth/providers": {
+      "get": {
+        "callbacks": {},
+        "description": "The public entries of the configured providers in configured order.",
+        "operationId": "EspalierWeb.ProviderController.index",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderList"
+                }
+              }
+            },
+            "description": "The providers"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `cross_site_request`"
+          }
+        },
+        "security": [
+          {}
+        ],
+        "summary": "List the external identity providers",
+        "tags": [
+          "Session"
+        ]
+      }
+    }
+  },
+  "security": [],
+  "servers": [],
+  "tags": []
+}

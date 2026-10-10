@@ -105,6 +105,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The neutral demo pack `content/demo/` ("AI assistant basics (demo)"),
   imported by `make setup` and `make refresh-db`, and the dependency
   `yaml_elixir` 2.12 (task 0008).
+- The learner API (task 0009): published programs, modules, glossary and
+  handbook without answer keys, with the learning objectives of each topic,
+  their teaching lessons and their evidence, and the objective keys of each
+  item; enrollment with a path that a manual choice keeps; server-side
+  evaluation of practice answers with feedback, rules and lessons to reveal;
+  exam attempts under the pass rule; module completion after the passed
+  exams that count for a credential; and `GET /api/me/progress` with the
+  status of every objective, derived per request from the learner's own
+  records.
+- `TRACKING_DETAIL` (`minimal` or `standard`) and `INSIGHTS_ORG_UNIT`, the
+  anonymous item statistics `item_stats`, and the per-user rate limit buckets
+  `learner_write` and `assessment_attempt` (task 0009).
+- The OpenAPI document at `/api/openapi` with `open_api_spex` 3.22 for the
+  learner routes and the routes of task 0004; `make api-types` writes
+  `frontend/openapi.json` and `frontend/src/api/schema.d.ts` with
+  `openapi-typescript`, `make check` fails when they differ from the
+  committed files, and `openapi-fetch` is a dependency of the frontend
+  (task 0009).
 
 ### Changed
 

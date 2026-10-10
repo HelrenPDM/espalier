@@ -187,3 +187,149 @@ This list holds exactly the rows whose `Task` column names this task, as the own
 - A passed attempt counts for every objective that an item of its assessment names, including an item answered wrong within `max_wrong`. The attempt row holds no result per item (step 13), and the outcome `passed` is the evidence that the exam provides.
 - `Credentials.attended_format_ids/2` returns `[]` until 0013 creates `attendance_certificates`. Until then, a format provides evidence in the module view and sets no objective to `evidenced`.
 - The competence report of 0014 groups the anonymous `item_stats` by the area and depth of the objectives through `item_objectives`, and the SCORM export of 0016 writes the objectives of a module to `cmi.objectives`. Both read the objectives of 0008 directly, and neither adds a column to the tables of this task.
+
+## Addendum: implementation
+The implementation departs from the steps above in the points below, and later
+tasks rely on the implemented form.
+
+- Dependencies (step 1): `open_api_spex` 3.22.4 and `stream_data` 1.4.0.
+  `.formatter.exs` imports the formatter of `open_api_spex`, so `operation`,
+  `tags` and `security` stand without parentheses. `stream_data` is a test
+  dependency, which `import_deps` cannot name in the development
+  environment, so `check all(...)` keeps its parentheses.
+- OpenAPI document (steps 2 and 16): `OpenApiSpex.Plug.RenderSpec` serves the
+  document without the vendor extensions `x-struct`, `x-validate` and
+  `x-parameter-content-parsers`, and `mix openapi.spec.json` writes them by
+  default, so `make api-types` passes `--vendor-extensions=false` together
+  with `--start-app=false`. `config/dev.exs` sets
+  `config :open_api_spex, :cache_adapter, OpenApiSpex.Plug.NoneCache`, so
+  that a reloaded controller shows its operation in `GET /api/openapi`.
+  `EspalierWeb.ApiSpec.Responses` builds the error answers of every
+  operation (schema `Error`, the codes of the route in the description, and
+  `retry-after` on 429) and the security requirements `session_cookie` and
+  `csrf_header`.
+- Schemas (step 3): every module calls `OpenApiSpex.schema/2` with
+  `struct?: false, derive?: false`, so `CastAndValidate` hands the
+  controllers maps with atom keys for the members of a schema and string
+  keys inside the maps `slots`, `cases` and `answers`. Response schemas set
+  `additionalProperties: false` and list every member as required unless it
+  is optional by design (`answered_item_ids`, the members of a feedback
+  entry), so `assert_schema/3` fails on an undocumented member.
+  `EspalierWeb.Schemas.Fields` holds the shared member schemas: keys and
+  slugs follow the key format of content packs with at most 255 characters;
+  the pattern `^[a-z0-9][a-z0-9-]*$(?!\n)` keeps the `$` of PCRE from
+  matching before a final line break. OpenAPI 3.0 has no `propertyNames`,
+  so the keys of the maps `answers`, `slots` and `cases` are bounded by their
+  number and checked against the item before any evaluation.
+  The answer bounds are 100 entries per list or map, 16 characters of
+  initials, and 200 exam answers; the pack format sets no bound on the
+  number of options, slots, cases or checks, so an item with more than 100
+  of them cannot be answered. The schemas of the routes of 0004 document
+  `email` with at most 160 and `password` and `current_password` with at
+  most 128 characters, and `current_password` as optional, because an
+  enrollment or recovery session sets the password without it. The 409
+  answer of `POST /api/modules/{id}/completion` is `oneOf`
+  `AssessmentsOpenError` and `Error`. `POST /api/modules/{id}/completion`
+  takes the optional body `EmptyRequest`, so a body with a member answers
+  422.
+- Cast errors (step 4): the renderer is passed through the option
+  `render_error:`. An error without a path (a missing or unsupported
+  `content-type`, a body that is no JSON object) has the member `body`.
+  `Plug.Parsers` puts a body that is no object under `_json`, and
+  `CastAndValidate` 3.22.4 then validates only the value under that key and
+  leaves the other members unchecked (`OpenApiSpex.Operation2`), so a body
+  object with the member `_json` passed validation and crashed the write
+  actions. `EspalierWeb.Plugs.JsonObjectBody` runs before `CastAndValidate`
+  in the four controllers with a body and answers 422
+  `{"fields":{"body":["invalid_type"]}}` for every body with `_json`.
+- Migrations (step 6): besides the references, `path`, `started_at`,
+  `attempt_no`, `answered_on`, `number`, `wrong_count`, `outcome`,
+  `submitted_at`, `completed_at` and `period` are `NOT NULL`, because the
+  server always sets them. A composite unique index replaces the generated
+  index on its first column (`enrollments.user_id`, `enrollment_id` of the
+  three record tables, `item_stats.item_id`). The help text of
+  `mix phx.gen.schema` in Phoenix 1.8.15 does not list `--scope` and
+  `--no-scope`; both switches exist in `lib/mix/tasks/phx.gen.schema.ex`.
+  The generated create, update, delete and subscribe functions of
+  `Espalier.Learning` are replaced by the functions of step 13, and the
+  generated test and fixture module by the tests of step 17 and
+  `Espalier.LearningFixtures` (the published demo pack and answers built
+  from the answer key).
+- Schemas (step 7): the generated `*_id` fields are `belongs_to`
+  associations (`program`, `enrollment`, `item`, `assessment`, `module`),
+  and `user_id` stays a field of the scope. `Espalier.Learning` sets the
+  values of `ItemResponse`, `AssessmentAttempt` and `ModuleCompletion`, their
+  references included, on the struct, and their changesets cast nothing:
+  `changeset/2` puts `user_id` from the scope, checks the required fields and
+  declares the unique constraint, so no member of these rows is assignable
+  from outside the context (review of PR #24). `ItemStat.changeset/1`
+  follows the same form.
+- Evaluation (step 10): an answer carries the members `options`
+  (`single_choice`, `multiple_choice`, `poll`), `slots` (`slot_builder`),
+  `cases` (`classification`), or `checks` and `initials`
+  (`checklist_drill`). `Evaluator.validate/2` rejects an answer that uses a
+  member of another kind, misses a member of its kind (the answer of a
+  checklist drill always includes `initials`, 0008 step 5), or names a key
+  that the item does not have; `POST /api/items/{id}/responses` then answers
+  422 `{"fields":{"answer":["invalid"]}}`, an exam attempt 422
+  `{"fields":{"answers":["invalid"]}}`, and nothing is counted. The initials
+  count after trimming. `option_feedback` holds per option `key`,
+  `selected`, `correct` (the option is correct) and `feedback`; per slot
+  `key`, `choice`, `correct` and the `feedback` of the chosen option; per
+  case `key`, `choice`, `expected`, `correct` and `feedback`; per check
+  `key`, `selected`, `required` and `correct`. Rules carry `id`, `number`,
+  `statement` and `action`.
+- Pass rule (step 11): `PassRule.evaluate/2` takes results
+  `%{core: boolean, correct: boolean | nil}` (only `false` counts as wrong)
+  and requires an integer `max_wrong`; `wrong_count/1` and `core_failed?/1`
+  fill the attempt row.
+- Catalog views (step 12): `Espalier.Catalog` has the learner reads
+  `list_published_programs/0`, `get_published_program/1`, `program_view/1`,
+  `module_view/1`, `glossary/1`, `handbook/1`, `learner_item/1`,
+  `learner_exam/1`, `learner_module/1`, `credential_exams/1` and
+  `objective_keys/1`. A row of an archived module counts as archived, as in
+  `Alignment.matrix/1`. The module view lists `practice_items` (the live
+  items of the module that no live exam lists) and `exams` (assessments of
+  kind `exam`); assessments of kind `practice` are not rendered, and their
+  items appear among the practice items. An item carries `lesson_id`
+  (`null` for exam items), and rules carry their citations. A station
+  carries `question`, `intro` and `questions` (with `key`, `kind`, `label`
+  and options) instead of its `config`, so no catalog view has a `config`
+  member. `objective_links/2` runs five queries.
+- Learner routes (step 13): `POST /api/items/{id}/responses` answers 200,
+  `POST /api/assessments/{id}/attempts` 201 with `id`, `assessment_id`,
+  `number`, `submitted_at` and the results per item in exam order, and
+  `POST /api/modules/{id}/completion` 200. An exam item is an item that a
+  live exam lists; an archived exam keeps its join rows and makes no item an
+  exam item. The writes of one enrollment lock its row, so attempt and
+  response numbers and a concurrent path change do not race; two concurrent
+  first enrollments of one user answer 422 `validation_failed` for the
+  second. `PATCH /api/enrollments/{id}` also answers 404 for an enrollment
+  in a program that is no longer published. The org unit of `item_stats`
+  is the user's org unit trimmed and cut to 255 code points
+  (`Espalier.Insights.org_unit/1`), because the directory delivers it
+  without a length bound and the column is `varchar(255)`; a blank value or
+  one with U+0000 counts as no org unit. `FallbackController` maps `not_enrolled`
+  (409), `{:answers, code}` and `:invalid_answer` (422) and
+  `{:assessments_open, exams}` (409). Per exam, the progress answer lists
+  `assessment_id` and `outcome`.
+- Operations of 0004 (step 15): `PUT /api/me/password` lies in the
+  `:enrollment` pipeline since task 0005, so its operation lists 403
+  `forbidden` for demo sessions in place of `enrollment_required`.
+- Frontend (step 16): `openapi-typescript` 7.13.0 declares the peer
+  dependency `typescript ^5.x`, and the frontend uses TypeScript 6.0. The
+  `overrides` entry of `frontend/package.json` gives `openapi-typescript`
+  the project's TypeScript, and `tsc -b` compiles the generated file.
+  `openapi-fetch` 0.17.0 and `openapi-typescript` were installed with
+  `npm install --before` seven days back, because npm offers no cooldown
+  setting. Task 0010 has not landed, so `frontend/src/api/paths.ts` does
+  not exist yet, and 0010 step 4 writes it with the re-export.
+- Tests (step 17): `ConnCase.json_request/5` sends a JSON body with
+  `content-type: application/json` through the CSRF check, because
+  `Phoenix.ConnTest` sends a map body as `multipart/mixed`, which
+  `CastAndValidate` rejects.
+- Verification matrix (step 18): 1.1.1, 1.3.3, 2.2.2 and 2.3.1 are
+  `verified` as well, because every task they name has landed.
+- Acceptance: the `curl` checks ran against a server with
+  `PHX_SERVER=true MIX_ENV=test PORT=4100`, because a development server can
+  hold port 4000.

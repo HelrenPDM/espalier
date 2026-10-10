@@ -82,10 +82,20 @@ check: ## run every static check, dependency audit and test of both projects
 	$(NIX) 'mix deps.audit'
 	$(NIX) 'mix deps.unlock --check-unused'
 	$(NIX) 'DATABASE_PORT=$(DATABASE_PORT) mix test'
+	$(MAKE) api-types
+	git diff --exit-code -- frontend/openapi.json frontend/src/api/schema.d.ts
 	$(NIX) 'npm --prefix frontend run typecheck'
 	$(NIX) 'npm --prefix frontend run lint'
 	$(NIX) 'npm --prefix frontend run format:check'
 	$(NIX) 'npm --prefix frontend run test -- --run'
+
+# --start-app=false needs neither database nor keys. --vendor-extensions=false
+# leaves out the x-struct and x-validate members, which GET /api/openapi does
+# not serve either, so the file holds the served document.
+.PHONY: api-types
+api-types: ## Write frontend/openapi.json and frontend/src/api/schema.d.ts from EspalierWeb.ApiSpec
+	$(NIX) "mix openapi.spec.json --spec EspalierWeb.ApiSpec --pretty=true --start-app=false --vendor-extensions=false frontend/openapi.json"
+	$(NIX) "npm --prefix frontend run api-types"
 
 .PHONY: test
 test: ## run the test suites of both projects

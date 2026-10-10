@@ -35,6 +35,11 @@ config :espalier, EspalierWeb.Endpoint,
   secret_key_base: String.duplicate("d", 64),
   watchers: [npm: ["run", "dev", cd: Path.expand("../frontend", __DIR__)]]
 
+# GET /api/openapi builds the document on every request, so that a reloaded
+# controller shows its new operation (task 0009). Other environments keep the
+# default cache in :persistent_term.
+config :open_api_spex, :cache_adapter, OpenApiSpex.Plug.NoneCache
+
 # ## SSL Support
 #
 # In order to use HTTPS in development, a self-signed

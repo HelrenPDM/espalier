@@ -63,7 +63,9 @@ config :espalier, :rate_limits, %{
   oidc_front_channel: {:timer.minutes(1), 60},
   ldap_ip: {:timer.minutes(1), 20},
   ldap_account: {:timer.minutes(1), 5},
-  ldap_subject: {:timer.minutes(1), 5}
+  ldap_subject: {:timer.minutes(1), 5},
+  learner_write: {:timer.minutes(1), 120},
+  assessment_attempt: {:timer.minutes(10), 10}
 }
 
 # Failed directory sign-ins answer no earlier than this many milliseconds
@@ -122,7 +124,8 @@ config :phoenix, :filter_parameters, [
   "ticket",
   "intent",
   "sid",
-  "id_token"
+  "id_token",
+  "answer"
 ]
 
 # Use Jason for JSON parsing in Phoenix
