@@ -173,17 +173,14 @@ defmodule Espalier.Learning do
             select: coalesce(max(r.attempt_no), 0)
         ) + 1
 
-      %ItemResponse{}
-      |> ItemResponse.changeset(
-        %{
-          enrollment_id: enrollment.id,
-          item_id: item.id,
-          correct: result.correct == true,
-          attempt_no: attempt_no,
-          answered_on: Date.utc_today()
-        },
-        scope
-      )
+      %ItemResponse{
+        enrollment_id: enrollment.id,
+        item_id: item.id,
+        correct: result.correct == true,
+        attempt_no: attempt_no,
+        answered_on: Date.utc_today()
+      }
+      |> ItemResponse.changeset(scope)
       |> Repo.insert()
     else
       {:ok, nil}
@@ -219,7 +216,7 @@ defmodule Espalier.Learning do
 
       graded = for {item, result} <- results, do: %{core: item.core, correct: result.correct}
 
-      attrs = %{
+      attempt = %AssessmentAttempt{
         enrollment_id: enrollment.id,
         assessment_id: exam.id,
         wrong_count: PassRule.wrong_count(graded),
@@ -228,12 +225,12 @@ defmodule Espalier.Learning do
         submitted_at: DateTime.utc_now(:second)
       }
 
-      store_attempt(scope, enrollment, exam, attrs, results)
+      store_attempt(scope, enrollment, exam, attempt, results)
     end
   end
 
-  defp store_attempt(scope, enrollment, exam, attrs, results) do
-    with {:ok, attempt} <- Repo.transact(fn -> insert_attempt(scope, enrollment, attrs) end) do
+  defp store_attempt(scope, enrollment, exam, attempt, results) do
+    with {:ok, attempt} <- Repo.transact(fn -> insert_attempt(scope, enrollment, attempt) end) do
       if attempt.outcome == :passed, do: {:ok, _} = Credentials.evaluate(scope, exam.program)
       {:ok, attempt, results}
     end
@@ -254,18 +251,18 @@ defmodule Espalier.Learning do
     end
   end
 
-  defp insert_attempt(scope, enrollment, attrs) do
+  defp insert_attempt(scope, enrollment, attempt) do
     lock_enrollment!(enrollment)
 
     number =
       Repo.one(
         from a in AssessmentAttempt,
-          where: a.enrollment_id == ^enrollment.id and a.assessment_id == ^attrs.assessment_id,
+          where: a.enrollment_id == ^enrollment.id and a.assessment_id == ^attempt.assessment_id,
           select: coalesce(max(a.number), 0)
       ) + 1
 
-    %AssessmentAttempt{}
-    |> AssessmentAttempt.changeset(Map.put(attrs, :number, number), scope)
+    %{attempt | number: number}
+    |> AssessmentAttempt.changeset(scope)
     |> Repo.insert()
   end
 
@@ -305,15 +302,12 @@ defmodule Espalier.Learning do
         open = Enum.reject(Catalog.credential_exams(module.id), &MapSet.member?(passed, &1.id))
 
         if open == [] do
-          %ModuleCompletion{}
-          |> ModuleCompletion.changeset(
-            %{
-              enrollment_id: enrollment.id,
-              module_id: module.id,
-              completed_at: DateTime.utc_now(:second)
-            },
-            scope
-          )
+          %ModuleCompletion{
+            enrollment_id: enrollment.id,
+            module_id: module.id,
+            completed_at: DateTime.utc_now(:second)
+          }
+          |> ModuleCompletion.changeset(scope)
           |> Repo.insert()
           |> tag(:created)
         else

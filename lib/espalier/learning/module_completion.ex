@@ -21,14 +21,14 @@ defmodule Espalier.Learning.ModuleCompletion do
   end
 
   @doc """
-  Builds the row from values that `Espalier.Learning` computes; no member
-  comes from a request.
+  Checks a row whose values `Espalier.Learning` has set on the struct. The
+  changeset casts nothing, so no member can come from a request; it puts
+  `user_id` from the scope and declares the unique constraint.
   """
-  def changeset(module_completion, attrs, user_scope) do
+  def changeset(%__MODULE__{} = module_completion, user_scope) do
     module_completion
-    |> cast(attrs, [:enrollment_id, :module_id, :completed_at])
+    |> change(user_id: user_scope.user.id)
     |> validate_required([:enrollment_id, :module_id, :completed_at])
-    |> put_change(:user_id, user_scope.user.id)
     |> unique_constraint([:enrollment_id, :module_id])
   end
 end

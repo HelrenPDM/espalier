@@ -21,10 +21,13 @@ defmodule Espalier.Insights.ItemStat do
     belongs_to :item, Item
   end
 
-  @doc false
-  def changeset(item_stat, attrs) do
+  @doc """
+  Checks a counter row whose values `Espalier.Insights` has set on the
+  struct. The changeset casts nothing.
+  """
+  def changeset(%__MODULE__{} = item_stat) do
     item_stat
-    |> cast(attrs, [:item_id, :period, :org_unit, :attempts, :correct])
+    |> change()
     |> validate_required([:item_id, :period, :attempts, :correct])
     |> unique_constraint([:item_id, :period, :org_unit])
   end

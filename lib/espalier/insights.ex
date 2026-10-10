@@ -43,13 +43,13 @@ defmodule Espalier.Insights do
     increment = if correct == true, do: 1, else: 0
 
     Repo.insert!(
-      %ItemStat{
+      ItemStat.changeset(%ItemStat{
         item_id: item_id,
         period: Date.beginning_of_month(today),
         org_unit: org_unit,
         attempts: 1,
         correct: increment
-      },
+      }),
       on_conflict: [inc: [attempts: 1, correct: increment]],
       conflict_target: [:item_id, :period, :org_unit]
     )

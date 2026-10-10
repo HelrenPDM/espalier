@@ -257,9 +257,13 @@ tasks rely on the implemented form.
   from the answer key).
 - Schemas (step 7): the generated `*_id` fields are `belongs_to`
   associations (`program`, `enrollment`, `item`, `assessment`, `module`),
-  and `user_id` stays a field of the scope. The changesets of
-  `ItemResponse`, `AssessmentAttempt` and `ModuleCompletion` cast the server
-  values together with their references.
+  and `user_id` stays a field of the scope. `Espalier.Learning` sets the
+  values of `ItemResponse`, `AssessmentAttempt` and `ModuleCompletion`, their
+  references included, on the struct, and their changesets cast nothing:
+  `changeset/2` puts `user_id` from the scope, checks the required fields and
+  declares the unique constraint, so no member of these rows is assignable
+  from outside the context (review of PR #24). `ItemStat.changeset/1`
+  follows the same form.
 - Evaluation (step 10): an answer carries the members `options`
   (`single_choice`, `multiple_choice`, `poll`), `slots` (`slot_builder`),
   `cases` (`classification`), or `checks` and `initials`
