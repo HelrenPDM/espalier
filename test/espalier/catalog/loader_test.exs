@@ -815,21 +815,24 @@ defmodule Espalier.Catalog.LoaderBudgetTest do
 
   test "a pack stops loading once its time budget has passed" do
     pack = copy_pack!("minimal")
-    flow = "- [" <> Enum.map_join(1..5_000, ",", fn _ -> "1" end) <> "]\n"
+    flow = "- [" <> Enum.map_join(1..6_000, ",", fn _ -> "1" end) <> "]\n"
+    slow = ["sources.yaml", "glossary.yaml", "segments.yaml", "feedback.yaml"]
 
-    # Three slow files that each stay within the budget of a file; the pack
-    # budget runs out after the first of them.
-    for file <- ["glossary.yaml", "segments.yaml", "sources.yaml"], do: write!(pack, file, flow)
-    put_budget(timeout_ms: 2_000, pack_timeout_ms: 1)
+    # The pack budget covers the walk on any machine but not the four slow
+    # files, so the deadline passes while they are read, and the loader
+    # reads no file after that.
+    for file <- slow, do: write!(pack, file, flow)
+    put_budget(pack_timeout_ms: 1_000)
+    budget = Loader.parse_budget()
 
     {microseconds, {:error, errors}} = :timer.tc(fn -> Loader.load(pack) end)
 
-    assert microseconds < 6_000_000
+    assert microseconds < (budget[:pack_timeout_ms] + budget[:timeout_ms]) * 1_000
 
-    assert [%{file: file, line: 1, message: "the pack takes longer than 1 ms to load"}] =
+    assert [%{file: file, line: 1, message: "the pack takes longer than 1000 ms to load"}] =
              Enum.filter(errors, &(&1.message =~ "takes longer"))
 
-    assert file in Loader.top_files()
+    assert file in (Loader.top_files() -- ["pack.yaml", hd(slow)])
     refute Enum.any?(errors, &(&1.file =~ "modules/"))
   end
 
