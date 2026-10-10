@@ -16,6 +16,35 @@ defmodule Espalier.RuntimeConfigTest do
     assert config[:public_url] == "http://localhost:5173"
     assert config[:mail_from] == {"Espalier", "noreply@localhost"}
     assert config[:admin_require_passkey] == true
+    assert config[:learning] == [tracking_detail: :minimal, insights_org_unit: false]
+  end
+
+  test "TRACKING_DETAIL and INSIGHTS_ORG_UNIT come back under :learning" do
+    config =
+      RuntimeConfig.parse!(
+        %{"TRACKING_DETAIL" => "standard", "INSIGHTS_ORG_UNIT" => "true"},
+        :dev
+      )
+
+    assert config[:learning] == [tracking_detail: :standard, insights_org_unit: true]
+
+    assert RuntimeConfig.parse!(%{"TRACKING_DETAIL" => ~s("minimal")}, :dev)[:learning][
+             :tracking_detail
+           ] == :minimal
+  end
+
+  test "TRACKING_DETAIL and INSIGHTS_ORG_UNIT reject other values with the variable name" do
+    for value <- ["Standard", "full", "1"] do
+      assert_raise ArgumentError, ~r/^TRACKING_DETAIL must be one of/, fn ->
+        RuntimeConfig.parse!(%{"TRACKING_DETAIL" => value}, :dev)
+      end
+    end
+
+    for value <- ["TRUE", "1", "yes"] do
+      assert_raise ArgumentError, "INSIGHTS_ORG_UNIT must be true or false", fn ->
+        RuntimeConfig.parse!(%{"INSIGHTS_ORG_UNIT" => value}, :dev)
+      end
+    end
   end
 
   test "ADMIN_REQUIRE_PASSKEY accepts only true and false" do

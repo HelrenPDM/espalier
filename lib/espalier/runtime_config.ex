@@ -21,6 +21,12 @@ defmodule Espalier.RuntimeConfig do
   | `PUBLIC_URL` | `:public_url` | `http://localhost:5173`, required in production |
   | `MAIL_FROM` | `:mail_from` | `Espalier <noreply@localhost>`, required in production with `SMTP_HOST` |
   | `ADMIN_REQUIRE_PASSKEY` | `:admin_require_passkey` | `true` |
+  | `TRACKING_DETAIL` | `:learning`, `:tracking_detail` | `minimal` (`standard`) |
+  | `INSIGHTS_ORG_UNIT` | `:learning`, `:insights_org_unit` | `false` |
+
+  `TRACKING_DETAIL` and `INSIGHTS_ORG_UNIT` (README section 10) come back
+  under the key `:learning`, so that `config :espalier, :learning` holds
+  both.
   """
 
   @doc "Returns the settings as a keyword list for `config :espalier`."
@@ -55,7 +61,17 @@ defmodule Espalier.RuntimeConfig do
       trusted_proxies: env |> list("TRUSTED_PROXIES") |> Enum.map(&proxy!/1),
       public_url: public_url!(env, config_env),
       mail_from: mail_from!(env, config_env),
-      admin_require_passkey: boolean!(env, "ADMIN_REQUIRE_PASSKEY", true)
+      admin_require_passkey: boolean!(env, "ADMIN_REQUIRE_PASSKEY", true),
+      learning: [
+        tracking_detail:
+          enum!(
+            env,
+            "TRACKING_DETAIL",
+            %{"minimal" => :minimal, "standard" => :standard},
+            "minimal"
+          ),
+        insights_org_unit: boolean!(env, "INSIGHTS_ORG_UNIT", false)
+      ]
     ]
   end
 

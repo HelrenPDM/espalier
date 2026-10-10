@@ -15,6 +15,12 @@ defmodule EspalierWeb.FallbackController do
 
   Task 0007 adds `link_required` (409) for a directory sign-in whose
   e-mail address belongs to another account.
+
+  Task 0009 adds `not_enrolled` (409) for a learning write without an
+  enrollment in the program, `validation_failed` (422) with the member
+  `answer` (code `invalid`) for an answer that does not fit its item and
+  with the member `answers` (codes `incomplete` and `invalid`) for exam
+  answers, and `assessments_open` (409) with the open exams of a module.
   """
   use EspalierWeb, :controller
 
@@ -37,7 +43,8 @@ defmodule EspalierWeb.FallbackController do
     step_up_not_available: :unprocessable_entity,
     identity_in_use: :conflict,
     provider_already_linked: :conflict,
-    link_required: :conflict
+    link_required: :conflict,
+    not_enrolled: :conflict
   }
 
   def call(conn, {:error, %Ecto.Changeset{} = changeset}) do
@@ -49,8 +56,28 @@ defmodule EspalierWeb.FallbackController do
     })
   end
 
+  def call(conn, {:error, :invalid_answer}) do
+    validation_failed(conn, "answer", "invalid")
+  end
+
+  def call(conn, {:error, {:answers, code}}) when code in ["incomplete", "invalid"] do
+    validation_failed(conn, "answers", code)
+  end
+
+  def call(conn, {:error, {:assessments_open, assessments}}) do
+    conn
+    |> put_status(:conflict)
+    |> json(EspalierWeb.LearningJSON.assessments_open(%{assessments: assessments}))
+  end
+
   def call(conn, {:error, code}) when is_map_key(@statuses, code) do
     render_error(conn, code)
+  end
+
+  defp validation_failed(conn, member, code) do
+    conn
+    |> put_status(:unprocessable_entity)
+    |> json(%{error: "validation_failed", fields: %{member => [code]}})
   end
 
   @doc """

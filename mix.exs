@@ -86,7 +86,9 @@ defmodule Espalier.MixProject do
       {:oidcc_plug, "~> 0.5.1"},
       {:jose, "~> 1.11"},
       {:yaml_elixir, "~> 2.12"},
+      {:open_api_spex, "~> 3.22"},
       {:mox, "~> 1.3", only: :test},
+      {:stream_data, "~> 1.4", only: :test},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:sobelow, "~> 0.16", only: [:dev, :test], runtime: false, warn_if_outdated: true},
       {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false}

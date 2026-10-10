@@ -15,6 +15,7 @@ defmodule EspalierWeb.Router do
     plug :fetch_session
     plug :protect_api_from_forgery
     plug :fetch_current_scope_for_user
+    plug OpenApiSpex.Plug.PutApiSpec, module: EspalierWeb.ApiSpec
   end
 
   pipeline :authenticated do
@@ -109,6 +110,32 @@ defmodule EspalierWeb.Router do
     post "/auth/recovery/verify", Auth.RecoveryController, :verify
     post "/auth/finish", Auth.FinishController, :create
     post "/auth/ldap/:provider", Auth.LdapController, :create
+  end
+
+  # The OpenAPI document (task 0009). It describes the routes of the
+  # published source code and holds no data of the instance.
+  scope "/api" do
+    pipe_through :api
+
+    get "/openapi", OpenApiSpex.Plug.RenderSpec, []
+  end
+
+  # Learner routes (task 0009). Person-linked rows are read and written only
+  # through the scope of the signed-in user.
+  scope "/api", EspalierWeb do
+    pipe_through [:api, :authenticated]
+
+    get "/programs", ProgramController, :index
+    get "/programs/:slug", ProgramController, :show
+    get "/programs/:slug/glossary", ProgramController, :glossary
+    get "/programs/:slug/handbook", ProgramController, :handbook
+    get "/modules/:id", ModuleController, :show
+    post "/modules/:id/completion", ModuleCompletionController, :create
+    post "/enrollments", EnrollmentController, :create
+    patch "/enrollments/:id", EnrollmentController, :update
+    post "/items/:id/responses", ItemResponseController, :create
+    post "/assessments/:id/attempts", AttemptController, :create
+    get "/me/progress", Me.ProgressController, :show
   end
 
   scope "/api/auth/oidc", EspalierWeb do

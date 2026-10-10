@@ -35,6 +35,26 @@ defmodule EspalierWeb.ParameterFilterTest do
     assert filtered["nested"] == [%{"totp" => "[FILTERED]"}]
   end
 
+  test "the list holds the entry of task 0009, which covers answer and answers" do
+    filters =
+      "config/config.exs"
+      |> Config.Reader.read!(env: :test, target: :host)
+      |> get_in([:phoenix, :filter_parameters])
+
+    assert "answer" in filters
+
+    params = %{
+      "answer" => %{"options" => ["likely-words"]},
+      "answers" => %{"5f0c" => %{"cases" => %{"case-figure" => "needs-source"}}},
+      "program_slug" => "ai-assistant-basics-demo"
+    }
+
+    filtered = Phoenix.Logger.filter_values(params)
+    assert filtered["answer"] == "[FILTERED]"
+    assert filtered["answers"] == "[FILTERED]"
+    assert filtered["program_slug"] == "ai-assistant-basics-demo"
+  end
+
   test "the router log holds no TOTP code and no WebAuthn payload" do
     Logger.put_module_level(Phoenix.Logger, :debug)
     on_exit(fn -> Logger.delete_module_level(Phoenix.Logger) end)

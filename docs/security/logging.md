@@ -143,7 +143,9 @@ starts to lock and the `failed_attempts` mail goes out.
   intents and front-channel `sid` values stay out of the request log
   (ASVS 16.2.5). The member `id` of a WebAuthn response repeats the
   credential id, which is no secret; an entry `"id"` would also filter keys
-  such as `user_id`, so the list leaves it out. Task 0009 adds its keys.
+  such as `user_id`, so the list leaves it out. Since task 0009, `answer`
+  covers the practice answer and the `answers` of an exam attempt, so no
+  answer reaches the request log.
 - No provider access token, refresh token or ID token, no sign-in ticket and
   no OIDC intent. The callback drops the provider tokens, the ticket travels
   in the URL fragment, and an OIDC error reaches the log only as its reason

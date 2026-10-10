@@ -74,7 +74,9 @@ config :espalier, :rate_limits, %{
   oidc_front_channel: {:timer.minutes(1), 1_000_000},
   ldap_ip: {:timer.minutes(1), 1_000_000},
   ldap_account: {:timer.minutes(1), 1_000_000},
-  ldap_subject: {:timer.minutes(1), 1_000_000}
+  ldap_subject: {:timer.minutes(1), 1_000_000},
+  learner_write: {:timer.minutes(1), 1_000_000},
+  assessment_attempt: {:timer.minutes(1), 1_000_000}
 }
 
 # The LDAP tests that measure the floor set it themselves.

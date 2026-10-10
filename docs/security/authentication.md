@@ -2,7 +2,8 @@
 
 This document describes the sign-in pathways, the second factors, the
 sessions, the abuse protection and the password rules of tasks 0004 to 0007
-(ASVS 6.1.1 to 6.1.3, 7.1.1 to 7.1.3, 7.6.1 and 8.1.1). The
+(ASVS 6.1.1 to 6.1.3, 7.1.1 to 7.1.3, 7.6.1 and 8.1.1), and the fields that
+learners read and write on the learner routes of task 0009 (ASVS 8.1.2). The
 verification matrix is [`asvs-l2.md`](asvs-l2.md), the log inventory is
 [`logging.md`](logging.md), the operator guide for identity providers is
 [`../guides/identity-providers.md`](../guides/identity-providers.md), and
@@ -431,6 +432,8 @@ logs `excess_rate_limit_exceeded`.
 | `ldap_ip` | 1 minute | 20 | client IP | `POST /api/auth/ldap/:provider`, `POST /api/me/identities/ldap/:provider` |
 | `ldap_account` | 1 minute | 5 | keyed hash of the provider key and the trimmed, lower-case username | the same routes, inside `Espalier.Accounts.LdapSignIn` |
 | `ldap_subject` | 1 minute | 5 | keyed hash of the provider key and the directory subject | the same routes, between the search and the user bind |
+| `learner_write` | 1 minute | 120 | keyed hash of the session user id | `POST /api/enrollments`, `PATCH /api/enrollments/:id`, `POST /api/items/:id/responses`, `POST /api/modules/:id/completion` |
+| `assessment_attempt` | 10 minutes | 10 | keyed hash of the session user id | `POST /api/assessments/:id/attempts` |
 
 One Active Directory account answers to `sAMAccountName` and to
 `userPrincipalName` and so owns two `ldap_account` buckets; `ldap_subject`
@@ -730,6 +733,70 @@ administrative context functions (`invite_user/2`, `resend_invitation/2`,
 functions and the boot task; no request reaches it. Demo users hold only
 `learner`. A change of the role grants of a user ends every session of that
 user.
+
+## Learner data access
+
+The learner routes of task 0009 (README section 8, rows "Catalog" and
+"Learning") sit behind the `:authenticated` pipeline. A request without a
+session answers 401 `unauthenticated`, and an enrollment or recovery session
+answers 403 `enrollment_required`; `mfa` and `demo` sessions pass (ASVS
+8.2.2). A program whose status is `draft` or `archived`, and every module,
+item or assessment with `archived_at` set, answers 404. The person-linked
+rows (`enrollments`, `item_responses`, `assessment_attempts`,
+`module_completions`) are read and written only through the scope of the
+signed-in user, and an enrollment id of another user answers 404.
+
+The table lists per route the fields that the learner reads, the members of
+the request, and the fields that the server sets (ASVS 8.1.2). Every
+request schema sets `additionalProperties: false`, so a request with any
+other member, such as `user_id`, `path_chosen_manually` or `outcome`,
+answers 422 `validation_failed` with the code `unexpected_field` and changes
+no row (ASVS 8.2.3, 15.3.3). A body that is no JSON object, or an object
+with the member `_json`, answers 422 with the member `body`
+(`EspalierWeb.Plugs.JsonObjectBody`). The OpenAPI document at
+`/api/openapi` holds the schemas of every request and answer.
+
+| Route | Reads | Request | Set by the server |
+|---|---|---|---|
+| `GET /api/programs` | `slug`, `title` and `locale` of every published program | none | |
+| `GET /api/programs/:slug` | program `id`, `slug`, `title`, `locale`, `pack_version`; stations (`position`, `kind`, `title`, `module_id`, `question`, `intro`, `questions` with `key`, `kind`, `label` and options with `key` and `label`); segments (`key`, `label`, `description`, `default_path`); modules (`id`, `number`, `title`, `summary`, `phases`, `single_path`); companion formats (`id`, `key`, `title`, `description`, `phases`, `attendance_counts`) | `slug` in the path | |
+| `GET /api/modules/:id` | module `id`, `program_slug`, `number`, `title`, `summary`, `phases`, `single_path`; lessons (`id`, `key`, `position`, `title`) with blocks (`kind`, `body`, `provenance`, `collapsed_on`, `placeholder_key`, citations with `locator` and the source's `key`, `title`, `publisher`, `url`, `edition_date`, `retrieved_on`, `kind`); rules (`id`, `number`, `statement`, `action`, citations); practice items; exams (`id`, `key`, `title`, `max_wrong`, `counts_for_credential`) with their items; the `objectives` of the topic (`key`, `statement`, `area`, `depth`, `phase`, `domain`, `lesson_ids`, `evidence` with `kind` and `id`). Each item carries `id`, `key`, `kind`, `stem`, `provenance`, `lesson_id`, `objective_keys`, options (`key`, `label`), slots (`key`, `label`, options), cases (`key`, `text`), categories (`key`, `label`) and checks (`key`, `label`, `required`) | `id` in the path | |
+| `GET /api/programs/:slug/glossary` | `slug`, `label` and `short_text` per term | `slug` in the path | |
+| `GET /api/programs/:slug/handbook` | modules (`id`, `number`, `title`) with their rules (`number`, `statement`, `action`), and the keys of the placeholder blocks | `slug` in the path | |
+| `POST /api/enrollments` | the own enrollment: `id`, `program_id`, `path`, `path_chosen_manually`, `started_at` | `program_slug`, `path` | `user_id`, `program_id`, `started_at`, `path_chosen_manually` (false on a new row; an existing row takes `path` only while it is false) |
+| `PATCH /api/enrollments/:id` | the own enrollment, as above | `id` in the path, `path` in the body | `path_chosen_manually` (true) |
+| `POST /api/items/:id/responses` | the evaluation: `item_id`, `correct`, `option_feedback`, `rules` (`id`, `number`, `statement`, `action`), `reveals` | `id` in the path, `answer` (`options`, `slots`, `cases`, `checks`, `initials`) | in `item_stats`: `item_id`, `period`, `org_unit`, `attempts`, `correct`; with `TRACKING_DETAIL=standard`, in `item_responses`: `user_id`, `enrollment_id`, `item_id`, `correct`, `attempt_no`, `answered_on` |
+| `POST /api/assessments/:id/attempts` | the attempt: `id`, `assessment_id`, `number`, `outcome`, `wrong_count`, `core_failed`, `submitted_at`, and the evaluation per item | `id` in the path, `answers` (item id to answer) | `user_id`, `enrollment_id`, `assessment_id`, `number`, `wrong_count`, `core_failed`, `outcome`, `submitted_at` |
+| `POST /api/modules/:id/completion` | `module_id`, `completed_at`, or 409 with the open exams (`id`, `key`, `title`) | `id` in the path, no body members | `user_id`, `enrollment_id`, `module_id`, `completed_at` |
+| `GET /api/me/progress` | the own enrollment (`id`, `path`, `path_chosen_manually`) or `null`, `completed_module_ids`, per exam `assessment_id` and `outcome`, with `TRACKING_DETAIL=standard` the `answered_item_ids`, and `objectives` (`key`, `status`) | `program` in the query | |
+
+Catalog views carry no `correct`, `feedback`, `expected` or `config`
+member (ASVS 15.3.1). Correctness, option feedback and the referenced rules
+reach a learner only in the answer to that learner's own submission, and
+`Espalier.Learning.Evaluator` is the only code that reads them. Exam items
+are evaluated only inside an attempt: `POST /api/items/:id/responses`
+answers 404 for an exam item. A module completes only after a passed
+attempt of every exam of the module that counts for a credential (ASVS
+2.3.1).
+
+The answer itself is stored nowhere, and the parameter filter covers
+`answer` and `answers` (README section 10). `item_stats` is an anonymous
+counter per item, month and org unit without a user key; `org_unit` holds
+the user's org unit only with `INSIGHTS_ORG_UNIT=true`, trimmed and cut to
+255 code points (`Espalier.Insights.org_unit/1`), and is a plain column.
+An attempt row holds no answer and no result per item.
+
+The `objectives` of `GET /api/me/progress` hold one entry per learning
+objective of the program without `archived_at`. Their status is derived on
+every request from the user's own records: the passed exam attempts of the
+enrollment, the attendance certificates of the user (task 0013; until then
+none) and, with `TRACKING_DETAIL=standard` only, the correct item responses
+of the enrollment. No table stores a status per objective and person (README
+section 7, domain rule 15).
+
+No other role reads these rows. The reports of task 0014 aggregate only the
+anonymous rows and count credentials per qualification and status (README
+section 10).
 
 ## Argon2 parameters
 

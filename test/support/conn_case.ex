@@ -139,6 +139,29 @@ defmodule EspalierWeb.ConnCase do
   end
 
   @doc """
+  Sends a JSON request of the same client like `api_request/5`, with the
+  body encoded as JSON and `content-type: application/json`, so that
+  `Plug.Parsers` decodes it and `OpenApiSpex.Plug.CastAndValidate` checks it
+  (task 0009). A `nil` body sends no body and no content type.
+  """
+  def json_request(conn, method, path, body \\ nil, opts \\ []) do
+    conn = if conn.state == :unset, do: conn, else: next_request(conn)
+    conn = with_csrf_token(conn)
+    conn = if ip = opts[:ip], do: %{conn | remote_ip: ip}, else: conn
+
+    {conn, body} =
+      case body do
+        nil ->
+          {conn, nil}
+
+        body ->
+          {Plug.Conn.put_req_header(conn, "content-type", "application/json"), JSON.encode!(body)}
+      end
+
+    Phoenix.ConnTest.dispatch(conn, EspalierWeb.Endpoint, method, path, body)
+  end
+
+  @doc """
   Puts the pending second-factor state of a first factor of `user` into a
   fresh test session, as `UserAuth.put_pending_second_factor/3` writes it.
   `attrs` carries `:auth_methods` (default `[:password]`), `:provider_key`
