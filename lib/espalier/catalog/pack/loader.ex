@@ -167,8 +167,8 @@ defmodule Espalier.Catalog.Pack.Loader do
   end
 
   defp load_root(root) do
-    tree = walk(root)
     deadline = System.monotonic_time(:millisecond) + parse_budget()[:pack_timeout_ms]
+    tree = walk(root, deadline)
     {files, file_errors, used} = read_top_files(root, tree, %{bytes: 0, deadline: deadline})
     {modules, module_errors, _used} = read_modules(root, tree, used)
 
@@ -217,38 +217,48 @@ defmodule Espalier.Catalog.Pack.Loader do
     end
   end
 
-  defp walk(root), do: walk_dir(root, "", %{files: MapSet.new(), dirs: MapSet.new(), errors: []})
+  defp walk(root, deadline) do
+    walk_dir(root, "", %{files: MapSet.new(), dirs: MapSet.new(), errors: [], deadline: deadline})
+  end
 
   # `:file.list_dir_all/1` returns a name that is valid UTF-8 as a charlist
   # and any other name as a binary of its raw bytes. `File.ls/1` would drop
   # the latter, so that the walk would not see a link with such a name.
   defp walk_dir(root, rel, tree) do
-    case :file.list_dir_all(Path.join(root, rel)) do
-      {:ok, entries} ->
-        {names, raw_names} = Enum.split_with(entries, &is_list/1)
+    if System.monotonic_time(:millisecond) < tree.deadline do
+      case :file.list_dir_all(Path.join(root, rel)) do
+        {:ok, entries} ->
+          {names, raw_names} = Enum.split_with(entries, &is_list/1)
 
-        tree =
-          raw_names
+          tree =
+            raw_names
+            |> Enum.sort()
+            |> Enum.reduce(tree, fn raw, tree ->
+              add_tree_error(
+                tree,
+                dir_label(rel),
+                "the entry name `#{escape(raw)}` is not valid UTF-8"
+              )
+            end)
+
+          names
+          |> Enum.map(&List.to_string/1)
           |> Enum.sort()
-          |> Enum.reduce(tree, fn raw, tree ->
-            add_tree_error(
-              tree,
-              dir_label(rel),
-              "the entry name `#{escape(raw)}` is not valid UTF-8"
-            )
-          end)
+          |> Enum.reduce(tree, &walk_entry(root, join(rel, &1), &2))
 
-        names
-        |> Enum.map(&List.to_string/1)
-        |> Enum.sort()
-        |> Enum.reduce(tree, &walk_entry(root, join(rel, &1), &2))
-
-      {:error, reason} ->
-        add_tree_error(
-          tree,
-          dir_label(rel),
-          "cannot list the directory: #{:file.format_error(reason)}"
-        )
+        {:error, reason} ->
+          add_tree_error(
+            tree,
+            dir_label(rel),
+            "cannot list the directory: #{:file.format_error(reason)}"
+          )
+      end
+    else
+      add_tree_error(
+        tree,
+        dir_label(rel),
+        "the pack takes longer than #{parse_budget()[:pack_timeout_ms]} ms to load"
+      )
     end
   end
 
@@ -266,25 +276,29 @@ defmodule Espalier.Catalog.Pack.Loader do
   end
 
   defp walk_entry(root, rel, tree) do
-    case File.lstat(Path.join(root, rel)) do
-      {:ok, %File.Stat{type: :directory}} ->
-        walk_dir(root, rel, %{tree | dirs: MapSet.put(tree.dirs, rel)})
+    if System.monotonic_time(:millisecond) < tree.deadline do
+      case File.lstat(Path.join(root, rel)) do
+        {:ok, %File.Stat{type: :directory}} ->
+          walk_dir(root, rel, %{tree | dirs: MapSet.put(tree.dirs, rel)})
 
-      {:ok, %File.Stat{type: :regular}} ->
-        %{tree | files: MapSet.put(tree.files, rel)}
+        {:ok, %File.Stat{type: :regular}} ->
+          %{tree | files: MapSet.put(tree.files, rel)}
 
-      {:ok, %File.Stat{type: :symlink}} ->
-        add_tree_error(tree, rel, "symbolic links are not allowed in a pack")
+        {:ok, %File.Stat{type: :symlink}} ->
+          add_tree_error(tree, rel, "symbolic links are not allowed in a pack")
 
-      {:ok, %File.Stat{}} ->
-        add_tree_error(tree, rel, "only directories and regular files are allowed in a pack")
+        {:ok, %File.Stat{}} ->
+          add_tree_error(tree, rel, "only directories and regular files are allowed in a pack")
 
-      {:error, reason} ->
-        add_tree_error(
-          tree,
-          rel,
-          "cannot read the file information: #{:file.format_error(reason)}"
-        )
+        {:error, reason} ->
+          add_tree_error(
+            tree,
+            rel,
+            "cannot read the file information: #{:file.format_error(reason)}"
+          )
+      end
+    else
+      add_tree_error(tree, rel, "the pack takes longer than #{parse_budget()[:pack_timeout_ms]} ms to load")
     end
   end
 
