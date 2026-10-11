@@ -4,7 +4,7 @@ defmodule Espalier.Accounts.MailWorker do
   nothing about accounts (README section 6.10).
 
   Oban stores job arguments as plain JSON in `oban_jobs`, so the arguments
-  carry only the kind, the user id, a count, a factor name, a provider key, and addresses
+  carry only the kind, the user id, a count, a factor name, a provider key, a credential id, and addresses
   encrypted with `Espalier.Vault.encrypt!/1` and Base64
   (`docs/security/crypto-inventory.md`, "Values encrypted outside Ecto
   types"). The worker generates every e-mail token itself, inserts its
@@ -23,12 +23,13 @@ defmodule Espalier.Accounts.MailWorker do
 
   alias Espalier.Accounts
   alias Espalier.Accounts.{User, UserNotifier, UserToken}
+  alias Espalier.Credentials.Credential
   alias Espalier.Repo
 
   @kinds ~w(invitation signup change_email email_changed password_changed failed_attempts
             factor_added factor_removed recovery_codes_regenerated recovery_used
             authenticator_disabled recovery_instructions recovery_unavailable identity_linked
-            none)
+            credential_refresh_due credential_expired none)
 
   # Factor names of the job arguments, mapped without creating atoms.
   @factors %{
@@ -203,6 +204,22 @@ defmodule Espalier.Accounts.MailWorker do
   defp run("identity_linked", %{"user_id" => user_id, "provider_key" => provider_key}) do
     label = Espalier.Identity.provider_label(provider_key)
     with_mailbox(user_id, &UserNotifier.deliver_identity_linked(&1, label))
+  end
+
+  # Task 0013: a credential moved to refresh_due or expired. A credential
+  # whose status has changed again since the move receives no mail.
+  defp run(kind, %{"user_id" => user_id, "credential_id" => credential_id})
+       when kind in ["credential_refresh_due", "credential_expired"] do
+    status = if kind == "credential_expired", do: :expired, else: :refresh_due
+
+    case Repo.get(Credential, credential_id) do
+      %Credential{status: ^status, user_id: ^user_id} = credential ->
+        credential = Repo.preload(credential, :qualification)
+        with_mailbox(user_id, &UserNotifier.deliver_credential_status(&1, credential))
+
+      _changed_or_missing ->
+        :skip
+    end
   end
 
   defp with_mailbox(user_id, deliver) do

@@ -5,16 +5,19 @@ import type { Block } from "../runtime";
 
 /**
  * The frame of every block: an optional label, the provenance badge, the
- * content and the citations.
+ * content and the citations. `badge` replaces the provenance badge of the
+ * block.
  */
 export function BlockFrame({
   block,
   label,
+  badge,
   className = "",
   children,
 }: {
   block: Block;
   label?: ReactNode;
+  badge?: ReactNode;
   className?: string;
   children: ReactNode;
 }) {
@@ -28,10 +31,12 @@ export function BlockFrame({
             {label}
           </p>
         )}
-        <ProvenanceBadge
-          provenance={block.provenance}
-          placeholderKey={block.placeholder_key}
-        />
+        {badge ?? (
+          <ProvenanceBadge
+            provenance={block.provenance}
+            placeholderKey={block.placeholder_key}
+          />
+        )}
       </div>
       {children}
       <Citations citations={block.citations} />

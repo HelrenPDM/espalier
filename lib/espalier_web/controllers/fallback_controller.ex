@@ -21,6 +21,9 @@ defmodule EspalierWeb.FallbackController do
   `answer` (code `invalid`) for an answer that does not fit its item and
   with the member `answers` (codes `incomplete` and `invalid`) for exam
   answers, and `assessments_open` (409) with the open exams of a module.
+
+  Task 0013 adds `validation_failed` (422) for a check of the context, such
+  as an attendance date after today (member `held_on`, code `future`).
   """
   use EspalierWeb, :controller
 
@@ -62,6 +65,11 @@ defmodule EspalierWeb.FallbackController do
 
   def call(conn, {:error, {:answers, code}}) when code in ["incomplete", "invalid"] do
     validation_failed(conn, "answers", code)
+  end
+
+  def call(conn, {:error, {:validation_failed, member, code}})
+      when is_binary(member) and is_binary(code) do
+    validation_failed(conn, member, code)
   end
 
   def call(conn, {:error, {:assessments_open, assessments}}) do

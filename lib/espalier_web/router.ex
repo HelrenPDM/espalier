@@ -55,6 +55,24 @@ defmodule EspalierWeb.Router do
     plug :require_role, :admin
   end
 
+  # REGISTRAR_ENABLED (task 0013): runs before the role check of :registrar,
+  # so a disabled list answers 404 to every caller.
+  pipeline :registrar_enabled do
+    plug EspalierWeb.Plugs.RegistrarEnabled
+  end
+
+  # The integration API for machine clients (task 0013, README section 11).
+  # A bearer token in the authorization header is the only credential, so
+  # the pipeline holds no session, no CSRF layer and no Fetch Metadata plug:
+  # a browser never sends a bearer token by itself, and authorization is no
+  # CORS-safelisted header (row 3.5.1 of docs/security/asvs-l2.md).
+  # sobelow_skip ["Config.CSRF"]
+  pipeline :integration do
+    plug :accepts, ["json"]
+    plug OpenApiSpex.Plug.PutApiSpec, module: EspalierWeb.ApiSpec
+    plug EspalierWeb.Plugs.ApiClientAuth, scope: "credentials:read"
+  end
+
   # This pipeline serves GET navigations only; state, nonce and PKCE bind each OIDC flow (task 0006).
   # sobelow_skip ["Config.CSRF"]
   pipeline :oidc_transaction do
@@ -151,6 +169,40 @@ defmodule EspalierWeb.Router do
     post "/items/:id/responses", ItemResponseController, :create
     post "/assessments/:id/attempts", AttemptController, :create
     get "/me/progress", Me.ProgressController, :show
+  end
+
+  # Learner routes of task 0013: policies, acknowledgements, requirements
+  # and credentials.
+  scope "/api", EspalierWeb do
+    pipe_through [:api, :authenticated]
+
+    get "/policies", PolicyController, :index
+    post "/policy-versions/:id/acknowledgements", AcknowledgementController, :create
+    get "/approved-tools", PolicyController, :approved_tools
+    get "/me/requirements", Me.RequirementController, :show
+    get "/me/credentials", Me.CredentialController, :index
+    get "/me/credentials/:id", Me.CredentialController, :show
+  end
+
+  # Attendance and the user lookup of facilitators (task 0013). The lookup
+  # takes the address in the JSON body (ASVS 14.2.1).
+  scope "/api", EspalierWeb do
+    pipe_through [:api, :facilitator]
+
+    post "/formats/:id/attendance", AttendanceController, :create
+    post "/facilitator/user-lookups", Facilitator.UserLookupController, :create
+  end
+
+  scope "/api/registrar", EspalierWeb.Registrar do
+    pipe_through [:api, :registrar_enabled, :registrar]
+
+    get "/credentials", CredentialController, :index
+  end
+
+  scope "/api/integration", EspalierWeb.Integration do
+    pipe_through [:integration]
+
+    post "/credential-lookups", CredentialLookupController, :create
   end
 
   scope "/api/auth/oidc", EspalierWeb do

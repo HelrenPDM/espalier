@@ -43,6 +43,51 @@ defmodule EspalierWeb.Plugs.SecurityHeadersTest do
     refute get_resp_header(get(conn, "/health"), "cache-control") == ["no-store"]
   end
 
+  # Task 0013 step 15 (ASVS 14.2.2 and 14.3.2): the routes that return
+  # personal data outside /api/session, /api/auth and /api/me.
+  test "answers of facilitator, registrar, integration and attendance routes are not stored",
+       %{conn: conn} do
+    format_id = Ecto.UUID.generate()
+
+    for {method, path} <- [
+          {"POST", "/api/facilitator/user-lookups"},
+          {"GET", "/api/registrar/credentials?qualification=basics"},
+          {"POST", "/api/integration/credential-lookups"},
+          {"POST", "/api/formats/#{format_id}/attendance"}
+        ] do
+      response = dispatch(conn, @endpoint, method, path, nil)
+      assert get_resp_header(response, "cache-control") == ["no-store"], "#{method} #{path}"
+    end
+
+    refute get_resp_header(get(conn, "/health"), "cache-control") == ["no-store"]
+  end
+
+  test "the plug sets no-store under each prefix of task 0013 and not on /health" do
+    no_store? = fn path ->
+      conn =
+        :get
+        |> Phoenix.ConnTest.build_conn(path)
+        |> SecurityHeaders.call([])
+        |> send_resp(200, "")
+
+      get_resp_header(conn, "cache-control") == ["no-store"]
+    end
+
+    for path <- [
+          "/api/facilitator/user-lookups",
+          "/api/facilitator/any",
+          "/api/registrar/credentials",
+          "/api/registrar/any",
+          "/api/integration/credential-lookups",
+          "/api/integration/any",
+          "/api/formats/#{Ecto.UUID.generate()}/attendance"
+        ] do
+      assert no_store?.(path), path
+    end
+
+    refute no_store?.("/health")
+  end
+
   test "a vary header of another plug is merged" do
     conn =
       Phoenix.ConnTest.build_conn()

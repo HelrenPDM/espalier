@@ -213,6 +213,43 @@ defmodule Espalier.Accounts.UserNotifier do
     """)
   end
 
+  @doc """
+  Tells the holder that a credential moved to `refresh_due` or `expired`
+  (task 0013). `credential` carries its qualification. The mail names the
+  qualification title, the new status and `valid_until`, and links to the
+  credential page.
+  """
+  def deliver_credential_status(user, credential) do
+    {subject, status_text, next_step} =
+      case credential.status do
+        :refresh_due when is_nil(credential.valid_until) ->
+          {"Your credential needs a refresher", "a refresher is due",
+           "Complete the refresher to restore it."}
+
+        :refresh_due ->
+          {"Your credential needs a refresher", "a refresher is due",
+           "Complete the refresher before the credential expires."}
+
+        :expired ->
+          {"Your credential has expired", "it has expired",
+           "Complete the refresher to restore it."}
+      end
+
+    deliver(user.email, subject, """
+    Hi #{user.display_name},
+
+    Your credential "#{credential.qualification.title}" has a new status:
+    #{status_text}. #{valid_until_text(credential.valid_until)}
+
+    #{next_step}
+
+    #{link("/me/credentials/" <> credential.id)}
+    """)
+  end
+
+  defp valid_until_text(nil), do: "It has no end date."
+  defp valid_until_text(%Date{} = date), do: "It is valid until #{Date.to_iso8601(date)}."
+
   @doc "The recovery link for a raw e-mail token."
   def recovery_url(token), do: link("/recover#token=" <> token)
 

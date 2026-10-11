@@ -5,7 +5,7 @@ defmodule EspalierWeb.Schemas.Handbook do
   """
   require OpenApiSpex
 
-  alias EspalierWeb.Schemas.Fields
+  alias EspalierWeb.Schemas.{Fields, PolicyText}
 
   OpenApiSpex.schema(
     Map.merge(
@@ -27,7 +27,12 @@ defmodule EspalierWeb.Schemas.Handbook do
             }),
             "The modules in number order with their rules."
           ),
-        placeholders: Fields.strings("The keys of the policies that placeholder blocks name.")
+        placeholders:
+          Fields.array(
+            Fields.object(%{key: Fields.string("The policy key."), policy: PolicyText.policy()}),
+            "The policies that placeholder blocks name, ordered by key, each with its current " <>
+              "version."
+          )
       }),
       %{title: "Handbook", description: "Every rule with its statement and action."}
     ),

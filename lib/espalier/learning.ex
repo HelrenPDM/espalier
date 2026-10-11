@@ -272,47 +272,46 @@ defmodule Espalier.Learning do
   Completes a module for the scope user.
 
   Returns `{:ok, completion}` when every live exam of the module with
-  `counts_for_credential: true` has a passed attempt of the enrollment; a
-  repeated call returns the stored row. Otherwise it returns
-  `{:error, {:assessments_open, exams}}` with the open exams. A module that
-  is archived or whose program is not published answers
-  `{:error, :not_found}`, and a user without an enrollment
-  `{:error, :not_enrolled}`. After a new completion the function calls
-  `Espalier.Credentials.evaluate/2`.
+  `counts_for_credential: true` has a passed attempt of the enrollment.
+  Otherwise it returns `{:error, {:assessments_open, exams}}` with the open
+  exams. A module that is archived or whose program is not published
+  answers `{:error, :not_found}`, and a user without an enrollment
+  `{:error, :not_enrolled}`.
+
+  The completion is an upsert on `(enrollment_id, module_id)`: a repeated
+  call records its time in `completed_at` and returns the row with the new
+  time, because the refresher modes `update_unit` and `full_run` compare
+  `completed_at` with `refresh_due_at` (task 0013). After every completion
+  the function calls `Espalier.Credentials.evaluate/2`.
   """
   def complete_module(%Scope{} = scope, module_id) do
     with {:ok, module} <- Catalog.learner_module(module_id),
          {:ok, enrollment} <- fetch_enrollment(scope, module.program_id),
-         {:ok, {status, completion}} <-
-           Repo.transact(fn -> complete_in(scope, enrollment, module) end) do
-      if status == :created, do: {:ok, _} = Credentials.evaluate(scope, module.program)
+         {:ok, completion} <- Repo.transact(fn -> complete_in(scope, enrollment, module) end) do
+      {:ok, _changed} = Credentials.evaluate(scope, module.program)
       {:ok, completion}
     end
   end
 
   defp complete_in(scope, enrollment, module) do
     lock_enrollment!(enrollment)
+    passed = passed_assessment_ids(enrollment)
+    open = Enum.reject(Catalog.credential_exams(module.id), &MapSet.member?(passed, &1.id))
 
-    case Repo.get_by(ModuleCompletion, enrollment_id: enrollment.id, module_id: module.id) do
-      %ModuleCompletion{} = stored ->
-        {:ok, {:existing, stored}}
-
-      nil ->
-        passed = passed_assessment_ids(enrollment)
-        open = Enum.reject(Catalog.credential_exams(module.id), &MapSet.member?(passed, &1.id))
-
-        if open == [] do
-          %ModuleCompletion{
-            enrollment_id: enrollment.id,
-            module_id: module.id,
-            completed_at: DateTime.utc_now(:second)
-          }
-          |> ModuleCompletion.changeset(scope)
-          |> Repo.insert()
-          |> tag(:created)
-        else
-          {:error, {:assessments_open, open}}
-        end
+    if open == [] do
+      %ModuleCompletion{
+        enrollment_id: enrollment.id,
+        module_id: module.id,
+        completed_at: DateTime.utc_now(:second)
+      }
+      |> ModuleCompletion.changeset(scope)
+      |> Repo.insert(
+        on_conflict: {:replace, [:completed_at, :updated_at]},
+        conflict_target: [:enrollment_id, :module_id],
+        returning: true
+      )
+    else
+      {:error, {:assessments_open, open}}
     end
   end
 

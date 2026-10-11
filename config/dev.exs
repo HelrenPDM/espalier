@@ -67,6 +67,10 @@ config :open_api_spex, :cache_adapter, OpenApiSpex.Plug.NoneCache
 # replaces it); task 0011 mounts its development routes behind this flag.
 config :espalier, dev_routes: true
 
+# Webhook receivers in development may use http, for example a local
+# receiver on localhost (task 0013). Production admits https only.
+config :espalier, :webhook_allow_http, true
+
 # Development mail goes to Mailpit from compose.dev.yaml (UI at
 # http://localhost:8025).
 config :espalier, Espalier.Mailer,

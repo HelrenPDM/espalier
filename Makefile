@@ -46,9 +46,10 @@ services-down: ## stop the development services
 	docker compose -f compose.dev.yaml down
 
 .PHONY: setup
-setup: init ## install, compile, set up the database and import the demo pack
+setup: init ## install, compile, set up the database, import the demo pack and seed the demo policies
 	$(NIX) '$(DOTENV) mix ecto.setup'
 	$(NIX) '$(DOTENV) mix espalier.import content/demo'
+	$(NIX) '$(DOTENV) mix espalier.seed_demo'
 
 .PHONY: run
 run: ## start Phoenix with IEx, the Vite dev server and the mock OIDC provider
@@ -59,9 +60,10 @@ dev-oidc: ## Start the mock OIDC provider on port 4010
 	$(NIX) '$(DOTENV) mix espalier.dev_oidc --port 4010'
 
 .PHONY: refresh-db
-refresh-db: ## drop, create and migrate the database and import the demo pack
+refresh-db: ## drop, create and migrate the database, import the demo pack and seed the demo policies
 	$(NIX) '$(DOTENV) mix do ecto.drop, ecto.create, ecto.migrate'
 	$(NIX) '$(DOTENV) mix espalier.import content/demo'
+	$(NIX) '$(DOTENV) mix espalier.seed_demo'
 
 .PHONY: lint
 lint: ## format and fix the code of both projects

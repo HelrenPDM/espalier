@@ -112,6 +112,12 @@ export function stubFetch(responses: StubResponses) {
 export interface RenderOptions {
   /** The initial path, with query and fragment; the fragment also goes to `window.location`. */
   route?: string;
+  /**
+   * The route pattern under which `ui` renders, such as
+   * `/me/credentials/:id` for a page that reads its parameters; the path of
+   * `route` by default.
+   */
+  path?: string;
   /** The payload of `GET /api/session`, also put into the cache before the render. */
   session?: SessionPayload;
   responses?: StubResponses;
@@ -138,6 +144,7 @@ export function renderWithProviders(
   ui: ReactNode,
   {
     route = "/",
+    path,
     session = sessionPayload(),
     responses = {},
     strict = false,
@@ -172,7 +179,7 @@ export function renderWithProviders(
           </SessionProvider>
         ),
         children: [
-          { path: url.pathname, element: ui },
+          { path: path ?? url.pathname, element: ui },
           { path: "*", element: null },
         ],
       },

@@ -53,7 +53,9 @@ defmodule EspalierWeb.Learning.RateLimitTest do
     for {method, path, body} <- [
           {:post, "/api/enrollments", %{program_slug: program.slug, path: "short"}},
           {:patch, "/api/enrollments/#{Ecto.UUID.generate()}", %{path: "full"}},
-          {:post, "/api/modules/#{module!(program, 2).id}/completion", nil}
+          {:post, "/api/modules/#{module!(program, 2).id}/completion", nil},
+          # Task 0013: the acknowledgement of a policy version.
+          {:post, "/api/policy-versions/#{Ecto.UUID.generate()}/acknowledgements", nil}
         ] do
       response = json_request(conn, method, path, body)
       assert json_response(response, 429) == %{"error" => "rate_limited"}, "#{method} #{path}"

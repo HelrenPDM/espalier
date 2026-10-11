@@ -2,6 +2,7 @@ defmodule EspalierWeb.ParameterFilterTest do
   # Logger.put_module_level/2 changes the level of Phoenix.Logger for the node.
   use EspalierWeb.ConnCase, async: false
 
+  import Espalier.CredentialsFixtures, only: [api_client_fixture: 0, user_with_role_fixture: 1]
   import ExUnit.CaptureLog
 
   alias Espalier.SoftAuthenticator
@@ -53,6 +54,55 @@ defmodule EspalierWeb.ParameterFilterTest do
     assert filtered["answer"] == "[FILTERED]"
     assert filtered["answers"] == "[FILTERED]"
     assert filtered["program_slug"] == "ai-assistant-basics-demo"
+  end
+
+  test "the list holds email, which filters the lookup bodies of task 0013" do
+    # Task 0013 steps 3 and 24: the facilitator lookup and the integration API
+    # take the address in the JSON body, and the task adds no entry.
+    filters =
+      "config/config.exs"
+      |> Config.Reader.read!(env: :test, target: :host)
+      |> get_in([:phoenix, :filter_parameters])
+
+    assert "email" in filters
+
+    body = %{"email" => "a@example.org"}
+
+    assert Phoenix.Logger.filter_values(body, filters) == %{"email" => "[FILTERED]"}
+    assert Phoenix.Logger.filter_values(body) == %{"email" => "[FILTERED]"}
+  end
+
+  test "the router log of both lookups holds no looked-up address and no API token" do
+    Logger.put_module_level(Phoenix.Logger, :debug)
+    on_exit(fn -> Logger.delete_module_level(Phoenix.Logger) end)
+
+    learner = user_fixture()
+    facilitator = user_with_role_fixture(:facilitator)
+    {_client, token} = api_client_fixture()
+
+    log =
+      capture_log([level: :debug], fn ->
+        conn =
+          api_conn()
+          |> log_in_user(facilitator)
+          |> json_request(:post, "/api/facilitator/user-lookups", %{email: learner.email})
+
+        assert json_response(conn, 200)["id"] == learner.id
+
+        conn =
+          Phoenix.ConnTest.build_conn()
+          |> put_req_header("accept", "application/json")
+          |> put_req_header("content-type", "application/json")
+          |> put_req_header("authorization", "Bearer " <> token)
+          |> post("/api/integration/credential-lookups", JSON.encode!(%{email: learner.email}))
+
+        assert json_response(conn, 200) == %{"credentials" => []}
+      end)
+
+    # One parameter line per lookup.
+    assert length(Regex.scan(~r/"email" => "\[FILTERED\]"/, log)) == 2
+    refute log =~ learner.email
+    refute log =~ token
   end
 
   test "the router log holds no TOTP code and no WebAuthn payload" do

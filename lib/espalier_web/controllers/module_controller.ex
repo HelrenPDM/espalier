@@ -1,14 +1,15 @@
 defmodule EspalierWeb.ModuleController do
   @moduledoc """
   The module view for signed-in learners: lessons, rules, practice items,
-  exams and the learning objectives of the topic, without answer keys. An
+  exams and the learning objectives of the topic, without answer keys. A
+  placeholder block carries the current version of its policy (task 0013). An
   archived module, or a module of a program that is not published, answers
   404.
   """
   use EspalierWeb, :controller
   use OpenApiSpex.ControllerSpecs
 
-  alias Espalier.Catalog
+  alias Espalier.{Catalog, Policies}
   alias EspalierWeb.ApiSpec.Responses
   alias EspalierWeb.CatalogJSON
   alias EspalierWeb.Schemas.{Fields, ModuleView}
@@ -37,7 +38,8 @@ defmodule EspalierWeb.ModuleController do
 
   def show(conn, %{id: id}) do
     with {:ok, view} <- Catalog.module_view(id) do
-      json(conn, CatalogJSON.module(%{view: view}))
+      policies = view |> CatalogJSON.placeholder_keys() |> Policies.current_versions_by_key()
+      json(conn, CatalogJSON.module(%{view: view, policies: policies}))
     end
   end
 end

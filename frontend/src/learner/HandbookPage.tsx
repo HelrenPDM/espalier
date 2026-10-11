@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { LoadingStatus } from "../app/LoadingStatus";
 import { buttonClasses } from "../app/formStyles";
 import { useHandbook } from "../api/programs";
+import { formatDay } from "../player/format";
 import { Markdown } from "../player/Markdown";
 import { useContentLang } from "../player/contentLang";
 import { useCurrentPlayer } from "../player/usePlayer";
@@ -11,11 +12,15 @@ import { BackToProgram } from "./BackToProgram";
 /**
  * `/programs/:slug/handbook`: every rule with statement and action, grouped
  * by module, and one section per policy placeholder (README section 7,
- * rule 10). It prints on A4 without the navigation; every module after the
- * first starts a new page.
+ * rule 10) with the current version of the organization's policy, or a
+ * note that the organization has not published it yet (task 0013, step
+ * 21). Rules and titles carry the language of the program; the policy
+ * text carries no `lang` and inherits the language of the document. It
+ * prints on A4 without the navigation; every module after the first starts
+ * a new page.
  */
 export function HandbookPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { program } = useCurrentPlayer();
   const lang = useContentLang();
   const handbook = useHandbook(program.slug);
@@ -92,11 +97,15 @@ export function HandbookPage() {
               >
                 {t("handbook.placeholders")}
               </h2>
-              {handbook.data.placeholders.map((key) => (
+              {handbook.data.placeholders.map(({ key, policy }) => (
                 <section
                   key={key}
                   aria-labelledby={`handbook-placeholder-${key}`}
-                  className="mt-4 rounded-md border border-dashed border-gray-400 p-4 dark:border-gray-500"
+                  className={`mt-4 rounded-md border p-4 ${
+                    policy === null
+                      ? "border-dashed border-gray-400 dark:border-gray-500"
+                      : "border-gray-300 dark:border-gray-600"
+                  }`}
                 >
                   <h3
                     id={`handbook-placeholder-${key}`}
@@ -104,9 +113,23 @@ export function HandbookPage() {
                   >
                     {key}
                   </h3>
-                  <p className="mt-1 text-gray-700 dark:text-gray-300">
-                    {t("handbook.placeholderNote")}
-                  </p>
+                  {policy === null ? (
+                    <p className="mt-1 text-gray-700 dark:text-gray-300">
+                      {t("handbook.policyMissing")}
+                    </p>
+                  ) : (
+                    <>
+                      <Markdown lang={null} className="mt-2">
+                        {policy.body}
+                      </Markdown>
+                      <p className="mt-2 text-sm text-gray-700 dark:text-gray-300">
+                        {t("policies.version", {
+                          number: policy.number,
+                          date: formatDay(policy.effective_from, i18n.language),
+                        })}
+                      </p>
+                    </>
+                  )}
                 </section>
               ))}
             </section>

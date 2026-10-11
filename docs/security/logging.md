@@ -54,13 +54,13 @@ exception only by its module in `exception`, never by its message.
 |---|---|---|---|
 | `authn_login_success` | info | `Espalier.Accounts.authenticate_password/3` (password accepted, reason `second_factor_pending`); `EspalierWeb.UserAuth.log_in_user/3` (session opened, factor = the methods joined by `+`); `Espalier.Accounts.Factors.verify/5` and `record_success/5` (a passkey, TOTP or recovery-code verification for a second factor, a passkey sign-in, a recovery verification or a step-up); at `warning` with `risk_signal: "sign_count"` and `credential_ref` when the sign count of a passkey does not increase; `EspalierWeb.Auth.FinishController` after a step-up at an OIDC provider (`factor: "idp_mfa"`, `purpose: "step_up"`); `Espalier.Accounts.LdapSignIn` after a successful directory bind (`factor: "ldap"`, `purpose` `sign_in` or `link`) | `user_id`, `session_id`, `ip`, `factor`, `provider`, `reason`, `risk_signal`, `credential_ref`, `purpose` |
 | `authn_login_successafterfail` | info | `authenticate_password/3` and `Factors.record_success/5` after five or more failures | `user_id`, `ip`, `factor`, `provider`, `count` |
-| `authn_login_fail` | warning | `authenticate_password/3`; `Factors.verify/5` and `Factors.log_failure/2` for every failed passkey, TOTP or recovery-code verification | `user_id` or `account_hash`, `ip`, `factor`, `provider`, `reason` (password: `unknown`, `invalid`, `too_long`, `no_password`, `locked`, `disabled`; second factors: for example `invalid_code`, `challenge_invalid`, `invalid_signature`, `user_not_verified`, `algorithm_not_allowed`, `cross_origin`, `user_handle_mismatch`, `credential_not_owned`, `external_identity`, `counter_locked`, `counter_disabled`, `no_pending_state`, `invalid_token`). `EspalierWeb.OidcController` and `EspalierWeb.Auth.FinishController` for every failed OIDC sign-in, link or step-up, with `provider`, `purpose` and the reason tag of a rule or of an oidcc error (for example `access_denied`, `provider_not_ready`, `endpoint_not_allowed`, `missing_transaction`, `state_not_verified`, `provider_mismatch`, `issuer_mismatch`, `invalid_callback`, `no_matching_key`, `token_expired`, `missing_claim`, `alg_not_allowed`, `tenant_mismatch`, `domain_mismatch`, `groups_overage`, `stale_auth_time`, `amr_single_factor`, `no_account`, `identity_in_use`, `intent_invalid`, `intent_session_mismatch`, `ticket_invalid`, `session_mismatch`). `Espalier.Accounts.LdapSignIn` for every failed directory sign-in or link, with `factor: "ldap"`, `provider`, `purpose` and an internal reason (`invalid_input`, `not_found`, `ambiguous`, `bind_failed`, `bind_rejected`, `disabled`, `no_identity_attribute`, `locked`, `counter_disabled`, `subject_throttled`, `connect_failed`, `tls_failed`, `service_bind_failed`, `referral`, `unavailable`, `group_lookup_failed`, `internal`, `account_disabled`, `link_required`, and for a link `identity_in_use` and `provider_already_linked`) | `user_id` or `account_hash`, `ip`, `factor`, `provider`, `reason`, `purpose` |
+| `authn_login_fail` | warning | `authenticate_password/3`; `Factors.verify/5` and `Factors.log_failure/2` for every failed passkey, TOTP or recovery-code verification | `user_id` or `account_hash`, `ip`, `factor`, `provider`, `reason` (password: `unknown`, `invalid`, `too_long`, `no_password`, `locked`, `disabled`; second factors: for example `invalid_code`, `challenge_invalid`, `invalid_signature`, `user_not_verified`, `algorithm_not_allowed`, `cross_origin`, `user_handle_mismatch`, `credential_not_owned`, `external_identity`, `counter_locked`, `counter_disabled`, `no_pending_state`, `invalid_token`). `EspalierWeb.OidcController` and `EspalierWeb.Auth.FinishController` for every failed OIDC sign-in, link or step-up, with `provider`, `purpose` and the reason tag of a rule or of an oidcc error (for example `access_denied`, `provider_not_ready`, `endpoint_not_allowed`, `missing_transaction`, `state_not_verified`, `provider_mismatch`, `issuer_mismatch`, `invalid_callback`, `no_matching_key`, `token_expired`, `missing_claim`, `alg_not_allowed`, `tenant_mismatch`, `domain_mismatch`, `groups_overage`, `stale_auth_time`, `amr_single_factor`, `no_account`, `identity_in_use`, `intent_invalid`, `intent_session_mismatch`, `ticket_invalid`, `session_mismatch`). `Espalier.Accounts.LdapSignIn` for every failed directory sign-in or link, with `factor: "ldap"`, `provider`, `purpose` and an internal reason (`invalid_input`, `not_found`, `ambiguous`, `bind_failed`, `bind_rejected`, `disabled`, `no_identity_attribute`, `locked`, `counter_disabled`, `subject_throttled`, `connect_failed`, `tls_failed`, `service_bind_failed`, `referral`, `unavailable`, `group_lookup_failed`, `internal`, `account_disabled`, `link_required`, and for a link `identity_in_use` and `provider_already_linked`). `EspalierWeb.Plugs.ApiClientAuth` for a missing or unknown bearer token of the integration API of task 0013, with `factor: "api_token"` and `ip` only | `user_id` or `account_hash`, `ip`, `factor`, `provider`, `reason`, `purpose` |
 | `authn_login_fail_max` | warning | `Espalier.Accounts.FailureCounters` at the fifth failure; `LdapSignIn` when a wrong directory password reaches `AUTH_<KEY>_FAILURE_LIMIT` | `user_id`, `factor`, `count`; directory: also `account_hash` instead of `user_id` for an unknown identity, `ip`, `provider`, `purpose` |
 | `authn_login_lock` | warning | `FailureCounters` at the fiftieth failure; `LdapSignIn` at the fiftieth failure of a directory account | the same as `authn_login_fail_max` |
 | `authn_password_change` | info | `Espalier.Accounts.update_user_password/3` | `user_id`, `factor`, `provider` |
 | `authn_password_change_fail` | warning | `update_user_password/3` | `user_id`, `factor`, `provider` |
 | `authn_token_created`, `authn_token_revoked` | info | `create_api_client/2`, `delete_api_client/2` | `reason` |
-| `authz_fail` | warning | the plugs of `EspalierWeb.UserAuth` (every 403), `EspalierWeb.OidcIntentController` (an intent without a recent second factor or from a demo session) | `user_id`, `ip`, `reason` (`enrollment_required`, `reauth_required`, `forbidden`) |
+| `authz_fail` | warning | the plugs of `EspalierWeb.UserAuth` (every 403, also the role checks of the attendance, lookup and registrar routes of task 0013), `EspalierWeb.OidcIntentController` (an intent without a recent second factor or from a demo session), `EspalierWeb.Plugs.ApiClientAuth` (a machine client whose scopes lack the scope of the integration route, with `factor: "api_token"`) | `user_id`, `ip`, `factor`, `reason` (`enrollment_required`, `reauth_required`, `forbidden`, and `scope` for a machine client) |
 | `privilege_permissions_changed` | info | `grant_role/3`, `revoke_role/3`, `replace_idp_role_grants/3` (also at an OIDC sign-in whose role claims change the `idp_claim` grants; the audit event `role.synced` holds the added and removed roles) | `user_id`, `reason` (the audit action) |
 | `excess_rate_limit_exceeded` | warning | `EspalierWeb.Plugs.RateLimit`; `LdapSignIn` once for each denial in `ldap_account` or `ldap_subject`, which it checks itself (the check of `ldap_subject` runs inside the sign-in task, so the event comes from the calling process after the task returned) | `ip`, `reason` (the bucket); directory: also `user_id` or `account_hash`, `factor`, `provider`, `purpose` |
 | `excess_sessions_exceeded` | warning | `create_session/2` at the concurrent limit | `user_id`, `session_id` |
@@ -85,7 +85,10 @@ warning events, and no attribute key: its events use `provider`, `factor`,
 A directory event carries the user id when the directory identity is known,
 and otherwise the `account_hash` of the `ldap_account` identifier (provider
 key and normalized username), as an unknown address does on the password
-pathway.
+pathway. Task 0013 adds no event name and no attribute key: the integration
+API writes `authn_login_fail` and `authz_fail` with the factor `api_token`,
+and a machine client appears by `ip` only, because its token never reaches
+the log.
 
 An oidcc error term can hold a token or the claims of an ID token, so the log
 carries only its reason tag, the first atom of the term
@@ -122,6 +125,8 @@ starts to lock and the `failed_attempts` mail goes out.
 | Settings at boot | `AUTH_DEMO=true`, `SESSION_MAX_HOURS` above 24, a production instance without `SMTP_HOST`, and every OIDC provider with `AUTH_<KEY>_MFA=idp_trusted` (`Espalier.Identity.Oidc.Supervisor`, README section 6.2, rule 4) | warning |
 | LDAP sign-in exception | `LDAP sign-in step raised <module>` or `LDAP sign-in step ended with <kind>` from `Espalier.Identity.Ldap`, with the exception module only, because a `FunctionClauseError` carries the call arguments, which can include the password; the sign-in answers `401 invalid_credentials` | error |
 | LDAP providers at boot | one line per LDAP provider with key, host, port, TLS mode, directory profile and the number of mapped groups (`Espalier.Identity.Ldap.log_providers/0`) | info |
+| Failed webhook delivery | `webhook failed: webhook <id>, event <event>, status <code>` for an answer outside 200 to 299, or `transport <exception module>` in place of the status for a transport error, from `Espalier.Credentials.WebhookWorker` (task 0013); Oban retries the job up to ten attempts. A delivered event logs `webhook delivered: webhook <id>, event <event>, status <code>` at `info`. No line carries the body, the secret, the signature or an address | warning |
+| Cancelled webhook delivery | `webhook cancelled: webhook <id>, event <event>, <reason>` from `Espalier.Credentials.WebhookWorker`, with the reason `webhook_inactive`, `secret_unset`, `host_not_allowed` or `credential_missing` | warning |
 | Unreachable OIDC provider | `Metadata load failed for issuer <issuer>. Retrying in <n> ms. Error Details: <term>` from the provider worker of oidcc 3.9.0 at each failed discovery or JWKS load; the term holds the HTTP status and the body of the provider's public answer or the transport error, and these requests carry no credential | error |
 
 ## What is never logged
@@ -129,6 +134,9 @@ starts to lock and the `failed_attempts` mail goes out.
 - No password, no code, no token (session, invitation, e-mail change, API
   client) and no cookie value. Sessions appear by the id of their row
   (`session_id`), users by their id (ASVS 16.2.5).
+- No webhook secret, no signature and no webhook body. The webhook worker
+  of task 0013 names the webhook id, the event and the status code only,
+  and its jobs carry ids, the event and its time.
 - No e-mail address. An identifier that matches no account appears only as
   `account_hash`, the first eight hex characters of its keyed hash
   (`Espalier.RateLimit.account_hash/1`).
@@ -145,7 +153,9 @@ starts to lock and the `failed_attempts` mail goes out.
   credential id, which is no secret; an entry `"id"` would also filter keys
   such as `user_id`, so the list leaves it out. Since task 0009, `answer`
   covers the practice answer and the `answers` of an exam attempt, so no
-  answer reaches the request log.
+  answer reaches the request log. Since task 0013, the entry `email` also
+  covers the member `email` of the facilitator lookup and of the
+  integration API, which take the address in the JSON body.
 - No provider access token, refresh token or ID token, no sign-in ticket and
   no OIDC intent. The callback drops the provider tokens, the ticket travels
   in the URL fragment, and an OIDC error reaches the log only as its reason
@@ -179,10 +189,10 @@ Administrative actions are also written to the table `audit_events` through
 
 | Column | Content |
 |---|---|
-| `action` | `user.invited`, `user.invitation_resent`, `user.signed_up`, `user.disabled`, `role.granted`, `role.revoked`, `role.synced`, `sessions.ended`, `sessions.ended_all`, `api_client.created`, `api_client.deleted` |
+| `action` | `user.invited`, `user.invitation_resent`, `user.signed_up`, `user.disabled`, `role.granted`, `role.revoked`, `role.synced`, `sessions.ended`, `sessions.ended_all`, `api_client.created`, `api_client.deleted`; since task 0013 `policy_version.created`, `policy_version.published`, `attendance.issued`, `credential.revoked` |
 | `actor_id` | the acting user; `null` for release functions, the boot task and the `signup` job (`Scope.system/0`) |
 | `subject_type`, `subject_id` | the changed record |
-| `details` | role names, provider keys and counts; no personal data |
+| `details` | role names, provider keys and counts, and for task 0013 policy keys, version numbers, format keys, session dates and the previous credential status; no personal data |
 | `at` | UTC time of the action |
 
 Audit events are append-only: the context has no update or delete function

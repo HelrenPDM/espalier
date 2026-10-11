@@ -1,13 +1,14 @@
 import type { ComponentType } from "react";
 import type { Station, StationKind } from "../../player/runtime";
 import { ModuleStation } from "../ModuleStation";
+import { CredentialStation } from "./CredentialStation";
 import { OverviewStation } from "./OverviewStation";
 import { PendingStation } from "./PendingStation";
 
 /**
- * The component of each station kind. 0013 and 0014 replace the pending
- * panels of `self_assessment`, `credential`, `companion_formats` and
- * `feedback` with their components.
+ * The component of each station kind. 0013 adds the credential station;
+ * 0014 replaces the pending panels of `self_assessment`,
+ * `companion_formats` and `feedback` with their components.
  */
 export const STATION_COMPONENTS: Record<
   StationKind,
@@ -16,7 +17,7 @@ export const STATION_COMPONENTS: Record<
   overview: OverviewStation,
   module: ModuleStation,
   self_assessment: PendingStation,
-  credential: PendingStation,
+  credential: CredentialStation,
   companion_formats: PendingStation,
   feedback: PendingStation,
 };

@@ -23,10 +23,21 @@ defmodule Espalier.RuntimeConfig do
   | `ADMIN_REQUIRE_PASSKEY` | `:admin_require_passkey` | `true` |
   | `TRACKING_DETAIL` | `:learning`, `:tracking_detail` | `minimal` (`standard`) |
   | `INSIGHTS_ORG_UNIT` | `:learning`, `:insights_org_unit` | `false` |
+  | `CREDENTIAL_NOTICE_DAYS` | `:credential_notice_days` | 30 |
+  | `CREDENTIAL_GRACE_DAYS` | `:credential_grace_days` | 30 |
+  | `REGISTRAR_ENABLED` | `:registrar_enabled` | `false` |
+  | `WEBHOOK_ALLOWED_HOSTS` | `:webhook_allowed_hosts` | none |
 
   `TRACKING_DETAIL` and `INSIGHTS_ORG_UNIT` (README section 10) come back
   under the key `:learning`, so that `config :espalier, :learning` holds
   both.
+
+  `WEBHOOK_ALLOWED_HOSTS` (task 0013) lists the receivers of webhooks as
+  comma-separated entries `host` or `host:port`, an IPv6 address in square
+  brackets. Each entry becomes `{host, port}` with the host lower-case and
+  `port` `nil` for an entry without a port, which stands for the default
+  port of the webhook URL's scheme. An entry with a scheme or a path stops
+  the boot.
   """
 
   @doc "Returns the settings as a keyword list for `config :espalier`."
@@ -62,6 +73,10 @@ defmodule Espalier.RuntimeConfig do
       public_url: public_url!(env, config_env),
       mail_from: mail_from!(env, config_env),
       admin_require_passkey: boolean!(env, "ADMIN_REQUIRE_PASSKEY", true),
+      credential_notice_days: positive!(env, "CREDENTIAL_NOTICE_DAYS", 30),
+      credential_grace_days: positive!(env, "CREDENTIAL_GRACE_DAYS", 30),
+      registrar_enabled: boolean!(env, "REGISTRAR_ENABLED", false),
+      webhook_allowed_hosts: env |> list("WEBHOOK_ALLOWED_HOSTS") |> Enum.map(&webhook_host!/1),
       learning: [
         tracking_detail:
           enum!(
@@ -160,6 +175,41 @@ defmodule Espalier.RuntimeConfig do
       _ -> raise ArgumentError, "TRUSTED_PROXIES holds an invalid entry"
     end
   end
+
+  @doc """
+  Parses one entry of `WEBHOOK_ALLOWED_HOSTS`, `host` or `host:port`, into
+  `{host, port}` with the host lower-case and `port` `nil` for an entry
+  without a port.
+  """
+  @spec webhook_host!(String.t()) :: {String.t(), pos_integer() | nil}
+  def webhook_host!(entry) do
+    if String.contains?(entry, ["://", "/", "?", "#", "@"]) do
+      raise ArgumentError, "WEBHOOK_ALLOWED_HOSTS holds an entry with a scheme or a path"
+    end
+
+    with [_entry | groups] <-
+           Regex.run(~r/\A(?:\[([0-9a-fA-F:.]+)\]|([A-Za-z0-9.-]+))(?::([0-9]{1,5}))?\z/, entry),
+         {host, port} <- host_and_port(groups),
+         true <- valid_host?(groups, host),
+         true <- port == nil or port in 1..65_535 do
+      {String.downcase(host), port}
+    else
+      _ -> raise ArgumentError, "WEBHOOK_ALLOWED_HOSTS holds an invalid entry"
+    end
+  end
+
+  # An address in square brackets must be an IPv6 address.
+  defp valid_host?([address | _rest], address) when address != "",
+    do: match?({:ok, _ip}, :inet.parse_ipv6strict_address(String.to_charlist(address)))
+
+  defp valid_host?(_groups, _name), do: true
+
+  # Regex.run/2 returns "" for an unmatched group before a matched one and
+  # leaves out unmatched groups at the end.
+  defp host_and_port([address]), do: {address, nil}
+  defp host_and_port(["", name]), do: {name, nil}
+  defp host_and_port(["", name, port]), do: {name, String.to_integer(port)}
+  defp host_and_port([address, "", port]), do: {address, String.to_integer(port)}
 
   defp prefix_length(nil, bits), do: {:ok, bits}
 

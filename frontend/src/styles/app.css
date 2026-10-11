@@ -32,4 +32,10 @@
   .handbook-module + .handbook-module {
     break-before: page;
   }
+
+  /* A credential prints on one A4 page at the full width of the page. */
+  .credential-sheet {
+    max-width: none;
+    break-inside: avoid;
+  }
 }

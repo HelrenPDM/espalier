@@ -13,12 +13,15 @@ import { RequireRole } from "../auth/RequireRole";
 import { SessionProvider } from "../auth/SessionProvider";
 import { SignedOutPage } from "../auth/SignedOutPage";
 import { SignInPage } from "../auth/SignInPage";
+import { CredentialListPage } from "../learner/CredentialListPage";
+import { CredentialPage } from "../learner/CredentialPage";
 import { ProgramListPage } from "../learner/ProgramListPage";
 import { ErrorPage } from "./ErrorPage";
 import { Layout } from "./Layout";
 import {
   GlossaryPage,
   HandbookPage,
+  PoliciesPage,
   ProgramPage,
   ProgramRoute,
   StationPage,
@@ -68,14 +71,9 @@ export const appRoutes: RouteObject[] = [
           { path: "handbook", element: <HandbookPage /> },
         ],
       },
-      {
-        path: "me/credentials",
-        element: <PlaceholderPage page="credentials" />,
-      },
-      {
-        path: "me/credentials/:id",
-        element: <PlaceholderPage page="credential" />,
-      },
+      { path: "policies", element: <PoliciesPage /> },
+      { path: "me/credentials", element: <CredentialListPage /> },
+      { path: "me/credentials/:id", element: <CredentialPage /> },
       {
         path: "admin/*",
         element: (

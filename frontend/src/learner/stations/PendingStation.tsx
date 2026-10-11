@@ -5,8 +5,8 @@ import type { Station } from "../../player/runtime";
 
 /**
  * A panel with the station title for the kinds whose components later
- * tasks add: the self-assessment and the feedback station (0014), the
- * credential station (0013) and the companion formats (0014).
+ * tasks add: the self-assessment, the companion formats and the feedback
+ * station (0014).
  */
 export function PendingStation({ station }: { station: Station }) {
   const { t } = useTranslation();

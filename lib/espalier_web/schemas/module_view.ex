@@ -2,7 +2,7 @@ defmodule EspalierWeb.Schemas.ModuleView do
   @moduledoc "The answer of `GET /api/modules/{id}`."
   require OpenApiSpex
 
-  alias EspalierWeb.Schemas.{Fields, ItemView, ObjectiveView}
+  alias EspalierWeb.Schemas.{Fields, ItemView, ObjectiveView, PolicyText}
 
   @source Fields.object(%{
             key: Fields.string(),
@@ -29,6 +29,7 @@ defmodule EspalierWeb.Schemas.ModuleView do
              ),
            placeholder_key:
              Fields.nullable_string("The policy that a placeholder block renders."),
+           policy: PolicyText.policy(),
            citations: Fields.array(@citation)
          })
 
