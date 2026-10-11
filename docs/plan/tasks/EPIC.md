@@ -28,7 +28,7 @@ the order of the tasks.
 | 0010 | [Frontend shell: Tailwind, routing, i18n, API client](0010-frontend-shell.md) | M3 Learning | 0004, 0004a | [#10](https://github.com/HelrenPDM/espalier/issues/10) (closed) | Done |
 | 0011 | [Account UI: sign-in, enrollment, recovery and security settings](0011-account-ui.md) | M3 Learning | 0007, 0009, 0010 | [#11](https://github.com/HelrenPDM/espalier/issues/11) (closed) | Done |
 | 0012 | [Player and learner UI](0012-player-learner-ui.md) | M3 Learning | 0009, 0010 | [#12](https://github.com/HelrenPDM/espalier/issues/12) (closed) | Done |
-| 0013 | [Policies, credentials, attendance, refresher and integration API](0013-policies-credentials.md) | M4 Records | 0009, 0010, 0012 | [#13](https://github.com/HelrenPDM/espalier/issues/13) | To do |
+| 0013 | [Policies, credentials, attendance, refresher and integration API](0013-policies-credentials.md) | M4 Records | 0009, 0010, 0012 | [#13](https://github.com/HelrenPDM/espalier/issues/13) (closed) | Done |
 | 0014 | [Anonymous insights, reports and retention](0014-insights.md) | M4 Records | 0012, 0013 | [#14](https://github.com/HelrenPDM/espalier/issues/14) | To do |
 | 0015 | [Admin area](0015-admin-area.md) | M5 Administration | 0011, 0012, 0013, 0014 | [#15](https://github.com/HelrenPDM/espalier/issues/15) | To do |
 | 0016 | [SCORM 1.2 and 2004 export, and pack export](0016-scorm-export.md) | M6 Interop and operations | 0012, 0015 | [#16](https://github.com/HelrenPDM/espalier/issues/16) | To do |
