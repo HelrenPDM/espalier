@@ -139,6 +139,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `decimal` 3.1.2 replaces 3.1.1, which carries EEF-CVE-2026-97853
+  (unbounded allocation in `Decimal.round/3`); the update bypasses the
+  seven-day Hex cooldown.
 - The nix shell points libglvnd at the EGL driver of Mesa on Linux, so the
   WebKit of Playwright starts outside NixOS, and `make help` lists the
   targets whose names hold a digit, such as `e2e` (task 0010).
