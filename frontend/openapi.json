@@ -854,7 +854,7 @@
         "description": "The attendance of a session of a format.",
         "properties": {
           "held_on": {
-            "description": "The day of the session, today or earlier.",
+            "description": "The day of the session, from 2000-01-01 to today; an earlier day answers 422 `past`, a later one 422 `future`.",
             "format": "date",
             "type": "string"
           },

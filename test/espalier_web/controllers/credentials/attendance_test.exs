@@ -188,6 +188,37 @@ defmodule EspalierWeb.Credentials.AttendanceTest do
       assert length(audit_events("attendance.issued")) == 1
     end
 
+    test "answers 422 held_on past for a day before 2000-01-01, also before the range of the database",
+         %{conn: conn, format: format} do
+      learner = user_fixture()
+
+      for held_on <- ["1999-12-31", "0001-01-01", "-5000-01-01"] do
+        conn =
+          json_request(conn, :post, attendance_path(format.id), %{
+            user_ids: [learner.id],
+            held_on: held_on
+          })
+
+        assert json_response(conn, 422) == %{
+                 "error" => "validation_failed",
+                 "fields" => %{"held_on" => ["past"]}
+               },
+               held_on
+      end
+
+      assert certificates(learner) == []
+
+      conn =
+        json_request(conn, :post, attendance_path(format.id), %{
+          user_ids: [learner.id],
+          held_on: "2000-01-01"
+        })
+
+      assert json_response(conn, 200)["results"] == [
+               %{"user_id" => learner.id, "result" => "issued"}
+             ]
+    end
+
     test "accepts today and answers 422 held_on future for a day after today",
          %{conn: conn, format: format} do
       learner = user_fixture()

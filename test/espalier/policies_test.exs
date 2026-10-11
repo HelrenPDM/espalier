@@ -58,8 +58,15 @@ defmodule Espalier.PoliciesTest do
       first = draft_version_fixture(policy)
       second = draft_version_fixture(policy)
       _draft = draft_version_fixture(policy)
-      {:ok, _published} = Policies.publish_version(Scope.system(), second)
       {:ok, _published} = Policies.publish_version(Scope.system(), first)
+      {:ok, _published} = Policies.publish_version(Scope.system(), second)
+
+      # The version with the higher number is current even when it was
+      # published earlier.
+      {1, _} =
+        Repo.update_all(from(v in PolicyVersion, where: v.id == ^second.id),
+          set: [published_at: hours_ago(48)]
+        )
 
       single = published_version_fixture(policy_fixture(%{key: "a-policy"}))
       draft_version_fixture(policy_fixture(%{key: "c-policy"}))
@@ -223,6 +230,27 @@ defmodule Espalier.PoliciesTest do
 
       assert credential_mails() ==
                active |> Enum.map(&{"credential_refresh_due", &1.id}) |> Enum.sort()
+    end
+
+    test "answers superseded for a draft whose policy has a published version with a higher number" do
+      program = publish_demo!()
+      current = published_policy!("usage-policy")
+      credential = credential_fixture(user_fixture(), qualification!(program, "basics"))
+
+      older = draft_version_fixture(current.policy, %{requires_refresher: true})
+      newer = draft_version_fixture(current.policy, %{requires_refresher: true})
+      assert {:ok, _published} = Policies.publish_version(Scope.system(), newer)
+      put_credential!(reload(credential), status: :active, refresh_due_at: nil)
+      mails = credential_mails()
+      events = audit_events("policy_version.published")
+
+      assert Policies.publish_version(Scope.system(), older) == {:error, :superseded}
+
+      assert Repo.get!(PolicyVersion, older.id).published_at == nil
+      assert Policies.current_version("usage-policy").id == newer.id
+      assert %Credential{status: :active, refresh_due_at: nil} = reload(credential)
+      assert credential_mails() == mails
+      assert audit_events("policy_version.published") == events
     end
 
     test "without requires_refresher moves no credential" do

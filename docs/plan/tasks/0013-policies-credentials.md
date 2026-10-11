@@ -191,11 +191,11 @@ tasks rely on the implemented form.
   `AttendanceCertificate`) cast nothing and take the scope, as the record
   changesets of 0009 do: the context sets every value on the struct. The
   `Policy` changeset checks the key format of content packs.
-- Generated context (step 4): `Espalier.Policies` keeps `list_policies/0`,
-  `get_policy!/1` and `get_policy_by_key/1` of the generated functions; the
-  generated `create_policy/1`, `update_policy/2`, `delete_policy/1`,
-  `change_policy/2`, their test and their fixture module are gone, because
-  0015 adds the admin functions with a scope. The context adds
+- Generated context (step 4): `Espalier.Policies` keeps `list_policies/0`
+  (ordered by key) and `get_policy!/1` of the generated functions and adds
+  `get_policy_by_key/1`; the generated `create_policy/1`, `update_policy/2`,
+  `delete_policy/1`, `change_policy/2`, their test and their fixture module
+  are gone, because 0015 adds the admin functions with a scope (0015 step 2). The context adds
   `create_version(scope, policy, attrs)`, which requires `admin`, gives the
   draft the next `number` under a row lock on the policy and writes the audit
   event `policy_version.created`; the acceptance in `iex -S mix` and the test
@@ -203,10 +203,13 @@ tasks rely on the implemented form.
   `current_versions_by_key/1`, `get_published_version/1`,
   `list_current_for/1` (behind `GET /api/policies`) and `acknowledged_at/2`.
 - Publication (step 8): `publish_version/2` answers `{:error, :published}`
-  for a published version and `{:error, :not_found}` for an unknown one, which
-  0015 maps to 409 `published` and 404. It locks the version and the policy
-  row; the audit event carries `policy_key`, `number`, `requires_refresher`
-  and `refresh_due_count`.
+  for a published version, `{:error, :not_found}` for an unknown one and
+  `{:error, :superseded}` for a draft whose policy has a published version
+  with a higher number, which would never become current and would still
+  move credentials to `refresh_due`; 0015 maps them to 409 `published`, 404
+  and 409 `superseded`. It locks the version and the policy row, which also
+  serializes the publications of one policy; the audit event carries
+  `policy_key`, `number`, `requires_refresher` and `refresh_due_count`.
 - Acknowledgement (step 8): `acknowledge/2` evaluates every published program
   in which the user holds an enrollment and, beyond the step, every published
   program whose live qualifications require the acknowledged policy, so that a
@@ -226,8 +229,10 @@ tasks rely on the implemented form.
   its prerequisite. `update_unit` needs a completion later than
   `refresh_due_at` of every live module flagged `refresher_unit`;
   `test_only` needs at least one `assessment_passed` requirement; a credential
-  without `refresh_due_at` counts from `issued_at`. Records count only when
-  they are strictly later than `refresh_due_at`, in whole seconds.
+  without `refresh_due_at` counts from `issued_at`. Module completions and
+  passed attempts count only when they are strictly later than
+  `refresh_due_at`, in whole seconds; an attendance certificate counts when
+  its `held_on` falls on or after the date of `refresh_due_at` (step 10).
 - Qualifications without refresher mode (steps 10 and 12): a qualification
   with `validity_kind: none` has no `refresher_mode` (0008), and a policy
   version that requires a refresher still moves its credential to
@@ -242,7 +247,11 @@ tasks rely on the implemented form.
   expired: moved}}` and runs the expiry before the notice, so one sweep moves
   a credential by one state. `mark_refresh_due_for_policy/1` returns
   `{:ok, moved}` and moves credentials of archived qualifications as well;
-  `count_affected_by_policy/1` counts the same set.
+  `count_affected_by_policy/1` counts the same set. Every writer locks
+  credential rows in the order (`user_id`, `qualification_id`): `sweep/1`
+  and `mark_refresh_due_for_policy/1` lock all their rows in that order
+  before they change any, and `evaluate/2` locks the rows of its user by
+  `qualification_id`, so the daily sweep and an evaluation cannot deadlock.
 - Notifications (step 13): the mail job skips a credential whose status
   changed again before delivery. A `refresh_due` mail for a credential without
   `valid_until` asks for the refresher without naming an expiry.
@@ -250,10 +259,14 @@ tasks rely on the implemented form.
   `{:error, :already_revoked}` (0015 answers 409 `already_revoked`), and the
   audit event carries `previous_status`.
 - Routes (steps 15 to 19): `cache-control: no-store` also covers
-  `POST /api/formats/:id/attendance`, whose answer names user ids. The
+  `POST /api/formats/:id/attendance`, whose answer names user ids, and
+  `GET /api/policies`, which carries the user's own acknowledgements. The
   acknowledgement route uses the rate limit bucket `learner_write`. A date
   after today answers 422 `validation_failed` with `fields.held_on`
-  `["future"]` through a new clause of `EspalierWeb.FallbackController`.
+  `["future"]` through a new clause of `EspalierWeb.FallbackController`, and
+  a date before 2000-01-01, the earliest day of a session that attendance
+  records, answers `["past"]`; PostgreSQL rejects dates before 4714 BC, so
+  the floor also keeps such a date from reaching the database.
   Attendance accepts a live format of a published program only (an archived
   format answers 404), lower-cases user ids, collapses duplicates, writes each
   certificate in its own transaction and evaluates every found user, also for
@@ -263,11 +276,11 @@ tasks rely on the implemented form.
   requirement carries `station_position`, and an attendance requirement points
   to the station of the companion formats. `CredentialView` carries
   `qualification_code` and `locale`, the language of the program, besides the
-  members of step 17. The registrar list returns one entry per credential of
-  every qualification with the code, so a person who holds the code in two
-  programs appears twice; whether the route takes a program is a question for
-  0015, together with `qualification_code` in the integration API and the
-  webhook body. `ApiClientAuth` answers a 401 with `www-authenticate: Bearer`,
+  members of step 17. The registrar list, the integration API and the
+  webhook body identify a qualification by its code alone (README section
+  11): codes are unique per program, so the registrar list returns one entry
+  per credential of every qualification with the code, and a person who
+  holds the same code in two programs appears once per credential. `ApiClientAuth` answers a 401 with `www-authenticate: Bearer`,
   rejects a token longer than 256 bytes and logs `authz_fail` with the reason
   `scope`; it does not update `last_used_at`. The integration API also lists
   the credentials of a disabled user.

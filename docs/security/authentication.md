@@ -735,15 +735,18 @@ running application sends the mails.
 | Role | Granted by | Checked by |
 |---|---|---|
 | `learner` | every signed-in user, without a stored grant | `require_authenticated_user/2` |
-| `facilitator`, `author`, `registrar`, `analyst`, `admin` | `manual` grants (admins, release functions, bootstrap) and `idp_claim` grants (tasks 0006, 0007) | the router pipelines of the same names (`require_authenticated_user/2` and `require_role/2`), and the context functions, which take the scope as first argument |
+| `facilitator`, `author`, `registrar`, `analyst`, `admin` | `manual` grants (admins, release functions, bootstrap) and `idp_claim` grants (tasks 0006, 0007) | the router pipelines of the same names (`require_authenticated_user/2` and `require_role/2`), and the context functions, which take the scope as first argument; for `registrar`, `EspalierWeb.Plugs.RegistrarEnabled` (pipeline `:registrar_enabled`) runs before the role check (task 0013) |
 
 Every role-bound route runs its pipeline on the server, and a missing role
-answers 403 `forbidden` and logs `authz_fail` (ASVS 8.2.1, 8.3.1). The
-administrative context functions (`invite_user/2`, `resend_invitation/2`,
-`grant_role/3`, `revoke_role/3`, `disable_user/2`, `end_user_sessions/2`,
-`end_all_sessions/1`, the API client functions and
-`Espalier.Audit.list_events/2`) return `{:error, :forbidden}` without the role
-`admin`. `Espalier.Accounts.Scope.system/0` holds `admin` for release
+answers 403 `forbidden` and logs `authz_fail` (ASVS 8.2.1, 8.3.1). While
+`REGISTRAR_ENABLED=false`, the registrar list `GET /api/registrar/credentials`
+answers 404 `not_found` to every caller, a registrar included, because
+`EspalierWeb.Plugs.RegistrarEnabled` runs before the role check (task 0013);
+such a request logs no `authz_fail`. The administrative context functions
+(`invite_user/2`, `resend_invitation/2`, `grant_role/3`, `revoke_role/3`,
+`disable_user/2`, `end_user_sessions/2`, `end_all_sessions/1`, the API client
+functions and `Espalier.Audit.list_events/2`) return `{:error, :forbidden}`
+without the role `admin`. `Espalier.Accounts.Scope.system/0` holds `admin` for release
 functions and the boot task; no request reaches it. Demo users hold only
 `learner`. A change of the role grants of a user ends every session of that
 user.

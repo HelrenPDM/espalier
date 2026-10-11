@@ -354,7 +354,7 @@ guard, re-authentication before sensitive changes) and changes these defaults:
 | Termination | Logout deletes the row. Disabling a user ends all sessions. Users list and end their sessions after re-authentication; admins end the sessions of a user or of all users (ASVS 7.4, 7.5). |
 | CSRF | Three layers: (1) `Plug.CSRFProtection` token in the `x-csrf-token` header on every mutating request of the session pipelines (the integration route of task 0013 takes a bearer token and no session cookie); (2) a Fetch Metadata plug that rejects `Sec-Fetch-Site: cross-site` except for the allowlisted navigation endpoints (OIDC callback, `/auth/finish`, front-channel logout in an iframe), with an `Origin` check when the header is missing; (3) the `Strict` session cookie. Sobelow does not flag a JSON pipeline without CSRF protection, so a test covers every mutating route, with the integration route of task 0013 as its only exemption. |
 | Strict cookie and redirects | The OIDC callback arrives as a cross-site navigation and never carries the `Strict` cookie. The callback therefore validates the response, stores a single-use sign-in ticket (60 seconds, hashed, bound to a value in the transaction cookie) and redirects to the SPA route `/auth/finish#ticket=<ticket>`. The SPA posts the ticket same-origin to `POST /api/auth/finish`, which sets the `Strict` session cookie and deletes the transaction cookie. Phoenix serves `/auth/finish` through `SpaController`, and the Vite dev proxy excludes it (proxy key `^/auth/(?!finish)`). |
-| Headers | Own plug for every response: CSP `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'`, Trusted Types first in report-only mode, `Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Resource-Policy: same-origin`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Content-Type-Options: nosniff`, `Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), publickey-credentials-create=(self), publickey-credentials-get=(self)`, `Cache-Control: no-store` on `/api/session`, `/api/auth/*` and `/api/me/*` (task 0004), on `/api/admin/*` (task 0015) and on `/api/facilitator/*`, `/api/registrar/*` and `/api/integration/*` (task 0013), `Vary: Sec-Fetch-Site, Sec-Fetch-Mode, Sec-Fetch-Dest`. HSTS comes from the reverse proxy. |
+| Headers | Own plug for every response: CSP `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'`, Trusted Types first in report-only mode, `Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Resource-Policy: same-origin`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Content-Type-Options: nosniff`, `Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), publickey-credentials-create=(self), publickey-credentials-get=(self)`, `Cache-Control: no-store` on `/api/session`, `/api/auth/*` and `/api/me/*` (task 0004), on `/api/admin/*` (task 0015) and on `/api/facilitator/*`, `/api/registrar/*`, `/api/integration/*`, `/api/policies` and `/api/formats/:id/attendance` (task 0013), `Vary: Sec-Fetch-Site, Sec-Fetch-Mode, Sec-Fetch-Dest`. HSTS comes from the reverse proxy. |
 
 The `__Host-Http-` prefix from RFC 10017 is not used yet, because Safari does
 not support it. The plan revisits it in task 0017.
@@ -1067,6 +1067,11 @@ the operator lists in `WEBHOOK_ALLOWED_HOSTS` (ASVS 1.3.6). Webhooks send `crede
 signed with HMAC-SHA256 in the header `x-espalier-signature`. Webhook secrets
 come from environment variables. Binding a credential to a permission in another
 system stays the decision of the operating organization.
+
+The integration API, the webhook body and the registrar list identify a
+qualification by its code alone. Codes are unique per program, so a person who
+holds the same code in two programs appears once per credential, and an operator
+who connects several programs gives their qualifications distinct codes.
 
 ## 12 Build, run and deploy
 

@@ -15,7 +15,11 @@ defmodule EspalierWeb.Schemas.AttendanceRequest do
           maxItems: 200,
           description: "The users who attended."
         },
-        held_on: Fields.date("The day of the session, today or earlier.")
+        held_on:
+          Fields.date(
+            "The day of the session, from 2000-01-01 to today; an earlier day answers 422 " <>
+              "`past`, a later one 422 `future`."
+          )
       }),
       %{title: "AttendanceRequest", description: "The attendance of a session of a format."}
     ),

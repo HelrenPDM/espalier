@@ -203,9 +203,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   signed with HMAC-SHA256 in `x-espalier-signature`, admitted only for the
   hosts in `WEBHOOK_ALLOWED_HOSTS`, with the secrets in `WEBHOOK_SECRET_*`
   variables, and delivered by the Oban queue `webhooks` (task 0013).
-- `CREDENTIAL_NOTICE_DAYS` and `CREDENTIAL_GRACE_DAYS`, each 30 by default,
-  for the days before and after `valid_until` at which the sweep moves a
-  credential (task 0013).
+- `CREDENTIAL_NOTICE_DAYS` and `CREDENTIAL_GRACE_DAYS`, each 30 by default:
+  the sweep moves a credential to `refresh_due` from `valid_until` minus the
+  notice days on, and to `expired` once `valid_until` plus the grace days has
+  passed (task 0013).
 - `mix espalier.seed_demo`, which seeds the demo policy `usage-policy` and
   three approved tools and which `make setup` and `make refresh-db` run
   (task 0013).
@@ -216,6 +217,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   on A4.
 
 ### Changed
+
+- The `placeholders` of `GET /api/programs/:slug/handbook` are a list of
+  objects with `key` and `policy` (the current version of the policy, or
+  `null`) in place of a list of keys (task 0013).
+- A repeated `POST /api/modules/:id/completion` checks the open exams again,
+  so it answers 409 `assessments_open` after a pack adds an exam that counts
+  for a credential; otherwise it records its time in `completed_at`, answers
+  with the new time and evaluates the credentials (task 0013).
+- `POST /api/formats/:id/attendance` answers 422 `validation_failed` with
+  `fields.held_on` `["past"]` for a `held_on` before 2000-01-01, the earliest
+  date of a session the platform records, next to `["future"]` for a date
+  after today (task 0013).
+- `Policies.publish_version/2` answers `{:error, :superseded}` when a
+  published version of the same policy has a higher number, so an older draft
+  cannot be published after a newer one and move credentials to
+  `refresh_due` for a version that never becomes current (task 0013).
+- Every writer of credentials takes the rows in one order: `evaluate/2` by
+  `qualification_id`, and `sweep/1` and `mark_refresh_due_for_policy/1` by
+  `user_id` and `qualification_id`, so the daily sweep and an evaluation
+  cannot deadlock (task 0013).
+- `GET /api/policies` carries `cache-control: no-store`, because it returns
+  the user's own acknowledgement times (task 0013).
 
 - Blocks in `GET /api/modules/:id` carry their `id`, and the pages of a
   program load in chunks of their own (task 0012).

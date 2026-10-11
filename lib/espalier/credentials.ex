@@ -12,10 +12,18 @@ defmodule Espalier.Credentials do
   (`Espalier.Credentials.WebhookWorker`), and every move to `refresh_due` or
   `expired` also a mail (`Espalier.Accounts.MailWorker`).
 
-  Person-linked rows are read and written only through the scope of their
-  person. A facilitator who issues an attendance certificate writes it with
-  the learner's scope from `Espalier.Accounts.Scope.for_user/1`. A credential
-  is in force while its status is `active` or `refresh_due`.
+  A row of `credentials` and `attendance_certificates` belongs to the person
+  in its `user_id` and is created only with that person's scope; a
+  facilitator who issues a certificate writes it with the learner's scope
+  from `Espalier.Accounts.Scope.for_user/1`. The learner functions read only
+  the rows of the scope user. Other people's rows are read or changed by
+  `registrar_list/2` (role `registrar`), `revoke/2` (role `admin`),
+  `in_force_for_email/1` (behind `EspalierWeb.Plugs.ApiClientAuth` with the
+  client scope `credentials:read`), and `sweep/1` and
+  `mark_refresh_due_for_policy/1`, which take no scope and run from
+  `Espalier.Credentials.SweepWorker` and the admin-only
+  `Espalier.Policies.publish_version/2`. A credential is in force while its
+  status is `active` or `refresh_due`.
   """
 
   import Ecto.Query, warn: false
@@ -37,6 +45,10 @@ defmodule Espalier.Credentials do
   alias Espalier.Credentials.{AttendanceCertificate, Credential, Webhook, WebhookWorker}
   alias Espalier.Learning.{AssessmentAttempt, ModuleCompletion}
   alias Espalier.Policies.{Acknowledgement, Policy}
+
+  # The earliest day of a session that attendance records; an earlier date
+  # is an input error (PostgreSQL itself rejects dates before 4714 BC).
+  @earliest_held_on ~D[2000-01-01]
 
   # The transaction-level advisory lock that serializes the evaluations of
   # one user. Its two-key form does not share its keys with the one-key form
@@ -378,9 +390,12 @@ defmodule Espalier.Credentials do
   defp credentials_by_qualification(user_id, qualifications) do
     ids = Enum.map(qualifications, & &1.id)
 
+    # Every writer locks credential rows in the order (user_id,
+    # qualification_id), so an evaluation and the sweep cannot deadlock.
     Repo.all(
       from c in Credential,
         where: c.user_id == ^user_id and c.qualification_id in ^ids,
+        order_by: c.qualification_id,
         lock: "FOR UPDATE"
     )
     |> Map.new(&{&1.qualification_id, &1})
@@ -420,8 +435,10 @@ defmodule Espalier.Credentials do
   active user). Each new certificate writes the audit event
   `attendance.issued`, and every found user is evaluated in the format's
   program (`evaluate/2`). A format outside a published program answers
-  `{:error, :not_found}`, and a date after today
-  `{:error, {:validation_failed, "held_on", "future"}}` (ASVS 2.2.3).
+  `{:error, :not_found}`, a date after today
+  `{:error, {:validation_failed, "held_on", "future"}}` and a date before
+  2000-01-01 `{:error, {:validation_failed, "held_on", "past"}}` (ASVS
+  2.2.3).
   """
   def issue_attendance(%Scope{} = scope, format_id, user_ids, %Date{} = held_on)
       when is_list(user_ids) do
@@ -431,6 +448,9 @@ defmodule Espalier.Credentials do
 
       Date.after?(held_on, Date.utc_today()) ->
         {:error, {:validation_failed, "held_on", "future"}}
+
+      Date.before?(held_on, @earliest_held_on) ->
+        {:error, {:validation_failed, "held_on", "past"}}
 
       true ->
         with {:ok, format} <- fetch_published_format(format_id) do
@@ -753,22 +773,28 @@ defmodule Espalier.Credentials do
   `{:ok, %{refresh_due: moved, expired: moved}}`.
   """
   def sweep(%Date{} = today) do
+    expiry =
+      dynamic(
+        [c],
+        c.status == :refresh_due and not is_nil(c.valid_until) and
+          c.valid_until < ^Date.add(today, -grace_days())
+      )
+
+    notice =
+      dynamic(
+        [c],
+        c.status == :active and not is_nil(c.valid_until) and
+          c.valid_until <= ^Date.add(today, notice_days())
+      )
+
     Repo.transact(fn ->
+      ids = lock_in_order(from(c in Credential, where: ^dynamic([c], ^expiry or ^notice)))
+
       expired =
-        from(c in Credential,
-          where:
-            c.status == :refresh_due and not is_nil(c.valid_until) and
-              c.valid_until < ^Date.add(today, -grace_days())
-        )
-        |> transition(:expired)
+        from(c in Credential, where: ^expiry, where: c.id in ^ids) |> transition(:expired)
 
       refresh_due =
-        from(c in Credential,
-          where:
-            c.status == :active and not is_nil(c.valid_until) and
-              c.valid_until <= ^Date.add(today, notice_days())
-        )
-        |> transition(:refresh_due)
+        from(c in Credential, where: ^notice, where: c.id in ^ids) |> transition(:refresh_due)
 
       {:ok, %{refresh_due: refresh_due, expired: expired}}
     end)
@@ -781,7 +807,11 @@ defmodule Espalier.Credentials do
   mail and the webhook event `credential.refresh_due`.
   """
   def mark_refresh_due_for_policy(policy_key) when is_binary(policy_key) do
-    Repo.transact(fn -> {:ok, policy_query(policy_key) |> transition(:refresh_due)} end)
+    Repo.transact(fn ->
+      query = policy_query(policy_key)
+      ids = lock_in_order(query)
+      {:ok, query |> where([c], c.id in ^ids) |> transition(:refresh_due)}
+    end)
   end
 
   @doc """
@@ -800,6 +830,18 @@ defmodule Espalier.Credentials do
 
     from c in Credential,
       where: c.status == :active and c.qualification_id in subquery(qualification_ids)
+  end
+
+  # Locks the credentials of `query` in the order (user_id,
+  # qualification_id), the order in which evaluate/2 locks the rows of one
+  # user, and returns their ids. The transitions then update only these
+  # rows, so the sweep and an evaluation cannot deadlock.
+  defp lock_in_order(query) do
+    query
+    |> order_by([c], [c.user_id, c.qualification_id])
+    |> lock("FOR UPDATE")
+    |> select([c], c.id)
+    |> Repo.all()
   end
 
   # Moves the credentials of `query` to `status` in one statement, then

@@ -15,9 +15,9 @@ defmodule Espalier.Credentials.WebhookWorker do
   secret variable, a URL that `WEBHOOK_ALLOWED_HOSTS` no longer admits
   (ASVS 1.3.6) and a deleted credential. A transport error or a status
   outside 200 to 299 returns an error, so that Oban retries with its
-  default backoff. Log lines name the webhook id, the event and the status
-  code; no body, secret, signature or address reaches the log (ASVS
-  16.2.5). `config :espalier, :webhook_req_options` is merged into the Req
+  default backoff. Log lines name the webhook id, the event and either the
+  status code, the cancel reason or the module of a transport exception; no
+  body, secret, signature, URL or address reaches the log (ASVS 16.2.5). `config :espalier, :webhook_req_options` is merged into the Req
   options, so that `config/test.exs` routes the requests to a `Req.Test`
   stub.
   """

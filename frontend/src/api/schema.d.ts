@@ -1265,7 +1265,7 @@ export interface components {
         AttendanceRequest: {
             /**
              * Format: date
-             * @description The day of the session, today or earlier.
+             * @description The day of the session, from 2000-01-01 to today; an earlier day answers 422 `past`, a later one 422 `future`.
              */
             held_on: string;
             /** @description The users who attended. */
