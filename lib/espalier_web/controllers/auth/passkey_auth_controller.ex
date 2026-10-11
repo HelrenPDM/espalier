@@ -10,6 +10,21 @@ defmodule EspalierWeb.Auth.PasskeyAuthController do
   (ASVS 6.1.1). Every failure answers 401 `authentication_failed`.
   """
   use EspalierWeb, :controller
+  use OpenApiSpex.ControllerSpecs
+
+  alias EspalierWeb.ApiSpec.Responses
+
+  alias EspalierWeb.Schemas.{
+    PasskeyAssertion,
+    PasskeyOptionsRequest,
+    PasskeyRequestOptions,
+    SessionPayload
+  }
+
+  # OpenAPI operations of task 0011 (README section 6.12). They describe the
+  # route; validation and error bodies stay those of task 0005.
+  tags ["Session"]
+  security Responses.csrf()
 
   alias Espalier.Accounts.{Factors, Passkeys, Scope, UserToken}
   alias Espalier.Accounts.Passkeys.Options
@@ -21,6 +36,25 @@ defmodule EspalierWeb.Auth.PasskeyAuthController do
   plug :require_local_accounts when action in [:create]
   plug RateLimit, [bucket: :passkey_options_ip] when action in [:options]
   plug RateLimit, [bucket: :passkey_ip] when action in [:create]
+
+  operation :options,
+    summary: "Start a passkey assertion",
+    description:
+      "Stores a single-use challenge for 300 seconds and answers the request options. " <>
+        "`second_factor` needs the pending state of a first factor, `reauth` an `mfa` " <>
+        "session, and `sign_in` local accounts.",
+    request_body: {"The purpose", "application/json", PasskeyOptionsRequest},
+    responses:
+      Map.merge(
+        %{200 => {"The request options", "application/json", PasskeyRequestOptions}},
+        Responses.errors([
+          {400, ["bad_request"]},
+          {401, ["authentication_failed"]},
+          {403, ["csrf", "cross_site_request"]},
+          {404, ["not_found"]},
+          {429, ["rate_limited"]}
+        ])
+      )
 
   def options(conn, params) do
     case Map.get(params, "purpose", "sign_in") do
@@ -57,6 +91,24 @@ defmodule EspalierWeb.Auth.PasskeyAuthController do
     {conn, _row} = WebauthnCeremony.start(conn, purpose, user && user.id, challenge)
     json(conn, Options.request(challenge, allow))
   end
+
+  operation :create,
+    summary: "Sign in with a passkey",
+    description:
+      "The discoverable passkey sign-in of accounts without an external identity opens " <>
+        "an `mfa` session. Every failure answers 401 `authentication_failed`.",
+    request_body:
+      {"The result of startAuthentication", "application/json", PasskeyAssertion, required: true},
+    responses:
+      Map.merge(
+        %{200 => {"The session payload", "application/json", SessionPayload}},
+        Responses.errors([
+          {401, ["authentication_failed"]},
+          {403, ["csrf", "cross_site_request"]},
+          {404, ["not_found"]},
+          {429, ["rate_limited"]}
+        ])
+      )
 
   def create(conn, params) do
     {conn, challenge} = WebauthnCeremony.finish(conn, :sign_in, nil)

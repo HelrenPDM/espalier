@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import { createMemoryRouter, Outlet, RouterProvider } from "react-router";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
@@ -18,9 +19,18 @@ function renderAt(path: string) {
     { initialEntries: [path] },
   );
   render(
-    <SessionContext.Provider value={sessionValue({ roles: ["learner"] })}>
-      <RouterProvider router={router} />
-    </SessionContext.Provider>,
+    <QueryClientProvider client={new QueryClient()}>
+      <SessionContext.Provider
+        value={sessionValue({
+          roles: ["learner"],
+          ...(path === "/sign-in"
+            ? { user: null, sessionStrength: null, roles: [] }
+            : {}),
+        })}
+      >
+        <RouterProvider router={router} />
+      </SessionContext.Provider>
+    </QueryClientProvider>,
   );
 }
 
@@ -36,7 +46,7 @@ test.each([
   [
     "/sign-in",
     "Anmelden",
-    "Die Anmeldung folgt in einer späteren Version.",
+    "Kein Zugriff mehr auf Ihre Anmeldemethoden?",
     false,
   ],
   [

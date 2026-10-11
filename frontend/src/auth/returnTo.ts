@@ -15,3 +15,29 @@ export function safeReturnTo(value: string | null): string {
   }
   return value;
 }
+
+/**
+ * The `sessionStorage` key of the return path across an OIDC redirect
+ * (ASVS 14.3.3). It holds a path and nothing else.
+ */
+const RETURN_TO_KEY = "espalier.return_to";
+
+/** Keeps `path`, checked by `safeReturnTo`, until `takeReturnTo()` reads it. */
+export function rememberReturnTo(path: string): void {
+  try {
+    sessionStorage.setItem(RETURN_TO_KEY, safeReturnTo(path));
+  } catch {
+    // Blocked storage: the flow ends on the start page.
+  }
+}
+
+/** Returns and deletes the remembered path, or `null` when none is stored. */
+export function takeReturnTo(): string | null {
+  try {
+    const value = sessionStorage.getItem(RETURN_TO_KEY);
+    sessionStorage.removeItem(RETURN_TO_KEY);
+    return value === null ? null : safeReturnTo(value);
+  } catch {
+    return null;
+  }
+}

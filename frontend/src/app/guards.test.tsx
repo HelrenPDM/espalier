@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import {
   createMemoryRouter,
@@ -22,9 +23,11 @@ function renderAt(
     initialEntries: [path],
   });
   render(
-    <SessionContext.Provider value={value}>
-      <RouterProvider router={router} />
-    </SessionContext.Provider>,
+    <QueryClientProvider client={new QueryClient()}>
+      <SessionContext.Provider value={value}>
+        <RouterProvider router={router} />
+      </SessionContext.Provider>
+    </QueryClientProvider>,
   );
   return router;
 }
@@ -59,18 +62,21 @@ describe("RequireAuth", () => {
     );
   });
 
-  test.each(["recovery", "enrollment"] as const)(
-    "redirects a %s session to /sign-in",
-    async (sessionStrength) => {
+  test.each([
+    ["recovery", "Set up a new sign-in method"],
+    ["enrollment", "Set up your sign-in"],
+  ] as const)(
+    "sends a %s session through /sign-in on to the enrollment wizard",
+    async (sessionStrength, heading) => {
       const router = renderAt(
         "/me/credentials",
         sessionValue({ sessionStrength }),
       );
 
       expect(
-        await screen.findByRole("heading", { level: 1, name: "Sign in" }),
+        await screen.findByRole("heading", { level: 1, name: heading }),
       ).toBeInTheDocument();
-      expect(location(router)).toBe("/sign-in?return_to=%2Fme%2Fcredentials");
+      expect(location(router)).toBe("/enroll");
     },
   );
 

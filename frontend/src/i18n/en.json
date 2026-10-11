@@ -13,7 +13,91 @@
     "dark": "dark"
   },
   "auth": {
-    "loading": "Loading the session…"
+    "loading": "Loading the session…",
+    "forms": {
+      "showPassword": "Show password",
+      "cancel": "Cancel",
+      "continue": "Continue",
+      "back": "Back"
+    },
+    "signIn": {
+      "title": "Sign in",
+      "passkey": "Sign in with a passkey",
+      "passwordForm": "Sign in with e-mail and password",
+      "email": "E-mail address",
+      "password": "Password",
+      "passwordSubmit": "Continue with password",
+      "providers": "Other ways to sign in",
+      "username": "User name",
+      "credentialsSubmit": "Sign in with {{label}}",
+      "lostAccess": "Lost access to your sign-in methods?",
+      "requestInvitation": "Request an invitation link"
+    },
+    "demo": {
+      "title": "Demo accounts",
+      "slot": "Test person {{slot}}"
+    },
+    "secondFactor": {
+      "title": "Confirm your sign-in",
+      "text": "Enter the code of your authenticator app, or use a passkey or a recovery code.",
+      "codeLabel": "Six-digit code",
+      "recoveryCodeLabel": "Recovery code",
+      "submit": "Confirm",
+      "passkey": "Use a passkey",
+      "useRecoveryCode": "Use a recovery code",
+      "useCode": "Use the authenticator app"
+    },
+    "finish": {
+      "title": "Completing the sign-in",
+      "toSecurity": "Go to the security settings",
+      "toSignIn": "Go to the sign-in page"
+    },
+    "invitation": {
+      "title": "Accept the invitation",
+      "text": "Continue to set up the sign-in of your new account.",
+      "requestTitle": "Request an invitation",
+      "requestText": "Enter your e-mail address. An invitation link reaches addresses that may create an account.",
+      "requestSubmit": "Send an invitation link",
+      "sent": "If the address can receive an invitation, we have sent a link to it."
+    },
+    "enroll": {
+      "title": "Set up your sign-in",
+      "text": "Your account needs a sign-in method. A passkey signs you in with your device's screen lock and resists phishing.",
+      "recoveryTitle": "Set up a new sign-in method",
+      "recoveryText": "Your recovery succeeded. Set up a new sign-in method for your account.",
+      "choosePasskey": "Create a passkey",
+      "chooseTotp": "Use an authenticator app",
+      "passkeyTitle": "Create a passkey",
+      "passkeyText": "Your browser asks for your device's screen lock or your security key.",
+      "passwordTitle": "Choose a password",
+      "passwordText": "The authenticator app is the second step after a password. Choose the password first.",
+      "passwordSubmit": "Save the password",
+      "totpTitle": "Set up the authenticator app"
+    },
+    "recovery": {
+      "title": "Recover access",
+      "startText": "Recovery needs a link that we send by e-mail and one of your saved recovery codes.",
+      "startSubmit": "Send the recovery link",
+      "sent": "If the address belongs to an account, we have sent a link to it.",
+      "verifyText": "Enter one of your saved recovery codes. Afterwards you set up a new sign-in method.",
+      "codeLabel": "Recovery code",
+      "verifySubmit": "Recover access"
+    },
+    "signedOut": {
+      "title": "You are signed out",
+      "body": "Your session has ended here and at your sign-in provider.",
+      "signIn": "Sign in again"
+    },
+    "errors": {
+      "signInFailed": "Sign-in failed. Check your details and try again.",
+      "signInRestart": "Sign-in failed. Please start again.",
+      "passkeyCancelled": "The passkey request was closed or timed out. Try again or choose another way to sign in.",
+      "linkInvalid": "This link is invalid or has expired. Please ask for a new one.",
+      "linkRequired": "An account with this e-mail address exists. Sign in to it and connect this account in your security settings.",
+      "recoveryFailed": "The recovery code did not match, or the link has expired.",
+      "stepUpFailed": "The confirmation failed. Please try again.",
+      "credentialsRequired": "Enter the user name and the password."
+    }
   },
   "pages": {
     "backHome": "Back to the start page",
@@ -31,10 +115,6 @@
     }
   },
   "placeholders": {
-    "signIn": {
-      "title": "Sign in",
-      "text": "Sign-in follows in a later version."
-    },
     "home": {
       "title": "Home",
       "text": "Your programs appear here."
@@ -59,5 +139,171 @@
       "title": "Administration",
       "text": "The administration pages appear here."
     }
+  },
+  "account": {
+    "menu": "Security",
+    "title": "Security settings",
+    "demoNotice": "Demo accounts have no security settings.",
+    "signOut": {
+      "title": "Sign out on this device"
+    },
+    "factors": {
+      "lastFactor": "You cannot remove your only second factor. Add another one first."
+    },
+    "passkeys": {
+      "title": "Passkeys",
+      "none": "No passkey is registered.",
+      "unnamed": "Passkey without a name",
+      "created": "Created",
+      "lastUsed": "Last used",
+      "neverUsed": "Not used yet",
+      "backup": "Sync",
+      "synced": "Synced",
+      "syncable": "Can be synced",
+      "deviceOnly": "Stored on this device or security key only",
+      "add": "Add a passkey",
+      "added": "The passkey was added.",
+      "remove": "Remove",
+      "removed": "The passkey was removed.",
+      "removeTitle": "Remove the passkey?",
+      "removeText": "The passkey “{{name}}” no longer signs you in.",
+      "nickname": "Name of the passkey",
+      "nicknameHint": "At most 60 characters. The name helps you to recognize the passkey in this list.",
+      "defaultNickname": "Passkey of {{date}}",
+      "create": "Create the passkey",
+      "adminRequired": "Your role requires a passkey. Add a passkey to your account."
+    },
+    "totp": {
+      "title": "Authenticator app",
+      "enabledSince": "Set up since {{date}}.",
+      "disabled": "No authenticator app is set up.",
+      "setUp": "Set up",
+      "added": "The authenticator app was set up.",
+      "remove": "Remove",
+      "removed": "The authenticator app was removed.",
+      "removeTitle": "Remove the authenticator app?",
+      "removeText": "Its codes no longer confirm your sign-in.",
+      "scan": "Scan the QR code with your authenticator app, or enter the key by hand.",
+      "qrAlt": "QR code for the authenticator app",
+      "secretLabel": "Key for entry by hand",
+      "copySecret": "Copy the key",
+      "secretCopied": "The key was copied.",
+      "codeLabel": "Six-digit code from the app",
+      "confirm": "Confirm the code"
+    },
+    "recovery": {
+      "title": "Recovery codes",
+      "remaining_one": "{{count}} unused recovery code left.",
+      "remaining_other": "{{count}} unused recovery codes left.",
+      "low": "Few codes are left. Create new codes.",
+      "regenerate": "Create new codes",
+      "regenerateTitle": "Create new recovery codes?",
+      "regenerateText": "Your old recovery codes stop working.",
+      "usedNotice_one": "You signed in with a recovery code. {{count}} code is left. Create new codes below.",
+      "usedNotice_other": "You signed in with a recovery code. {{count}} codes are left. Create new codes below.",
+      "panelTitle": "Save your recovery codes",
+      "panelText": "Each code works once. Keep the codes in a safe place; you need one if you lose access to your sign-in methods.",
+      "copy": "Copy",
+      "copied": "The codes were copied.",
+      "copyFailed": "The codes could not be copied. Use the download.",
+      "download": "Download",
+      "fileHeader": "Recovery codes for {{product}} at {{host}}",
+      "saved": "I have saved these codes"
+    },
+    "password": {
+      "title": "Password",
+      "current": "Current password",
+      "new": "New password",
+      "change": "Change the password",
+      "changed": "The password was changed. Your other sessions have ended.",
+      "notSet": "This account has no password.",
+      "external": "This account signs in through a connected provider and has no password sign-in.",
+      "guidance": "Use at least 15 characters. A passphrase of several unrelated words reaches that length. Avoid well-known phrases, the name of this service and your own name or e-mail address.",
+      "counter_one": "{{count}} character (15 to 128)",
+      "counter_other": "{{count}} characters (15 to 128)",
+      "errors": {
+        "too_short": "This password has fewer than 15 characters.",
+        "too_long": "This password has more than 128 characters.",
+        "common": "This password is on a list of commonly used passwords. Choose a different one.",
+        "context": "This password contains a word connected to this service, your name or your e-mail address. Choose a different one.",
+        "breached": "This password appears in known data breaches. Choose a different one.",
+        "current_required": "Enter your current password.",
+        "current_invalid": "The current password is not correct."
+      }
+    },
+    "email": {
+      "title": "E-mail address",
+      "current": "Current address:",
+      "new": "New e-mail address",
+      "submit": "Change the address",
+      "sent": "We have sent a confirmation link to the new address. The address changes when you open it.",
+      "confirmTitle": "Confirm the new e-mail address",
+      "confirmText": "The new address replaces the current address of your account.",
+      "confirm": "Confirm new address",
+      "changed": "Your e-mail address was changed.",
+      "signInFirst": "Sign in to the account first. The button works again once you are signed in.",
+      "signInNewTab": "Sign in in a new tab"
+    },
+    "identities": {
+      "title": "Connected accounts",
+      "connected": "connected",
+      "connect": "Connect",
+      "connectLabel": "Connect {{label}}",
+      "confirmTitle": "Connect {{label}}?",
+      "confirmLink": "After the connection, this account signs in with {{label}} only. Your passkeys, your authenticator app and your recovery codes then serve as the second step after {{label}}. Sign-in with a password, sign-in with a passkey alone and recovery through an e-mail link end for this account.",
+      "linked": "The account is connected."
+    },
+    "sessions": {
+      "title": "Active sessions",
+      "unknownDevice": "Unknown device",
+      "thisDevice": "This device",
+      "methodsLabel": "Sign-in",
+      "started": "Started",
+      "lastActive": "Last activity",
+      "end": "End",
+      "ended": "The session was ended.",
+      "endOthers": "End all other sessions",
+      "keepOthers": "Keep the other sessions",
+      "promptTitle": "End your other sessions?",
+      "promptText": "Your sign-in methods changed. Ending your other sessions signs out every other device.",
+      "methods": {
+        "passkey": "Passkey",
+        "password": "Password",
+        "totp": "Authenticator app",
+        "recovery_code": "Recovery code",
+        "email_code": "E-mail link",
+        "oidc": "Sign-in provider",
+        "ldap": "Directory account",
+        "idp_mfa": "Multi-factor sign-in of the provider",
+        "demo": "Demo account"
+      }
+    },
+    "stepUp": {
+      "title": "Confirm it is you",
+      "text": "This change needs a recent confirmation with a second factor.",
+      "passkey": "Use a passkey",
+      "codeLabel": "Six-digit code of the authenticator app",
+      "confirm": "Confirm with the code",
+      "provider": "Continue with {{label}}",
+      "unavailable": "This session has no second factor for the confirmation."
+    },
+    "errors": {
+      "lastFactor": "You cannot remove your last second factor.",
+      "adminPasskeyRequired": "Your role requires at least one passkey.",
+      "totpAlreadyEnabled": "An authenticator app is already set up.",
+      "passwordRequired": "The authenticator app needs a password first.",
+      "linkRequired": "An account with this e-mail address exists. Sign in to it and connect this account in your security settings.",
+      "identityInUse": "This sign-in belongs to another account.",
+      "providerAlreadyLinked": "Your account is already connected to this provider.",
+      "registrationFailed": "The passkey could not be created. Please try again.",
+      "passkeyExists": "This device or security key already holds a passkey for your account.",
+      "invalidCode": "The code is not correct. Check the time on your device and try again.",
+      "stepUpNotAvailable": "A confirmation at the provider is not available.",
+      "passwordRejected": "The new password was not accepted. The reason is shown below the field."
+    }
+  },
+  "errors": {
+    "tooManyAttempts": "Too many attempts. Try again in {{minutes}} minutes.",
+    "generic": "Something went wrong. Please try again."
   }
 }

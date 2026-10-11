@@ -1,9 +1,18 @@
 import type { ReactNode } from "react";
 import { createBrowserRouter, Outlet, type RouteObject } from "react-router";
+import { EmailConfirmPage } from "../account/EmailConfirmPage";
+import { SecurityPage } from "../account/SecurityPage";
+import { StepUpProvider } from "../account/StepUpProvider";
 import type { Role } from "../api/session";
+import { EnrollmentWizard } from "../auth/EnrollmentWizard";
+import { FinishPage } from "../auth/FinishPage";
+import { InvitationPage } from "../auth/InvitationPage";
+import { RecoveryPage } from "../auth/RecoveryPage";
 import { RequireAuth } from "../auth/RequireAuth";
 import { RequireRole } from "../auth/RequireRole";
 import { SessionProvider } from "../auth/SessionProvider";
+import { SignedOutPage } from "../auth/SignedOutPage";
+import { SignInPage } from "../auth/SignInPage";
 import { ErrorPage } from "./ErrorPage";
 import { Layout } from "./Layout";
 import { NotFoundPage } from "./NotFoundPage";
@@ -18,9 +27,20 @@ export const ADMIN_ROLES: readonly Role[] = [
   "registrar",
 ];
 
-/** Every route except `/sign-in` and the not-found page sits under `RequireAuth`. */
+/**
+ * The account routes of 0011 that serve sessions before a full sign-in sit
+ * outside `RequireAuth`: sign-in, the OIDC finish step, invitation,
+ * enrollment, recovery, the e-mail confirmation link and the post-logout
+ * page. Every other route sits under `RequireAuth`.
+ */
 export const appRoutes: RouteObject[] = [
-  { path: "sign-in", element: <PlaceholderPage page="signIn" /> },
+  { path: "sign-in", element: <SignInPage /> },
+  { path: "auth/finish", element: <FinishPage /> },
+  { path: "invite", element: <InvitationPage /> },
+  { path: "enroll", element: <EnrollmentWizard /> },
+  { path: "recover", element: <RecoveryPage /> },
+  { path: "account/email/confirm", element: <EmailConfirmPage /> },
+  { path: "signed-out", element: <SignedOutPage /> },
   {
     element: (
       <RequireAuth>
@@ -29,6 +49,7 @@ export const appRoutes: RouteObject[] = [
     ),
     children: [
       { index: true, element: <PlaceholderPage page="home" /> },
+      { path: "account/security", element: <SecurityPage /> },
       { path: "programs/:slug", element: <PlaceholderPage page="program" /> },
       {
         path: "programs/:slug/stations/:position",
@@ -78,7 +99,9 @@ export function createAppRouter() {
   return createBrowserRouter(
     createRoutes(
       <SessionProvider>
-        <Layout />
+        <StepUpProvider>
+          <Layout />
+        </StepUpProvider>
       </SessionProvider>,
     ),
   );

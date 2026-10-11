@@ -65,4 +65,22 @@ defmodule EspalierWeb.Schemas.SessionPayload do
     struct?: false,
     derive?: false
   )
+
+  @doc """
+  The schema of an answer that carries the session payload and the members
+  `extra`, required unless named in `optional`, with `title` and
+  `description` (task 0011).
+  """
+  def with_members(title, description, extra, optional \\ []) do
+    base = schema()
+    required = Enum.sort(base.required ++ (Map.keys(extra) -- optional))
+
+    %{
+      base
+      | title: title,
+        description: description,
+        properties: Map.merge(base.properties, extra),
+        required: required
+    }
+  end
 end

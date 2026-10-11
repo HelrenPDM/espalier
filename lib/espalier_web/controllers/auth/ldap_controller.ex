@@ -10,6 +10,15 @@ defmodule EspalierWeb.Auth.LdapController do
   authentication failure answers the same 401 `invalid_credentials`.
   """
   use EspalierWeb, :controller
+  use OpenApiSpex.ControllerSpecs
+
+  alias EspalierWeb.ApiSpec.Responses
+  alias EspalierWeb.Schemas.{ExternalNextStep, Fields, LdapCredentialsRequest}
+
+  # OpenAPI operations of task 0011 (README section 6.12). They describe the
+  # route; validation and error bodies stay those of task 0007.
+  tags ["Session"]
+  security Responses.csrf()
 
   alias Espalier.Accounts
   alias Espalier.Accounts.LdapSignIn
@@ -20,6 +29,35 @@ defmodule EspalierWeb.Auth.LdapController do
   action_fallback EspalierWeb.FallbackController
 
   plug RateLimit, [bucket: :ldap_ip] when action in [:create]
+
+  operation :create,
+    summary: "Sign in with a directory account",
+    description:
+      "A directory bind is a first factor only: an enrolled user enters the pending " <>
+        "second-factor state, a user without a local factor an enrollment session. Every " <>
+        "authentication failure answers 401 `invalid_credentials`.",
+    parameters: [
+      provider: [
+        in: :path,
+        required: true,
+        description: "The provider key.",
+        schema: Fields.string()
+      ]
+    ],
+    request_body:
+      {"The directory credentials", "application/json", LdapCredentialsRequest, required: true},
+    responses:
+      Map.merge(
+        %{200 => {"The next step", "application/json", ExternalNextStep}},
+        Responses.errors([
+          {400, ["bad_request"]},
+          {401, ["invalid_credentials"]},
+          {403, ["csrf", "cross_site_request"]},
+          {404, ["unknown_provider"]},
+          {409, ["link_required"]},
+          {429, ["rate_limited"]}
+        ])
+      )
 
   def create(conn, %{"provider" => key} = params) do
     with {:ok, provider} <- fetch_provider(key),

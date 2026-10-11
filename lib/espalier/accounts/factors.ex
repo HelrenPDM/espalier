@@ -127,7 +127,12 @@ defmodule Espalier.Accounts.Factors do
       not holds_passkey?(user)
   end
 
-  @doc "The body of `GET /api/me/security` without `recent_auth_until`."
+  @doc """
+  The body of `GET /api/me/security` without `recent_auth_until`.
+  `linked_providers` holds the provider keys of the user's external
+  identities (task 0011): password sign-in, discoverable passkey sign-in and
+  recovery serve only accounts without one.
+  """
   def summary(%User{} = user) do
     totp = Totp.get_enabled(user)
 
@@ -150,7 +155,8 @@ defmodule Espalier.Accounts.Factors do
         generated_at: RecoveryCodes.generated_at(user)
       },
       password_set: is_binary(user.hashed_password),
-      admin_passkey_required: admin_passkey_required?(user, Accounts.roles_for(user))
+      admin_passkey_required: admin_passkey_required?(user, Accounts.roles_for(user)),
+      linked_providers: Accounts.linked_provider_keys(Scope.for_user(user))
     }
   end
 

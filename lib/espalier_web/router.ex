@@ -68,6 +68,13 @@ defmodule EspalierWeb.Router do
     plug :fetch_session
   end
 
+  # The SPA route /auth/finish (task 0011). The redirect chain from the
+  # provider makes it a cross-site navigation; the route reads no session
+  # and serves index.html only.
+  pipeline :spa_navigation do
+    plug EspalierWeb.Plugs.FetchMetadata, allow_cross_site_navigation: [["auth", "finish"]]
+  end
+
   pipeline :auth_bare do
     plug :accepts, ["json"]
     plug EspalierWeb.Plugs.FetchMetadata
@@ -81,6 +88,14 @@ defmodule EspalierWeb.Router do
     pipe_through :auth_bare
 
     get "/providers", ProviderController, :index
+  end
+
+  # The finish step of an OIDC flow: the SPA posts the ticket of the
+  # fragment same-origin to POST /api/auth/finish (README section 6.5).
+  scope "/auth", EspalierWeb do
+    pipe_through :spa_navigation
+
+    get "/finish", SpaController, :index
   end
 
   # The only OIDC entry points (task 0006, docs/security/authentication.md).
@@ -180,6 +195,18 @@ defmodule EspalierWeb.Router do
     delete "/totp", TotpController, :delete
     post "/recovery-codes", RecoveryCodeController, :create
     post "/identities/ldap/:provider", LdapIdentityController, :create
+  end
+
+  # Seeding routes of the end-to-end tests (task 0011). Only config/dev.exs
+  # sets dev_routes, and only dev and test compile the controller.
+  if Application.compile_env(:espalier, :dev_routes) do
+    scope "/api/dev/e2e", EspalierWeb do
+      pipe_through :api
+
+      post "/invitations", DevE2EController, :invitations
+      post "/reset", DevE2EController, :reset
+      post "/age-recent-auth", DevE2EController, :age_recent_auth
+    end
   end
 
   # The SPA catch-all stays the last route.

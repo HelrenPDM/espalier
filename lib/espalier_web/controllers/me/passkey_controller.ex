@@ -7,6 +7,22 @@ defmodule EspalierWeb.Me.PasskeyController do
   registration answers 422 `registration_failed`.
   """
   use EspalierWeb, :controller
+  use OpenApiSpex.ControllerSpecs
+
+  alias EspalierWeb.ApiSpec.Responses
+
+  alias EspalierWeb.Schemas.{
+    FactorChange,
+    Fields,
+    PasskeyCreationOptions,
+    PasskeyRegistrationRequest,
+    PasskeyRegistrationResult
+  }
+
+  # OpenAPI operations of task 0011 (README section 6.12). They describe the
+  # route; validation and error bodies stay those of task 0005.
+  tags ["Account"]
+  security Responses.session_and_csrf()
 
   alias Espalier.Accounts
   alias Espalier.Accounts.{Factors, Passkeys}
@@ -16,12 +32,45 @@ defmodule EspalierWeb.Me.PasskeyController do
 
   action_fallback EspalierWeb.FallbackController
 
+  operation :options,
+    summary: "Start a passkey registration",
+    description:
+      "Stores a single-use challenge for 300 seconds and answers the creation options. " <>
+        "Needs a second factor within the last 10 minutes in an `mfa` session.",
+    responses:
+      Map.merge(
+        %{200 => {"The creation options", "application/json", PasskeyCreationOptions}},
+        Responses.errors([
+          {401, ["unauthenticated"]},
+          {403, ["forbidden", "reauth_required", "csrf", "cross_site_request"]}
+        ])
+      )
+
   def options(conn, _params) do
     user = Accounts.ensure_webauthn_user_handle(conn.assigns.current_scope.user)
     challenge = Passkeys.new_registration_challenge()
     {conn, _row} = WebauthnCeremony.start(conn, :registration, user.id, challenge)
     json(conn, Options.creation(user, challenge, Passkeys.list_credentials(user)))
   end
+
+  operation :create,
+    summary: "Register a passkey",
+    description:
+      "Completes an enrollment or a recovery, which then answers ten new `recovery_codes` " <>
+        "and the `session` payload with a new CSRF token.",
+    request_body:
+      {"The result of startRegistration", "application/json", PasskeyRegistrationRequest,
+       required: true},
+    responses:
+      Map.merge(
+        %{200 => {"The passkey", "application/json", PasskeyRegistrationResult}},
+        Responses.errors([
+          {400, ["bad_request"]},
+          {401, ["unauthenticated"]},
+          {403, ["forbidden", "reauth_required", "csrf", "cross_site_request"]},
+          {422, ["registration_failed"]}
+        ])
+      )
 
   def create(conn, %{"credential" => %{} = credential} = params) do
     scope = conn.assigns.current_scope
@@ -45,6 +94,25 @@ defmodule EspalierWeb.Me.PasskeyController do
   end
 
   def create(_conn, _params), do: {:error, :bad_request}
+
+  operation :delete,
+    summary: "Remove a passkey",
+    description:
+      "Needs a second factor within the last 10 minutes. The last remaining second factor " <>
+        "and, with `ADMIN_REQUIRE_PASSKEY=true`, the last passkey of an admin stay.",
+    parameters: [
+      id: [in: :path, required: true, description: "The passkey id.", schema: Fields.uuid()]
+    ],
+    responses:
+      Map.merge(
+        %{200 => {"Removed", "application/json", FactorChange}},
+        Responses.errors([
+          {401, ["unauthenticated"]},
+          {403, ["enrollment_required", "reauth_required", "csrf", "cross_site_request"]},
+          {404, ["not_found"]},
+          {409, ["last_factor", "admin_passkey_required"]}
+        ])
+      )
 
   def delete(conn, %{"id" => id}) do
     scope = conn.assigns.current_scope

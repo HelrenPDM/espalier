@@ -4,24 +4,24 @@
  */
 
 export interface paths {
-    "/api/assessments/{id}/attempts": {
+    "/api/programs/{slug}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Read a program */
+        get: operations["EspalierWeb.ProgramController.show"];
         put?: never;
-        /** Submit an exam attempt */
-        post: operations["EspalierWeb.AttemptController.create"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/auth/demo": {
+    "/api/me/passkeys/options": {
         parameters: {
             query?: never;
             header?: never;
@@ -31,17 +31,17 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Sign in to a demo account
-         * @description Only with `AUTH_DEMO=true`; otherwise 404.
+         * Start a passkey registration
+         * @description Stores a single-use challenge for 300 seconds and answers the creation options. Needs a second factor within the last 10 minutes in an `mfa` session.
          */
-        post: operations["EspalierWeb.Auth.DemoController.create"];
+        post: operations["EspalierWeb.Me.PasskeyController.options"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/auth/invitations": {
+    "/api/auth/passkey/options": {
         parameters: {
             query?: never;
             header?: never;
@@ -51,70 +51,10 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Request an invitation
-         * @description Self-service invitation with `SIGNUP=invite` or `domain`; the answer is the same for every address. `SIGNUP=closed` and `LOCAL_ACCOUNTS=false` answer 404.
+         * Start a passkey assertion
+         * @description Stores a single-use challenge for 300 seconds and answers the request options. `second_factor` needs the pending state of a first factor, `reauth` an `mfa` session, and `sign_in` local accounts.
          */
-        post: operations["EspalierWeb.Auth.InvitationController.create"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/auth/invitations/accept": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Accept an invitation
-         * @description Opens an enrollment session, which reaches only the enrollment routes.
-         */
-        post: operations["EspalierWeb.Auth.InvitationController.accept"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/auth/password": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Sign in with a password
-         * @description A correct password yields the pending second-factor state for five minutes and never a session. Known and unknown addresses receive the same answer.
-         */
-        post: operations["EspalierWeb.Auth.PasswordController.create"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/enrollments": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Enroll in a program
-         * @description Creates the enrollment (201). An existing enrollment answers 200 and takes the given path only while the learner has not chosen a path by hand.
-         */
-        post: operations["EspalierWeb.EnrollmentController.create"];
+        post: operations["EspalierWeb.Auth.PasskeyAuthController.options"];
         delete?: never;
         options?: never;
         head?: never;
@@ -141,7 +81,7 @@ export interface paths {
         patch: operations["EspalierWeb.EnrollmentController.update"];
         trace?: never;
     };
-    "/api/items/{id}/responses": {
+    "/api/assessments/{id}/attempts": {
         parameters: {
             query?: never;
             header?: never;
@@ -150,15 +90,15 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Answer a practice item */
-        post: operations["EspalierWeb.ItemResponseController.create"];
+        /** Submit an exam attempt */
+        post: operations["EspalierWeb.AttemptController.create"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/me/email": {
+    "/api/auth/recovery/verify": {
         parameters: {
             query?: never;
             header?: never;
@@ -166,19 +106,19 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
+        put?: never;
         /**
-         * Request an e-mail change
-         * @description Sends a confirmation link to the new address; the answer is the same for every address. Needs a second factor within the last 10 minutes.
+         * Recover with the link and a saved recovery code
+         * @description Opens a `recovery` session, which reaches only the enrollment routes. Every failure answers 401 `authentication_failed`; the link stays valid until it expires.
          */
-        put: operations["EspalierWeb.Me.EmailController.update"];
-        post?: never;
+        post: operations["EspalierWeb.Auth.RecoveryController.verify"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/me/email/confirm": {
+    "/api/auth/ldap/{provider}": {
         parameters: {
             query?: never;
             header?: never;
@@ -187,43 +127,109 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Confirm an e-mail change */
-        post: operations["EspalierWeb.Me.EmailController.confirm"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/me/password": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
         /**
-         * Change the password
-         * @description Needs `current_password` and a second factor within the last 10 minutes; an enrollment or recovery session sets the password without them. Ends every other session and answers with a new session payload and CSRF token.
+         * Sign in with a directory account
+         * @description A directory bind is a first factor only: an enrolled user enters the pending second-factor state, a user without a local factor an enrollment session. Every authentication failure answers 401 `invalid_credentials`.
          */
-        put: operations["EspalierWeb.Me.PasswordController.update"];
-        post?: never;
+        post: operations["EspalierWeb.Auth.LdapController.create"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/me/progress": {
+    "/api/auth/passkey": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Read the own progress in a program */
-        get: operations["EspalierWeb.Me.ProgressController.show"];
+        get?: never;
+        put?: never;
+        /**
+         * Sign in with a passkey
+         * @description The discoverable passkey sign-in of accounts without an external identity opens an `mfa` session. Every failure answers 401 `authentication_failed`.
+         */
+        post: operations["EspalierWeb.Auth.PasskeyAuthController.create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/recovery-codes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create new recovery codes
+         * @description Needs a second factor within the last 10 minutes. Every earlier code stops working.
+         */
+        post: operations["EspalierWeb.Me.RecoveryCodeController.create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/finish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finish an OIDC flow
+         * @description Consumes the single-use ticket of the callback together with the transaction cookie. Answers a next step, or the session payload for a full session and a step-up, with `linked: true` after a link.
+         */
+        post: operations["EspalierWeb.Auth.FinishController.create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/passkeys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register a passkey
+         * @description Completes an enrollment or a recovery, which then answers ten new `recovery_codes` and the `session` payload with a new CSRF token.
+         */
+        post: operations["EspalierWeb.Me.PasskeyController.create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/programs/{slug}/handbook": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the handbook of a program
+         * @description Every rule with its statement and action grouped by module, plus the keys of the program's placeholder blocks (README section 7, domain rule 10).
+         */
+        get: operations["EspalierWeb.ProgramController.handbook"];
         put?: never;
         post?: never;
         delete?: never;
@@ -232,15 +238,72 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/me/sessions": {
+    "/api/modules/{id}/completion": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** List the own sessions */
-        get: operations["EspalierWeb.Me.SessionController.index"];
+        get?: never;
+        put?: never;
+        /** Complete a module */
+        post: operations["EspalierWeb.ModuleCompletionController.create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/programs/{slug}/glossary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read the glossary of a program */
+        get: operations["EspalierWeb.ProgramController.glossary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/second-factor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete a sign-in with a second factor
+         * @description Completes the pending state of a first factor with exactly one of `totp`, `passkey` and `recovery_code`. After a recovery code the answer carries `recovery_codes_remaining`. The fifth failure clears the pending state.
+         */
+        post: operations["EspalierWeb.Auth.SecondFactorController.create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the external identity providers
+         * @description The public entries of the configured providers in configured order.
+         */
+        get: operations["EspalierWeb.ProviderController.index"];
         put?: never;
         post?: never;
         delete?: never;
@@ -269,24 +332,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/modules/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Read a module */
-        get: operations["EspalierWeb.ModuleController.show"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/modules/{id}/completion": {
+    "/api/me/email/confirm": {
         parameters: {
             query?: never;
             header?: never;
@@ -295,8 +341,68 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Complete a module */
-        post: operations["EspalierWeb.ModuleCompletionController.create"];
+        /** Confirm an e-mail change */
+        post: operations["EspalierWeb.Me.EmailController.confirm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/oidc/{provider}/intents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create an OIDC intent
+         * @description Only `mfa` sessions. `link` needs a second factor within the last 10 minutes; `step_up` needs an identity of the provider and `idp_trusted` mode.
+         */
+        post: operations["EspalierWeb.OidcIntentController.create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request an invitation
+         * @description Self-service invitation with `SIGNUP=invite` or `domain`; the answer is the same for every address. `SIGNUP=closed` and `LOCAL_ACCOUNTS=false` answer 404.
+         */
+        post: operations["EspalierWeb.Auth.InvitationController.create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/totp/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm the authenticator app
+         * @description Enables the factor after one valid code and completes an enrollment or a recovery, which then answers ten new `recovery_codes` and the `session` payload.
+         */
+        post: operations["EspalierWeb.Me.TotpController.confirm"];
         delete?: never;
         options?: never;
         head?: never;
@@ -320,54 +426,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/programs/{slug}": {
+    "/api/me/reauth": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Read a program */
-        get: operations["EspalierWeb.ProgramController.show"];
+        get?: never;
         put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/programs/{slug}/glossary": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Read the glossary of a program */
-        get: operations["EspalierWeb.ProgramController.glossary"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/programs/{slug}/handbook": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
         /**
-         * Read the handbook of a program
-         * @description Every rule with its statement and action grouped by module, plus the keys of the program's placeholder blocks (README section 7, domain rule 10).
+         * Re-authenticate with a local second factor
+         * @description Reissues the session with a new token and CSRF token and opens the 10-minute window of a recent second factor. Every failure answers 401 `authentication_failed`.
          */
-        get: operations["EspalierWeb.ProgramController.handbook"];
+        post: operations["EspalierWeb.Me.ReauthController.create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/passkeys/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
         put?: never;
         post?: never;
+        /**
+         * Remove a passkey
+         * @description Needs a second factor within the last 10 minutes. The last remaining second factor and, with `ADMIN_REQUIRE_PASSKEY=true`, the last passkey of an admin stay.
+         */
+        delete: operations["EspalierWeb.Me.PasskeyController.delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/demo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign in to a demo account
+         * @description Only with `AUTH_DEMO=true`; otherwise 404.
+         */
+        post: operations["EspalierWeb.Auth.DemoController.create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -388,14 +500,135 @@ export interface paths {
         get: operations["EspalierWeb.SessionController.show"];
         put?: never;
         post?: never;
-        /** Sign out */
+        /**
+         * Sign out
+         * @description Answers 200 with `logout_url` for an OIDC session whose provider has an end-session endpoint on its allowed hosts, and 204 otherwise.
+         */
         delete: operations["EspalierWeb.SessionController.delete"];
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/auth/providers": {
+    "/api/items/{id}/responses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Answer a practice item */
+        post: operations["EspalierWeb.ItemResponseController.create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read the own progress in a program */
+        get: operations["EspalierWeb.Me.ProgressController.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/invitations/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept an invitation
+         * @description Opens an enrollment session, which reaches only the enrollment routes.
+         */
+        post: operations["EspalierWeb.Auth.InvitationController.accept"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/totp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start the authenticator app setup
+         * @description Answers a new secret, which works after one valid code. An enrollment or recovery session without a password or an external identity answers 409 `password_required`.
+         */
+        post: operations["EspalierWeb.Me.TotpController.create"];
+        /**
+         * Remove the authenticator app
+         * @description Needs a second factor within the last 10 minutes. The last remaining second factor stays.
+         */
+        delete: operations["EspalierWeb.Me.TotpController.delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/enrollments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enroll in a program
+         * @description Creates the enrollment (201). An existing enrollment answers 200 and takes the given path only while the learner has not chosen a path by hand.
+         */
+        post: operations["EspalierWeb.EnrollmentController.create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change the password
+         * @description Needs `current_password` and a second factor within the last 10 minutes; an enrollment or recovery session sets the password without them. Ends every other session and answers with a new session payload and CSRF token.
+         */
+        put: operations["EspalierWeb.Me.PasswordController.update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/security": {
         parameters: {
             query?: never;
             header?: never;
@@ -403,12 +636,126 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List the external identity providers
-         * @description The public entries of the configured providers in configured order.
+         * List the own second factors
+         * @description Passkeys, the authenticator app, the recovery codes left, whether a password is set, the linked providers and the end of the recent-auth window. Enrollment and recovery sessions reach it.
          */
-        get: operations["EspalierWeb.ProviderController.index"];
+        get: operations["EspalierWeb.Me.SecurityController.show"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the own sessions */
+        get: operations["EspalierWeb.Me.SessionController.index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/modules/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read a module */
+        get: operations["EspalierWeb.ModuleController.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign in with a password
+         * @description A correct password yields the pending second-factor state for five minutes and never a session. Known and unknown addresses receive the same answer.
+         */
+        post: operations["EspalierWeb.Auth.PasswordController.create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Request an e-mail change
+         * @description Sends a confirmation link to the new address; the answer is the same for every address. Needs a second factor within the last 10 minutes.
+         */
+        put: operations["EspalierWeb.Me.EmailController.update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/recovery/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request a recovery link
+         * @description Sends a recovery link to a local account; the answer is the same for every address. `LOCAL_ACCOUNTS=false` answers 404.
+         */
+        post: operations["EspalierWeb.Auth.RecoveryController.start"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/identities/ldap/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Connect a directory account
+         * @description Needs a second factor within the last 10 minutes. After the link, the account signs in through the directory and its local second factor only.
+         */
+        post: operations["EspalierWeb.Me.LdapIdentityController.create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -488,6 +835,16 @@ export interface components {
             title: string;
         };
         /**
+         * LdapCredentialsRequest
+         * @description A directory bind.
+         */
+        LdapCredentialsRequest: {
+            /** @description The directory password. */
+            password: string;
+            /** @description The directory login. */
+            username: string;
+        };
+        /**
          * Handbook
          * @description Every rule with its statement and action.
          */
@@ -545,12 +902,29 @@ export interface components {
             token: string;
         };
         /**
+         * PasskeyRegistrationRequest
+         * @description Registers a passkey.
+         */
+        PasskeyRegistrationRequest: {
+            credential: components["schemas"]["PasskeyAttestation"];
+            /** @description The name of the passkey in the list. */
+            nickname?: string;
+        };
+        /**
          * InvitationAcceptRequest
          * @description Accepts an invitation and opens an enrollment session.
          */
         InvitationAcceptRequest: {
             /** @description The token of the invitation link. */
             token: string;
+        };
+        /**
+         * ExternalNextStep
+         * @description `second_factor` opens the pending state; `enroll_second_factor` an enrollment session.
+         */
+        ExternalNextStep: {
+            /** @enum {string} */
+            next: "second_factor" | "enroll_second_factor";
         };
         /**
          * AttemptRequest
@@ -610,6 +984,40 @@ export interface components {
             };
         };
         /**
+         * OidcIntentRequest
+         * @description Creates a single-use intent.
+         */
+        OidcIntentRequest: {
+            /**
+             * @description `link` connects the provider; `step_up` re-authenticates at the provider.
+             * @enum {string}
+             */
+            purpose: "link" | "step_up";
+        };
+        /**
+         * PasskeyAssertion
+         * @description A passkey assertion, base64url-encoded.
+         */
+        PasskeyAssertion: {
+            /** @enum {string} */
+            authenticatorAttachment?: "platform" | "cross-platform";
+            /** @description The client extension outputs; the server reads none. */
+            clientExtensionResults: unknown;
+            /** @description The credential id, base64url. */
+            id: string;
+            /** @description The credential id, base64url. */
+            rawId: string;
+            response: {
+                authenticatorData: string;
+                clientDataJSON: string;
+                signature: string;
+                /** @description The user handle of a discoverable credential. */
+                userHandle?: string;
+            };
+            /** @enum {string} */
+            type: "public-key";
+        };
+        /**
          * ItemView
          * @description A practice or exam item without its answer key.
          */
@@ -659,6 +1067,57 @@ export interface components {
                 }[];
             }[];
             stem: string;
+        };
+        /**
+         * PasskeyRegistrationResult
+         * @description The registered passkey.
+         */
+        PasskeyRegistrationResult: {
+            /** @description The other live sessions of the user. */
+            other_sessions: number;
+            passkey: components["schemas"]["PasskeyView"];
+            /** @description Shown once: ten new recovery codes. */
+            recovery_codes?: string[];
+            session?: components["schemas"]["SessionPayload"];
+        };
+        /**
+         * TotpEnrollment
+         * @description A TOTP secret awaiting its first code.
+         */
+        TotpEnrollment: {
+            otpauth_uri: string;
+            /** @description A `data:image/svg+xml;base64,` URL of the QR code. */
+            qr_svg_data_url: string;
+            /** @description The secret in base32 without padding. */
+            secret_base32: string;
+        };
+        /**
+         * SecuritySummary
+         * @description The second factors of the signed-in user.
+         */
+        SecuritySummary: {
+            /** @description An admin without a passkey while `ADMIN_REQUIRE_PASSKEY=true`. */
+            admin_passkey_required: boolean;
+            /** @description The sorted provider keys of the external identities; `[]` for a local account. */
+            linked_providers: string[];
+            passkeys: components["schemas"]["PasskeyView"][];
+            password_set: boolean;
+            /**
+             * Format: date-time
+             * @description The end of the 10-minute window of a recent second factor.
+             */
+            recent_auth_until: string | null;
+            recovery_codes: {
+                /** Format: date-time */
+                generated_at: string | null;
+                /** @description The number of unused codes. */
+                remaining: number;
+            };
+            totp: {
+                enabled: boolean;
+                /** Format: date-time */
+                enabled_at: string | null;
+            };
         };
         /**
          * ModuleView
@@ -748,6 +1207,23 @@ export interface components {
             title: string;
         };
         /**
+         * ReauthRequest
+         * @description Exactly one local second factor.
+         */
+        ReauthRequest: {
+            passkey?: components["schemas"]["PasskeyAssertion"];
+            /** @description A six-digit code of the authenticator app. */
+            totp?: string;
+        };
+        /**
+         * FactorChange
+         * @description The factor was removed.
+         */
+        FactorChange: {
+            /** @description The other live sessions of the user. */
+            other_sessions: number;
+        };
+        /**
          * SessionPayload
          * @description The session of the browser.
          */
@@ -832,11 +1308,158 @@ export interface components {
             module_id: string;
         };
         /**
+         * FinishSession
+         * @description The session after an OIDC sign-in, step-up or link.
+         */
+        FinishSession: {
+            /** @description The token for the `x-csrf-token` header. */
+            csrf_token: string;
+            flags: {
+                admin_passkey_required: boolean;
+                /** @description Mirrors `AUTH_DEMO`. */
+                demo: boolean;
+                local_accounts: boolean;
+                /** @enum {string} */
+                signup: "closed" | "invite" | "domain";
+            };
+            /**
+             * @description Only after a link: `true`.
+             * @enum {boolean}
+             */
+            linked?: true;
+            /** @description The pending second-factor state after a first factor. */
+            pending: {
+                /** Format: date-time */
+                expires_at: string;
+                /** @enum {string} */
+                next: "second_factor";
+            } | null;
+            providers: {
+                /** @description The provider key of the configuration. */
+                key: string;
+                /**
+                 * @description A redirect to the provider or a credentials form.
+                 * @enum {string}
+                 */
+                kind: "redirect" | "credentials";
+                label: string;
+                /** @description The path where the sign-in starts. */
+                start_url: string;
+                /** @enum {string} */
+                type: "entra" | "google" | "oidc" | "ldap";
+            }[];
+            roles: ("learner" | "facilitator" | "author" | "registrar" | "analyst" | "admin")[];
+            session: {
+                auth_methods: ("passkey" | "password" | "totp" | "recovery_code" | "email_code" | "oidc" | "ldap" | "idp_mfa" | "demo")[];
+                /** Format: date-time */
+                expires_at: string;
+                idle_timeout_minutes: number;
+                /** @description The provider of the session row; `null` for local and demo. */
+                provider_key: string | null;
+                /**
+                 * Format: date-time
+                 * @description The end of the 10-minute window of a recent second factor.
+                 */
+                recent_auth_until: string | null;
+                /** @enum {string} */
+                strength: "mfa" | "recovery" | "enrollment" | "demo";
+            } | null;
+            user: {
+                display_name: string | null;
+                /** @description `null` for demo accounts and accounts without an address. */
+                email: string | null;
+                /** Format: uuid */
+                id: string;
+                locale: string;
+            } | null;
+        };
+        /**
          * ItemResponseRequest
          * @description A practice answer. The answer is evaluated and stored nowhere.
          */
         ItemResponseRequest: {
             answer: components["schemas"]["Answer"];
+        };
+        /**
+         * SecondFactorSession
+         * @description The full session after the second factor.
+         */
+        SecondFactorSession: {
+            /** @description The token for the `x-csrf-token` header. */
+            csrf_token: string;
+            flags: {
+                admin_passkey_required: boolean;
+                /** @description Mirrors `AUTH_DEMO`. */
+                demo: boolean;
+                local_accounts: boolean;
+                /** @enum {string} */
+                signup: "closed" | "invite" | "domain";
+            };
+            /** @description The pending second-factor state after a first factor. */
+            pending: {
+                /** Format: date-time */
+                expires_at: string;
+                /** @enum {string} */
+                next: "second_factor";
+            } | null;
+            providers: {
+                /** @description The provider key of the configuration. */
+                key: string;
+                /**
+                 * @description A redirect to the provider or a credentials form.
+                 * @enum {string}
+                 */
+                kind: "redirect" | "credentials";
+                label: string;
+                /** @description The path where the sign-in starts. */
+                start_url: string;
+                /** @enum {string} */
+                type: "entra" | "google" | "oidc" | "ldap";
+            }[];
+            /** @description Only after a recovery code: the number of unused codes. */
+            recovery_codes_remaining?: number;
+            roles: ("learner" | "facilitator" | "author" | "registrar" | "analyst" | "admin")[];
+            session: {
+                auth_methods: ("passkey" | "password" | "totp" | "recovery_code" | "email_code" | "oidc" | "ldap" | "idp_mfa" | "demo")[];
+                /** Format: date-time */
+                expires_at: string;
+                idle_timeout_minutes: number;
+                /** @description The provider of the session row; `null` for local and demo. */
+                provider_key: string | null;
+                /**
+                 * Format: date-time
+                 * @description The end of the 10-minute window of a recent second factor.
+                 */
+                recent_auth_until: string | null;
+                /** @enum {string} */
+                strength: "mfa" | "recovery" | "enrollment" | "demo";
+            } | null;
+            user: {
+                display_name: string | null;
+                /** @description `null` for demo accounts and accounts without an address. */
+                email: string | null;
+                /** Format: uuid */
+                id: string;
+                locale: string;
+            } | null;
+        };
+        /**
+         * OidcIntent
+         * @description The intent works once, for 5 minutes, with the creating session.
+         */
+        OidcIntent: {
+            /** @description The authorize path with the intent (`/auth/oidc/<key>?intent=<token>`), opened as a top-level navigation. */
+            url: string;
+        };
+        /**
+         * RecoveryVerifyRequest
+         * @description The link and a saved recovery code open a recovery session.
+         */
+        RecoveryVerifyRequest: {
+            /** @description A saved recovery code; case, spaces and hyphens do not count. */
+            recovery_code: string;
+            /** @description The token of the recovery link. */
+            token: string;
         };
         /**
          * ItemResult
@@ -867,6 +1490,24 @@ export interface components {
                 number: number;
                 statement: string;
             }[];
+        };
+        /**
+         * PasskeyView
+         * @description A registered passkey.
+         */
+        PasskeyView: {
+            /** @description The passkey is synced. */
+            backed_up: boolean;
+            /** @description The authenticator can sync the passkey. */
+            backup_eligible: boolean;
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            inserted_at: string;
+            /** Format: date-time */
+            last_used_at: string | null;
+            nickname: string | null;
+            transports: string[];
         };
         /**
          * InvitationRequest
@@ -926,6 +1567,14 @@ export interface components {
             objectives: components["schemas"]["ObjectiveProgress"][];
         };
         /**
+         * LogoutRedirect
+         * @description Signed out; the provider session ends next.
+         */
+        LogoutRedirect: {
+            /** @description The RP-initiated logout URL of the provider, with `post_logout_redirect_uri` `PUBLIC_URL/signed-out`. */
+            logout_url: string;
+        };
+        /**
          * EnrollmentView
          * @description The enrollment of the signed-in user.
          */
@@ -940,6 +1589,14 @@ export interface components {
             program_id: string;
             /** Format: date-time */
             started_at: string;
+        };
+        /**
+         * TotpConfirmRequest
+         * @description Confirms the authenticator app.
+         */
+        TotpConfirmRequest: {
+            /** @description A six-digit code of the new secret. */
+            code: string;
         };
         /**
          * EnrollmentPathRequest
@@ -960,6 +1617,130 @@ export interface components {
             key: string;
             /** @enum {string} */
             status: "evidenced" | "open";
+        };
+        /**
+         * PasskeyCreationOptions
+         * @description The options JSON of a registration.
+         */
+        PasskeyCreationOptions: {
+            /** @enum {string} */
+            attestation: "none";
+            authenticatorSelection: {
+                /** @enum {string} */
+                residentKey: "required";
+                /** @enum {string} */
+                userVerification: "required";
+            };
+            /** @description Base64url without padding. */
+            challenge: string;
+            /** @description The passkeys the user already holds. */
+            excludeCredentials: {
+                /** @description The credential id, base64url without padding. */
+                id: string;
+                transports: string[];
+                /** @enum {string} */
+                type: "public-key";
+            }[];
+            pubKeyCredParams: {
+                /** @enum {integer} */
+                alg: -8 | -7 | -257;
+                /** @enum {string} */
+                type: "public-key";
+            }[];
+            rp: {
+                id: string;
+                name: string;
+            };
+            /** @description Milliseconds (300,000). */
+            timeout: number;
+            user: {
+                displayName: string;
+                /** @description The WebAuthn user handle, base64url without padding. */
+                id: string;
+                name: string;
+            };
+        };
+        /**
+         * ReauthSession
+         * @description The reissued session after a re-authentication.
+         */
+        ReauthSession: {
+            /** @description The token for the `x-csrf-token` header. */
+            csrf_token: string;
+            flags: {
+                admin_passkey_required: boolean;
+                /** @description Mirrors `AUTH_DEMO`. */
+                demo: boolean;
+                local_accounts: boolean;
+                /** @enum {string} */
+                signup: "closed" | "invite" | "domain";
+            };
+            /** @description The pending second-factor state after a first factor. */
+            pending: {
+                /** Format: date-time */
+                expires_at: string;
+                /** @enum {string} */
+                next: "second_factor";
+            } | null;
+            providers: {
+                /** @description The provider key of the configuration. */
+                key: string;
+                /**
+                 * @description A redirect to the provider or a credentials form.
+                 * @enum {string}
+                 */
+                kind: "redirect" | "credentials";
+                label: string;
+                /** @description The path where the sign-in starts. */
+                start_url: string;
+                /** @enum {string} */
+                type: "entra" | "google" | "oidc" | "ldap";
+            }[];
+            /**
+             * Format: date-time
+             * @description The end of the 10-minute window.
+             */
+            recent_auth_until: string;
+            roles: ("learner" | "facilitator" | "author" | "registrar" | "analyst" | "admin")[];
+            session: {
+                auth_methods: ("passkey" | "password" | "totp" | "recovery_code" | "email_code" | "oidc" | "ldap" | "idp_mfa" | "demo")[];
+                /** Format: date-time */
+                expires_at: string;
+                idle_timeout_minutes: number;
+                /** @description The provider of the session row; `null` for local and demo. */
+                provider_key: string | null;
+                /**
+                 * Format: date-time
+                 * @description The end of the 10-minute window of a recent second factor.
+                 */
+                recent_auth_until: string | null;
+                /** @enum {string} */
+                strength: "mfa" | "recovery" | "enrollment" | "demo";
+            } | null;
+            user: {
+                display_name: string | null;
+                /** @description `null` for demo accounts and accounts without an address. */
+                email: string | null;
+                /** Format: uuid */
+                id: string;
+                locale: string;
+            } | null;
+        };
+        /**
+         * FinishRequest
+         * @description Ends an OIDC flow same-origin.
+         */
+        FinishRequest: {
+            /** @description The ticket from the fragment of `/auth/finish`. */
+            ticket: string;
+        };
+        /**
+         * RecoveryCodeList
+         * @description New recovery codes.
+         */
+        RecoveryCodeList: {
+            /** @description Shown once: ten new codes; every earlier code stops working. */
+            recovery_codes: string[];
         };
         /**
          * ProviderList
@@ -993,6 +1774,17 @@ export interface components {
                 short_text: string;
                 slug: string;
             }[];
+        };
+        /**
+         * SecondFactorRequest
+         * @description Exactly one second factor.
+         */
+        SecondFactorRequest: {
+            passkey?: components["schemas"]["PasskeyAssertion"];
+            /** @description A recovery code; case, spaces and hyphens do not count. */
+            recovery_code?: string;
+            /** @description A six-digit code of the authenticator app. */
+            totp?: string;
         };
         /**
          * ProgramList
@@ -1039,6 +1831,35 @@ export interface components {
             slot: number;
         };
         /**
+         * LdapLinkResult
+         * @description The directory account is connected.
+         */
+        LdapLinkResult: {
+            /** @enum {string} */
+            status: "linked" | "already_linked";
+        };
+        /**
+         * FinishResult
+         * @description A next step, or the session payload without `next`.
+         */
+        FinishResult: components["schemas"]["ExternalNextStep"] | components["schemas"]["FinishSession"];
+        /**
+         * TotpConfirmResult
+         * @description The authenticator app is enabled.
+         */
+        TotpConfirmResult: {
+            /** @description The other live sessions of the user. */
+            other_sessions: number;
+            /** @description Shown once: ten new recovery codes. */
+            recovery_codes?: string[];
+            session?: components["schemas"]["SessionPayload"];
+            totp: {
+                enabled: boolean;
+                /** Format: date-time */
+                enabled_at: string;
+            };
+        };
+        /**
          * AssessmentsOpenError
          * @description The open exams of the module.
          */
@@ -1074,6 +1895,31 @@ export interface components {
             wrong_count: number;
         };
         /**
+         * PasskeyAttestation
+         * @description A passkey registration, base64url-encoded.
+         */
+        PasskeyAttestation: {
+            /** @enum {string} */
+            authenticatorAttachment?: "platform" | "cross-platform";
+            /** @description The client extension outputs; the server reads none. */
+            clientExtensionResults: unknown;
+            /** @description The credential id, base64url. */
+            id: string;
+            /** @description The credential id, base64url. */
+            rawId: string;
+            response: {
+                attestationObject: string;
+                authenticatorData?: string;
+                clientDataJSON: string;
+                publicKey?: string;
+                publicKeyAlgorithm?: number;
+                /** @description Only the known transports are stored. */
+                transports?: string[];
+            };
+            /** @enum {string} */
+            type: "public-key";
+        };
+        /**
          * SessionList
          * @description The sessions of the signed-in user.
          */
@@ -1096,6 +1942,46 @@ export interface components {
                 strength: "mfa" | "recovery" | "enrollment" | "demo";
             }[];
         };
+        /**
+         * RecoveryStartRequest
+         * @description Sends a recovery link.
+         */
+        RecoveryStartRequest: {
+            /** @description The e-mail address of the account. */
+            email: string;
+        };
+        /**
+         * PasskeyOptionsRequest
+         * @description Starts a passkey assertion ceremony.
+         */
+        PasskeyOptionsRequest: {
+            /**
+             * @description The ceremony: discoverable sign-in (the default), the second factor of a pending sign-in, or the re-authentication of an `mfa` session.
+             * @enum {string}
+             */
+            purpose?: "sign_in" | "second_factor" | "reauth";
+        };
+        /**
+         * PasskeyRequestOptions
+         * @description The options JSON of an assertion.
+         */
+        PasskeyRequestOptions: {
+            /** @description The credentials of the user; absent for the discoverable sign-in. */
+            allowCredentials?: {
+                /** @description The credential id, base64url without padding. */
+                id: string;
+                transports: string[];
+                /** @enum {string} */
+                type: "public-key";
+            }[];
+            /** @description Base64url without padding. */
+            challenge: string;
+            rpId: string;
+            /** @description Milliseconds (300,000). */
+            timeout: number;
+            /** @enum {string} */
+            userVerification: "required";
+        };
     };
     responses: never;
     parameters: never;
@@ -1105,30 +1991,25 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    "EspalierWeb.AttemptController.create": {
+    "EspalierWeb.ProgramController.show": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                /** @description The exam id. */
-                id: string;
+                /** @description The slug of a published program. */
+                slug: string;
             };
             cookie?: never;
         };
-        /** @description The answers */
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AttemptRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
-            /** @description The attempt */
-            201: {
+            /** @description The program */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AttemptResult"];
+                    "application/json": components["schemas"]["ProgramView"];
                 };
             };
             /** @description Error codes: `unauthenticated` */
@@ -1140,358 +2021,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Error codes: `enrollment_required`, `csrf`, `cross_site_request` */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Error codes: `not_found` */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Error codes: `not_enrolled` */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Error codes: `validation_failed` */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Error codes: `rate_limited` */
-            429: {
-                headers: {
-                    /** @description Seconds until the bucket admits the next request. */
-                    "retry-after"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    "EspalierWeb.Auth.DemoController.create": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description The demo slot */
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DemoSignInRequest"];
-            };
-        };
-        responses: {
-            /** @description The session payload */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SessionPayload"];
-                };
-            };
-            /** @description Error codes: `bad_request` */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Error codes: `csrf`, `cross_site_request` */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Error codes: `not_found` */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Error codes: `rate_limited` */
-            429: {
-                headers: {
-                    /** @description Seconds until the bucket admits the next request. */
-                    "retry-after"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    "EspalierWeb.Auth.InvitationController.create": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description The address */
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["InvitationRequest"];
-            };
-        };
-        responses: {
-            /** @description Accepted */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Accepted"];
-                };
-            };
-            /** @description Error codes: `bad_request` */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Error codes: `csrf`, `cross_site_request` */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Error codes: `not_found` */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Error codes: `rate_limited` */
-            429: {
-                headers: {
-                    /** @description Seconds until the bucket admits the next request. */
-                    "retry-after"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    "EspalierWeb.Auth.InvitationController.accept": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description The invitation token */
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["InvitationAcceptRequest"];
-            };
-        };
-        responses: {
-            /** @description The session payload */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SessionPayload"];
-                };
-            };
-            /** @description Error codes: `invalid_token` */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Error codes: `csrf`, `cross_site_request` */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Error codes: `not_found` */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Error codes: `rate_limited` */
-            429: {
-                headers: {
-                    /** @description Seconds until the bucket admits the next request. */
-                    "retry-after"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    "EspalierWeb.Auth.PasswordController.create": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description The address and the password */
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PasswordSignInRequest"];
-            };
-        };
-        responses: {
-            /** @description The next step */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NextStep"];
-                };
-            };
-            /** @description Error codes: `bad_request` */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Error codes: `invalid_credentials` */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Error codes: `csrf`, `cross_site_request` */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Error codes: `not_found` */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Error codes: `rate_limited` */
-            429: {
-                headers: {
-                    /** @description Seconds until the bucket admits the next request. */
-                    "retry-after"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    "EspalierWeb.EnrollmentController.create": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description The program and the path */
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["EnrollmentRequest"];
-            };
-        };
-        responses: {
-            /** @description The existing enrollment */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EnrollmentView"];
-                };
-            };
-            /** @description The new enrollment */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EnrollmentView"];
-                };
-            };
-            /** @description Error codes: `unauthenticated` */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Error codes: `enrollment_required`, `csrf`, `cross_site_request` */
+            /** @description Error codes: `enrollment_required`, `cross_site_request` */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -1511,6 +2041,105 @@ export interface operations {
             };
             /** @description Error codes: `validation_failed` */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Me.PasskeyController.options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The creation options */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasskeyCreationOptions"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Auth.PasskeyAuthController.options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The purpose */
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PasskeyOptionsRequest"];
+            };
+        };
+        responses: {
+            /** @description The request options */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasskeyRequestOptions"];
+                };
+            };
+            /** @description Error codes: `bad_request` */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `authentication_failed` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1606,30 +2235,30 @@ export interface operations {
             };
         };
     };
-    "EspalierWeb.ItemResponseController.create": {
+    "EspalierWeb.AttemptController.create": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                /** @description The item id. */
+                /** @description The exam id. */
                 id: string;
             };
             cookie?: never;
         };
-        /** @description The answer */
+        /** @description The answers */
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ItemResponseRequest"];
+                "application/json": components["schemas"]["AttemptRequest"];
             };
         };
         responses: {
-            /** @description The evaluation */
-            200: {
+            /** @description The attempt */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ItemResult"];
+                    "application/json": components["schemas"]["AttemptResult"];
                 };
             };
             /** @description Error codes: `unauthenticated` */
@@ -1690,27 +2319,347 @@ export interface operations {
             };
         };
     };
-    "EspalierWeb.Me.EmailController.update": {
+    "EspalierWeb.Auth.RecoveryController.verify": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** @description The new address */
+        /** @description The link token and a recovery code */
         requestBody: {
             content: {
-                "application/json": components["schemas"]["EmailChangeRequest"];
+                "application/json": components["schemas"]["RecoveryVerifyRequest"];
             };
         };
         responses: {
-            /** @description Accepted */
-            202: {
+            /** @description The session payload */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Accepted"];
+                    "application/json": components["schemas"]["SessionPayload"];
+                };
+            };
+            /** @description Error codes: `bad_request` */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `authentication_failed` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `rate_limited` */
+            429: {
+                headers: {
+                    /** @description Seconds until the bucket admits the next request. */
+                    "retry-after"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Auth.LdapController.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The provider key. */
+                provider: string;
+            };
+            cookie?: never;
+        };
+        /** @description The directory credentials */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LdapCredentialsRequest"];
+            };
+        };
+        responses: {
+            /** @description The next step */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExternalNextStep"];
+                };
+            };
+            /** @description Error codes: `bad_request` */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `invalid_credentials` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `unknown_provider` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `link_required` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `rate_limited` */
+            429: {
+                headers: {
+                    /** @description Seconds until the bucket admits the next request. */
+                    "retry-after"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Auth.PasskeyAuthController.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The result of startAuthentication */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasskeyAssertion"];
+            };
+        };
+        responses: {
+            /** @description The session payload */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionPayload"];
+                };
+            };
+            /** @description Error codes: `authentication_failed` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `rate_limited` */
+            429: {
+                headers: {
+                    /** @description Seconds until the bucket admits the next request. */
+                    "retry-after"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Me.RecoveryCodeController.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The new codes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecoveryCodeList"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Auth.FinishController.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The ticket */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FinishRequest"];
+            };
+        };
+        responses: {
+            /** @description The result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinishResult"];
+                };
+            };
+            /** @description Error codes: `ticket_invalid` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `identity_in_use`, `provider_already_linked` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `rate_limited` */
+            429: {
+                headers: {
+                    /** @description Seconds until the bucket admits the next request. */
+                    "retry-after"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Me.PasskeyController.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The result of startRegistration */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasskeyRegistrationRequest"];
+            };
+        };
+        responses: {
+            /** @description The passkey */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasskeyRegistrationResult"];
                 };
             };
             /** @description Error codes: `bad_request` */
@@ -1731,112 +2680,6 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Error codes: `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request` */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Error codes: `rate_limited` */
-            429: {
-                headers: {
-                    /** @description Seconds until the bucket admits the next request. */
-                    "retry-after"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    "EspalierWeb.Me.EmailController.confirm": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description The confirmation token */
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["EmailConfirmRequest"];
-            };
-        };
-        responses: {
-            /** @description The session payload */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SessionPayload"];
-                };
-            };
-            /** @description Error codes: `invalid_token` */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Error codes: `unauthenticated` */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Error codes: `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request` */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    "EspalierWeb.Me.PasswordController.update": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description The current and the new password */
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PasswordChangeRequest"];
-            };
-        };
-        responses: {
-            /** @description The session payload */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SessionPayload"];
-                };
-            };
-            /** @description Error codes: `unauthenticated` */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
             /** @description Error codes: `forbidden`, `reauth_required`, `csrf`, `cross_site_request` */
             403: {
                 headers: {
@@ -1846,7 +2689,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Error codes: `validation_failed` */
+            /** @description Error codes: `registration_failed` */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -1855,183 +2698,27 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Error codes: `rate_limited` */
-            429: {
-                headers: {
-                    /** @description Seconds until the bucket admits the next request. */
-                    "retry-after"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
         };
     };
-    "EspalierWeb.Me.ProgressController.show": {
+    "EspalierWeb.ProgramController.handbook": {
         parameters: {
-            query: {
+            query?: never;
+            header?: never;
+            path: {
                 /** @description The slug of a published program. */
-                program: string;
+                slug: string;
             };
-            header?: never;
-            path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description The progress */
+            /** @description The handbook */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Progress"];
-                };
-            };
-            /** @description Error codes: `unauthenticated` */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Error codes: `enrollment_required`, `cross_site_request` */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Error codes: `not_found` */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Error codes: `validation_failed` */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    "EspalierWeb.Me.SessionController.index": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The sessions */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SessionList"];
-                };
-            };
-            /** @description Error codes: `unauthenticated` */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Error codes: `enrollment_required`, `cross_site_request` */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    "EspalierWeb.Me.SessionController.delete": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The session id. */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Session ended */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Error codes: `unauthenticated` */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Error codes: `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request` */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Error codes: `not_found` */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    "EspalierWeb.ModuleController.show": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The module id. */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The module */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ModuleView"];
+                    "application/json": components["schemas"]["Handbook"];
                 };
             };
             /** @description Error codes: `unauthenticated` */
@@ -2156,103 +2843,6 @@ export interface operations {
             };
         };
     };
-    "EspalierWeb.ProgramController.index": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The published programs */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProgramList"];
-                };
-            };
-            /** @description Error codes: `unauthenticated` */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Error codes: `enrollment_required`, `cross_site_request` */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    "EspalierWeb.ProgramController.show": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The slug of a published program. */
-                slug: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The program */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProgramView"];
-                };
-            };
-            /** @description Error codes: `unauthenticated` */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Error codes: `enrollment_required`, `cross_site_request` */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Error codes: `not_found` */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Error codes: `validation_failed` */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
     "EspalierWeb.ProgramController.glossary": {
         parameters: {
             query?: never;
@@ -2312,25 +2902,442 @@ export interface operations {
             };
         };
     };
-    "EspalierWeb.ProgramController.handbook": {
+    "EspalierWeb.Auth.SecondFactorController.create": {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                /** @description The slug of a published program. */
-                slug: string;
-            };
+            path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        /** @description The second factor */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SecondFactorRequest"];
+            };
+        };
         responses: {
-            /** @description The handbook */
+            /** @description The session payload */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Handbook"];
+                    "application/json": components["schemas"]["SecondFactorSession"];
+                };
+            };
+            /** @description Error codes: `bad_request` */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `authentication_failed` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `rate_limited` */
+            429: {
+                headers: {
+                    /** @description Seconds until the bucket admits the next request. */
+                    "retry-after"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.ProviderController.index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The providers */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderList"];
+                };
+            };
+            /** @description Error codes: `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Me.SessionController.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The session id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Session ended */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Me.EmailController.confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The confirmation token */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailConfirmRequest"];
+            };
+        };
+        responses: {
+            /** @description The session payload */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionPayload"];
+                };
+            };
+            /** @description Error codes: `invalid_token` */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.OidcIntentController.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The provider key. */
+                provider: string;
+            };
+            cookie?: never;
+        };
+        /** @description The purpose */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OidcIntentRequest"];
+            };
+        };
+        responses: {
+            /** @description The intent URL */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OidcIntent"];
+                };
+            };
+            /** @description Error codes: `bad_request` */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `unknown_provider` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `provider_already_linked` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `step_up_not_available` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `rate_limited` */
+            429: {
+                headers: {
+                    /** @description Seconds until the bucket admits the next request. */
+                    "retry-after"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Auth.InvitationController.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The address */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvitationRequest"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Accepted"];
+                };
+            };
+            /** @description Error codes: `bad_request` */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `rate_limited` */
+            429: {
+                headers: {
+                    /** @description Seconds until the bucket admits the next request. */
+                    "retry-after"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Me.TotpController.confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The code */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TotpConfirmRequest"];
+            };
+        };
+        responses: {
+            /** @description The enabled factor */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TotpConfirmResult"];
+                };
+            };
+            /** @description Error codes: `bad_request` */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `invalid_code` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `rate_limited` */
+            429: {
+                headers: {
+                    /** @description Seconds until the bucket admits the next request. */
+                    "retry-after"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.ProgramController.index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The published programs */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgramList"];
                 };
             };
             /** @description Error codes: `unauthenticated` */
@@ -2351,6 +3358,110 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+        };
+    };
+    "EspalierWeb.Me.ReauthController.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The second factor */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReauthRequest"];
+            };
+        };
+        responses: {
+            /** @description The session payload */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReauthSession"];
+                };
+            };
+            /** @description Error codes: `bad_request` */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `authentication_failed`, `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `enrollment_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `rate_limited` */
+            429: {
+                headers: {
+                    /** @description Seconds until the bucket admits the next request. */
+                    "retry-after"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Me.PasskeyController.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The passkey id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FactorChange"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Error codes: `not_found` */
             404: {
                 headers: {
@@ -2360,9 +3471,72 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Error codes: `validation_failed` */
-            422: {
+            /** @description Error codes: `last_factor`, `admin_passkey_required` */
+            409: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Auth.DemoController.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The demo slot */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemoSignInRequest"];
+            };
+        };
+        responses: {
+            /** @description The session payload */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionPayload"];
+                };
+            };
+            /** @description Error codes: `bad_request` */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `rate_limited` */
+            429: {
+                headers: {
+                    /** @description Seconds until the bucket admits the next request. */
+                    "retry-after"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2409,6 +3583,15 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description Signed out of an OIDC session */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LogoutRedirect"];
+                };
+            };
             /** @description Signed out */
             204: {
                 headers: {
@@ -2427,7 +3610,213 @@ export interface operations {
             };
         };
     };
-    "EspalierWeb.ProviderController.index": {
+    "EspalierWeb.ItemResponseController.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The item id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description The answer */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ItemResponseRequest"];
+            };
+        };
+        responses: {
+            /** @description The evaluation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemResult"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `enrollment_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_enrolled` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `rate_limited` */
+            429: {
+                headers: {
+                    /** @description Seconds until the bucket admits the next request. */
+                    "retry-after"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Me.ProgressController.show": {
+        parameters: {
+            query: {
+                /** @description The slug of a published program. */
+                program: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The progress */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Progress"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `enrollment_required`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Auth.InvitationController.accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The invitation token */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvitationAcceptRequest"];
+            };
+        };
+        responses: {
+            /** @description The session payload */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionPayload"];
+                };
+            };
+            /** @description Error codes: `invalid_token` */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `rate_limited` */
+            429: {
+                headers: {
+                    /** @description Seconds until the bucket admits the next request. */
+                    "retry-after"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Me.TotpController.create": {
         parameters: {
             query?: never;
             header?: never;
@@ -2436,18 +3825,653 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The providers */
+            /** @description The new secret */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ProviderList"];
+                    "application/json": components["schemas"]["TotpEnrollment"];
                 };
             };
-            /** @description Error codes: `cross_site_request` */
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `reauth_required`, `csrf`, `cross_site_request` */
             403: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `password_required`, `totp_already_enabled` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Me.TotpController.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FactorChange"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `last_factor` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.EnrollmentController.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The program and the path */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnrollmentRequest"];
+            };
+        };
+        responses: {
+            /** @description The existing enrollment */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnrollmentView"];
+                };
+            };
+            /** @description The new enrollment */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnrollmentView"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `enrollment_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `rate_limited` */
+            429: {
+                headers: {
+                    /** @description Seconds until the bucket admits the next request. */
+                    "retry-after"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Me.PasswordController.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The current and the new password */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordChangeRequest"];
+            };
+        };
+        responses: {
+            /** @description The session payload */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionPayload"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `rate_limited` */
+            429: {
+                headers: {
+                    /** @description Seconds until the bucket admits the next request. */
+                    "retry-after"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Me.SecurityController.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The factors */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SecuritySummary"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Me.SessionController.index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The sessions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionList"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `enrollment_required`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.ModuleController.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The module id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The module */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModuleView"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `enrollment_required`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Auth.PasswordController.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The address and the password */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordSignInRequest"];
+            };
+        };
+        responses: {
+            /** @description The next step */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NextStep"];
+                };
+            };
+            /** @description Error codes: `bad_request` */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `invalid_credentials` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `rate_limited` */
+            429: {
+                headers: {
+                    /** @description Seconds until the bucket admits the next request. */
+                    "retry-after"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Me.EmailController.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The new address */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailChangeRequest"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Accepted"];
+                };
+            };
+            /** @description Error codes: `bad_request` */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `rate_limited` */
+            429: {
+                headers: {
+                    /** @description Seconds until the bucket admits the next request. */
+                    "retry-after"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Auth.RecoveryController.start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The address */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecoveryStartRequest"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Accepted"];
+                };
+            };
+            /** @description Error codes: `bad_request` */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `rate_limited` */
+            429: {
+                headers: {
+                    /** @description Seconds until the bucket admits the next request. */
+                    "retry-after"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Me.LdapIdentityController.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The provider key. */
+                provider: string;
+            };
+            cookie?: never;
+        };
+        /** @description The directory credentials */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LdapCredentialsRequest"];
+            };
+        };
+        responses: {
+            /** @description The link */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LdapLinkResult"];
+                };
+            };
+            /** @description Error codes: `bad_request` */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `invalid_credentials`, `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `unknown_provider` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `identity_in_use`, `provider_already_linked` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `rate_limited` */
+            429: {
+                headers: {
+                    /** @description Seconds until the bucket admits the next request. */
+                    "retry-after"?: number;
                     [name: string]: unknown;
                 };
                 content: {
