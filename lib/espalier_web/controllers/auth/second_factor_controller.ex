@@ -11,6 +11,7 @@ defmodule EspalierWeb.Auth.SecondFactorController do
   limits that hold, because a client can resubmit an earlier cookie.
   """
   use EspalierWeb, :controller
+  use OpenApiSpex.ControllerSpecs
 
   alias Espalier.Accounts.{Factors, MailWorker}
 
@@ -22,7 +23,14 @@ defmodule EspalierWeb.Auth.SecondFactorController do
     WebauthnCeremony
   }
 
+  alias EspalierWeb.ApiSpec.Responses
   alias EspalierWeb.Plugs.RateLimit
+  alias EspalierWeb.Schemas.{SecondFactorRequest, SecondFactorSession}
+
+  # OpenAPI operations of task 0011 (README section 6.12). They describe the
+  # route; validation and error bodies stay those of task 0005.
+  tags ["Session"]
+  security Responses.csrf()
 
   action_fallback EspalierWeb.FallbackController
 
@@ -30,6 +38,24 @@ defmodule EspalierWeb.Auth.SecondFactorController do
   @max_failures 5
 
   plug RateLimit, [bucket: :second_factor_ip] when action in [:create]
+
+  operation :create,
+    summary: "Complete a sign-in with a second factor",
+    description:
+      "Completes the pending state of a first factor with exactly one of `totp`, " <>
+        "`passkey` and `recovery_code`. After a recovery code the answer carries " <>
+        "`recovery_codes_remaining`. The fifth failure clears the pending state.",
+    request_body: {"The second factor", "application/json", SecondFactorRequest, required: true},
+    responses:
+      Map.merge(
+        %{200 => {"The session payload", "application/json", SecondFactorSession}},
+        Responses.errors([
+          {400, ["bad_request"]},
+          {401, ["authentication_failed"]},
+          {403, ["csrf", "cross_site_request"]},
+          {429, ["rate_limited"]}
+        ])
+      )
 
   def create(conn, params) do
     with {:ok, factor, input} <- FactorInput.parse(params, [:totp, :passkey, :recovery_code]) do

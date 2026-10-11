@@ -13,7 +13,91 @@
     "dark": "dunkel"
   },
   "auth": {
-    "loading": "Die Sitzung wird geladen …"
+    "loading": "Die Sitzung wird geladen …",
+    "forms": {
+      "showPassword": "Passwort anzeigen",
+      "cancel": "Abbrechen",
+      "continue": "Weiter",
+      "back": "Zurück"
+    },
+    "signIn": {
+      "title": "Anmelden",
+      "passkey": "Mit einem Passkey anmelden",
+      "passwordForm": "Mit E-Mail-Adresse und Passwort anmelden",
+      "email": "E-Mail-Adresse",
+      "password": "Passwort",
+      "passwordSubmit": "Mit Passwort weiter",
+      "providers": "Weitere Anmeldewege",
+      "username": "Benutzername",
+      "credentialsSubmit": "Mit {{label}} anmelden",
+      "lostAccess": "Kein Zugriff mehr auf Ihre Anmeldemethoden?",
+      "requestInvitation": "Einladungslink anfordern"
+    },
+    "demo": {
+      "title": "Demo-Konten",
+      "slot": "Testperson {{slot}}"
+    },
+    "secondFactor": {
+      "title": "Anmeldung bestätigen",
+      "text": "Geben Sie den Code Ihrer Authenticator-App ein, oder verwenden Sie einen Passkey oder einen Wiederherstellungscode.",
+      "codeLabel": "Sechsstelliger Code",
+      "recoveryCodeLabel": "Wiederherstellungscode",
+      "submit": "Bestätigen",
+      "passkey": "Passkey verwenden",
+      "useRecoveryCode": "Wiederherstellungscode verwenden",
+      "useCode": "Authenticator-App verwenden"
+    },
+    "finish": {
+      "title": "Anmeldung wird abgeschlossen",
+      "toSecurity": "Zu den Sicherheitseinstellungen",
+      "toSignIn": "Zur Anmeldeseite"
+    },
+    "invitation": {
+      "title": "Einladung annehmen",
+      "text": "Fahren Sie fort, um die Anmeldung für Ihr neues Konto einzurichten.",
+      "requestTitle": "Einladung anfordern",
+      "requestText": "Geben Sie Ihre E-Mail-Adresse ein. Ein Einladungslink geht an Adressen, die ein Konto anlegen dürfen.",
+      "requestSubmit": "Einladungslink senden",
+      "sent": "Wenn die Adresse eine Einladung erhalten kann, haben wir einen Link an sie gesendet."
+    },
+    "enroll": {
+      "title": "Anmeldung einrichten",
+      "text": "Ihr Konto benötigt eine Anmeldemethode. Ein Passkey meldet Sie mit der Bildschirmsperre Ihres Geräts an und widersteht Phishing.",
+      "recoveryTitle": "Neue Anmeldemethode einrichten",
+      "recoveryText": "Die Wiederherstellung ist gelungen. Richten Sie eine neue Anmeldemethode für Ihr Konto ein.",
+      "choosePasskey": "Passkey erstellen",
+      "chooseTotp": "Authenticator-App verwenden",
+      "passkeyTitle": "Passkey erstellen",
+      "passkeyText": "Ihr Browser fragt nach der Bildschirmsperre Ihres Geräts oder nach Ihrem Sicherheitsschlüssel.",
+      "passwordTitle": "Passwort festlegen",
+      "passwordText": "Die Authenticator-App ist der zweite Schritt nach einem Passwort. Legen Sie zuerst das Passwort fest.",
+      "passwordSubmit": "Passwort speichern",
+      "totpTitle": "Authenticator-App einrichten"
+    },
+    "recovery": {
+      "title": "Zugang wiederherstellen",
+      "startText": "Für die Wiederherstellung brauchen Sie einen Link, den wir per E-Mail senden, und einen Ihrer gespeicherten Wiederherstellungscodes.",
+      "startSubmit": "Wiederherstellungslink senden",
+      "sent": "Wenn die Adresse zu einem Konto gehört, haben wir einen Link an sie gesendet.",
+      "verifyText": "Geben Sie einen Ihrer gespeicherten Wiederherstellungscodes ein. Danach richten Sie eine neue Anmeldemethode ein.",
+      "codeLabel": "Wiederherstellungscode",
+      "verifySubmit": "Zugang wiederherstellen"
+    },
+    "signedOut": {
+      "title": "Sie sind abgemeldet",
+      "body": "Ihre Sitzung ist hier und bei Ihrem Anmeldedienst beendet.",
+      "signIn": "Erneut anmelden"
+    },
+    "errors": {
+      "signInFailed": "Die Anmeldung ist fehlgeschlagen. Prüfen Sie Ihre Angaben und versuchen Sie es erneut.",
+      "signInRestart": "Die Anmeldung ist fehlgeschlagen. Bitte beginnen Sie von vorn.",
+      "passkeyCancelled": "Die Passkey-Anfrage wurde geschlossen oder ist abgelaufen. Versuchen Sie es erneut oder wählen Sie einen anderen Anmeldeweg.",
+      "linkInvalid": "Dieser Link ist ungültig oder abgelaufen. Bitte fordern Sie einen neuen an.",
+      "linkRequired": "Ein Konto mit dieser E-Mail-Adresse existiert. Melden Sie sich dort an und verbinden Sie dieses Konto in Ihren Sicherheitseinstellungen.",
+      "recoveryFailed": "Der Wiederherstellungscode passt nicht, oder der Link ist abgelaufen.",
+      "stepUpFailed": "Die Bestätigung ist fehlgeschlagen. Bitte versuchen Sie es erneut.",
+      "credentialsRequired": "Geben Sie den Benutzernamen und das Passwort ein."
+    }
   },
   "pages": {
     "backHome": "Zur Startseite",
@@ -31,10 +115,6 @@
     }
   },
   "placeholders": {
-    "signIn": {
-      "title": "Anmelden",
-      "text": "Die Anmeldung folgt in einer späteren Version."
-    },
     "home": {
       "title": "Startseite",
       "text": "Hier erscheinen Ihre Programme."
@@ -59,5 +139,171 @@
       "title": "Verwaltung",
       "text": "Hier erscheinen die Verwaltungsseiten."
     }
+  },
+  "account": {
+    "menu": "Sicherheit",
+    "title": "Sicherheitseinstellungen",
+    "demoNotice": "Demo-Konten haben keine Sicherheitseinstellungen.",
+    "signOut": {
+      "title": "Auf diesem Gerät abmelden"
+    },
+    "factors": {
+      "lastFactor": "Ihren einzigen zweiten Faktor können Sie nicht entfernen. Fügen Sie zuerst einen weiteren hinzu."
+    },
+    "passkeys": {
+      "title": "Passkeys",
+      "none": "Kein Passkey ist registriert.",
+      "unnamed": "Passkey ohne Namen",
+      "created": "Erstellt",
+      "lastUsed": "Zuletzt verwendet",
+      "neverUsed": "Noch nicht verwendet",
+      "backup": "Synchronisierung",
+      "synced": "Synchronisiert",
+      "syncable": "Kann synchronisiert werden",
+      "deviceOnly": "Nur auf diesem Gerät oder Sicherheitsschlüssel gespeichert",
+      "add": "Passkey hinzufügen",
+      "added": "Der Passkey wurde hinzugefügt.",
+      "remove": "Entfernen",
+      "removed": "Der Passkey wurde entfernt.",
+      "removeTitle": "Passkey entfernen?",
+      "removeText": "Der Passkey „{{name}}“ meldet Sie danach nicht mehr an.",
+      "nickname": "Name des Passkeys",
+      "nicknameHint": "Höchstens 60 Zeichen. Der Name hilft Ihnen, den Passkey in dieser Liste wiederzuerkennen.",
+      "defaultNickname": "Passkey vom {{date}}",
+      "create": "Passkey erstellen",
+      "adminRequired": "Ihre Rolle erfordert einen Passkey. Fügen Sie Ihrem Konto einen Passkey hinzu."
+    },
+    "totp": {
+      "title": "Authenticator-App",
+      "enabledSince": "Eingerichtet seit {{date}}.",
+      "disabled": "Keine Authenticator-App ist eingerichtet.",
+      "setUp": "Einrichten",
+      "added": "Die Authenticator-App wurde eingerichtet.",
+      "remove": "Entfernen",
+      "removed": "Die Authenticator-App wurde entfernt.",
+      "removeTitle": "Authenticator-App entfernen?",
+      "removeText": "Ihre Codes bestätigen Ihre Anmeldung danach nicht mehr.",
+      "scan": "Scannen Sie den QR-Code mit Ihrer Authenticator-App, oder geben Sie den Schlüssel von Hand ein.",
+      "qrAlt": "QR-Code für die Authenticator-App",
+      "secretLabel": "Schlüssel für die Eingabe von Hand",
+      "copySecret": "Schlüssel kopieren",
+      "secretCopied": "Der Schlüssel wurde kopiert.",
+      "codeLabel": "Sechsstelliger Code aus der App",
+      "confirm": "Code bestätigen"
+    },
+    "recovery": {
+      "title": "Wiederherstellungscodes",
+      "remaining_one": "{{count}} unbenutzter Wiederherstellungscode übrig.",
+      "remaining_other": "{{count}} unbenutzte Wiederherstellungscodes übrig.",
+      "low": "Es sind nur noch wenige Codes übrig. Erstellen Sie neue Codes.",
+      "regenerate": "Neue Codes erstellen",
+      "regenerateTitle": "Neue Wiederherstellungscodes erstellen?",
+      "regenerateText": "Ihre bisherigen Wiederherstellungscodes funktionieren danach nicht mehr.",
+      "usedNotice_one": "Sie haben sich mit einem Wiederherstellungscode angemeldet. {{count}} Code ist übrig. Erstellen Sie unten neue Codes.",
+      "usedNotice_other": "Sie haben sich mit einem Wiederherstellungscode angemeldet. {{count}} Codes sind übrig. Erstellen Sie unten neue Codes.",
+      "panelTitle": "Speichern Sie Ihre Wiederherstellungscodes",
+      "panelText": "Jeder Code funktioniert einmal. Bewahren Sie die Codes sicher auf; Sie brauchen einen, wenn Sie den Zugriff auf Ihre Anmeldemethoden verlieren.",
+      "copy": "Kopieren",
+      "copied": "Die Codes wurden kopiert.",
+      "copyFailed": "Die Codes konnten nicht kopiert werden. Verwenden Sie den Download.",
+      "download": "Herunterladen",
+      "fileHeader": "Wiederherstellungscodes für {{product}} unter {{host}}",
+      "saved": "Ich habe diese Codes gespeichert"
+    },
+    "password": {
+      "title": "Passwort",
+      "current": "Aktuelles Passwort",
+      "new": "Neues Passwort",
+      "change": "Passwort ändern",
+      "changed": "Das Passwort wurde geändert. Ihre anderen Sitzungen sind beendet.",
+      "notSet": "Dieses Konto hat kein Passwort.",
+      "external": "Dieses Konto meldet sich über einen verbundenen Anbieter an und hat keine Anmeldung mit Passwort.",
+      "guidance": "Verwenden Sie mindestens 15 Zeichen. Eine Passphrase aus mehreren unzusammenhängenden Wörtern erreicht diese Länge. Vermeiden Sie bekannte Redewendungen, den Namen dieses Dienstes und Ihren eigenen Namen oder Ihre E-Mail-Adresse.",
+      "counter_one": "{{count}} Zeichen (15 bis 128)",
+      "counter_other": "{{count}} Zeichen (15 bis 128)",
+      "errors": {
+        "too_short": "Dieses Passwort hat weniger als 15 Zeichen.",
+        "too_long": "Dieses Passwort hat mehr als 128 Zeichen.",
+        "common": "Dieses Passwort steht auf einer Liste häufig verwendeter Passwörter. Wählen Sie ein anderes.",
+        "context": "Dieses Passwort enthält ein Wort, das mit diesem Dienst, Ihrem Namen oder Ihrer E-Mail-Adresse zusammenhängt. Wählen Sie ein anderes.",
+        "breached": "Dieses Passwort kommt in bekannten Datenlecks vor. Wählen Sie ein anderes.",
+        "current_required": "Geben Sie Ihr aktuelles Passwort ein.",
+        "current_invalid": "Das aktuelle Passwort ist nicht korrekt."
+      }
+    },
+    "email": {
+      "title": "E-Mail-Adresse",
+      "current": "Aktuelle Adresse:",
+      "new": "Neue E-Mail-Adresse",
+      "submit": "Adresse ändern",
+      "sent": "Wir haben einen Bestätigungslink an die neue Adresse gesendet. Die Adresse ändert sich, wenn Sie ihn öffnen.",
+      "confirmTitle": "Neue E-Mail-Adresse bestätigen",
+      "confirmText": "Die neue Adresse ersetzt die bisherige Adresse Ihres Kontos.",
+      "confirm": "Neue Adresse bestätigen",
+      "changed": "Ihre E-Mail-Adresse wurde geändert.",
+      "signInFirst": "Melden Sie sich zuerst bei dem Konto an. Die Schaltfläche funktioniert wieder, sobald Sie angemeldet sind.",
+      "signInNewTab": "In einem neuen Tab anmelden"
+    },
+    "identities": {
+      "title": "Verbundene Konten",
+      "connected": "verbunden",
+      "connect": "Verbinden",
+      "connectLabel": "{{label}} verbinden",
+      "confirmTitle": "{{label}} verbinden?",
+      "confirmLink": "Nach der Verbindung meldet sich dieses Konto nur noch mit {{label}} an. Ihre Passkeys, Ihre Authenticator-App und Ihre Wiederherstellungscodes dienen dann als zweiter Schritt nach {{label}}. Die Anmeldung mit Passwort, die Anmeldung allein mit einem Passkey und die Wiederherstellung über einen E-Mail-Link enden für dieses Konto.",
+      "linked": "Das Konto ist verbunden."
+    },
+    "sessions": {
+      "title": "Aktive Sitzungen",
+      "unknownDevice": "Unbekanntes Gerät",
+      "thisDevice": "Dieses Gerät",
+      "methodsLabel": "Anmeldung",
+      "started": "Begonnen",
+      "lastActive": "Letzte Aktivität",
+      "end": "Beenden",
+      "ended": "Die Sitzung wurde beendet.",
+      "endOthers": "Alle anderen Sitzungen beenden",
+      "keepOthers": "Andere Sitzungen behalten",
+      "promptTitle": "Andere Sitzungen beenden?",
+      "promptText": "Ihre Anmeldemethoden haben sich geändert. Wenn Sie die anderen Sitzungen beenden, werden alle anderen Geräte abgemeldet.",
+      "methods": {
+        "passkey": "Passkey",
+        "password": "Passwort",
+        "totp": "Authenticator-App",
+        "recovery_code": "Wiederherstellungscode",
+        "email_code": "E-Mail-Link",
+        "oidc": "Anmeldedienst",
+        "ldap": "Verzeichniskonto",
+        "idp_mfa": "Mehrfaktor-Anmeldung des Anbieters",
+        "demo": "Demo-Konto"
+      }
+    },
+    "stepUp": {
+      "title": "Bestätigen Sie, dass Sie es sind",
+      "text": "Diese Änderung erfordert eine aktuelle Bestätigung mit einem zweiten Faktor.",
+      "passkey": "Passkey verwenden",
+      "codeLabel": "Sechsstelliger Code der Authenticator-App",
+      "confirm": "Mit dem Code bestätigen",
+      "provider": "Weiter mit {{label}}",
+      "unavailable": "Diese Sitzung hat keinen zweiten Faktor für die Bestätigung."
+    },
+    "errors": {
+      "lastFactor": "Ihren letzten zweiten Faktor können Sie nicht entfernen.",
+      "adminPasskeyRequired": "Ihre Rolle erfordert mindestens einen Passkey.",
+      "totpAlreadyEnabled": "Eine Authenticator-App ist bereits eingerichtet.",
+      "passwordRequired": "Die Authenticator-App erfordert zuerst ein Passwort.",
+      "linkRequired": "Ein Konto mit dieser E-Mail-Adresse existiert. Melden Sie sich dort an und verbinden Sie dieses Konto in Ihren Sicherheitseinstellungen.",
+      "identityInUse": "Diese Anmeldung gehört zu einem anderen Konto.",
+      "providerAlreadyLinked": "Ihr Konto ist bereits mit diesem Anbieter verbunden.",
+      "registrationFailed": "Der Passkey konnte nicht erstellt werden. Bitte versuchen Sie es erneut.",
+      "passkeyExists": "Dieses Gerät oder dieser Sicherheitsschlüssel enthält bereits einen Passkey für Ihr Konto.",
+      "invalidCode": "Der Code ist nicht korrekt. Prüfen Sie die Uhrzeit Ihres Geräts und versuchen Sie es erneut.",
+      "stepUpNotAvailable": "Eine Bestätigung beim Anbieter ist nicht verfügbar.",
+      "passwordRejected": "Das neue Passwort wurde nicht angenommen. Der Grund steht unter dem Feld."
+    }
+  },
+  "errors": {
+    "tooManyAttempts": "Zu viele Versuche. Versuchen Sie es in {{minutes}} Minuten erneut.",
+    "generic": "Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut."
   }
 }

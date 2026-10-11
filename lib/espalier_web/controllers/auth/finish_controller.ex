@@ -18,6 +18,15 @@ defmodule EspalierWeb.Auth.FinishController do
   - `step_up` reissues the current session with `idp_mfa` and `mfa_at` now.
   """
   use EspalierWeb, :controller
+  use OpenApiSpex.ControllerSpecs
+
+  alias EspalierWeb.ApiSpec.Responses
+  alias EspalierWeb.Schemas.{FinishRequest, FinishResult}
+
+  # OpenAPI operations of task 0011 (README section 6.12). They describe the
+  # route; validation and error bodies stay those of task 0006.
+  tags ["Session"]
+  security Responses.csrf()
 
   alias Espalier.{Accounts, Identity, SecurityLog}
   alias Espalier.Accounts.Scope
@@ -26,6 +35,24 @@ defmodule EspalierWeb.Auth.FinishController do
 
   plug :take_ticket_binding
   plug RateLimit, [bucket: :auth_ip] when action in [:create]
+
+  operation :create,
+    summary: "Finish an OIDC flow",
+    description:
+      "Consumes the single-use ticket of the callback together with the transaction " <>
+        "cookie. Answers a next step, or the session payload for a full session and a " <>
+        "step-up, with `linked: true` after a link.",
+    request_body: {"The ticket", "application/json", FinishRequest, required: true},
+    responses:
+      Map.merge(
+        %{200 => {"The result", "application/json", FinishResult}},
+        Responses.errors([
+          {401, ["ticket_invalid"]},
+          {403, ["csrf", "cross_site_request"]},
+          {409, ["identity_in_use", "provider_already_linked"]},
+          {429, ["rate_limited"]}
+        ])
+      )
 
   def create(conn, params) do
     case Accounts.consume_login_ticket(params["ticket"], conn.assigns.ticket_binding) do

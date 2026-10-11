@@ -27,9 +27,11 @@ export default defineConfig(({ command }) => ({
   server: {
     port: 5173,
     strictPort: true,
+    // The SPA route /auth/finish stays with Vite; every other path below
+    // /auth belongs to Phoenix (README section 5).
     proxy: {
       "/api": "http://localhost:4000",
-      "/auth": "http://localhost:4000",
+      "^/auth/(?!finish)": "http://localhost:4000",
       "/health": "http://localhost:4000",
     },
   },

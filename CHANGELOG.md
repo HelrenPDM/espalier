@@ -136,12 +136,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   whether the development browsers store the session cookie over
   `http://localhost`, with its result in `docs/security/authentication.md`
   (task 0010).
+- The account UI (task 0011): the sign-in page with passkeys and conditional
+  UI, the password with a second factor, the OIDC and LDAP providers and the
+  demo accounts; the OIDC finish route `/auth/finish`; the invitation page,
+  the enrollment wizard with saved recovery codes, recovery and the e-mail
+  confirmation; the security page for passkeys, the authenticator app,
+  recovery codes, password, e-mail, connected accounts and sessions; a
+  step-up dialog that the API client opens on `reauth_required` before it
+  repeats the request; sign-out through the provider's logout URL; and the
+  session synchronization across tabs through `BroadcastChannel`.
+- OpenAPI operations for the `/api` routes of tasks 0005, 0006 and 0007, the
+  200 answer of `DELETE /api/session` with `logout_url`, and the member
+  `linked_providers` of `GET /api/me/security` (task 0011).
+- Development-only seeding routes under `/api/dev/e2e` and Playwright specs
+  for invitation, passkeys, the authenticator app, recovery, e-mail change,
+  OIDC and LDAP with the Chromium virtual authenticator, Mailpit, the mock
+  OIDC provider and lldap (task 0011).
 
 ### Changed
 
 - `decimal` 3.1.2 replaces 3.1.1, which carries EEF-CVE-2026-97853
   (unbounded allocation in `Decimal.round/3`); the update bypasses the
   seven-day Hex cooldown.
+- The Vite dev proxy forwards every path below `/auth` except the SPA route
+  `/auth/finish`, which Phoenix also serves through `SpaController`
+  (task 0011).
 - The nix shell points libglvnd at the EGL driver of Mesa on Linux, so the
   WebKit of Playwright starts outside NixOS, and `make help` lists the
   targets whose names hold a digit, such as `e2e` (task 0010).

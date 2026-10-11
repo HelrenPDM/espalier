@@ -8,6 +8,21 @@ defmodule EspalierWeb.Auth.RecoveryController do
   both routes answer 404.
   """
   use EspalierWeb, :controller
+  use OpenApiSpex.ControllerSpecs
+
+  alias EspalierWeb.ApiSpec.Responses
+
+  alias EspalierWeb.Schemas.{
+    Accepted,
+    RecoveryStartRequest,
+    RecoveryVerifyRequest,
+    SessionPayload
+  }
+
+  # OpenAPI operations of task 0011 (README section 6.12). They describe the
+  # route; validation and error bodies stay those of task 0005.
+  tags ["Session"]
+  security Responses.csrf()
 
   alias Espalier.Accounts
   alias Espalier.Accounts.{Factors, Recovery}
@@ -19,6 +34,23 @@ defmodule EspalierWeb.Auth.RecoveryController do
   plug :require_local_accounts
   plug RateLimit, [bucket: :recovery_start_ip] when action in [:start]
   plug RateLimit, [bucket: :recovery_verify_ip] when action in [:verify]
+
+  operation :start,
+    summary: "Request a recovery link",
+    description:
+      "Sends a recovery link to a local account; the answer is the same for every " <>
+        "address. `LOCAL_ACCOUNTS=false` answers 404.",
+    request_body: {"The address", "application/json", RecoveryStartRequest, required: true},
+    responses:
+      Map.merge(
+        %{202 => {"Accepted", "application/json", Accepted}},
+        Responses.errors([
+          {400, ["bad_request"]},
+          {403, ["csrf", "cross_site_request"]},
+          {404, ["not_found"]},
+          {429, ["rate_limited"]}
+        ])
+      )
 
   def start(conn, %{"email" => email}) when is_binary(email) do
     conn = RateLimit.check_account(conn, :recovery_start_target, Accounts.normalize_email(email))
@@ -35,6 +67,26 @@ defmodule EspalierWeb.Auth.RecoveryController do
   end
 
   def start(_conn, _params), do: {:error, :bad_request}
+
+  operation :verify,
+    summary: "Recover with the link and a saved recovery code",
+    description:
+      "Opens a `recovery` session, which reaches only the enrollment routes. Every " <>
+        "failure answers 401 `authentication_failed`; the link stays valid until it expires.",
+    request_body:
+      {"The link token and a recovery code", "application/json", RecoveryVerifyRequest,
+       required: true},
+    responses:
+      Map.merge(
+        %{200 => {"The session payload", "application/json", SessionPayload}},
+        Responses.errors([
+          {400, ["bad_request"]},
+          {401, ["authentication_failed"]},
+          {403, ["csrf", "cross_site_request"]},
+          {404, ["not_found"]},
+          {429, ["rate_limited"]}
+        ])
+      )
 
   def verify(conn, %{"token" => token, "recovery_code" => code})
       when is_binary(token) and is_binary(code) do

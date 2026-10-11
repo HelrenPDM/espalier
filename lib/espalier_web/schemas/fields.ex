@@ -45,6 +45,23 @@ defmodule EspalierWeb.Schemas.Fields do
     })
   end
 
+  @doc "A credential descriptor of the passkey options (task 0005)."
+  def passkey_descriptor do
+    object(%{
+      type: enum(["public-key"]),
+      id: string("The credential id, base64url without padding."),
+      transports: strings()
+    })
+  end
+
+  @doc """
+  The client extension outputs of a WebAuthn response. The server reads
+  none of them, so the schema admits any JSON value.
+  """
+  def extension_results do
+    %Schema{description: "The client extension outputs; the server reads none."}
+  end
+
   @doc "A UUID."
   def uuid(description \\ nil),
     do: %Schema{type: :string, format: :uuid, description: description}

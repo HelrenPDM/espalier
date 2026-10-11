@@ -3,7 +3,7 @@ defmodule EspalierWeb.SessionController do
   use OpenApiSpex.ControllerSpecs
 
   alias EspalierWeb.ApiSpec.Responses
-  alias EspalierWeb.Schemas.SessionPayload
+  alias EspalierWeb.Schemas.{LogoutRedirect, SessionPayload}
 
   # OpenAPI operations of task 0009 (README section 6.12). They describe the
   # route; validation and error bodies stay those of task 0004.
@@ -37,10 +37,16 @@ defmodule EspalierWeb.SessionController do
   """
   operation :delete,
     summary: "Sign out",
+    description:
+      "Answers 200 with `logout_url` for an OIDC session whose provider has an " <>
+        "end-session endpoint on its allowed hosts, and 204 otherwise.",
     security: Responses.csrf(),
     responses:
       Map.merge(
-        %{204 => "Signed out"},
+        %{
+          200 => {"Signed out of an OIDC session", "application/json", LogoutRedirect},
+          204 => "Signed out"
+        },
         Responses.errors([{403, ["csrf", "cross_site_request"]}])
       )
 

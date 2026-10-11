@@ -242,6 +242,28 @@
         "title": "ProgramView",
         "type": "object"
       },
+      "LdapCredentialsRequest": {
+        "additionalProperties": false,
+        "description": "A directory bind.",
+        "properties": {
+          "password": {
+            "description": "The directory password.",
+            "maxLength": 128,
+            "type": "string"
+          },
+          "username": {
+            "description": "The directory login.",
+            "maxLength": 255,
+            "type": "string"
+          }
+        },
+        "required": [
+          "password",
+          "username"
+        ],
+        "title": "LdapCredentialsRequest",
+        "type": "object"
+      },
       "Handbook": {
         "additionalProperties": false,
         "description": "Every rule with its statement and action.",
@@ -383,6 +405,25 @@
         "title": "EmailConfirmRequest",
         "type": "object"
       },
+      "PasskeyRegistrationRequest": {
+        "additionalProperties": false,
+        "description": "Registers a passkey.",
+        "properties": {
+          "credential": {
+            "$ref": "#/components/schemas/PasskeyAttestation"
+          },
+          "nickname": {
+            "description": "The name of the passkey in the list.",
+            "maxLength": 60,
+            "type": "string"
+          }
+        },
+        "required": [
+          "credential"
+        ],
+        "title": "PasskeyRegistrationRequest",
+        "type": "object"
+      },
       "InvitationAcceptRequest": {
         "additionalProperties": false,
         "description": "Accepts an invitation and opens an enrollment session.",
@@ -397,6 +438,24 @@
           "token"
         ],
         "title": "InvitationAcceptRequest",
+        "type": "object"
+      },
+      "ExternalNextStep": {
+        "additionalProperties": false,
+        "description": "`second_factor` opens the pending state; `enroll_second_factor` an enrollment session.",
+        "properties": {
+          "next": {
+            "enum": [
+              "second_factor",
+              "enroll_second_factor"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "next"
+        ],
+        "title": "ExternalNextStep",
         "type": "object"
       },
       "AttemptRequest": {
@@ -532,6 +591,88 @@
           "error"
         ],
         "title": "Error",
+        "type": "object"
+      },
+      "OidcIntentRequest": {
+        "additionalProperties": false,
+        "description": "Creates a single-use intent.",
+        "properties": {
+          "purpose": {
+            "description": "`link` connects the provider; `step_up` re-authenticates at the provider.",
+            "enum": [
+              "link",
+              "step_up"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "purpose"
+        ],
+        "title": "OidcIntentRequest",
+        "type": "object"
+      },
+      "PasskeyAssertion": {
+        "additionalProperties": false,
+        "description": "A passkey assertion, base64url-encoded.",
+        "properties": {
+          "authenticatorAttachment": {
+            "enum": [
+              "platform",
+              "cross-platform"
+            ],
+            "type": "string"
+          },
+          "clientExtensionResults": {
+            "description": "The client extension outputs; the server reads none."
+          },
+          "id": {
+            "description": "The credential id, base64url.",
+            "type": "string"
+          },
+          "rawId": {
+            "description": "The credential id, base64url.",
+            "type": "string"
+          },
+          "response": {
+            "additionalProperties": false,
+            "properties": {
+              "authenticatorData": {
+                "type": "string"
+              },
+              "clientDataJSON": {
+                "type": "string"
+              },
+              "signature": {
+                "type": "string"
+              },
+              "userHandle": {
+                "description": "The user handle of a discoverable credential.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "authenticatorData",
+              "clientDataJSON",
+              "signature"
+            ],
+            "type": "object"
+          },
+          "type": {
+            "enum": [
+              "public-key"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "clientExtensionResults",
+          "id",
+          "rawId",
+          "response",
+          "type"
+        ],
+        "title": "PasskeyAssertion",
         "type": "object"
       },
       "ItemView": {
@@ -722,6 +863,139 @@
           "stem"
         ],
         "title": "ItemView",
+        "type": "object"
+      },
+      "PasskeyRegistrationResult": {
+        "additionalProperties": false,
+        "description": "The registered passkey.",
+        "properties": {
+          "other_sessions": {
+            "description": "The other live sessions of the user.",
+            "type": "integer"
+          },
+          "passkey": {
+            "$ref": "#/components/schemas/PasskeyView"
+          },
+          "recovery_codes": {
+            "description": "Shown once: ten new recovery codes.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "session": {
+            "$ref": "#/components/schemas/SessionPayload"
+          }
+        },
+        "required": [
+          "other_sessions",
+          "passkey"
+        ],
+        "title": "PasskeyRegistrationResult",
+        "type": "object"
+      },
+      "TotpEnrollment": {
+        "additionalProperties": false,
+        "description": "A TOTP secret awaiting its first code.",
+        "properties": {
+          "otpauth_uri": {
+            "type": "string"
+          },
+          "qr_svg_data_url": {
+            "description": "A `data:image/svg+xml;base64,` URL of the QR code.",
+            "type": "string"
+          },
+          "secret_base32": {
+            "description": "The secret in base32 without padding.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "otpauth_uri",
+          "qr_svg_data_url",
+          "secret_base32"
+        ],
+        "title": "TotpEnrollment",
+        "type": "object"
+      },
+      "SecuritySummary": {
+        "additionalProperties": false,
+        "description": "The second factors of the signed-in user.",
+        "properties": {
+          "admin_passkey_required": {
+            "description": "An admin without a passkey while `ADMIN_REQUIRE_PASSKEY=true`.",
+            "type": "boolean"
+          },
+          "linked_providers": {
+            "description": "The sorted provider keys of the external identities; `[]` for a local account.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "passkeys": {
+            "items": {
+              "$ref": "#/components/schemas/PasskeyView"
+            },
+            "type": "array"
+          },
+          "password_set": {
+            "type": "boolean"
+          },
+          "recent_auth_until": {
+            "description": "The end of the 10-minute window of a recent second factor.",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "recovery_codes": {
+            "additionalProperties": false,
+            "properties": {
+              "generated_at": {
+                "format": "date-time",
+                "nullable": true,
+                "type": "string"
+              },
+              "remaining": {
+                "description": "The number of unused codes.",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "generated_at",
+              "remaining"
+            ],
+            "type": "object"
+          },
+          "totp": {
+            "additionalProperties": false,
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "enabled_at": {
+                "format": "date-time",
+                "nullable": true,
+                "type": "string"
+              }
+            },
+            "required": [
+              "enabled",
+              "enabled_at"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "admin_passkey_required",
+          "linked_providers",
+          "passkeys",
+          "password_set",
+          "recent_auth_until",
+          "recovery_codes",
+          "totp"
+        ],
+        "title": "SecuritySummary",
         "type": "object"
       },
       "ModuleView": {
@@ -1080,6 +1354,39 @@
         "title": "ModuleView",
         "type": "object"
       },
+      "ReauthRequest": {
+        "additionalProperties": false,
+        "description": "Exactly one local second factor.",
+        "maxProperties": 1,
+        "minProperties": 1,
+        "properties": {
+          "passkey": {
+            "$ref": "#/components/schemas/PasskeyAssertion"
+          },
+          "totp": {
+            "description": "A six-digit code of the authenticator app.",
+            "maxLength": 6,
+            "type": "string"
+          }
+        },
+        "title": "ReauthRequest",
+        "type": "object"
+      },
+      "FactorChange": {
+        "additionalProperties": false,
+        "description": "The factor was removed.",
+        "properties": {
+          "other_sessions": {
+            "description": "The other live sessions of the user.",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "other_sessions"
+        ],
+        "title": "FactorChange",
+        "type": "object"
+      },
       "SessionPayload": {
         "additionalProperties": false,
         "description": "The session of the browser.",
@@ -1346,6 +1653,232 @@
         "title": "ModuleCompletionView",
         "type": "object"
       },
+      "FinishSession": {
+        "additionalProperties": false,
+        "description": "The session after an OIDC sign-in, step-up or link.",
+        "properties": {
+          "csrf_token": {
+            "description": "The token for the `x-csrf-token` header.",
+            "type": "string"
+          },
+          "flags": {
+            "additionalProperties": false,
+            "properties": {
+              "admin_passkey_required": {
+                "type": "boolean"
+              },
+              "demo": {
+                "description": "Mirrors `AUTH_DEMO`.",
+                "type": "boolean"
+              },
+              "local_accounts": {
+                "type": "boolean"
+              },
+              "signup": {
+                "enum": [
+                  "closed",
+                  "invite",
+                  "domain"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "admin_passkey_required",
+              "demo",
+              "local_accounts",
+              "signup"
+            ],
+            "type": "object"
+          },
+          "linked": {
+            "description": "Only after a link: `true`.",
+            "enum": [
+              true
+            ],
+            "type": "boolean"
+          },
+          "pending": {
+            "additionalProperties": false,
+            "description": "The pending second-factor state after a first factor.",
+            "nullable": true,
+            "properties": {
+              "expires_at": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "next": {
+                "enum": [
+                  "second_factor"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "expires_at",
+              "next"
+            ],
+            "type": "object"
+          },
+          "providers": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "key": {
+                  "description": "The provider key of the configuration.",
+                  "type": "string"
+                },
+                "kind": {
+                  "description": "A redirect to the provider or a credentials form.",
+                  "enum": [
+                    "redirect",
+                    "credentials"
+                  ],
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "start_url": {
+                  "description": "The path where the sign-in starts.",
+                  "type": "string"
+                },
+                "type": {
+                  "enum": [
+                    "entra",
+                    "google",
+                    "oidc",
+                    "ldap"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "key",
+                "kind",
+                "label",
+                "start_url",
+                "type"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "roles": {
+            "items": {
+              "enum": [
+                "learner",
+                "facilitator",
+                "author",
+                "registrar",
+                "analyst",
+                "admin"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "session": {
+            "additionalProperties": false,
+            "nullable": true,
+            "properties": {
+              "auth_methods": {
+                "items": {
+                  "enum": [
+                    "passkey",
+                    "password",
+                    "totp",
+                    "recovery_code",
+                    "email_code",
+                    "oidc",
+                    "ldap",
+                    "idp_mfa",
+                    "demo"
+                  ],
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "expires_at": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "idle_timeout_minutes": {
+                "type": "integer"
+              },
+              "provider_key": {
+                "description": "The provider of the session row; `null` for local and demo.",
+                "nullable": true,
+                "type": "string"
+              },
+              "recent_auth_until": {
+                "description": "The end of the 10-minute window of a recent second factor.",
+                "format": "date-time",
+                "nullable": true,
+                "type": "string"
+              },
+              "strength": {
+                "enum": [
+                  "mfa",
+                  "recovery",
+                  "enrollment",
+                  "demo"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "auth_methods",
+              "expires_at",
+              "idle_timeout_minutes",
+              "provider_key",
+              "recent_auth_until",
+              "strength"
+            ],
+            "type": "object"
+          },
+          "user": {
+            "additionalProperties": false,
+            "nullable": true,
+            "properties": {
+              "display_name": {
+                "nullable": true,
+                "type": "string"
+              },
+              "email": {
+                "description": "`null` for demo accounts and accounts without an address.",
+                "nullable": true,
+                "type": "string"
+              },
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "locale": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "display_name",
+              "email",
+              "id",
+              "locale"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "csrf_token",
+          "flags",
+          "pending",
+          "providers",
+          "roles",
+          "session",
+          "user"
+        ],
+        "title": "FinishSession",
+        "type": "object"
+      },
       "ItemResponseRequest": {
         "additionalProperties": false,
         "description": "A practice answer. The answer is evaluated and stored nowhere.",
@@ -1358,6 +1891,266 @@
           "answer"
         ],
         "title": "ItemResponseRequest",
+        "type": "object"
+      },
+      "SecondFactorSession": {
+        "additionalProperties": false,
+        "description": "The full session after the second factor.",
+        "properties": {
+          "csrf_token": {
+            "description": "The token for the `x-csrf-token` header.",
+            "type": "string"
+          },
+          "flags": {
+            "additionalProperties": false,
+            "properties": {
+              "admin_passkey_required": {
+                "type": "boolean"
+              },
+              "demo": {
+                "description": "Mirrors `AUTH_DEMO`.",
+                "type": "boolean"
+              },
+              "local_accounts": {
+                "type": "boolean"
+              },
+              "signup": {
+                "enum": [
+                  "closed",
+                  "invite",
+                  "domain"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "admin_passkey_required",
+              "demo",
+              "local_accounts",
+              "signup"
+            ],
+            "type": "object"
+          },
+          "pending": {
+            "additionalProperties": false,
+            "description": "The pending second-factor state after a first factor.",
+            "nullable": true,
+            "properties": {
+              "expires_at": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "next": {
+                "enum": [
+                  "second_factor"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "expires_at",
+              "next"
+            ],
+            "type": "object"
+          },
+          "providers": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "key": {
+                  "description": "The provider key of the configuration.",
+                  "type": "string"
+                },
+                "kind": {
+                  "description": "A redirect to the provider or a credentials form.",
+                  "enum": [
+                    "redirect",
+                    "credentials"
+                  ],
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "start_url": {
+                  "description": "The path where the sign-in starts.",
+                  "type": "string"
+                },
+                "type": {
+                  "enum": [
+                    "entra",
+                    "google",
+                    "oidc",
+                    "ldap"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "key",
+                "kind",
+                "label",
+                "start_url",
+                "type"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "recovery_codes_remaining": {
+            "description": "Only after a recovery code: the number of unused codes.",
+            "type": "integer"
+          },
+          "roles": {
+            "items": {
+              "enum": [
+                "learner",
+                "facilitator",
+                "author",
+                "registrar",
+                "analyst",
+                "admin"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "session": {
+            "additionalProperties": false,
+            "nullable": true,
+            "properties": {
+              "auth_methods": {
+                "items": {
+                  "enum": [
+                    "passkey",
+                    "password",
+                    "totp",
+                    "recovery_code",
+                    "email_code",
+                    "oidc",
+                    "ldap",
+                    "idp_mfa",
+                    "demo"
+                  ],
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "expires_at": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "idle_timeout_minutes": {
+                "type": "integer"
+              },
+              "provider_key": {
+                "description": "The provider of the session row; `null` for local and demo.",
+                "nullable": true,
+                "type": "string"
+              },
+              "recent_auth_until": {
+                "description": "The end of the 10-minute window of a recent second factor.",
+                "format": "date-time",
+                "nullable": true,
+                "type": "string"
+              },
+              "strength": {
+                "enum": [
+                  "mfa",
+                  "recovery",
+                  "enrollment",
+                  "demo"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "auth_methods",
+              "expires_at",
+              "idle_timeout_minutes",
+              "provider_key",
+              "recent_auth_until",
+              "strength"
+            ],
+            "type": "object"
+          },
+          "user": {
+            "additionalProperties": false,
+            "nullable": true,
+            "properties": {
+              "display_name": {
+                "nullable": true,
+                "type": "string"
+              },
+              "email": {
+                "description": "`null` for demo accounts and accounts without an address.",
+                "nullable": true,
+                "type": "string"
+              },
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "locale": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "display_name",
+              "email",
+              "id",
+              "locale"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "csrf_token",
+          "flags",
+          "pending",
+          "providers",
+          "roles",
+          "session",
+          "user"
+        ],
+        "title": "SecondFactorSession",
+        "type": "object"
+      },
+      "OidcIntent": {
+        "additionalProperties": false,
+        "description": "The intent works once, for 5 minutes, with the creating session.",
+        "properties": {
+          "url": {
+            "description": "The authorize path with the intent (`/auth/oidc/<key>?intent=<token>`), opened as a top-level navigation.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "title": "OidcIntent",
+        "type": "object"
+      },
+      "RecoveryVerifyRequest": {
+        "additionalProperties": false,
+        "description": "The link and a saved recovery code open a recovery session.",
+        "properties": {
+          "recovery_code": {
+            "description": "A saved recovery code; case, spaces and hyphens do not count.",
+            "maxLength": 64,
+            "type": "string"
+          },
+          "token": {
+            "description": "The token of the recovery link.",
+            "maxLength": 255,
+            "type": "string"
+          }
+        },
+        "required": [
+          "recovery_code",
+          "token"
+        ],
+        "title": "RecoveryVerifyRequest",
         "type": "object"
       },
       "ItemResult": {
@@ -1457,6 +2250,54 @@
           "rules"
         ],
         "title": "ItemResult",
+        "type": "object"
+      },
+      "PasskeyView": {
+        "additionalProperties": false,
+        "description": "A registered passkey.",
+        "properties": {
+          "backed_up": {
+            "description": "The passkey is synced.",
+            "type": "boolean"
+          },
+          "backup_eligible": {
+            "description": "The authenticator can sync the passkey.",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "inserted_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "last_used_at": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "nickname": {
+            "nullable": true,
+            "type": "string"
+          },
+          "transports": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "backed_up",
+          "backup_eligible",
+          "id",
+          "inserted_at",
+          "last_used_at",
+          "nickname",
+          "transports"
+        ],
+        "title": "PasskeyView",
         "type": "object"
       },
       "InvitationRequest": {
@@ -1636,6 +2477,21 @@
         "title": "Progress",
         "type": "object"
       },
+      "LogoutRedirect": {
+        "additionalProperties": false,
+        "description": "Signed out; the provider session ends next.",
+        "properties": {
+          "logout_url": {
+            "description": "The RP-initiated logout URL of the provider, with `post_logout_redirect_uri` `PUBLIC_URL/signed-out`.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "logout_url"
+        ],
+        "title": "LogoutRedirect",
+        "type": "object"
+      },
       "EnrollmentView": {
         "additionalProperties": false,
         "description": "The enrollment of the signed-in user.",
@@ -1672,6 +2528,22 @@
           "started_at"
         ],
         "title": "EnrollmentView",
+        "type": "object"
+      },
+      "TotpConfirmRequest": {
+        "additionalProperties": false,
+        "description": "Confirms the authenticator app.",
+        "properties": {
+          "code": {
+            "description": "A six-digit code of the new secret.",
+            "maxLength": 6,
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "TotpConfirmRequest",
         "type": "object"
       },
       "EnrollmentPathRequest": {
@@ -1713,6 +2585,414 @@
           "status"
         ],
         "title": "ObjectiveProgress",
+        "type": "object"
+      },
+      "PasskeyCreationOptions": {
+        "additionalProperties": false,
+        "description": "The options JSON of a registration.",
+        "properties": {
+          "attestation": {
+            "enum": [
+              "none"
+            ],
+            "type": "string"
+          },
+          "authenticatorSelection": {
+            "additionalProperties": false,
+            "properties": {
+              "residentKey": {
+                "enum": [
+                  "required"
+                ],
+                "type": "string"
+              },
+              "userVerification": {
+                "enum": [
+                  "required"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "residentKey",
+              "userVerification"
+            ],
+            "type": "object"
+          },
+          "challenge": {
+            "description": "Base64url without padding.",
+            "type": "string"
+          },
+          "excludeCredentials": {
+            "description": "The passkeys the user already holds.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "description": "The credential id, base64url without padding.",
+                  "type": "string"
+                },
+                "transports": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "type": {
+                  "enum": [
+                    "public-key"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "transports",
+                "type"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "pubKeyCredParams": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "alg": {
+                  "enum": [
+                    -8,
+                    -7,
+                    -257
+                  ],
+                  "type": "integer"
+                },
+                "type": {
+                  "enum": [
+                    "public-key"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "alg",
+                "type"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "rp": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ],
+            "type": "object"
+          },
+          "timeout": {
+            "description": "Milliseconds (300,000).",
+            "type": "integer"
+          },
+          "user": {
+            "additionalProperties": false,
+            "properties": {
+              "displayName": {
+                "type": "string"
+              },
+              "id": {
+                "description": "The WebAuthn user handle, base64url without padding.",
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "displayName",
+              "id",
+              "name"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "attestation",
+          "authenticatorSelection",
+          "challenge",
+          "excludeCredentials",
+          "pubKeyCredParams",
+          "rp",
+          "timeout",
+          "user"
+        ],
+        "title": "PasskeyCreationOptions",
+        "type": "object"
+      },
+      "ReauthSession": {
+        "additionalProperties": false,
+        "description": "The reissued session after a re-authentication.",
+        "properties": {
+          "csrf_token": {
+            "description": "The token for the `x-csrf-token` header.",
+            "type": "string"
+          },
+          "flags": {
+            "additionalProperties": false,
+            "properties": {
+              "admin_passkey_required": {
+                "type": "boolean"
+              },
+              "demo": {
+                "description": "Mirrors `AUTH_DEMO`.",
+                "type": "boolean"
+              },
+              "local_accounts": {
+                "type": "boolean"
+              },
+              "signup": {
+                "enum": [
+                  "closed",
+                  "invite",
+                  "domain"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "admin_passkey_required",
+              "demo",
+              "local_accounts",
+              "signup"
+            ],
+            "type": "object"
+          },
+          "pending": {
+            "additionalProperties": false,
+            "description": "The pending second-factor state after a first factor.",
+            "nullable": true,
+            "properties": {
+              "expires_at": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "next": {
+                "enum": [
+                  "second_factor"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "expires_at",
+              "next"
+            ],
+            "type": "object"
+          },
+          "providers": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "key": {
+                  "description": "The provider key of the configuration.",
+                  "type": "string"
+                },
+                "kind": {
+                  "description": "A redirect to the provider or a credentials form.",
+                  "enum": [
+                    "redirect",
+                    "credentials"
+                  ],
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "start_url": {
+                  "description": "The path where the sign-in starts.",
+                  "type": "string"
+                },
+                "type": {
+                  "enum": [
+                    "entra",
+                    "google",
+                    "oidc",
+                    "ldap"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "key",
+                "kind",
+                "label",
+                "start_url",
+                "type"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "recent_auth_until": {
+            "description": "The end of the 10-minute window.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "roles": {
+            "items": {
+              "enum": [
+                "learner",
+                "facilitator",
+                "author",
+                "registrar",
+                "analyst",
+                "admin"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "session": {
+            "additionalProperties": false,
+            "nullable": true,
+            "properties": {
+              "auth_methods": {
+                "items": {
+                  "enum": [
+                    "passkey",
+                    "password",
+                    "totp",
+                    "recovery_code",
+                    "email_code",
+                    "oidc",
+                    "ldap",
+                    "idp_mfa",
+                    "demo"
+                  ],
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "expires_at": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "idle_timeout_minutes": {
+                "type": "integer"
+              },
+              "provider_key": {
+                "description": "The provider of the session row; `null` for local and demo.",
+                "nullable": true,
+                "type": "string"
+              },
+              "recent_auth_until": {
+                "description": "The end of the 10-minute window of a recent second factor.",
+                "format": "date-time",
+                "nullable": true,
+                "type": "string"
+              },
+              "strength": {
+                "enum": [
+                  "mfa",
+                  "recovery",
+                  "enrollment",
+                  "demo"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "auth_methods",
+              "expires_at",
+              "idle_timeout_minutes",
+              "provider_key",
+              "recent_auth_until",
+              "strength"
+            ],
+            "type": "object"
+          },
+          "user": {
+            "additionalProperties": false,
+            "nullable": true,
+            "properties": {
+              "display_name": {
+                "nullable": true,
+                "type": "string"
+              },
+              "email": {
+                "description": "`null` for demo accounts and accounts without an address.",
+                "nullable": true,
+                "type": "string"
+              },
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "locale": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "display_name",
+              "email",
+              "id",
+              "locale"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "csrf_token",
+          "flags",
+          "pending",
+          "providers",
+          "recent_auth_until",
+          "roles",
+          "session",
+          "user"
+        ],
+        "title": "ReauthSession",
+        "type": "object"
+      },
+      "FinishRequest": {
+        "additionalProperties": false,
+        "description": "Ends an OIDC flow same-origin.",
+        "properties": {
+          "ticket": {
+            "description": "The ticket from the fragment of `/auth/finish`.",
+            "maxLength": 255,
+            "type": "string"
+          }
+        },
+        "required": [
+          "ticket"
+        ],
+        "title": "FinishRequest",
+        "type": "object"
+      },
+      "RecoveryCodeList": {
+        "additionalProperties": false,
+        "description": "New recovery codes.",
+        "properties": {
+          "recovery_codes": {
+            "description": "Shown once: ten new codes; every earlier code stops working.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "recovery_codes"
+        ],
+        "title": "RecoveryCodeList",
         "type": "object"
       },
       "ProviderList": {
@@ -1804,6 +3084,29 @@
           "terms"
         ],
         "title": "Glossary",
+        "type": "object"
+      },
+      "SecondFactorRequest": {
+        "additionalProperties": false,
+        "description": "Exactly one second factor.",
+        "maxProperties": 1,
+        "minProperties": 1,
+        "properties": {
+          "passkey": {
+            "$ref": "#/components/schemas/PasskeyAssertion"
+          },
+          "recovery_code": {
+            "description": "A recovery code; case, spaces and hyphens do not count.",
+            "maxLength": 64,
+            "type": "string"
+          },
+          "totp": {
+            "description": "A six-digit code of the authenticator app.",
+            "maxLength": 6,
+            "type": "string"
+          }
+        },
+        "title": "SecondFactorRequest",
         "type": "object"
       },
       "ProgramList": {
@@ -1926,6 +3229,79 @@
         "title": "DemoSignInRequest",
         "type": "object"
       },
+      "LdapLinkResult": {
+        "additionalProperties": false,
+        "description": "The directory account is connected.",
+        "properties": {
+          "status": {
+            "enum": [
+              "linked",
+              "already_linked"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "LdapLinkResult",
+        "type": "object"
+      },
+      "FinishResult": {
+        "description": "A next step, or the session payload without `next`.",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ExternalNextStep"
+          },
+          {
+            "$ref": "#/components/schemas/FinishSession"
+          }
+        ],
+        "title": "FinishResult"
+      },
+      "TotpConfirmResult": {
+        "additionalProperties": false,
+        "description": "The authenticator app is enabled.",
+        "properties": {
+          "other_sessions": {
+            "description": "The other live sessions of the user.",
+            "type": "integer"
+          },
+          "recovery_codes": {
+            "description": "Shown once: ten new recovery codes.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "session": {
+            "$ref": "#/components/schemas/SessionPayload"
+          },
+          "totp": {
+            "additionalProperties": false,
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "enabled_at": {
+                "format": "date-time",
+                "type": "string"
+              }
+            },
+            "required": [
+              "enabled",
+              "enabled_at"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "other_sessions",
+          "totp"
+        ],
+        "title": "TotpConfirmResult",
+        "type": "object"
+      },
       "AssessmentsOpenError": {
         "additionalProperties": false,
         "description": "The open exams of the module.",
@@ -2024,6 +3400,77 @@
         "title": "AttemptResult",
         "type": "object"
       },
+      "PasskeyAttestation": {
+        "additionalProperties": false,
+        "description": "A passkey registration, base64url-encoded.",
+        "properties": {
+          "authenticatorAttachment": {
+            "enum": [
+              "platform",
+              "cross-platform"
+            ],
+            "type": "string"
+          },
+          "clientExtensionResults": {
+            "description": "The client extension outputs; the server reads none."
+          },
+          "id": {
+            "description": "The credential id, base64url.",
+            "type": "string"
+          },
+          "rawId": {
+            "description": "The credential id, base64url.",
+            "type": "string"
+          },
+          "response": {
+            "additionalProperties": false,
+            "properties": {
+              "attestationObject": {
+                "type": "string"
+              },
+              "authenticatorData": {
+                "type": "string"
+              },
+              "clientDataJSON": {
+                "type": "string"
+              },
+              "publicKey": {
+                "type": "string"
+              },
+              "publicKeyAlgorithm": {
+                "type": "integer"
+              },
+              "transports": {
+                "description": "Only the known transports are stored.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "attestationObject",
+              "clientDataJSON"
+            ],
+            "type": "object"
+          },
+          "type": {
+            "enum": [
+              "public-key"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "clientExtensionResults",
+          "id",
+          "rawId",
+          "response",
+          "type"
+        ],
+        "title": "PasskeyAttestation",
+        "type": "object"
+      },
       "SessionList": {
         "additionalProperties": false,
         "description": "The sessions of the signed-in user.",
@@ -2104,6 +3551,101 @@
         ],
         "title": "SessionList",
         "type": "object"
+      },
+      "RecoveryStartRequest": {
+        "additionalProperties": false,
+        "description": "Sends a recovery link.",
+        "properties": {
+          "email": {
+            "description": "The e-mail address of the account.",
+            "maxLength": 160,
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "RecoveryStartRequest",
+        "type": "object"
+      },
+      "PasskeyOptionsRequest": {
+        "additionalProperties": false,
+        "description": "Starts a passkey assertion ceremony.",
+        "properties": {
+          "purpose": {
+            "description": "The ceremony: discoverable sign-in (the default), the second factor of a pending sign-in, or the re-authentication of an `mfa` session.",
+            "enum": [
+              "sign_in",
+              "second_factor",
+              "reauth"
+            ],
+            "type": "string"
+          }
+        },
+        "title": "PasskeyOptionsRequest",
+        "type": "object"
+      },
+      "PasskeyRequestOptions": {
+        "additionalProperties": false,
+        "description": "The options JSON of an assertion.",
+        "properties": {
+          "allowCredentials": {
+            "description": "The credentials of the user; absent for the discoverable sign-in.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "description": "The credential id, base64url without padding.",
+                  "type": "string"
+                },
+                "transports": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "type": {
+                  "enum": [
+                    "public-key"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "transports",
+                "type"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "challenge": {
+            "description": "Base64url without padding.",
+            "type": "string"
+          },
+          "rpId": {
+            "type": "string"
+          },
+          "timeout": {
+            "description": "Milliseconds (300,000).",
+            "type": "integer"
+          },
+          "userVerification": {
+            "enum": [
+              "required"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "challenge",
+          "rpId",
+          "timeout",
+          "userVerification"
+        ],
+        "title": "PasskeyRequestOptions",
+        "type": "object"
       }
     },
     "securitySchemes": {
@@ -2127,6 +3669,350 @@
   },
   "openapi": "3.0.0",
   "paths": {
+    "/api/programs/{slug}": {
+      "get": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.ProgramController.show",
+        "parameters": [
+          {
+            "description": "The slug of a published program.",
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "description": "The slug of a published program.",
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[a-z0-9][a-z0-9-]*$(?!\\n)",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgramView"
+                }
+              }
+            },
+            "description": "The program"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `enrollment_required`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "Read a program",
+        "tags": [
+          "Catalog"
+        ]
+      }
+    },
+    "/api/me/passkeys/options": {
+      "post": {
+        "callbacks": {},
+        "description": "Stores a single-use challenge for 300 seconds and answers the creation options. Needs a second factor within the last 10 minutes in an `mfa` session.",
+        "operationId": "EspalierWeb.Me.PasskeyController.options",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasskeyCreationOptions"
+                }
+              }
+            },
+            "description": "The creation options"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `reauth_required`, `csrf`, `cross_site_request`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Start a passkey registration",
+        "tags": [
+          "Account"
+        ]
+      }
+    },
+    "/api/auth/passkey/options": {
+      "post": {
+        "callbacks": {},
+        "description": "Stores a single-use challenge for 300 seconds and answers the request options. `second_factor` needs the pending state of a first factor, `reauth` an `mfa` session, and `sign_in` local accounts.",
+        "operationId": "EspalierWeb.Auth.PasskeyAuthController.options",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasskeyOptionsRequest"
+              }
+            }
+          },
+          "description": "The purpose",
+          "required": false
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasskeyRequestOptions"
+                }
+              }
+            },
+            "description": "The request options"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `bad_request`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `authentication_failed`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `rate_limited`",
+            "headers": {
+              "retry-after": {
+                "description": "Seconds until the bucket admits the next request.",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "style": "simple"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "csrf_header": []
+          }
+        ],
+        "summary": "Start a passkey assertion",
+        "tags": [
+          "Session"
+        ]
+      }
+    },
+    "/api/enrollments/{id}": {
+      "patch": {
+        "callbacks": {},
+        "description": "Sets the path and marks it as chosen by the learner.",
+        "operationId": "EspalierWeb.EnrollmentController.update",
+        "parameters": [
+          {
+            "description": "The enrollment id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnrollmentPathRequest"
+              }
+            }
+          },
+          "description": "The path",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnrollmentView"
+                }
+              }
+            },
+            "description": "The enrollment"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `enrollment_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `rate_limited`",
+            "headers": {
+              "retry-after": {
+                "description": "Seconds until the bucket admits the next request.",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "style": "simple"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Choose the path",
+        "tags": [
+          "Learning"
+        ]
+      }
+    },
     "/api/assessments/{id}/attempts": {
       "post": {
         "callbacks": {},
@@ -2248,21 +4134,21 @@
         ]
       }
     },
-    "/api/auth/demo": {
+    "/api/auth/recovery/verify": {
       "post": {
         "callbacks": {},
-        "description": "Only with `AUTH_DEMO=true`; otherwise 404.",
-        "operationId": "EspalierWeb.Auth.DemoController.create",
+        "description": "Opens a `recovery` session, which reaches only the enrollment routes. Every failure answers 401 `authentication_failed`; the link stays valid until it expires.",
+        "operationId": "EspalierWeb.Auth.RecoveryController.verify",
         "parameters": [],
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/DemoSignInRequest"
+                "$ref": "#/components/schemas/RecoveryVerifyRequest"
               }
             }
           },
-          "description": "The demo slot",
+          "description": "The link token and a recovery code",
           "required": true
         },
         "responses": {
@@ -2286,7 +4172,7 @@
             },
             "description": "Error codes: `bad_request`"
           },
-          "403": {
+          "401": {
             "content": {
               "application/json": {
                 "schema": {
@@ -2294,87 +4180,7 @@
                 }
               }
             },
-            "description": "Error codes: `csrf`, `cross_site_request`"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error codes: `not_found`"
-          },
-          "429": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error codes: `rate_limited`",
-            "headers": {
-              "retry-after": {
-                "description": "Seconds until the bucket admits the next request.",
-                "schema": {
-                  "minimum": 1,
-                  "type": "integer"
-                },
-                "style": "simple"
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "csrf_header": []
-          }
-        ],
-        "summary": "Sign in to a demo account",
-        "tags": [
-          "Session"
-        ]
-      }
-    },
-    "/api/auth/invitations": {
-      "post": {
-        "callbacks": {},
-        "description": "Self-service invitation with `SIGNUP=invite` or `domain`; the answer is the same for every address. `SIGNUP=closed` and `LOCAL_ACCOUNTS=false` answer 404.",
-        "operationId": "EspalierWeb.Auth.InvitationController.create",
-        "parameters": [],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/InvitationRequest"
-              }
-            }
-          },
-          "description": "The address",
-          "required": true
-        },
-        "responses": {
-          "202": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Accepted"
-                }
-              }
-            },
-            "description": "Accepted"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error codes: `bad_request`"
+            "description": "Error codes: `authentication_failed`"
           },
           "403": {
             "content": {
@@ -2422,27 +4228,37 @@
             "csrf_header": []
           }
         ],
-        "summary": "Request an invitation",
+        "summary": "Recover with the link and a saved recovery code",
         "tags": [
           "Session"
         ]
       }
     },
-    "/api/auth/invitations/accept": {
+    "/api/auth/ldap/{provider}": {
       "post": {
         "callbacks": {},
-        "description": "Opens an enrollment session, which reaches only the enrollment routes.",
-        "operationId": "EspalierWeb.Auth.InvitationController.accept",
-        "parameters": [],
+        "description": "A directory bind is a first factor only: an enrolled user enters the pending second-factor state, a user without a local factor an enrollment session. Every authentication failure answers 401 `invalid_credentials`.",
+        "operationId": "EspalierWeb.Auth.LdapController.create",
+        "parameters": [
+          {
+            "description": "The provider key.",
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/InvitationAcceptRequest"
+                "$ref": "#/components/schemas/LdapCredentialsRequest"
               }
             }
           },
-          "description": "The invitation token",
+          "description": "The directory credentials",
           "required": true
         },
         "responses": {
@@ -2450,97 +4266,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SessionPayload"
-                }
-              }
-            },
-            "description": "The session payload"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error codes: `invalid_token`"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error codes: `csrf`, `cross_site_request`"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error codes: `not_found`"
-          },
-          "429": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error codes: `rate_limited`",
-            "headers": {
-              "retry-after": {
-                "description": "Seconds until the bucket admits the next request.",
-                "schema": {
-                  "minimum": 1,
-                  "type": "integer"
-                },
-                "style": "simple"
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "csrf_header": []
-          }
-        ],
-        "summary": "Accept an invitation",
-        "tags": [
-          "Session"
-        ]
-      }
-    },
-    "/api/auth/password": {
-      "post": {
-        "callbacks": {},
-        "description": "A correct password yields the pending second-factor state for five minutes and never a session. Known and unknown addresses receive the same answer.",
-        "operationId": "EspalierWeb.Auth.PasswordController.create",
-        "parameters": [],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PasswordSignInRequest"
-              }
-            }
-          },
-          "description": "The address and the password",
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/NextStep"
+                  "$ref": "#/components/schemas/ExternalNextStep"
                 }
               }
             },
@@ -2584,6 +4310,106 @@
                 }
               }
             },
+            "description": "Error codes: `unknown_provider`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `link_required`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `rate_limited`",
+            "headers": {
+              "retry-after": {
+                "description": "Seconds until the bucket admits the next request.",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "style": "simple"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "csrf_header": []
+          }
+        ],
+        "summary": "Sign in with a directory account",
+        "tags": [
+          "Session"
+        ]
+      }
+    },
+    "/api/auth/passkey": {
+      "post": {
+        "callbacks": {},
+        "description": "The discoverable passkey sign-in of accounts without an external identity opens an `mfa` session. Every failure answers 401 `authentication_failed`.",
+        "operationId": "EspalierWeb.Auth.PasskeyAuthController.create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasskeyAssertion"
+              }
+            }
+          },
+          "description": "The result of startAuthentication",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionPayload"
+                }
+              }
+            },
+            "description": "The session payload"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `authentication_failed`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
             "description": "Error codes: `not_found`"
           },
           "429": {
@@ -2612,27 +4438,77 @@
             "csrf_header": []
           }
         ],
-        "summary": "Sign in with a password",
+        "summary": "Sign in with a passkey",
         "tags": [
           "Session"
         ]
       }
     },
-    "/api/enrollments": {
+    "/api/me/recovery-codes": {
       "post": {
         "callbacks": {},
-        "description": "Creates the enrollment (201). An existing enrollment answers 200 and takes the given path only while the learner has not chosen a path by hand.",
-        "operationId": "EspalierWeb.EnrollmentController.create",
+        "description": "Needs a second factor within the last 10 minutes. Every earlier code stops working.",
+        "operationId": "EspalierWeb.Me.RecoveryCodeController.create",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoveryCodeList"
+                }
+              }
+            },
+            "description": "The new codes"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Create new recovery codes",
+        "tags": [
+          "Account"
+        ]
+      }
+    },
+    "/api/auth/finish": {
+      "post": {
+        "callbacks": {},
+        "description": "Consumes the single-use ticket of the callback together with the transaction cookie. Answers a next step, or the session payload for a full session and a step-up, with `linked: true` after a link.",
+        "operationId": "EspalierWeb.Auth.FinishController.create",
         "parameters": [],
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/EnrollmentRequest"
+                "$ref": "#/components/schemas/FinishRequest"
               }
             }
           },
-          "description": "The program and the path",
+          "description": "The ticket",
           "required": true
         },
         "responses": {
@@ -2640,21 +4516,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/EnrollmentView"
+                  "$ref": "#/components/schemas/FinishResult"
                 }
               }
             },
-            "description": "The existing enrollment"
-          },
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/EnrollmentView"
-                }
-              }
-            },
-            "description": "The new enrollment"
+            "description": "The result"
           },
           "401": {
             "content": {
@@ -2664,7 +4530,7 @@
                 }
               }
             },
-            "description": "Error codes: `unauthenticated`"
+            "description": "Error codes: `ticket_invalid`"
           },
           "403": {
             "content": {
@@ -2674,240 +4540,7 @@
                 }
               }
             },
-            "description": "Error codes: `enrollment_required`, `csrf`, `cross_site_request`"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error codes: `not_found`"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error codes: `validation_failed`"
-          },
-          "429": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error codes: `rate_limited`",
-            "headers": {
-              "retry-after": {
-                "description": "Seconds until the bucket admits the next request.",
-                "schema": {
-                  "minimum": 1,
-                  "type": "integer"
-                },
-                "style": "simple"
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "csrf_header": [],
-            "session_cookie": []
-          }
-        ],
-        "summary": "Enroll in a program",
-        "tags": [
-          "Learning"
-        ]
-      }
-    },
-    "/api/enrollments/{id}": {
-      "patch": {
-        "callbacks": {},
-        "description": "Sets the path and marks it as chosen by the learner.",
-        "operationId": "EspalierWeb.EnrollmentController.update",
-        "parameters": [
-          {
-            "description": "The enrollment id.",
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/EnrollmentPathRequest"
-              }
-            }
-          },
-          "description": "The path",
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/EnrollmentView"
-                }
-              }
-            },
-            "description": "The enrollment"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error codes: `unauthenticated`"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error codes: `enrollment_required`, `csrf`, `cross_site_request`"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error codes: `not_found`"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error codes: `validation_failed`"
-          },
-          "429": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error codes: `rate_limited`",
-            "headers": {
-              "retry-after": {
-                "description": "Seconds until the bucket admits the next request.",
-                "schema": {
-                  "minimum": 1,
-                  "type": "integer"
-                },
-                "style": "simple"
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "csrf_header": [],
-            "session_cookie": []
-          }
-        ],
-        "summary": "Choose the path",
-        "tags": [
-          "Learning"
-        ]
-      }
-    },
-    "/api/items/{id}/responses": {
-      "post": {
-        "callbacks": {},
-        "operationId": "EspalierWeb.ItemResponseController.create",
-        "parameters": [
-          {
-            "description": "The item id.",
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ItemResponseRequest"
-              }
-            }
-          },
-          "description": "The answer",
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ItemResult"
-                }
-              }
-            },
-            "description": "The evaluation"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error codes: `unauthenticated`"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error codes: `enrollment_required`, `csrf`, `cross_site_request`"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error codes: `not_found`"
+            "description": "Error codes: `csrf`, `cross_site_request`"
           },
           "409": {
             "content": {
@@ -2917,17 +4550,7 @@
                 }
               }
             },
-            "description": "Error codes: `not_enrolled`"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error codes: `validation_failed`"
+            "description": "Error codes: `identity_in_use`, `provider_already_linked`"
           },
           "429": {
             "content": {
@@ -2952,43 +4575,42 @@
         },
         "security": [
           {
-            "csrf_header": [],
-            "session_cookie": []
+            "csrf_header": []
           }
         ],
-        "summary": "Answer a practice item",
+        "summary": "Finish an OIDC flow",
         "tags": [
-          "Learning"
+          "Session"
         ]
       }
     },
-    "/api/me/email": {
-      "put": {
+    "/api/me/passkeys": {
+      "post": {
         "callbacks": {},
-        "description": "Sends a confirmation link to the new address; the answer is the same for every address. Needs a second factor within the last 10 minutes.",
-        "operationId": "EspalierWeb.Me.EmailController.update",
+        "description": "Completes an enrollment or a recovery, which then answers ten new `recovery_codes` and the `session` payload with a new CSRF token.",
+        "operationId": "EspalierWeb.Me.PasskeyController.create",
         "parameters": [],
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/EmailChangeRequest"
+                "$ref": "#/components/schemas/PasskeyRegistrationRequest"
               }
             }
           },
-          "description": "The new address",
+          "description": "The result of startRegistration",
           "required": true
         },
         "responses": {
-          "202": {
+          "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Accepted"
+                  "$ref": "#/components/schemas/PasskeyRegistrationResult"
                 }
               }
             },
-            "description": "Accepted"
+            "description": "The passkey"
           },
           "400": {
             "content": {
@@ -3018,157 +4640,6 @@
                 }
               }
             },
-            "description": "Error codes: `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request`"
-          },
-          "429": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error codes: `rate_limited`",
-            "headers": {
-              "retry-after": {
-                "description": "Seconds until the bucket admits the next request.",
-                "schema": {
-                  "minimum": 1,
-                  "type": "integer"
-                },
-                "style": "simple"
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "csrf_header": [],
-            "session_cookie": []
-          }
-        ],
-        "summary": "Request an e-mail change",
-        "tags": [
-          "Account"
-        ]
-      }
-    },
-    "/api/me/email/confirm": {
-      "post": {
-        "callbacks": {},
-        "operationId": "EspalierWeb.Me.EmailController.confirm",
-        "parameters": [],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/EmailConfirmRequest"
-              }
-            }
-          },
-          "description": "The confirmation token",
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SessionPayload"
-                }
-              }
-            },
-            "description": "The session payload"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error codes: `invalid_token`"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error codes: `unauthenticated`"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error codes: `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request`"
-          }
-        },
-        "security": [
-          {
-            "csrf_header": [],
-            "session_cookie": []
-          }
-        ],
-        "summary": "Confirm an e-mail change",
-        "tags": [
-          "Account"
-        ]
-      }
-    },
-    "/api/me/password": {
-      "put": {
-        "callbacks": {},
-        "description": "Needs `current_password` and a second factor within the last 10 minutes; an enrollment or recovery session sets the password without them. Ends every other session and answers with a new session payload and CSRF token.",
-        "operationId": "EspalierWeb.Me.PasswordController.update",
-        "parameters": [],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PasswordChangeRequest"
-              }
-            }
-          },
-          "description": "The current and the new password",
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SessionPayload"
-                }
-              }
-            },
-            "description": "The session payload"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error codes: `unauthenticated`"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
             "description": "Error codes: `forbidden`, `reauth_required`, `csrf`, `cross_site_request`"
           },
           "422": {
@@ -3179,27 +4650,7 @@
                 }
               }
             },
-            "description": "Error codes: `validation_failed`"
-          },
-          "429": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error codes: `rate_limited`",
-            "headers": {
-              "retry-after": {
-                "description": "Seconds until the bucket admits the next request.",
-                "schema": {
-                  "minimum": 1,
-                  "type": "integer"
-                },
-                "style": "simple"
-              }
-            }
+            "description": "Error codes: `registration_failed`"
           }
         },
         "security": [
@@ -3208,21 +4659,22 @@
             "session_cookie": []
           }
         ],
-        "summary": "Change the password",
+        "summary": "Register a passkey",
         "tags": [
           "Account"
         ]
       }
     },
-    "/api/me/progress": {
+    "/api/programs/{slug}/handbook": {
       "get": {
         "callbacks": {},
-        "operationId": "EspalierWeb.Me.ProgressController.show",
+        "description": "Every rule with its statement and action grouped by module, plus the keys of the program's placeholder blocks (README section 7, domain rule 10).",
+        "operationId": "EspalierWeb.ProgramController.handbook",
         "parameters": [
           {
             "description": "The slug of a published program.",
-            "in": "query",
-            "name": "program",
+            "in": "path",
+            "name": "slug",
             "required": true,
             "schema": {
               "description": "The slug of a published program.",
@@ -3238,11 +4690,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Progress"
+                  "$ref": "#/components/schemas/Handbook"
                 }
               }
             },
-            "description": "The progress"
+            "description": "The handbook"
           },
           "401": {
             "content": {
@@ -3290,198 +4742,7 @@
             "session_cookie": []
           }
         ],
-        "summary": "Read the own progress in a program",
-        "tags": [
-          "Learning"
-        ]
-      }
-    },
-    "/api/me/sessions": {
-      "get": {
-        "callbacks": {},
-        "operationId": "EspalierWeb.Me.SessionController.index",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SessionList"
-                }
-              }
-            },
-            "description": "The sessions"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error codes: `unauthenticated`"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error codes: `enrollment_required`, `cross_site_request`"
-          }
-        },
-        "security": [
-          {
-            "session_cookie": []
-          }
-        ],
-        "summary": "List the own sessions",
-        "tags": [
-          "Account"
-        ]
-      }
-    },
-    "/api/me/sessions/{id}": {
-      "delete": {
-        "callbacks": {},
-        "description": "Needs a second factor within the last 10 minutes.",
-        "operationId": "EspalierWeb.Me.SessionController.delete",
-        "parameters": [
-          {
-            "description": "The session id.",
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Session ended"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error codes: `unauthenticated`"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error codes: `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request`"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error codes: `not_found`"
-          }
-        },
-        "security": [
-          {
-            "csrf_header": [],
-            "session_cookie": []
-          }
-        ],
-        "summary": "End one of the own sessions",
-        "tags": [
-          "Account"
-        ]
-      }
-    },
-    "/api/modules/{id}": {
-      "get": {
-        "callbacks": {},
-        "operationId": "EspalierWeb.ModuleController.show",
-        "parameters": [
-          {
-            "description": "The module id.",
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ModuleView"
-                }
-              }
-            },
-            "description": "The module"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error codes: `unauthenticated`"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error codes: `enrollment_required`, `cross_site_request`"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error codes: `not_found`"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error codes: `validation_failed`"
-          }
-        },
-        "security": [
-          {
-            "session_cookie": []
-          }
-        ],
-        "summary": "Read a module",
+        "summary": "Read the handbook of a program",
         "tags": [
           "Catalog"
         ]
@@ -3615,136 +4876,6 @@
         ]
       }
     },
-    "/api/programs": {
-      "get": {
-        "callbacks": {},
-        "operationId": "EspalierWeb.ProgramController.index",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProgramList"
-                }
-              }
-            },
-            "description": "The published programs"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error codes: `unauthenticated`"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error codes: `enrollment_required`, `cross_site_request`"
-          }
-        },
-        "security": [
-          {
-            "session_cookie": []
-          }
-        ],
-        "summary": "List the published programs",
-        "tags": [
-          "Catalog"
-        ]
-      }
-    },
-    "/api/programs/{slug}": {
-      "get": {
-        "callbacks": {},
-        "operationId": "EspalierWeb.ProgramController.show",
-        "parameters": [
-          {
-            "description": "The slug of a published program.",
-            "in": "path",
-            "name": "slug",
-            "required": true,
-            "schema": {
-              "description": "The slug of a published program.",
-              "maxLength": 255,
-              "minLength": 1,
-              "pattern": "^[a-z0-9][a-z0-9-]*$(?!\\n)",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProgramView"
-                }
-              }
-            },
-            "description": "The program"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error codes: `unauthenticated`"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error codes: `enrollment_required`, `cross_site_request`"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error codes: `not_found`"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error codes: `validation_failed`"
-          }
-        },
-        "security": [
-          {
-            "session_cookie": []
-          }
-        ],
-        "summary": "Read a program",
-        "tags": [
-          "Catalog"
-        ]
-      }
-    },
     "/api/programs/{slug}/glossary": {
       "get": {
         "callbacks": {},
@@ -3827,36 +4958,604 @@
         ]
       }
     },
-    "/api/programs/{slug}/handbook": {
-      "get": {
+    "/api/auth/second-factor": {
+      "post": {
         "callbacks": {},
-        "description": "Every rule with its statement and action grouped by module, plus the keys of the program's placeholder blocks (README section 7, domain rule 10).",
-        "operationId": "EspalierWeb.ProgramController.handbook",
-        "parameters": [
-          {
-            "description": "The slug of a published program.",
-            "in": "path",
-            "name": "slug",
-            "required": true,
-            "schema": {
-              "description": "The slug of a published program.",
-              "maxLength": 255,
-              "minLength": 1,
-              "pattern": "^[a-z0-9][a-z0-9-]*$(?!\\n)",
-              "type": "string"
+        "description": "Completes the pending state of a first factor with exactly one of `totp`, `passkey` and `recovery_code`. After a recovery code the answer carries `recovery_codes_remaining`. The fifth failure clears the pending state.",
+        "operationId": "EspalierWeb.Auth.SecondFactorController.create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SecondFactorRequest"
+              }
             }
-          }
-        ],
+          },
+          "description": "The second factor",
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Handbook"
+                  "$ref": "#/components/schemas/SecondFactorSession"
                 }
               }
             },
-            "description": "The handbook"
+            "description": "The session payload"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `bad_request`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `authentication_failed`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `csrf`, `cross_site_request`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `rate_limited`",
+            "headers": {
+              "retry-after": {
+                "description": "Seconds until the bucket admits the next request.",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "style": "simple"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "csrf_header": []
+          }
+        ],
+        "summary": "Complete a sign-in with a second factor",
+        "tags": [
+          "Session"
+        ]
+      }
+    },
+    "/auth/providers": {
+      "get": {
+        "callbacks": {},
+        "description": "The public entries of the configured providers in configured order.",
+        "operationId": "EspalierWeb.ProviderController.index",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderList"
+                }
+              }
+            },
+            "description": "The providers"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `cross_site_request`"
+          }
+        },
+        "security": [
+          {}
+        ],
+        "summary": "List the external identity providers",
+        "tags": [
+          "Session"
+        ]
+      }
+    },
+    "/api/me/sessions/{id}": {
+      "delete": {
+        "callbacks": {},
+        "description": "Needs a second factor within the last 10 minutes.",
+        "operationId": "EspalierWeb.Me.SessionController.delete",
+        "parameters": [
+          {
+            "description": "The session id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Session ended"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "End one of the own sessions",
+        "tags": [
+          "Account"
+        ]
+      }
+    },
+    "/api/me/email/confirm": {
+      "post": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Me.EmailController.confirm",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailConfirmRequest"
+              }
+            }
+          },
+          "description": "The confirmation token",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionPayload"
+                }
+              }
+            },
+            "description": "The session payload"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `invalid_token`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Confirm an e-mail change",
+        "tags": [
+          "Account"
+        ]
+      }
+    },
+    "/api/auth/oidc/{provider}/intents": {
+      "post": {
+        "callbacks": {},
+        "description": "Only `mfa` sessions. `link` needs a second factor within the last 10 minutes; `step_up` needs an identity of the provider and `idp_trusted` mode.",
+        "operationId": "EspalierWeb.OidcIntentController.create",
+        "parameters": [
+          {
+            "description": "The provider key.",
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OidcIntentRequest"
+              }
+            }
+          },
+          "description": "The purpose",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OidcIntent"
+                }
+              }
+            },
+            "description": "The intent URL"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `bad_request`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unknown_provider`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `provider_already_linked`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `step_up_not_available`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `rate_limited`",
+            "headers": {
+              "retry-after": {
+                "description": "Seconds until the bucket admits the next request.",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "style": "simple"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Create an OIDC intent",
+        "tags": [
+          "Session"
+        ]
+      }
+    },
+    "/api/auth/invitations": {
+      "post": {
+        "callbacks": {},
+        "description": "Self-service invitation with `SIGNUP=invite` or `domain`; the answer is the same for every address. `SIGNUP=closed` and `LOCAL_ACCOUNTS=false` answer 404.",
+        "operationId": "EspalierWeb.Auth.InvitationController.create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvitationRequest"
+              }
+            }
+          },
+          "description": "The address",
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Accepted"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `bad_request`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `rate_limited`",
+            "headers": {
+              "retry-after": {
+                "description": "Seconds until the bucket admits the next request.",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "style": "simple"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "csrf_header": []
+          }
+        ],
+        "summary": "Request an invitation",
+        "tags": [
+          "Session"
+        ]
+      }
+    },
+    "/api/me/totp/confirm": {
+      "post": {
+        "callbacks": {},
+        "description": "Enables the factor after one valid code and completes an enrollment or a recovery, which then answers ten new `recovery_codes` and the `session` payload.",
+        "operationId": "EspalierWeb.Me.TotpController.confirm",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TotpConfirmRequest"
+              }
+            }
+          },
+          "description": "The code",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TotpConfirmResult"
+                }
+              }
+            },
+            "description": "The enabled factor"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `bad_request`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `invalid_code`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `rate_limited`",
+            "headers": {
+              "retry-after": {
+                "description": "Seconds until the bucket admits the next request.",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "style": "simple"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Confirm the authenticator app",
+        "tags": [
+          "Account"
+        ]
+      }
+    },
+    "/api/programs": {
+      "get": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.ProgramController.index",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgramList"
+                }
+              }
+            },
+            "description": "The published programs"
           },
           "401": {
             "content": {
@@ -3877,6 +5576,157 @@
               }
             },
             "description": "Error codes: `enrollment_required`, `cross_site_request`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "List the published programs",
+        "tags": [
+          "Catalog"
+        ]
+      }
+    },
+    "/api/me/reauth": {
+      "post": {
+        "callbacks": {},
+        "description": "Reissues the session with a new token and CSRF token and opens the 10-minute window of a recent second factor. Every failure answers 401 `authentication_failed`.",
+        "operationId": "EspalierWeb.Me.ReauthController.create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReauthRequest"
+              }
+            }
+          },
+          "description": "The second factor",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReauthSession"
+                }
+              }
+            },
+            "description": "The session payload"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `bad_request`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `authentication_failed`, `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `enrollment_required`, `csrf`, `cross_site_request`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `rate_limited`",
+            "headers": {
+              "retry-after": {
+                "description": "Seconds until the bucket admits the next request.",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "style": "simple"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Re-authenticate with a local second factor",
+        "tags": [
+          "Account"
+        ]
+      }
+    },
+    "/api/me/passkeys/{id}": {
+      "delete": {
+        "callbacks": {},
+        "description": "Needs a second factor within the last 10 minutes. The last remaining second factor and, with `ADMIN_REQUIRE_PASSKEY=true`, the last passkey of an admin stay.",
+        "operationId": "EspalierWeb.Me.PasskeyController.delete",
+        "parameters": [
+          {
+            "description": "The passkey id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FactorChange"
+                }
+              }
+            },
+            "description": "Removed"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request`"
           },
           "404": {
             "content": {
@@ -3888,7 +5738,7 @@
             },
             "description": "Error codes: `not_found`"
           },
-          "422": {
+          "409": {
             "content": {
               "application/json": {
                 "schema": {
@@ -3896,26 +5746,128 @@
                 }
               }
             },
-            "description": "Error codes: `validation_failed`"
+            "description": "Error codes: `last_factor`, `admin_passkey_required`"
           }
         },
         "security": [
           {
+            "csrf_header": [],
             "session_cookie": []
           }
         ],
-        "summary": "Read the handbook of a program",
+        "summary": "Remove a passkey",
         "tags": [
-          "Catalog"
+          "Account"
+        ]
+      }
+    },
+    "/api/auth/demo": {
+      "post": {
+        "callbacks": {},
+        "description": "Only with `AUTH_DEMO=true`; otherwise 404.",
+        "operationId": "EspalierWeb.Auth.DemoController.create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemoSignInRequest"
+              }
+            }
+          },
+          "description": "The demo slot",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionPayload"
+                }
+              }
+            },
+            "description": "The session payload"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `bad_request`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `rate_limited`",
+            "headers": {
+              "retry-after": {
+                "description": "Seconds until the bucket admits the next request.",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "style": "simple"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "csrf_header": []
+          }
+        ],
+        "summary": "Sign in to a demo account",
+        "tags": [
+          "Session"
         ]
       }
     },
     "/api/session": {
       "delete": {
         "callbacks": {},
+        "description": "Answers 200 with `logout_url` for an OIDC session whose provider has an end-session endpoint on its allowed hosts, and 204 otherwise.",
         "operationId": "EspalierWeb.SessionController.delete",
         "parameters": [],
         "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogoutRedirect"
+                }
+              }
+            },
+            "description": "Signed out of an OIDC session"
+          },
           "204": {
             "description": "Signed out"
           },
@@ -3976,22 +5928,53 @@
         ]
       }
     },
-    "/auth/providers": {
-      "get": {
+    "/api/items/{id}/responses": {
+      "post": {
         "callbacks": {},
-        "description": "The public entries of the configured providers in configured order.",
-        "operationId": "EspalierWeb.ProviderController.index",
-        "parameters": [],
+        "operationId": "EspalierWeb.ItemResponseController.create",
+        "parameters": [
+          {
+            "description": "The item id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ItemResponseRequest"
+              }
+            }
+          },
+          "description": "The answer",
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProviderList"
+                  "$ref": "#/components/schemas/ItemResult"
                 }
               }
             },
-            "description": "The providers"
+            "description": "The evaluation"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
           },
           "403": {
             "content": {
@@ -4001,15 +5984,1148 @@
                 }
               }
             },
-            "description": "Error codes: `cross_site_request`"
+            "description": "Error codes: `enrollment_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_enrolled`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `rate_limited`",
+            "headers": {
+              "retry-after": {
+                "description": "Seconds until the bucket admits the next request.",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "style": "simple"
+              }
+            }
           }
         },
         "security": [
-          {}
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
         ],
-        "summary": "List the external identity providers",
+        "summary": "Answer a practice item",
+        "tags": [
+          "Learning"
+        ]
+      }
+    },
+    "/api/me/progress": {
+      "get": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Me.ProgressController.show",
+        "parameters": [
+          {
+            "description": "The slug of a published program.",
+            "in": "query",
+            "name": "program",
+            "required": true,
+            "schema": {
+              "description": "The slug of a published program.",
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[a-z0-9][a-z0-9-]*$(?!\\n)",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Progress"
+                }
+              }
+            },
+            "description": "The progress"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `enrollment_required`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "Read the own progress in a program",
+        "tags": [
+          "Learning"
+        ]
+      }
+    },
+    "/api/auth/invitations/accept": {
+      "post": {
+        "callbacks": {},
+        "description": "Opens an enrollment session, which reaches only the enrollment routes.",
+        "operationId": "EspalierWeb.Auth.InvitationController.accept",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvitationAcceptRequest"
+              }
+            }
+          },
+          "description": "The invitation token",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionPayload"
+                }
+              }
+            },
+            "description": "The session payload"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `invalid_token`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `rate_limited`",
+            "headers": {
+              "retry-after": {
+                "description": "Seconds until the bucket admits the next request.",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "style": "simple"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "csrf_header": []
+          }
+        ],
+        "summary": "Accept an invitation",
         "tags": [
           "Session"
+        ]
+      }
+    },
+    "/api/me/totp": {
+      "delete": {
+        "callbacks": {},
+        "description": "Needs a second factor within the last 10 minutes. The last remaining second factor stays.",
+        "operationId": "EspalierWeb.Me.TotpController.delete",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FactorChange"
+                }
+              }
+            },
+            "description": "Removed"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `last_factor`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Remove the authenticator app",
+        "tags": [
+          "Account"
+        ]
+      },
+      "post": {
+        "callbacks": {},
+        "description": "Answers a new secret, which works after one valid code. An enrollment or recovery session without a password or an external identity answers 409 `password_required`.",
+        "operationId": "EspalierWeb.Me.TotpController.create",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TotpEnrollment"
+                }
+              }
+            },
+            "description": "The new secret"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `password_required`, `totp_already_enabled`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Start the authenticator app setup",
+        "tags": [
+          "Account"
+        ]
+      }
+    },
+    "/api/enrollments": {
+      "post": {
+        "callbacks": {},
+        "description": "Creates the enrollment (201). An existing enrollment answers 200 and takes the given path only while the learner has not chosen a path by hand.",
+        "operationId": "EspalierWeb.EnrollmentController.create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnrollmentRequest"
+              }
+            }
+          },
+          "description": "The program and the path",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnrollmentView"
+                }
+              }
+            },
+            "description": "The existing enrollment"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnrollmentView"
+                }
+              }
+            },
+            "description": "The new enrollment"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `enrollment_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `rate_limited`",
+            "headers": {
+              "retry-after": {
+                "description": "Seconds until the bucket admits the next request.",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "style": "simple"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Enroll in a program",
+        "tags": [
+          "Learning"
+        ]
+      }
+    },
+    "/api/me/password": {
+      "put": {
+        "callbacks": {},
+        "description": "Needs `current_password` and a second factor within the last 10 minutes; an enrollment or recovery session sets the password without them. Ends every other session and answers with a new session payload and CSRF token.",
+        "operationId": "EspalierWeb.Me.PasswordController.update",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordChangeRequest"
+              }
+            }
+          },
+          "description": "The current and the new password",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionPayload"
+                }
+              }
+            },
+            "description": "The session payload"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `rate_limited`",
+            "headers": {
+              "retry-after": {
+                "description": "Seconds until the bucket admits the next request.",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "style": "simple"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Change the password",
+        "tags": [
+          "Account"
+        ]
+      }
+    },
+    "/api/me/security": {
+      "get": {
+        "callbacks": {},
+        "description": "Passkeys, the authenticator app, the recovery codes left, whether a password is set, the linked providers and the end of the recent-auth window. Enrollment and recovery sessions reach it.",
+        "operationId": "EspalierWeb.Me.SecurityController.show",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SecuritySummary"
+                }
+              }
+            },
+            "description": "The factors"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `cross_site_request`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "List the own second factors",
+        "tags": [
+          "Account"
+        ]
+      }
+    },
+    "/api/me/sessions": {
+      "get": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Me.SessionController.index",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionList"
+                }
+              }
+            },
+            "description": "The sessions"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `enrollment_required`, `cross_site_request`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "List the own sessions",
+        "tags": [
+          "Account"
+        ]
+      }
+    },
+    "/api/modules/{id}": {
+      "get": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.ModuleController.show",
+        "parameters": [
+          {
+            "description": "The module id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModuleView"
+                }
+              }
+            },
+            "description": "The module"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `enrollment_required`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "Read a module",
+        "tags": [
+          "Catalog"
+        ]
+      }
+    },
+    "/api/auth/password": {
+      "post": {
+        "callbacks": {},
+        "description": "A correct password yields the pending second-factor state for five minutes and never a session. Known and unknown addresses receive the same answer.",
+        "operationId": "EspalierWeb.Auth.PasswordController.create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordSignInRequest"
+              }
+            }
+          },
+          "description": "The address and the password",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NextStep"
+                }
+              }
+            },
+            "description": "The next step"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `bad_request`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `invalid_credentials`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `rate_limited`",
+            "headers": {
+              "retry-after": {
+                "description": "Seconds until the bucket admits the next request.",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "style": "simple"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "csrf_header": []
+          }
+        ],
+        "summary": "Sign in with a password",
+        "tags": [
+          "Session"
+        ]
+      }
+    },
+    "/api/me/email": {
+      "put": {
+        "callbacks": {},
+        "description": "Sends a confirmation link to the new address; the answer is the same for every address. Needs a second factor within the last 10 minutes.",
+        "operationId": "EspalierWeb.Me.EmailController.update",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailChangeRequest"
+              }
+            }
+          },
+          "description": "The new address",
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Accepted"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `bad_request`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `rate_limited`",
+            "headers": {
+              "retry-after": {
+                "description": "Seconds until the bucket admits the next request.",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "style": "simple"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Request an e-mail change",
+        "tags": [
+          "Account"
+        ]
+      }
+    },
+    "/api/auth/recovery/start": {
+      "post": {
+        "callbacks": {},
+        "description": "Sends a recovery link to a local account; the answer is the same for every address. `LOCAL_ACCOUNTS=false` answers 404.",
+        "operationId": "EspalierWeb.Auth.RecoveryController.start",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecoveryStartRequest"
+              }
+            }
+          },
+          "description": "The address",
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Accepted"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `bad_request`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `rate_limited`",
+            "headers": {
+              "retry-after": {
+                "description": "Seconds until the bucket admits the next request.",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "style": "simple"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "csrf_header": []
+          }
+        ],
+        "summary": "Request a recovery link",
+        "tags": [
+          "Session"
+        ]
+      }
+    },
+    "/api/me/identities/ldap/{provider}": {
+      "post": {
+        "callbacks": {},
+        "description": "Needs a second factor within the last 10 minutes. After the link, the account signs in through the directory and its local second factor only.",
+        "operationId": "EspalierWeb.Me.LdapIdentityController.create",
+        "parameters": [
+          {
+            "description": "The provider key.",
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LdapCredentialsRequest"
+              }
+            }
+          },
+          "description": "The directory credentials",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LdapLinkResult"
+                }
+              }
+            },
+            "description": "The link"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `bad_request`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `invalid_credentials`, `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unknown_provider`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `identity_in_use`, `provider_already_linked`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `rate_limited`",
+            "headers": {
+              "retry-after": {
+                "description": "Seconds until the bucket admits the next request.",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "style": "simple"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Connect a directory account",
+        "tags": [
+          "Account"
         ]
       }
     }

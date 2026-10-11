@@ -59,9 +59,13 @@ test("toSession copies only the members it knows and pollutes no prototype", () 
     user: {
       id: "8a4c7a5e-2f5b-4d6e-9c1a-3b2d4e5f6a7b",
       displayName: "Test person 1",
+      email: null,
     },
     roles: ["learner"],
     sessionStrength: "demo",
+    authMethods: ["demo"],
+    providerKey: null,
+    pending: null,
     csrfToken: "token-1",
     providers: [
       {
@@ -69,28 +73,45 @@ test("toSession copies only the members it knows and pollutes no prototype", () 
         type: "entra",
         kind: "redirect",
         label: "Entra ID",
-        start_url: "/auth/oidc/entra",
+        startUrl: "/auth/oidc/entra",
       },
     ],
-    flags: { demo: true },
+    flags: {
+      demo: true,
+      localAccounts: true,
+      signup: "closed",
+      adminPasskeyRequired: false,
+    },
   });
   expect(Object.keys(session)).toEqual([
     "user",
     "roles",
     "sessionStrength",
+    "authMethods",
+    "providerKey",
+    "pending",
     "csrfToken",
     "providers",
     "flags",
   ]);
-  expect(Object.keys(session.user ?? {})).toEqual(["id", "displayName"]);
+  expect(Object.keys(session.user ?? {})).toEqual([
+    "id",
+    "displayName",
+    "email",
+  ]);
   expect(Object.keys(session.providers[0])).toEqual([
     "key",
     "type",
     "kind",
     "label",
-    "start_url",
+    "startUrl",
   ]);
-  expect(Object.keys(session.flags)).toEqual(["demo"]);
+  expect(Object.keys(session.flags)).toEqual([
+    "demo",
+    "localAccounts",
+    "signup",
+    "adminPasskeyRequired",
+  ]);
 
   for (const value of [
     session,
@@ -114,4 +135,57 @@ test("toSession maps a signed-out payload to null user and strength", () => {
 
   expect(session.user).toBeNull();
   expect(session.sessionStrength).toBeNull();
+});
+
+test("toSession maps the pending state, the provider key and every flag", () => {
+  const payload = hostilePayload();
+  payload.user = null;
+  payload.session = {
+    strength: "mfa",
+    auth_methods: ["oidc", "idp_mfa"],
+    provider_key: "entra",
+    recent_auth_until: null,
+    expires_at: "2026-10-12T10:00:00Z",
+    idle_timeout_minutes: 60,
+  };
+  payload.pending = {
+    next: "second_factor",
+    expires_at: "2026-10-11T10:05:00Z",
+  };
+  payload.flags = {
+    demo: false,
+    local_accounts: false,
+    signup: "domain",
+    admin_passkey_required: true,
+  };
+
+  const session = toSession(payload);
+
+  expect(session.authMethods).toEqual(["oidc", "idp_mfa"]);
+  expect(session.providerKey).toBe("entra");
+  expect(session.pending).toEqual({
+    next: "second_factor",
+    expiresAt: "2026-10-11T10:05:00Z",
+  });
+  expect(session.flags).toEqual({
+    demo: false,
+    localAccounts: false,
+    signup: "domain",
+    adminPasskeyRequired: true,
+  });
+});
+
+test("toSession drops a provider entry with an unknown kind", () => {
+  const payload = hostilePayload();
+  payload.providers.push({
+    key: "other",
+    type: "oidc",
+    kind: "popup",
+    label: "Other",
+    start_url: "/auth/other",
+  });
+
+  expect(toSession(payload).providers.map((provider) => provider.key)).toEqual([
+    "entra",
+  ]);
 });

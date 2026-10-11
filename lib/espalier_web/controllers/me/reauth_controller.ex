@@ -8,12 +8,39 @@ defmodule EspalierWeb.Me.ReauthController do
   local factor step up through their provider (task 0006).
   """
   use EspalierWeb, :controller
+  use OpenApiSpex.ControllerSpecs
+
+  alias EspalierWeb.ApiSpec.Responses
+  alias EspalierWeb.Schemas.{ReauthRequest, ReauthSession}
+
+  # OpenAPI operations of task 0011 (README section 6.12). They describe the
+  # route; validation and error bodies stay those of task 0005.
+  tags ["Account"]
+  security Responses.session_and_csrf()
 
   alias Espalier.Accounts.{Factors, Scope}
   alias EspalierWeb.{FactorInput, FallbackController, SessionController, UserAuth}
   alias EspalierWeb.Plugs.RateLimit
 
   action_fallback EspalierWeb.FallbackController
+
+  operation :create,
+    summary: "Re-authenticate with a local second factor",
+    description:
+      "Reissues the session with a new token and CSRF token and opens the 10-minute " <>
+        "window of a recent second factor. Every failure answers 401 " <>
+        "`authentication_failed`.",
+    request_body: {"The second factor", "application/json", ReauthRequest, required: true},
+    responses:
+      Map.merge(
+        %{200 => {"The session payload", "application/json", ReauthSession}},
+        Responses.errors([
+          {400, ["bad_request"]},
+          {401, ["authentication_failed", "unauthenticated"]},
+          {403, ["enrollment_required", "csrf", "cross_site_request"]},
+          {429, ["rate_limited"]}
+        ])
+      )
 
   def create(conn, params) do
     user = conn.assigns.current_scope.user

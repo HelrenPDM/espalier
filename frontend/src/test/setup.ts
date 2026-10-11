@@ -44,3 +44,45 @@ class ResizeObserverStub implements ResizeObserver {
   disconnect() {}
 }
 globalThis.ResizeObserver ??= ResizeObserverStub;
+
+// Node's BroadcastChannel dispatches Node's MessageEvent, which fails the
+// `instanceof MessageEvent` check of listenMessages under jsdom. This
+// channel delivers jsdom MessageEvents, as a browser does: asynchronously,
+// to every other open channel of the same name, with a structured clone of
+// the message.
+class DocumentBroadcastChannel extends EventTarget {
+  static #open = new Map<string, Set<DocumentBroadcastChannel>>();
+  readonly name: string;
+  #closed = false;
+
+  constructor(name: string) {
+    super();
+    this.name = String(name);
+    const peers = DocumentBroadcastChannel.#open.get(this.name) ?? new Set();
+    peers.add(this);
+    DocumentBroadcastChannel.#open.set(this.name, peers);
+  }
+
+  postMessage(message: unknown) {
+    if (this.#closed)
+      throw new DOMException("Channel closed", "InvalidStateError");
+    const peers = DocumentBroadcastChannel.#open.get(this.name) ?? new Set();
+    for (const peer of peers) {
+      if (peer === this) continue;
+      const data = structuredClone(message);
+      setTimeout(() => {
+        if (!peer.#closed)
+          peer.dispatchEvent(
+            new MessageEvent("message", { data, origin: location.origin }),
+          );
+      }, 0);
+    }
+  }
+
+  close() {
+    this.#closed = true;
+    DocumentBroadcastChannel.#open.get(this.name)?.delete(this);
+  }
+}
+globalThis.BroadcastChannel =
+  DocumentBroadcastChannel as unknown as typeof BroadcastChannel;

@@ -392,3 +392,129 @@ The SPA code and the tests of this task also extend these rows; the task in pare
 - Password sign-in (0004 step 16), discoverable passkey sign-in (0005 step 8) and recovery (0005 step 16) serve only accounts without an external identity, so an account reaches the platform through its linked providers once it holds one. README section 8 lists no route that removes a linked identity, and the admin reset of decision D11 (0015) removes the factors and keeps the identity. The confirmation of step 12 therefore states these consequences before the link, and the security page reads `linked_providers` to hide the password and e-mail forms of such an account.
 - The security page offers no in-place replacement of the authenticator app. A person whose only factor is the app adds a passkey before removing it, or uses recovery, where a new TOTP setup replaces the old factor (0005 step 10).
 - The e2e suite signs in about twenty times from one address. When the Hammer limits of 0004 to 0007 answer 429 during a run, raise the limits in `config/dev.exs` only.
+
+## Addendum: implementation
+The implementation departs from the steps above in the points below, and later
+tasks rely on the implemented form.
+
+- Dependencies (step 2): `@simplewebauthn/browser` 14.0.0 and `otpauth` 9.5.2,
+  both installed with `npm install --before=<seven days back>`. The checks of
+  step 2 hold: openapi-fetch 0.17 declares `fetch?: (input: Request) =>
+  Promise<Response>` and passes `request: Request` to the middleware, and
+  `OTPAuth.URI.parse` returns `HOTP | TOTP`. `npm audit` reports the two
+  moderate findings of 0010 (`@tailwindcss/typography`) and no new one.
+- OpenAPI (step 1): the operations of the routes of 0005, 0006 and 0007 use
+  29 new schemas in `lib/espalier_web/schemas/`. `SessionPayload.with_members/4`
+  builds the answers that extend the session payload (`SecondFactorSession`
+  with `recovery_codes_remaining`, `ReauthSession` with `recent_auth_until`,
+  `FinishSession` with `linked`), and `FinishResult` is `oneOf`
+  `ExternalNextStep` and `FinishSession`. The passkey schemas follow the JSON
+  types of `@simplewebauthn/browser`, so the SPA passes the results of
+  `startAuthentication` and `startRegistration` to the typed calls unchanged;
+  `Fields.extension_results/0` admits any JSON value for
+  `clientExtensionResults`, which the server reads nowhere. A comparison of
+  the old and the new `frontend/openapi.json` finds no changed schema or
+  operation of 0009 except the new 200 answer of `DELETE /api/session`.
+  `linked_providers` comes from `Accounts.linked_provider_keys/1`, which reads
+  `provider_key` alone with the user's scope.
+- `/auth/finish` (step 14): besides the cross-site navigation of the spec,
+  the controller tests check that a cross-site request with
+  `sec-fetch-mode: cors` answers 403 `cross_site_request` and that the
+  pipeline sets no session.
+- Seeding (step 16): `test/espalier_web/controllers/dev_e2e_controller_test.exs`
+  calls the three actions directly, because the test environment mounts no
+  development route, and checks that its router has no `/api/dev` route.
+  `POST /api/dev/e2e/invitations` answers 409 with `{"error": "user_exists"}`.
+- Client (step 3): every 401 invalidates the session query. Only a 401
+  `unauthenticated`, or one without a code, also removes the other cached
+  queries; the codes of a rejected credential (`authentication_failed`,
+  `invalid_credentials`, `ticket_invalid`) leave the session of the browser
+  as it was, so a mistyped step-up code keeps the security summary in the
+  cache. `src/api/errors.ts` adds `ApiError`, `unwrap`, `errorMessage` and
+  `retryMinutes` (`Retry-After` in minutes, rounded up). The step-up repeat
+  reads the CSRF token from the cache, which the dialog's
+  `sessionChanged("renewed")` has refetched before it resolves `true`.
+  `src/api/apiClientContext.ts` holds the context and `useApiClient()`, so
+  `ApiClientProvider.tsx` exports a component only.
+- Session changes (step 4): `refreshSession(queryClient, client)` and
+  `sessionChanged(kind, queryClient, client)` take the clients, and
+  `useSessionEvents()` binds them to the tree. A `signed-out` change runs
+  `clearAccountData(queryClient)`: it removes every query except the session,
+  clears the mutation cache and resets the session query in place.
+  `queryClient.clear()` would remove the session query, and the observer of
+  `SessionProvider` would keep showing the signed-in session, so `/sign-in`
+  navigated back to the return path. `SessionProvider` presents a loading
+  session from the end of a session until the refetch after the navigation
+  to `/sign-in`, because React Query reports the reset on its own tick. A
+  message goes out through the channel of `useSessionTabSync` in the same
+  tab, so a tab never handles its own message; `useSessionTabSync` takes the
+  sign-out of `SessionProvider` as its `signed-out` handler.
+- Sign-in (steps 6 and 7): `useConditionalPasskey(onSignedIn, { enabled,
+  onRejected })` runs only with `flags.localAccounts`. `SignInPage` keeps the
+  destination of a completed sign-in in state and navigates when the
+  refetched session reaches it: `return_to`, or `/account/security` with the
+  location state `{ recoveryCodesRemaining }` after a recovery code. The
+  steps report a session to their parent, which calls
+  `sessionChanged("signed-in")`. A directory form with an empty or
+  whitespace-only value shows `auth.errors.credentialsRequired`. The demo
+  buttons read "Test person <slot>".
+- Invitation, recovery and e-mail confirmation (steps 9, 11, 12):
+  `src/auth/useFragmentToken.ts` holds the read of the token into a ref with
+  the guard of step 9. `EmailConfirmPage` and `EmailSection` treat a 403
+  `reauth_required` after a closed step-up dialog as no answer: the page
+  keeps its button, and the section shows no confirmation.
+- Enrollment and security page (steps 9, 10, 12): `PasskeyCreateForm`
+  serves the passkey path of the wizard and "Add a passkey".
+  `PasswordSection.tsx` exports `PasswordForm`, which the wizard's password
+  screen uses without the current password; a 422 with
+  `fields.current_password` shows its message also in the alert region. An
+  account without a password and without an external identity shows
+  `account.password.notSet`. `factorCount()` in `src/api/account.ts` counts
+  the factors behind the disabled "Remove". `StepUpProvider` loads the
+  security summary before the dialog opens, so the focus trap finds the
+  first method.
+- UI kit (step 15): `src/app/forms.tsx` holds `Button`, `FocusHeading`,
+  `AlertRegion`, `StatusRegion`, `TextField` and `PasswordField`;
+  `src/app/formStyles.ts`, `ConfirmDialog.tsx`, `LoadingStatus.tsx`,
+  `useErrorText.ts` and `format.ts` sit next to them. Besides the namespaces
+  of step 15, the keys `auth.enroll.*`, `auth.forms.*` and `account.menu`
+  (the "Security" entry of the user menu) exist.
+- Component tests (step 17): `src/test/setup.ts` installs a
+  `BroadcastChannel` that delivers jsdom `MessageEvent`s; the channel of
+  Node delivers its own `MessageEvent`, which fails the check of
+  `listenMessages`. `src/test/render.tsx` renders `ui` at the initial path
+  only, seeds the session as fresh and offers `stubLocationAssign()`, because
+  jsdom's `location.assign` cannot be redefined. `src/test/webauthn.ts` and
+  `src/test/axe.ts` hold the WebAuthn fixtures and the three axe runs. The
+  tests reach browser storage only through `rememberReturnTo`,
+  `takeReturnTo` and `Storage.prototype`, and listen to channels through
+  `listenMessages`, so the greps of the acceptance list the modules of the
+  spec and nothing else. 27 files with 324 tests pass; the security page
+  test renders inside `<main>`, as the layout does.
+- End-to-end tests (step 18): `e2e/support/account.ts` holds the shared
+  flows (invitation, passkey enrollment with the downloaded codes, the
+  storage check, sign-out). The link patterns derive from `baseURL`, so
+  `http://localhost:5173` yields the patterns of step 18, and the OIDC spec
+  reads the port of the mock's logout endpoint from `E2E_MOCK_OIDC_PORT`
+  (default 4010). The CDP virtual authenticator with presence simulation
+  completes the conditional request of `/sign-in` by itself, so
+  `signOutThroughMenu` and every load of `/sign-in` with a credential
+  present call `blockConditionalRequest` first. `openMailLink` opens
+  `about:blank` before a mail link, because a `goto` from `/recover` to
+  `/recover#token=…` changes only the fragment of the loaded page. The
+  checks of step 18 hold: Mailpit v1.31.4 answers with `messages`, `ID` and
+  `Text`, and the `WebAuthn` domain of Chromium 147 (`playwright-core`
+  1.59.1) has every command and parameter of the Notes. One run stays
+  within the per-IP buckets of `config/config.exs`; a second run within a
+  minute meets `auth_ip` and `passkey_ip`, so `config/dev.exs` keeps its
+  limits.
+- Verification (2026-10-11): `make check` passes (ExUnit 1164 tests and 2
+  properties, Vitest 324 tests). The Playwright suite, the eight account
+  specs with `@oidc` and `@ldap` and the specs of 0010, passes in one run
+  (20 tests) against a copy of the checkout with the database
+  `espalier_e2e`, Phoenix on 4100, Vite on 5174 and the mock provider on
+  4012, the lldap and Mailpit services of `compose.dev.yaml`, and the
+  development blocks of `.env.example` with `AUTH_DEMO=true`, because a
+  development server held 4000, 4010 and 5173. `make e2e` through `make run`
+  itself is unrun. `MIX_ENV=prod mix compile` succeeds, and
+  `_build/prod/lib/espalier/ebin` holds no `DevE2E` and no `DevOidc` module.

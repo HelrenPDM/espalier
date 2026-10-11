@@ -10,6 +10,15 @@ defmodule EspalierWeb.Me.LdapIdentityController do
   through this directory and its local second factor only.
   """
   use EspalierWeb, :controller
+  use OpenApiSpex.ControllerSpecs
+
+  alias EspalierWeb.ApiSpec.Responses
+  alias EspalierWeb.Schemas.{Fields, LdapCredentialsRequest, LdapLinkResult}
+
+  # OpenAPI operations of task 0011 (README section 6.12). They describe the
+  # route; validation and error bodies stay those of task 0007.
+  tags ["Account"]
+  security Responses.session_and_csrf()
 
   alias Espalier.Accounts.LdapSignIn
   alias EspalierWeb.Auth.LdapController
@@ -18,6 +27,34 @@ defmodule EspalierWeb.Me.LdapIdentityController do
   action_fallback EspalierWeb.FallbackController
 
   plug RateLimit, [bucket: :ldap_ip] when action in [:create]
+
+  operation :create,
+    summary: "Connect a directory account",
+    description:
+      "Needs a second factor within the last 10 minutes. After the link, the account " <>
+        "signs in through the directory and its local second factor only.",
+    parameters: [
+      provider: [
+        in: :path,
+        required: true,
+        description: "The provider key.",
+        schema: Fields.string()
+      ]
+    ],
+    request_body:
+      {"The directory credentials", "application/json", LdapCredentialsRequest, required: true},
+    responses:
+      Map.merge(
+        %{200 => {"The link", "application/json", LdapLinkResult}},
+        Responses.errors([
+          {400, ["bad_request"]},
+          {401, ["invalid_credentials", "unauthenticated"]},
+          {403, ["enrollment_required", "reauth_required", "csrf", "cross_site_request"]},
+          {404, ["unknown_provider"]},
+          {409, ["identity_in_use", "provider_already_linked"]},
+          {429, ["rate_limited"]}
+        ])
+      )
 
   def create(conn, %{"provider" => key} = params) do
     user = conn.assigns.current_scope.user

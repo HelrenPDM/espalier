@@ -6,6 +6,15 @@ defmodule EspalierWeb.Me.TotpController do
   wrong or locked confirmation answers 422 `invalid_code`.
   """
   use EspalierWeb, :controller
+  use OpenApiSpex.ControllerSpecs
+
+  alias EspalierWeb.ApiSpec.Responses
+  alias EspalierWeb.Schemas.{FactorChange, TotpConfirmRequest, TotpConfirmResult, TotpEnrollment}
+
+  # OpenAPI operations of task 0011 (README section 6.12). They describe the
+  # route; validation and error bodies stay those of task 0005.
+  tags ["Account"]
+  security Responses.session_and_csrf()
 
   alias Espalier.Accounts
   alias Espalier.Accounts.{Factors, Totp}
@@ -14,6 +23,22 @@ defmodule EspalierWeb.Me.TotpController do
   alias EspalierWeb.Plugs.RateLimit
 
   action_fallback EspalierWeb.FallbackController
+
+  operation :create,
+    summary: "Start the authenticator app setup",
+    description:
+      "Answers a new secret, which works after one valid code. An enrollment or recovery " <>
+        "session without a password or an external identity answers 409 " <>
+        "`password_required`.",
+    responses:
+      Map.merge(
+        %{200 => {"The new secret", "application/json", TotpEnrollment}},
+        Responses.errors([
+          {401, ["unauthenticated"]},
+          {403, ["forbidden", "reauth_required", "csrf", "cross_site_request"]},
+          {409, ["password_required", "totp_already_enabled"]}
+        ])
+      )
 
   def create(conn, _params) do
     %{user: user, session: session} = scope = conn.assigns.current_scope
@@ -24,6 +49,24 @@ defmodule EspalierWeb.Me.TotpController do
       with {:ok, payload} <- Totp.start_enrollment(scope), do: json(conn, payload)
     end
   end
+
+  operation :confirm,
+    summary: "Confirm the authenticator app",
+    description:
+      "Enables the factor after one valid code and completes an enrollment or a recovery, " <>
+        "which then answers ten new `recovery_codes` and the `session` payload.",
+    request_body: {"The code", "application/json", TotpConfirmRequest, required: true},
+    responses:
+      Map.merge(
+        %{200 => {"The enabled factor", "application/json", TotpConfirmResult}},
+        Responses.errors([
+          {400, ["bad_request"]},
+          {401, ["unauthenticated"]},
+          {403, ["forbidden", "reauth_required", "csrf", "cross_site_request"]},
+          {422, ["invalid_code"]},
+          {429, ["rate_limited"]}
+        ])
+      )
 
   def confirm(conn, %{"code" => code}) when is_binary(code) do
     %{user: user} = scope = conn.assigns.current_scope
@@ -50,6 +93,22 @@ defmodule EspalierWeb.Me.TotpController do
         FallbackController.render_error(conn, :invalid_code)
     end
   end
+
+  operation :delete,
+    summary: "Remove the authenticator app",
+    description:
+      "Needs a second factor within the last 10 minutes. The last remaining second " <>
+        "factor stays.",
+    responses:
+      Map.merge(
+        %{200 => {"Removed", "application/json", FactorChange}},
+        Responses.errors([
+          {401, ["unauthenticated"]},
+          {403, ["enrollment_required", "reauth_required", "csrf", "cross_site_request"]},
+          {404, ["not_found"]},
+          {409, ["last_factor"]}
+        ])
+      )
 
   def delete(conn, _params) do
     scope = conn.assigns.current_scope

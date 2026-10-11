@@ -11,11 +11,49 @@ defmodule EspalierWeb.OidcIntentController do
   identity of the provider and `idp_trusted` mode.
   """
   use EspalierWeb, :controller
+  use OpenApiSpex.ControllerSpecs
+
+  alias EspalierWeb.ApiSpec.Responses
+  alias EspalierWeb.Schemas.{Fields, OidcIntent, OidcIntentRequest}
+
+  # OpenAPI operations of task 0011 (README section 6.12). They describe the
+  # route; validation and error bodies stay those of task 0006.
+  tags ["Session"]
+  security Responses.session_and_csrf()
 
   alias Espalier.{Accounts, Identity, SecurityLog}
   alias Espalier.Accounts.Scope
   alias EspalierWeb.FallbackController
   alias EspalierWeb.Plugs.RateLimit
+
+  operation :create,
+    summary: "Create an OIDC intent",
+    description:
+      "Only `mfa` sessions. `link` needs a second factor within the last 10 minutes; " <>
+        "`step_up` needs an identity of the provider and `idp_trusted` mode.",
+    parameters: [
+      provider: [
+        in: :path,
+        required: true,
+        description: "The provider key.",
+        schema: Fields.string()
+      ]
+    ],
+    request_body: {"The purpose", "application/json", OidcIntentRequest, required: true},
+    responses:
+      Map.merge(
+        %{201 => {"The intent URL", "application/json", OidcIntent}},
+        Responses.errors([
+          {400, ["bad_request"]},
+          {401, ["unauthenticated"]},
+          {403,
+           ["forbidden", "enrollment_required", "reauth_required", "csrf", "cross_site_request"]},
+          {404, ["unknown_provider"]},
+          {409, ["provider_already_linked"]},
+          {422, ["step_up_not_available"]},
+          {429, ["rate_limited"]}
+        ])
+      )
 
   def create(conn, %{"provider" => key} = params) do
     scope = conn.assigns.current_scope

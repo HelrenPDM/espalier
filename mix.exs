@@ -45,10 +45,11 @@ defmodule Espalier.MixProject do
   end
 
   # Specifies which paths to compile per environment.
-  # The mock OIDC provider of test/support/dev_oidc/ runs in dev and test
-  # only (task 0006).
+  # The mock OIDC provider of test/support/dev_oidc/ (task 0006) and the
+  # end-to-end seeding controller of test/support/dev_e2e/ (task 0011)
+  # compile in dev and test only.
   defp elixirc_paths(:test), do: ["lib", "test/support"]
-  defp elixirc_paths(:dev), do: ["lib", "test/support/dev_oidc"]
+  defp elixirc_paths(:dev), do: ["lib", "test/support/dev_oidc", "test/support/dev_e2e"]
   defp elixirc_paths(_), do: ["lib"]
 
   # Specifies your project dependencies.

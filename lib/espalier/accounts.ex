@@ -75,6 +75,20 @@ defmodule Espalier.Accounts do
     Repo.exists?(from i in ExternalIdentity, where: i.user_id == ^id)
   end
 
+  @doc """
+  Returns the sorted `provider_key` values of the external identities of
+  the scope's user, and `[]` for an account without one. It reads no
+  subject, issuer or directory value (task 0011).
+  """
+  def linked_provider_keys(%Scope{user: %User{id: id}}) do
+    Repo.all(
+      from i in ExternalIdentity,
+        where: i.user_id == ^id,
+        order_by: i.provider_key,
+        select: i.provider_key
+    )
+  end
+
   @doc "True for an active account without an external identity, which excludes demo users."
   def local_account?(%User{status: :active} = user), do: not external_identity?(user)
   def local_account?(%User{}), do: false

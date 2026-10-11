@@ -75,7 +75,11 @@ test("server values render as text, never as markup", () => {
   const markup = "<img src=x onerror=alert(1)>";
   const { container } = renderLayout(
     sessionValue({
-      user: { id: "8a4c7a5e-2f5b-4d6e-9c1a-3b2d4e5f6a7b", displayName: markup },
+      user: {
+        id: "8a4c7a5e-2f5b-4d6e-9c1a-3b2d4e5f6a7b",
+        displayName: markup,
+        email: null,
+      },
     }),
   );
 
