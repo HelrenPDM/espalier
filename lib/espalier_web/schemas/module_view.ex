@@ -17,6 +17,7 @@ defmodule EspalierWeb.Schemas.ModuleView do
   @citation Fields.object(%{locator: Fields.nullable_string(), source: @source})
 
   @block Fields.object(%{
+           id: Fields.uuid("The block id, which the player keeps for opened explanations."),
            kind:
              Fields.enum(~w(text explanation example case_comparison quote callout placeholder)),
            body: Fields.string("Markdown."),

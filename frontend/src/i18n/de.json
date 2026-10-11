@@ -115,18 +115,6 @@
     }
   },
   "placeholders": {
-    "home": {
-      "title": "Startseite",
-      "text": "Hier erscheinen Ihre Programme."
-    },
-    "program": {
-      "title": "Programm",
-      "text": "Hier erscheint die Programmübersicht."
-    },
-    "station": {
-      "title": "Station",
-      "text": "Hier erscheint die Station."
-    },
     "credentials": {
       "title": "Nachweise",
       "text": "Hier erscheinen Ihre Nachweise."
@@ -305,5 +293,193 @@
   "errors": {
     "tooManyAttempts": "Zu viele Versuche. Versuchen Sie es in {{minutes}} Minuten erneut.",
     "generic": "Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut."
+  },
+  "programs": {
+    "title": "Programme",
+    "loading": "Die Programme werden geladen …",
+    "empty": "Es ist noch kein Programm veröffentlicht.",
+    "language": "Sprache: {{language}}",
+    "loadFailed": "Die Programme konnten nicht geladen werden. Bitte versuchen Sie es später erneut."
+  },
+  "program": {
+    "start": "Starten",
+    "continue": "Weiter mit {{title}}",
+    "stations": "Stationen",
+    "moreLabel": "Mehr zu diesem Programm",
+    "back": "Zurück zu {{title}}"
+  },
+  "player": {
+    "loading": "Das Programm wird geladen …",
+    "loadFailed": {
+      "title": "Programm nicht verfügbar",
+      "notFound": "Dieses Programm gibt es nicht, oder es ist nicht veröffentlicht.",
+      "text": "Das Programm konnte nicht geladen werden. Bitte versuchen Sie es später erneut."
+    },
+    "saveFailed": "Ihre letzte Änderung konnte nicht gespeichert werden. Bitte prüfen Sie Ihre Verbindung."
+  },
+  "path": {
+    "label": "Weg",
+    "short": "Kurzer Weg",
+    "full": "Ausführlicher Weg",
+    "explanation": "Beide Wege umfassen jede Lektion. Auf dem kurzen Weg starten Erklärungen eingeklappt und öffnen sich, wenn eine Antwort eine Lücke zeigt. Auf dem ausführlichen Weg starten sie geöffnet."
+  },
+  "station": {
+    "position": "Station {{position}} von {{total}}",
+    "listLabel": "Stationen",
+    "pagerLabel": "Vorherige und nächste Station",
+    "previous": "Zurück: {{title}}",
+    "next": "Weiter: {{title}}",
+    "visited": "Besucht",
+    "pending": "Diese Station ist in dieser Version noch nicht verfügbar.",
+    "notFound": {
+      "title": "Station nicht gefunden"
+    },
+    "moduleMissing": "Dieses Modul ist nicht verfügbar.",
+    "morePractice": "Weitere Übungen",
+    "complete": "Modul abschließen",
+    "completing": "Das Modul wird abgeschlossen …",
+    "completeFailed": "Das Modul konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.",
+    "examsOpen": "Bestehen Sie diese Prüfungen, bevor Sie das Modul abschließen:",
+    "completedAnnouncement": "Modul abgeschlossen. Stand seiner Ziele: {{evidenced}}, {{practised}} und {{open}}."
+  },
+  "blocks": {
+    "explanation": "Erklärung",
+    "example": "Beispiel",
+    "caseComparison": "Fallvergleich",
+    "quote": "Zitat",
+    "callout": "Hinweis",
+    "placeholder": "Regeln Ihrer Organisation"
+  },
+  "provenance": {
+    "label": "Herkunft:",
+    "invented": "Erfunden",
+    "sourced": "Mit Quelle",
+    "vendor_statement": "Herstellerangabe",
+    "assumption": "Annahme",
+    "placeholder": "Platzhalter",
+    "placeholderWithKey": "Platzhalter: {{key}}"
+  },
+  "citations": {
+    "title_one": "Quelle",
+    "title_other": "Quellen",
+    "details": "{{publisher}}, Stand {{edition}}, abgerufen am {{retrieved}}.",
+    "locator": "Fundstelle: {{locator}}."
+  },
+  "items": {
+    "submit": "Antwort prüfen",
+    "submitting": "Die Antwort wird geprüft …",
+    "submitFailed": "Die Antwort konnte nicht gesendet werden. Bitte versuchen Sie es erneut.",
+    "retry": "Noch einmal",
+    "choose": "Bitte wählen …",
+    "feedback": {
+      "correct": "Richtig.",
+      "wrong": "Nicht richtig.",
+      "thanks": "Danke für Ihre Antwort."
+    },
+    "option": {
+      "correct": "Richtige Antwort",
+      "chosenWrong": "Ihre Wahl ist nicht richtig"
+    },
+    "slot": {
+      "correct": "Passt",
+      "wrong": "Passt nicht",
+      "preview": "Vorschau",
+      "previewEmpty": "Wählen Sie für jeden Teil eine Option, um das Ergebnis zu sehen."
+    },
+    "case": {
+      "correct": "Richtig",
+      "wrong": "Nicht richtig",
+      "expected": "Erwartet: {{category}}"
+    },
+    "checklist": {
+      "required": "(Pflicht)",
+      "missing": "Dieser Prüfpunkt ist Pflicht.",
+      "initials": "Ihr Kürzel",
+      "initialsHint": "2 bis 5 Zeichen.",
+      "release": "Freigeben",
+      "logLine": "Freigegeben von {{initials}} um {{time}}."
+    },
+    "poll": {
+      "submit": "Antwort senden"
+    },
+    "rules": "Die Regeln zu dieser Frage:",
+    "ruleLink": "Regel {{number}}: {{statement}}",
+    "revealed": "Die Erklärung in dieser Lektion ist jetzt geöffnet:"
+  },
+  "exam": {
+    "rule_zero": "Die Prüfung ist bestanden, wenn jede Antwort richtig ist.",
+    "rule_one": "Die Prüfung ist bestanden, wenn keine Kernfrage falsch beantwortet ist und höchstens eine Antwort falsch ist.",
+    "rule_other": "Die Prüfung ist bestanden, wenn keine Kernfrage falsch beantwortet ist und höchstens {{count}} Antworten falsch sind.",
+    "countsForCredential": "Sie zählt für den Nachweis.",
+    "alreadyPassed": "Sie haben diese Prüfung bestanden. Ein neuer Versuch ist jederzeit möglich.",
+    "lastFailed": "Ihr letzter Versuch war nicht erfolgreich. Ein neuer Versuch ist jederzeit möglich.",
+    "submit": "Prüfung abgeben",
+    "submitting": "Die Prüfung wird abgegeben …",
+    "newAttempt": "Neuer Versuch",
+    "failed": "Die Prüfung konnte nicht abgegeben werden. Bitte versuchen Sie es erneut.",
+    "outcome": {
+      "passed": "Bestanden: {{correct}} von {{total}} Antworten sind richtig.",
+      "failedCore": "Nicht bestanden: Eine Kernfrage ist falsch beantwortet.",
+      "failedErrors": "Nicht bestanden: {{wrong}} Antworten sind falsch, mehr als die {{max}}, die diese Prüfung zulässt."
+    }
+  },
+  "objectives": {
+    "panelTitle": "Ziele dieses Themas",
+    "area": {
+      "subject": "Fachkompetenz",
+      "method": "Methodenkompetenz",
+      "self": "Selbstkompetenz",
+      "social": "Sozialkompetenz"
+    },
+    "depth": {
+      "know": "Wissen",
+      "apply": "Anwenden",
+      "judge": "Beurteilen"
+    },
+    "status": {
+      "evidenced": "Nachgewiesen",
+      "practised": "Geübt",
+      "open": "Offen"
+    },
+    "depthLine": "Tiefe: {{depth}}.",
+    "domainLine": "Bereich: {{domain}}.",
+    "taughtIn": "Vermittelt in:",
+    "chipsLabel": "Ziele dieser Aufgabe",
+    "chip": "{{area}}, {{depth}}"
+  },
+  "completion": {
+    "title": "Modul abgeschlossen",
+    "counts": "Stand der Ziele dieses Themas: {{evidenced}}, {{practised}} und {{open}}.",
+    "countEvidenced_one": "1 Ziel nachgewiesen",
+    "countEvidenced_other": "{{count}} Ziele nachgewiesen",
+    "countPractised_one": "1 Ziel geübt",
+    "countPractised_other": "{{count}} Ziele geübt",
+    "countOpen_one": "1 Ziel offen",
+    "countOpen_other": "{{count}} Ziele offen",
+    "legend": {
+      "evidenced": "Eine Prüfung, eine Teilnahmebescheinigung oder eine gespeicherte Übungsantwort weist das Ziel nach.",
+      "practised": "Sie haben eine Übungsaufgabe zu diesem Ziel beantwortet.",
+      "open": "Beides trifft bisher nicht zu."
+    },
+    "formatNote": "Die Teilnahme am Format „{{format}}“ weist dieses Ziel nach.",
+    "formatLink": "Zur Station „{{station}}“."
+  },
+  "rules": {
+    "title": "Die Regeln dieses Moduls",
+    "number": "Regel {{number}}",
+    "action": "Handlung:"
+  },
+  "glossary": {
+    "title": "Glossar",
+    "empty": "Dieses Programm hat kein Glossar."
+  },
+  "handbook": {
+    "title": "Handbuch",
+    "loading": "Das Handbuch wird geladen …",
+    "print": "Drucken",
+    "loadFailed": "Das Handbuch konnte nicht geladen werden. Bitte versuchen Sie es später erneut.",
+    "module": "Modul {{number}}: {{title}}",
+    "placeholders": "Regeln Ihrer Organisation",
+    "placeholderNote": "Ihre Organisation ergänzt hier ihren Text."
   }
 }

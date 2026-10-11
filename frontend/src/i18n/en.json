@@ -115,18 +115,6 @@
     }
   },
   "placeholders": {
-    "home": {
-      "title": "Home",
-      "text": "Your programs appear here."
-    },
-    "program": {
-      "title": "Program",
-      "text": "The program overview appears here."
-    },
-    "station": {
-      "title": "Station",
-      "text": "The station appears here."
-    },
     "credentials": {
       "title": "Credentials",
       "text": "Your credentials appear here."
@@ -305,5 +293,193 @@
   "errors": {
     "tooManyAttempts": "Too many attempts. Try again in {{minutes}} minutes.",
     "generic": "Something went wrong. Please try again."
+  },
+  "programs": {
+    "title": "Programs",
+    "loading": "Loading the programs…",
+    "empty": "No program is published yet.",
+    "language": "Language: {{language}}",
+    "loadFailed": "The programs could not be loaded. Please try again later."
+  },
+  "program": {
+    "start": "Start",
+    "continue": "Continue with {{title}}",
+    "stations": "Stations",
+    "moreLabel": "More on this program",
+    "back": "Back to {{title}}"
+  },
+  "player": {
+    "loading": "Loading the program…",
+    "loadFailed": {
+      "title": "Program not available",
+      "notFound": "This program does not exist or is not published.",
+      "text": "The program could not be loaded. Please try again later."
+    },
+    "saveFailed": "Your last change could not be saved. Please check your connection."
+  },
+  "path": {
+    "label": "Path",
+    "short": "Short path",
+    "full": "Full path",
+    "explanation": "Both paths cover every lesson. On the short path, explanations start collapsed and open when an answer shows a gap. On the full path, they start open."
+  },
+  "station": {
+    "position": "Station {{position}} of {{total}}",
+    "listLabel": "Stations",
+    "pagerLabel": "Previous and next station",
+    "previous": "Previous: {{title}}",
+    "next": "Next: {{title}}",
+    "visited": "Visited",
+    "pending": "This station is not available in this version yet.",
+    "notFound": {
+      "title": "Station not found"
+    },
+    "moduleMissing": "This module is not available.",
+    "morePractice": "More practice",
+    "complete": "Complete module",
+    "completing": "Completing the module…",
+    "completeFailed": "The module could not be completed. Please try again.",
+    "examsOpen": "Pass these exams before you complete the module:",
+    "completedAnnouncement": "Module complete. Of its objectives, {{evidenced}}, {{practised}} and {{open}}."
+  },
+  "blocks": {
+    "explanation": "Explanation",
+    "example": "Example",
+    "caseComparison": "Case comparison",
+    "quote": "Quote",
+    "callout": "Note",
+    "placeholder": "Rules of your organization"
+  },
+  "provenance": {
+    "label": "Provenance:",
+    "invented": "Invented",
+    "sourced": "Sourced",
+    "vendor_statement": "Vendor statement",
+    "assumption": "Assumption",
+    "placeholder": "Placeholder",
+    "placeholderWithKey": "Placeholder: {{key}}"
+  },
+  "citations": {
+    "title_one": "Source",
+    "title_other": "Sources",
+    "details": "{{publisher}}, edition of {{edition}}, retrieved on {{retrieved}}.",
+    "locator": "Section: {{locator}}."
+  },
+  "items": {
+    "submit": "Check answer",
+    "submitting": "Checking…",
+    "submitFailed": "The answer could not be sent. Please try again.",
+    "retry": "Try again",
+    "choose": "Choose…",
+    "feedback": {
+      "correct": "Correct.",
+      "wrong": "Not correct.",
+      "thanks": "Thank you for your answer."
+    },
+    "option": {
+      "correct": "Correct answer",
+      "chosenWrong": "Your choice is not correct"
+    },
+    "slot": {
+      "correct": "Fits",
+      "wrong": "Does not fit",
+      "preview": "Preview",
+      "previewEmpty": "Choose an option for each part to see the result."
+    },
+    "case": {
+      "correct": "Correct",
+      "wrong": "Not correct",
+      "expected": "Expected: {{category}}"
+    },
+    "checklist": {
+      "required": "(required)",
+      "missing": "This check is required.",
+      "initials": "Your initials",
+      "initialsHint": "2 to 5 characters.",
+      "release": "Release",
+      "logLine": "Released by {{initials}} at {{time}}."
+    },
+    "poll": {
+      "submit": "Send answer"
+    },
+    "rules": "The rules behind this question:",
+    "ruleLink": "Rule {{number}}: {{statement}}",
+    "revealed": "The explanation in this lesson is open now:"
+  },
+  "exam": {
+    "rule_zero": "The exam passes when every answer is correct.",
+    "rule_one": "The exam passes when no core question is answered wrong and at most one answer is wrong.",
+    "rule_other": "The exam passes when no core question is answered wrong and at most {{count}} answers are wrong.",
+    "countsForCredential": "It counts for the credential.",
+    "alreadyPassed": "You have passed this exam. A new attempt is possible at any time.",
+    "lastFailed": "Your last attempt did not pass. A new attempt is possible at any time.",
+    "submit": "Submit the exam",
+    "submitting": "Submitting the exam…",
+    "newAttempt": "New attempt",
+    "failed": "The exam could not be submitted. Please try again.",
+    "outcome": {
+      "passed": "Passed: {{correct}} of {{total}} answers are correct.",
+      "failedCore": "Not passed: a core question is answered wrong.",
+      "failedErrors": "Not passed: {{wrong}} answers are wrong, more than the {{max}} this exam allows."
+    }
+  },
+  "objectives": {
+    "panelTitle": "Objectives of this topic",
+    "area": {
+      "subject": "Subject competence",
+      "method": "Method competence",
+      "self": "Self competence",
+      "social": "Social competence"
+    },
+    "depth": {
+      "know": "Know",
+      "apply": "Apply",
+      "judge": "Judge"
+    },
+    "status": {
+      "evidenced": "Evidence shown",
+      "practised": "Practised",
+      "open": "Open"
+    },
+    "depthLine": "Depth: {{depth}}.",
+    "domainLine": "Domain: {{domain}}.",
+    "taughtIn": "Taught in:",
+    "chipsLabel": "Objectives of this item",
+    "chip": "{{area}}, {{depth}}"
+  },
+  "completion": {
+    "title": "Module complete",
+    "counts": "Of the objectives of this topic, {{evidenced}}, {{practised}} and {{open}}.",
+    "countEvidenced_one": "1 shows evidence",
+    "countEvidenced_other": "{{count}} show evidence",
+    "countPractised_one": "1 is practised",
+    "countPractised_other": "{{count}} are practised",
+    "countOpen_one": "1 is open",
+    "countOpen_other": "{{count}} are open",
+    "legend": {
+      "evidenced": "An exam, an attendance certificate or a recorded practice answer shows the objective.",
+      "practised": "You answered a practice item for the objective.",
+      "open": "Neither applies so far."
+    },
+    "formatNote": "Attendance at the format “{{format}}” provides the evidence.",
+    "formatLink": "Go to the station “{{station}}”."
+  },
+  "rules": {
+    "title": "The rules of this module",
+    "number": "Rule {{number}}",
+    "action": "Action:"
+  },
+  "glossary": {
+    "title": "Glossary",
+    "empty": "This program has no glossary."
+  },
+  "handbook": {
+    "title": "Handbook",
+    "loading": "Loading the handbook…",
+    "print": "Print",
+    "loadFailed": "The handbook could not be loaded. Please try again later.",
+    "module": "Module {{number}}: {{title}}",
+    "placeholders": "Rules of your organization",
+    "placeholderNote": "Your organization adds its text here."
   }
 }

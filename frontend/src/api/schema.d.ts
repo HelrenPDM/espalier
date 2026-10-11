@@ -1158,6 +1158,11 @@ export interface components {
                     }[];
                     /** @description The paths on which the block starts collapsed. */
                     collapsed_on: ("short" | "full")[];
+                    /**
+                     * Format: uuid
+                     * @description The block id, which the player keeps for opened explanations.
+                     */
+                    id: string;
                     /** @enum {string} */
                     kind: "text" | "explanation" | "example" | "case_comparison" | "quote" | "callout" | "placeholder";
                     /** @description The policy that a placeholder block renders. */

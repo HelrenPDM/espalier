@@ -30,3 +30,15 @@ description = "Key of a learning objective in an alignment test of task 0008; th
 condition = "AND"
 paths = ['''^test/espalier/catalog/alignment_test\.exs$''']
 regexes = ['''^m1-subject-anchored$''']
+
+[[allowlists]]
+description = "Lesson and objective keys of the fixture program of the player tests of task 0012; the rule generic-api-key reads `key:` as an API key, no secret"
+condition = "AND"
+paths = ['''^frontend/src/test/player\.tsx$''']
+regexes = ['''^(03-third-lesson|m1-subject-evidenced|m1-subject-exam|m2-subject-prompt)$''']
+
+[[allowlists]]
+description = "Objective keys of the fixture program in the progress answers of the runtime test of task 0012; the rule generic-api-key reads `key:` as an API key, no secret"
+condition = "AND"
+paths = ['''^frontend/src/runtimes/platform\.test\.ts$''']
+regexes = ['''^(m1-subject-evidenced|m1-subject-exam)$''']

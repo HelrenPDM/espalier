@@ -1,6 +1,13 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
-@custom-variant dark (&:where(.dark, .dark *));
+/* Dark styles apply on screen only, so a printed page is always light. */
+@custom-variant dark {
+  @media screen {
+    &:where(.dark, .dark *) {
+      @slot;
+    }
+  }
+}
 
 /* The only place an adopter changes the accent color. */
 @theme {
@@ -11,8 +18,18 @@
   --color-accent-700: var(--color-indigo-700);
 }
 
+@page {
+  size: A4;
+  margin: 18mm 16mm;
+}
+
 @media print {
   .no-print {
     display: none;
+  }
+
+  /* The handbook starts every module after the first on a new page. */
+  .handbook-module + .handbook-module {
+    break-before: page;
   }
 }

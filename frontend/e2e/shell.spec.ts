@@ -12,14 +12,14 @@ test("a signed-out visit to a guarded page lands on /sign-in with return_to", as
   await expect(page).toHaveURL("/sign-in?return_to=%2Fprograms%2Fdemo");
 });
 
-test("a demo session shows the home page, the display name and the demo banner", async ({
+test("a demo session shows the program list, the display name and the demo banner", async ({
   page,
 }) => {
   await signInAsDemo(page, 1);
   await page.goto("/");
 
   await expect(
-    page.getByRole("heading", { level: 1, name: "Home" }),
+    page.getByRole("heading", { level: 1, name: "Programs" }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Test person 1" }),
@@ -67,7 +67,7 @@ test("the shell has no axe violations in light and dark mode", async ({
     await signInAsDemo(page, 2);
     await page.goto("/");
     await expect(
-      page.getByRole("heading", { level: 1, name: "Home" }),
+      page.getByRole("heading", { level: 1, name: "Programs" }),
     ).toBeVisible();
     const signedIn = await new AxeBuilder({ page })
       .withTags(WCAG_TAGS)

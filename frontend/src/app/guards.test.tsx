@@ -84,14 +84,14 @@ describe("RequireAuth", () => {
     "renders its children for an %s session",
     (sessionStrength) => {
       const router = renderAt(
-        "/programs/demo",
+        "/me/credentials",
         sessionValue({ sessionStrength }),
       );
 
       expect(
-        screen.getByRole("heading", { level: 1, name: "Program" }),
+        screen.getByRole("heading", { level: 1, name: "Credentials" }),
       ).toBeInTheDocument();
-      expect(location(router)).toBe("/programs/demo");
+      expect(location(router)).toBe("/me/credentials");
     },
   );
 });

@@ -146,10 +146,13 @@ export async function expectCleanStorage(page: Page, secrets: string[]) {
     session: Object.entries(sessionStorage),
   }));
   const cookie = await page.evaluate<string>("document.cookie");
-  // 0012 step 2 adds the player state keys to this list.
-  const allowed = ["theme", "i18nextLng"];
+  // The player state of 0012 step 2 lives under `espalier.player.<slug>`.
+  const allowed = (key: string) =>
+    key === "theme" ||
+    key === "i18nextLng" ||
+    key.startsWith("espalier.player.");
   expect(
-    storage.local.map(([key]) => key).filter((key) => !allowed.includes(key)),
+    storage.local.map(([key]) => key).filter((key) => !allowed(key)),
   ).toEqual([]);
   expect(storage.session).toEqual([]);
   const values = [...storage.local, ...storage.session].map(
