@@ -6,7 +6,7 @@ import {
   signOutThroughMenu,
 } from "../support/account.ts";
 import { addAuthenticator } from "../support/authenticator.ts";
-import { devPost } from "../support/dev.ts";
+import { devPost, openSettledPage } from "../support/dev.ts";
 
 // The Entra-like profile of the mock OIDC provider (task 0006, step 15;
 // `.env.example`, block "Development against the mock OIDC provider").
@@ -20,10 +20,23 @@ test(
   "an OIDC sign-in enrolls a passkey, signs in again with it and ends at the provider's logout",
   { tag: "@oidc" },
   async ({ page }) => {
-    await page.goto("/sign-in");
+    // The provider check and the reset run on a page without the
+    // conditional passkey request of /sign-in (`openSettledPage`).
+    await openSettledPage(page);
     const { providers } = await readSession(page);
     const provider = providers.find((entry) => entry.key === KEY);
     test.skip(provider === undefined, `no provider ${KEY} configured`);
+    // The spec signs in through the mock, and its reset deletes every user
+    // linked to the provider. A provider of a real tenant skips the spec
+    // before the reset, decided by the target of the provider's start route.
+    const start = await page.request.get(`/auth/oidc/${KEY}`, {
+      maxRedirects: 0,
+    });
+    const target = new URL(start.headers()["location"] ?? "", "http://invalid");
+    test.skip(
+      target.hostname !== "localhost" || target.port !== MOCK_PORT,
+      `provider ${KEY} is not the mock OIDC provider on port ${MOCK_PORT}`,
+    );
     const label = provider!.label;
 
     await addAuthenticator(page);
