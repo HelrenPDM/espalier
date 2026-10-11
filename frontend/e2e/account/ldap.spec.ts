@@ -7,7 +7,7 @@ import {
   signOutThroughMenu,
 } from "../support/account.ts";
 import { addAuthenticator } from "../support/authenticator.ts";
-import { devPost } from "../support/dev.ts";
+import { devPost, openSettledPage } from "../support/dev.ts";
 
 // The invented lldap user of `make services-seed` (task 0007).
 const DORA = new URL(
@@ -19,7 +19,9 @@ test(
   "a directory sign-in enrolls a passkey and then passes the second factor",
   { tag: "@ldap" },
   async ({ page }) => {
-    await page.goto("/sign-in");
+    // The provider check and the reset run on a page without the
+    // conditional passkey request of /sign-in (`openSettledPage`).
+    await openSettledPage(page);
     const { providers } = await readSession(page);
     const provider = providers.find((entry) => entry.type === "ldap");
     test.skip(provider === undefined, "no LDAP provider configured");
