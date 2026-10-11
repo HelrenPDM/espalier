@@ -44,8 +44,9 @@ defmodule EspalierWeb.Plugs.SecurityHeadersTest do
   end
 
   # Task 0013 step 15 (ASVS 14.2.2 and 14.3.2): the routes that return
-  # personal data outside /api/session, /api/auth and /api/me.
-  test "answers of facilitator, registrar, integration and attendance routes are not stored",
+  # personal data outside /api/session, /api/auth and /api/me; GET
+  # /api/policies carries the user's own acknowledgements.
+  test "answers of facilitator, registrar, integration, attendance and policy routes are not stored",
        %{conn: conn} do
     format_id = Ecto.UUID.generate()
 
@@ -53,7 +54,8 @@ defmodule EspalierWeb.Plugs.SecurityHeadersTest do
           {"POST", "/api/facilitator/user-lookups"},
           {"GET", "/api/registrar/credentials?qualification=basics"},
           {"POST", "/api/integration/credential-lookups"},
-          {"POST", "/api/formats/#{format_id}/attendance"}
+          {"POST", "/api/formats/#{format_id}/attendance"},
+          {"GET", "/api/policies"}
         ] do
       response = dispatch(conn, @endpoint, method, path, nil)
       assert get_resp_header(response, "cache-control") == ["no-store"], "#{method} #{path}"
@@ -80,7 +82,8 @@ defmodule EspalierWeb.Plugs.SecurityHeadersTest do
           "/api/registrar/any",
           "/api/integration/credential-lookups",
           "/api/integration/any",
-          "/api/formats/#{Ecto.UUID.generate()}/attendance"
+          "/api/formats/#{Ecto.UUID.generate()}/attendance",
+          "/api/policies"
         ] do
       assert no_store?.(path), path
     end

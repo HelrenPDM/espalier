@@ -60,7 +60,7 @@ exception only by its module in `exception`, never by its message.
 | `authn_password_change` | info | `Espalier.Accounts.update_user_password/3` | `user_id`, `factor`, `provider` |
 | `authn_password_change_fail` | warning | `update_user_password/3` | `user_id`, `factor`, `provider` |
 | `authn_token_created`, `authn_token_revoked` | info | `create_api_client/2`, `delete_api_client/2` | `reason` |
-| `authz_fail` | warning | the plugs of `EspalierWeb.UserAuth` (every 403, also the role checks of the attendance, lookup and registrar routes of task 0013), `EspalierWeb.OidcIntentController` (an intent without a recent second factor or from a demo session), `EspalierWeb.Plugs.ApiClientAuth` (a machine client whose scopes lack the scope of the integration route, with `factor: "api_token"`) | `user_id`, `ip`, `factor`, `reason` (`enrollment_required`, `reauth_required`, `forbidden`, and `scope` for a machine client) |
+| `authz_fail` | warning | the plugs of `EspalierWeb.UserAuth` (every 403, also the role checks of the attendance, lookup and registrar routes of task 0013; while `REGISTRAR_ENABLED=false`, the registrar route answers 404 before its role check and logs no `authz_fail`), `EspalierWeb.OidcIntentController` (an intent without a recent second factor or from a demo session), `EspalierWeb.Plugs.ApiClientAuth` (a machine client whose scopes lack the scope of the integration route, with `factor: "api_token"`) | `user_id`, `ip`, `factor`, `reason` (`enrollment_required`, `reauth_required`, `forbidden`, and `scope` for a machine client) |
 | `privilege_permissions_changed` | info | `grant_role/3`, `revoke_role/3`, `replace_idp_role_grants/3` (also at an OIDC sign-in whose role claims change the `idp_claim` grants; the audit event `role.synced` holds the added and removed roles) | `user_id`, `reason` (the audit action) |
 | `excess_rate_limit_exceeded` | warning | `EspalierWeb.Plugs.RateLimit`; `LdapSignIn` once for each denial in `ldap_account` or `ldap_subject`, which it checks itself (the check of `ldap_subject` runs inside the sign-in task, so the event comes from the calling process after the task returned) | `ip`, `reason` (the bucket); directory: also `user_id` or `account_hash`, `factor`, `provider`, `purpose` |
 | `excess_sessions_exceeded` | warning | `create_session/2` at the concurrent limit | `user_id`, `session_id` |
@@ -134,9 +134,11 @@ starts to lock and the `failed_attempts` mail goes out.
 - No password, no code, no token (session, invitation, e-mail change, API
   client) and no cookie value. Sessions appear by the id of their row
   (`session_id`), users by their id (ASVS 16.2.5).
-- No webhook secret, no signature and no webhook body. The webhook worker
-  of task 0013 names the webhook id, the event and the status code only,
-  and its jobs carry ids, the event and its time.
+- No webhook secret, no signature and no webhook body. Each line of the
+  webhook worker of task 0013 names the webhook id, the event and either the
+  status code, the cancel reason or the module of a transport exception. No
+  line carries the body, the secret, the signature, the URL or an e-mail
+  address, and the jobs of the worker carry ids, the event and its time.
 - No e-mail address. An identifier that matches no account appears only as
   `account_hash`, the first eight hex characters of its keyed hash
   (`Espalier.RateLimit.account_hash/1`).

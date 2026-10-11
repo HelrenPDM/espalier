@@ -145,7 +145,9 @@ defmodule Espalier.Policies do
   @doc """
   Publishes a draft version. Requires the role `admin` (`{:error,
   :forbidden}` otherwise); a published version answers `{:error,
-  :published}` and an unknown one `{:error, :not_found}`.
+  :published}`, an unknown one `{:error, :not_found}`, and a draft whose
+  policy has a published version with a higher number `{:error,
+  :superseded}`, because it would never become the current version.
 
   In one transaction, the function sets `published_at`, writes the audit
   event `policy_version.published` and, when the version requires a
@@ -179,31 +181,45 @@ defmodule Espalier.Policies do
       version ->
         # Credentials.evaluate/2 holds a share lock on the policies it reads,
         # so a publication waits for a running evaluation, and an evaluation
-        # that starts later reads the new current version.
+        # that starts later reads the new current version. The lock also
+        # serializes the publications of one policy.
         Repo.one!(
           from p in Policy, where: p.id == ^version.policy_id, lock: "FOR UPDATE", select: p.id
         )
 
-        {:ok, published} =
-          version
-          |> Changeset.change(published_at: DateTime.utc_now(:second))
-          |> Repo.update()
-
-        {:ok, moved} =
-          if published.requires_refresher,
-            do: Credentials.mark_refresh_due_for_policy(published.policy.key),
-            else: {:ok, []}
-
-        {:ok, _event} =
-          Audit.record(scope, "policy_version.published", published, %{
-            policy_key: published.policy.key,
-            number: published.number,
-            requires_refresher: published.requires_refresher,
-            refresh_due_count: length(moved)
-          })
-
-        {:ok, published}
+        if superseded?(version), do: {:error, :superseded}, else: publish!(scope, version)
     end
+  end
+
+  defp superseded?(version) do
+    Repo.exists?(
+      from v in PolicyVersion,
+        where:
+          v.policy_id == ^version.policy_id and not is_nil(v.published_at) and
+            v.number > ^version.number
+    )
+  end
+
+  defp publish!(scope, version) do
+    {:ok, published} =
+      version
+      |> Changeset.change(published_at: DateTime.utc_now(:second))
+      |> Repo.update()
+
+    {:ok, moved} =
+      if published.requires_refresher,
+        do: Credentials.mark_refresh_due_for_policy(published.policy.key),
+        else: {:ok, []}
+
+    {:ok, _event} =
+      Audit.record(scope, "policy_version.published", published, %{
+        policy_key: published.policy.key,
+        number: published.number,
+        requires_refresher: published.requires_refresher,
+        refresh_due_count: length(moved)
+      })
+
+    {:ok, published}
   end
 
   ## Acknowledgements

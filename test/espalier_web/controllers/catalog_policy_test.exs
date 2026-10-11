@@ -17,8 +17,11 @@ defmodule EspalierWeb.CatalogPolicyTest do
   import Espalier.LearningFixtures
   import OpenApiSpex.TestAssertions
 
+  import Ecto.Query, only: [from: 2]
+
   alias Espalier.Accounts.Scope
-  alias Espalier.Policies
+  alias Espalier.{Policies, Repo}
+  alias Espalier.Policies.PolicyVersion
   alias EspalierWeb.ApiSpec
 
   setup do
@@ -42,8 +45,9 @@ defmodule EspalierWeb.CatalogPolicyTest do
 
   defp other_blocks(body), do: Enum.reject(blocks(body), &(&1["kind"] == "placeholder"))
 
-  # Publishes version 2 of input-rules before version 1 and leaves version
-  # 3 as a draft, so that only the number decides which version is current.
+  # Publishes versions 1 and 2 of input-rules, dates the publication of
+  # version 2 before that of version 1 and leaves version 3 as a draft, so
+  # that only the number decides which version is current.
   defp publish_input_rules! do
     policy = policy_fixture(%{key: "input-rules", title: "Input rules"})
     first = draft_version_fixture(policy, %{body: "First text.", effective_from: ~D[2026-02-01]})
@@ -51,8 +55,9 @@ defmodule EspalierWeb.CatalogPolicyTest do
     second =
       draft_version_fixture(policy, %{body: "Second text.", effective_from: ~D[2026-06-01]})
 
-    {:ok, _second} = Policies.publish_version(Scope.system(), second)
     {:ok, _first} = Policies.publish_version(Scope.system(), first)
+    {:ok, _second} = Policies.publish_version(Scope.system(), second)
+    backdate_publication!(second, first)
     draft_version_fixture(policy, %{body: "A draft.", effective_from: ~D[2026-12-01]})
 
     %{
@@ -61,6 +66,16 @@ defmodule EspalierWeb.CatalogPolicyTest do
       "effective_from" => "2026-06-01",
       "body" => "Second text."
     }
+  end
+
+  defp backdate_publication!(version, before) do
+    published_at = Repo.reload!(before).published_at
+
+    {1, _} =
+      Repo.update_all(
+        from(v in PolicyVersion, where: v.id == ^version.id),
+        set: [published_at: DateTime.add(published_at, -1, :day)]
+      )
   end
 
   describe "GET /api/modules/:id" do

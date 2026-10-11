@@ -23,7 +23,8 @@ defmodule EspalierWeb.FallbackController do
   answers, and `assessments_open` (409) with the open exams of a module.
 
   Task 0013 adds `validation_failed` (422) for a check of the context, such
-  as an attendance date after today (member `held_on`, code `future`).
+  as an attendance date after today (member `held_on`, code `future`) or
+  before 2000-01-01 (code `past`).
   """
   use EspalierWeb, :controller
 
