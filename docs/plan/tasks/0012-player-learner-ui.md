@@ -216,21 +216,40 @@ tasks rely on the implemented form.
   because a link holds no button. Outside a player, and for a slug that the
   glossary lacks, `GlossaryTerm` renders its label as text.
 - Blocks and citations (steps 6 and 7): `Citations` shows title, publisher,
-  edition date, retrieval date and locator, and the title of a source links
-  to its URL only with the scheme `http` or `https` (`safeSourceUrl` in
-  `src/player/format.ts`). `QuoteBlock` shows a citation line per source.
+  edition date, retrieval date and locator (`CitationText`), and the title of
+  a source links to its URL only with the scheme `http` or `https`
+  (`safeSourceUrl` in `src/player/format.ts`). `QuoteBlock` holds one
+  `figcaption` with the full citation of each source.
   `PlaceholderBlock` always carries the `placeholder` badge with its key.
   Headless UI 2.2.10 offers `defaultOpen` and no controlled `open` on
   `Disclosure`, so an explanation has the `key` `<block id>:<path>:<reveal
   count of its lesson>`, and a path change or a reveal applies the new start
   state.
+- Content language: a pack can be written in another language than the UI.
+  `useContentLang()` (`src/player/contentLang.ts`) gives the `locale` of the
+  `ProgramView`, and every element that holds pack text carries it as
+  `lang`: the `Markdown` container, titles of program, stations, lessons,
+  exams and formats, stems, options, feedback texts, case and check labels,
+  objective statements and domains, rules and the glossary. Translated
+  controls and labels keep the language of the document, so sentences that
+  named pack text through interpolation (`program.back`, `station.next`,
+  `items.case.expected` and others) now hold the translated part only, and
+  the pack text follows in an element of its own (`src/learner/BackToProgram.tsx`
+  for the link back to the program).
+- Tooltip (steps 5 and 11): the bubble starts at the left edge of its
+  trigger and moves left, measured before the browser paints it, as far as
+  it would cross the right edge of the viewport, keeping 8 pixels to both
+  edges; the 360-pixel test of `e2e/player.spec.ts` opens every tooltip of
+  the module 1 station and checks the page width.
 - Items (step 8): `PracticeItem` connects an item to `Runtime.submitItem`,
   and `ItemByKind` picks the component. A practice item offers "Try again"
   after its feedback, which clears answer and feedback. The status region of
   the frame names the lessons that a reveal opened, with links to them. In an
   exam the frame has no submit button and no status region of its own; the
   exam's status region announces the outcome. A 429 answer shows the message
-  of `errors.tooManyAttempts`.
+  of `errors.tooManyAttempts`. The initials of a checklist drill count
+  grapheme clusters with `Intl.Segmenter`, as `String.length/1` of the
+  evaluator does, so client and server agree on decomposed accents.
 - Radio groups (steps 8 and 10): Headless UI 2.2.10 sets `aria-labelledby`
   and `aria-describedby` of a `RadioGroup` from its own `Label` and
   `Description` children and drops ids that the caller passes. The choice
@@ -261,7 +280,10 @@ tasks rely on the implemented form.
   `src/test/player.tsx` holds the fixture program,
   the fake runtime and `renderPlayer`. Beyond the list of step 15,
   `ExamSection.test.tsx` covers the exam and `textRendering.test.tsx` the
-  rows 1.1.2 and 1.2.1. The storage helper of `e2e/support/account.ts` (0011)
+  rows 1.1.2 and 1.2.1; `contentLanguage.test.tsx`, `Tooltip.test.tsx`,
+  `QuoteBlock.test.tsx` and `answers.test.ts` cover the content language,
+  the tooltip position, the quote caption and the initials (review of
+  PR #27). The storage helper of `e2e/support/account.ts` (0011)
   admits the keys `espalier.player.*`. The e2e specs ran on an isolated stack
   (a test-env Phoenix with `AUTH_DEMO=true` and the published demo pack on
   4100, Vite on 5174) under both settings of `TRACKING_DETAIL` and twice in a

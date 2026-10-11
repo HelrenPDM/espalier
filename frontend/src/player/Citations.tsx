@@ -19,12 +19,27 @@ export function SourceTitle({ citation }: { citation: Citation }) {
   );
 }
 
-/**
- * The citations of a block or a rule: title, publisher, edition date,
- * retrieval date and locator of each source.
- */
-export function Citations({ citations }: { citations: Citation[] }) {
+/** One citation: title, publisher, edition date, retrieval date and locator. */
+export function CitationText({ citation }: { citation: Citation }) {
   const { t, i18n } = useTranslation();
+  return (
+    <>
+      <SourceTitle citation={citation} />
+      {", "}
+      {t("citations.details", {
+        publisher: citation.source.publisher,
+        edition: formatDay(citation.source.edition_date, i18n.language),
+        retrieved: formatDay(citation.source.retrieved_on, i18n.language),
+      })}
+      {citation.locator &&
+        ` ${t("citations.locator", { locator: citation.locator })}`}
+    </>
+  );
+}
+
+/** The citations of a block or a rule, each as `CitationText`. */
+export function Citations({ citations }: { citations: Citation[] }) {
+  const { t } = useTranslation();
   if (citations.length === 0) return null;
   return (
     <div className="mt-3 text-sm text-gray-700 dark:text-gray-300">
@@ -34,15 +49,7 @@ export function Citations({ citations }: { citations: Citation[] }) {
       <ul className="mt-1 space-y-1">
         {citations.map((citation, index) => (
           <li key={`${citation.source.key}-${index}`}>
-            <SourceTitle citation={citation} />
-            {", "}
-            {t("citations.details", {
-              publisher: citation.source.publisher,
-              edition: formatDay(citation.source.edition_date, i18n.language),
-              retrieved: formatDay(citation.source.retrieved_on, i18n.language),
-            })}
-            {citation.locator &&
-              ` ${t("citations.locator", { locator: citation.locator })}`}
+            <CitationText citation={citation} />
           </li>
         ))}
       </ul>

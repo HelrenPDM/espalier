@@ -1,8 +1,22 @@
 import type { Answer, ItemFeedback, ItemView } from "../runtime";
 
-/** The initials of a checklist drill count after trimming (0009 step 10). */
+/**
+ * The user-perceived characters of `value`: grapheme clusters, as Elixir's
+ * `String.length/1` counts them, so "é" counts once in composed and in
+ * decomposed form. Without `Intl.Segmenter` it counts code points.
+ */
+export function graphemeCount(value: string): number {
+  if (typeof Intl.Segmenter !== "function") return [...value].length;
+  const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+  return [...segmenter.segment(value)].length;
+}
+
+/**
+ * The initials of a checklist drill count after trimming, 2 to 5 grapheme
+ * clusters, as the evaluator of 0009 step 10 checks them.
+ */
 export function initialsValid(initials: string | undefined): boolean {
-  const length = [...(initials ?? "").trim()].length;
+  const length = graphemeCount((initials ?? "").trim());
   return length >= 2 && length <= 5;
 }
 

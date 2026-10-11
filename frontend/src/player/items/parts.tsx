@@ -1,5 +1,6 @@
 import { CheckCircleIcon, XCircleIcon } from "@heroicons/react/20/solid";
 import type { ReactNode } from "react";
+import { useContentLang } from "../contentLang";
 
 /** The mark of an option, slot, case or check after a submission. */
 export function FeedbackMark({
@@ -26,8 +27,11 @@ export function FeedbackMark({
 
 /** The feedback text of an option, slot, case or check. */
 export function FeedbackText({ text }: { text: string | null | undefined }) {
+  const lang = useContentLang();
   if (!text) return null;
   return (
-    <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">{text}</p>
+    <p lang={lang} className="mt-1 text-sm text-gray-700 dark:text-gray-300">
+      {text}
+    </p>
   );
 }

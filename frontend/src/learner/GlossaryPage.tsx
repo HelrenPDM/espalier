@@ -1,9 +1,10 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useLocation } from "react-router";
-import { linkClasses } from "../app/formStyles";
+import { useLocation } from "react-router";
 import { jumpTo } from "../player/jump";
+import { useContentLang } from "../player/contentLang";
 import { useCurrentPlayer } from "../player/usePlayer";
+import { BackToProgram } from "./BackToProgram";
 
 /**
  * `/programs/:slug/glossary`: the glossary of the program in alphabetical
@@ -13,6 +14,7 @@ export function GlossaryPage() {
   const { t } = useTranslation();
   const { hash } = useLocation();
   const { program } = useCurrentPlayer();
+  const lang = useContentLang();
   const collator = new Intl.Collator(program.locale);
   const terms = [...program.glossary].sort((a, b) =>
     collator.compare(a.label, b.label),
@@ -25,9 +27,7 @@ export function GlossaryPage() {
   return (
     <section className="max-w-3xl">
       <p className="no-print text-sm">
-        <Link to={`/programs/${program.slug}`} className={linkClasses}>
-          {t("program.back", { title: program.title })}
-        </Link>
+        <BackToProgram />
       </p>
       <h1 className="mt-4 text-2xl font-semibold tracking-tight">
         {t("glossary.title")}
@@ -35,7 +35,7 @@ export function GlossaryPage() {
       {terms.length === 0 ? (
         <p className="mt-4">{t("glossary.empty")}</p>
       ) : (
-        <dl className="mt-6 space-y-4">
+        <dl lang={lang} className="mt-6 space-y-4">
           {terms.map((term) => (
             <div key={term.slug}>
               <dt

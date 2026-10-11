@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { FOCUS_RING } from "../../app/formStyles";
+import { useContentLang } from "../contentLang";
 import { feedbackFor } from "./answers";
 import { ItemFrame, type ItemProps } from "./ItemFrame";
 import { FeedbackMark } from "./parts";
@@ -20,6 +21,7 @@ interface LogLine {
 export function ChecklistDrillItem(props: ItemProps) {
   const { t, i18n } = useTranslation();
   const { item, value, onChange, feedback } = props;
+  const lang = useContentLang();
   const checks = value?.checks ?? [];
   const initials = value?.initials ?? "";
   const [log, setLog] = useState<LogLine[]>([]);
@@ -70,7 +72,7 @@ export function ChecklistDrillItem(props: ItemProps) {
                   />
                   <div className="min-w-0">
                     <label htmlFor={id}>
-                      {check.label}
+                      <span lang={lang}>{check.label}</span>
                       {check.required && (
                         <span className="text-gray-700 dark:text-gray-300">
                           {" "}

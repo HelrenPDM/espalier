@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { LessonBlock } from "../player/blocks/LessonBlock";
+import { useContentLang } from "../player/contentLang";
 import { PracticeItem } from "../player/items/PracticeItem";
 import { startsOpen } from "../player/pathLogic";
 import type {
@@ -30,6 +31,7 @@ export function LessonSection({
   onAnswered: (item: ItemView, feedback: ItemFeedback) => Lesson[];
 }) {
   const { state, update } = useCurrentPlayer();
+  const lang = useContentLang();
   const headingId = `lesson-${lesson.id}-heading`;
 
   const toggle = useCallback(
@@ -52,6 +54,7 @@ export function LessonSection({
       <h2
         id={headingId}
         tabIndex={-1}
+        lang={lang}
         className="rounded-md text-xl font-semibold tracking-tight focus:outline-2 focus:outline-offset-2 focus:outline-accent-500"
       >
         {lesson.title}

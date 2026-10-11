@@ -303,10 +303,10 @@
   },
   "program": {
     "start": "Starten",
-    "continue": "Weiter mit {{title}}",
+    "continue": "Weiter mit",
     "stations": "Stationen",
     "moreLabel": "Mehr zu diesem Programm",
-    "back": "Zurück zu {{title}}"
+    "back": "Zurück zu"
   },
   "player": {
     "loading": "Das Programm wird geladen …",
@@ -327,8 +327,8 @@
     "position": "Station {{position}} von {{total}}",
     "listLabel": "Stationen",
     "pagerLabel": "Vorherige und nächste Station",
-    "previous": "Zurück: {{title}}",
-    "next": "Weiter: {{title}}",
+    "previous": "Zurück:",
+    "next": "Weiter:",
     "visited": "Besucht",
     "pending": "Diese Station ist in dieser Version noch nicht verfügbar.",
     "notFound": {
@@ -389,7 +389,7 @@
     "case": {
       "correct": "Richtig",
       "wrong": "Nicht richtig",
-      "expected": "Erwartet: {{category}}"
+      "expected": "Erwartet:"
     },
     "checklist": {
       "required": "(Pflicht)",
@@ -403,7 +403,7 @@
       "submit": "Antwort senden"
     },
     "rules": "Die Regeln zu dieser Frage:",
-    "ruleLink": "Regel {{number}}: {{statement}}",
+    "ruleLink": "Regel {{number}}:",
     "revealed": "Die Erklärung in dieser Lektion ist jetzt geöffnet:"
   },
   "exam": {
@@ -442,7 +442,7 @@
       "open": "Offen"
     },
     "depthLine": "Tiefe: {{depth}}.",
-    "domainLine": "Bereich: {{domain}}.",
+    "domain": "Bereich:",
     "taughtIn": "Vermittelt in:",
     "chipsLabel": "Ziele dieser Aufgabe",
     "chip": "{{area}}, {{depth}}"
@@ -461,8 +461,8 @@
       "practised": "Sie haben eine Übungsaufgabe zu diesem Ziel beantwortet.",
       "open": "Beides trifft bisher nicht zu."
     },
-    "formatNote": "Die Teilnahme am Format „{{format}}“ weist dieses Ziel nach.",
-    "formatLink": "Zur Station „{{station}}“."
+    "formatNote": "Die Teilnahme an diesem Format weist das Ziel nach:",
+    "formatLink": "Zur Station"
   },
   "rules": {
     "title": "Die Regeln dieses Moduls",
@@ -478,7 +478,7 @@
     "loading": "Das Handbuch wird geladen …",
     "print": "Drucken",
     "loadFailed": "Das Handbuch konnte nicht geladen werden. Bitte versuchen Sie es später erneut.",
-    "module": "Modul {{number}}: {{title}}",
+    "module": "Modul {{number}}:",
     "placeholders": "Regeln Ihrer Organisation",
     "placeholderNote": "Ihre Organisation ergänzt hier ihren Text."
   }

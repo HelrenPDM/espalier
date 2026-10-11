@@ -1,6 +1,7 @@
 import { useContext } from "react";
 import { useNavigate } from "react-router";
 import { FOCUS_RING } from "../app/formStyles";
+import { useContentLang } from "./contentLang";
 import { Tooltip } from "./Tooltip";
 import { PlayerContext } from "./usePlayer";
 import type { GlossaryEntry } from "./runtime";
@@ -15,8 +16,9 @@ function TermButton({
   text: string;
 }) {
   const navigate = useNavigate();
+  const lang = useContentLang();
   return (
-    <Tooltip text={term.short_text}>
+    <Tooltip text={term.short_text} lang={lang}>
       {(describedBy) => (
         <button
           type="button"

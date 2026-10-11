@@ -1,6 +1,7 @@
 import { Field, Label, Radio, RadioGroup } from "@headlessui/react";
 import { useTranslation } from "react-i18next";
 import { FOCUS_RING } from "../../app/formStyles";
+import { useContentLang } from "../contentLang";
 import type { ItemFeedback, ItemView } from "../runtime";
 import { feedbackFor } from "./answers";
 import { FeedbackMark, FeedbackText } from "./parts";
@@ -38,8 +39,8 @@ function OptionFeedback({
 
 /**
  * One choice among the options, with Headless UI `RadioGroup`, for a single
- * choice and for a poll; the stem names the group. A poll has no correct option, so it shows no
- * marks.
+ * choice and for a poll; the stem names the group. A poll has no correct
+ * option, so it shows no marks.
  */
 export function RadioOptions({
   item,
@@ -56,6 +57,7 @@ export function RadioOptions({
   locked: boolean;
   withFeedback: boolean;
 }) {
+  const lang = useContentLang();
   return (
     <RadioGroup
       value={selected ?? null}
@@ -79,7 +81,10 @@ export function RadioOptions({
               <span className="invisible size-2.5 rounded-full bg-accent-600 group-data-checked:visible dark:bg-accent-100" />
             </Radio>
             <div className="min-w-0">
-              <Label className="cursor-pointer data-disabled:cursor-default">
+              <Label
+                lang={lang}
+                className="cursor-pointer data-disabled:cursor-default"
+              >
                 {option.label}
               </Label>
               {withFeedback && (
@@ -107,6 +112,7 @@ export function CheckboxOptions({
   feedback: ItemFeedback | null;
   locked: boolean;
 }) {
+  const lang = useContentLang();
   return (
     <ul className="space-y-2">
       {item.options.map((option) => {
@@ -122,7 +128,9 @@ export function CheckboxOptions({
               className={`mt-1 size-4 shrink-0 accent-accent-600 ${FOCUS_RING}`}
             />
             <div className="min-w-0">
-              <label htmlFor={id}>{option.label}</label>
+              <label htmlFor={id} lang={lang}>
+                {option.label}
+              </label>
               <OptionFeedback feedback={feedback} optionKey={option.key} />
             </div>
           </li>

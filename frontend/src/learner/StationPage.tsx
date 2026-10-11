@@ -1,11 +1,13 @@
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation, useParams } from "react-router";
-import { buttonClasses, linkClasses } from "../app/formStyles";
+import { buttonClasses } from "../app/formStyles";
 import { jumpTo } from "../player/jump";
+import { useContentLang } from "../player/contentLang";
 import { sortedStations } from "../player/program";
 import { useCurrentPlayer } from "../player/usePlayer";
 import { STATION_COMPONENTS } from "./stations";
+import { BackToProgram } from "./BackToProgram";
 import { StationList } from "./StationList";
 
 /**
@@ -20,6 +22,7 @@ export function StationPage() {
   const { position } = useParams();
   const { hash } = useLocation();
   const { program, state, update } = useCurrentPlayer();
+  const lang = useContentLang();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const stations = sortedStations(program);
   const index = stations.findIndex(
@@ -62,9 +65,7 @@ export function StationPage() {
           {t("station.notFound.title")}
         </h1>
         <p className="mt-4">
-          <Link to={`/programs/${program.slug}`} className={linkClasses}>
-            {t("program.back", { title: program.title })}
-          </Link>
+          <BackToProgram />
         </p>
       </section>
     );
@@ -77,9 +78,7 @@ export function StationPage() {
     <div className="grid gap-8 lg:grid-cols-[16rem_minmax(0,1fr)]">
       <div className="min-w-0 lg:col-start-2">
         <p className="no-print text-sm">
-          <Link to={`/programs/${program.slug}`} className={linkClasses}>
-            {t("program.back", { title: program.title })}
-          </Link>
+          <BackToProgram />
         </p>
         <p className="mt-4 text-sm text-gray-700 dark:text-gray-300">
           {t("station.position", {
@@ -90,6 +89,7 @@ export function StationPage() {
         <h1
           ref={headingRef}
           tabIndex={-1}
+          lang={lang}
           className="mt-1 text-2xl font-semibold tracking-tight focus:outline-none"
         >
           {station.title}
@@ -106,7 +106,7 @@ export function StationPage() {
               to={`/programs/${program.slug}/stations/${previous.position}`}
               className={buttonClasses("secondary")}
             >
-              {t("station.previous", { title: previous.title })}
+              {t("station.previous")} <span lang={lang}>{previous.title}</span>
             </Link>
           ) : (
             <span />
@@ -116,7 +116,7 @@ export function StationPage() {
               to={`/programs/${program.slug}/stations/${next.position}`}
               className={buttonClasses("primary")}
             >
-              {t("station.next", { title: next.title })}
+              {t("station.next")} <span lang={lang}>{next.title}</span>
             </Link>
           )}
         </nav>

@@ -3,6 +3,7 @@ import { useId, type FormEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { buttonClasses, linkClasses } from "../../app/formStyles";
 import { jumpHandler } from "../jump";
+import { useContentLang } from "../contentLang";
 import { ObjectiveChips } from "../objectives/ObjectiveChips";
 import { ProvenanceBadge } from "../ProvenanceBadge";
 import type { Answer, ItemFeedback, ItemView } from "../runtime";
@@ -72,6 +73,7 @@ export function ItemFrame({
 }) {
   const { t } = useTranslation();
   const { program } = useCurrentPlayer();
+  const lang = useContentLang();
   const stemId = useId();
   const locked = disabled || submitting || feedback !== null;
   const complete = answerComplete(item, value);
@@ -109,10 +111,8 @@ export function ItemFrame({
                     onClick={jumpHandler(`rule-${rule.number}`)}
                     className={linkClasses}
                   >
-                    {t("items.ruleLink", {
-                      number: rule.number,
-                      statement: rule.statement,
-                    })}
+                    {t("items.ruleLink", { number: rule.number })}{" "}
+                    <span lang={lang}>{rule.statement}</span>
                   </a>
                 </li>
               ))}
@@ -161,7 +161,7 @@ export function ItemFrame({
       className="rounded-lg border border-gray-200 p-4 dark:border-gray-700"
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <p id={stemId} className="min-w-0 flex-1 font-medium">
+        <p id={stemId} lang={lang} className="min-w-0 flex-1 font-medium">
           {item.stem}
         </p>
         <ProvenanceBadge provenance={item.provenance} />

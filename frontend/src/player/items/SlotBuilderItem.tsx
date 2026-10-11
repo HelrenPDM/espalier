@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { FOCUS_RING } from "../../app/formStyles";
+import { useContentLang } from "../contentLang";
 import { feedbackFor } from "./answers";
 import { ItemFrame, type ItemProps } from "./ItemFrame";
 import { FeedbackMark, FeedbackText } from "./parts";
@@ -13,6 +14,7 @@ export const SELECT_CLASSES = `mt-1 block w-full min-w-0 rounded-md border borde
 export function SlotBuilderItem(props: ItemProps) {
   const { t } = useTranslation();
   const { item, value, onChange, feedback } = props;
+  const lang = useContentLang();
   const slots = value?.slots ?? {};
   const lines = item.slots.flatMap((slot) => {
     const option = slot.options.find((entry) => entry.key === slots[slot.key]);
@@ -29,11 +31,12 @@ export function SlotBuilderItem(props: ItemProps) {
             const entry = feedbackFor(feedback, slot.key);
             return (
               <div key={slot.key}>
-                <label htmlFor={id} className="text-sm font-medium">
+                <label htmlFor={id} lang={lang} className="text-sm font-medium">
                   {slot.label}
                 </label>
                 <select
                   id={id}
+                  lang={lang}
                   value={slots[slot.key] ?? ""}
                   disabled={locked}
                   onChange={(event) => {
@@ -77,7 +80,7 @@ export function SlotBuilderItem(props: ItemProps) {
                 </p>
               ) : (
                 lines.map((line, index) => (
-                  <p key={index} className="break-words">
+                  <p key={index} lang={lang} className="break-words">
                     {line}
                   </p>
                 ))

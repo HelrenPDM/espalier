@@ -7,6 +7,7 @@ import { useEffect, useId, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { linkClasses } from "../app/formStyles";
+import { useContentLang } from "../player/contentLang";
 import {
   AREAS,
   areaKey,
@@ -52,6 +53,7 @@ export function CompletionSummary({
   const { t } = useTranslation();
   const headingId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const lang = useContentLang();
 
   useEffect(() => {
     if (focusOnMount) headingRef.current?.focus();
@@ -133,7 +135,7 @@ export function CompletionSummary({
                         key={objective.key}
                         data-objective-key={objective.key}
                       >
-                        <p>{objective.statement}</p>
+                        <p lang={lang}>{objective.statement}</p>
                         <p className="mt-1 flex flex-wrap items-center gap-x-3 text-sm">
                           <span className="text-gray-700 dark:text-gray-300">
                             {t("objectives.depthLine", {
@@ -156,9 +158,8 @@ export function CompletionSummary({
                             key={format.id}
                             className="mt-1 text-sm text-gray-700 dark:text-gray-300"
                           >
-                            {t("completion.formatNote", {
-                              format: format.title,
-                            })}
+                            {t("completion.formatNote")}{" "}
+                            <span lang={lang}>{format.title}</span>
                             {formatStation && (
                               <>
                                 {" "}
@@ -166,9 +167,8 @@ export function CompletionSummary({
                                   to={`/programs/${program.slug}/stations/${formatStation.position}`}
                                   className={linkClasses}
                                 >
-                                  {t("completion.formatLink", {
-                                    station: formatStation.title,
-                                  })}
+                                  {t("completion.formatLink")}{" "}
+                                  <span lang={lang}>{formatStation.title}</span>
                                 </Link>
                               </>
                             )}

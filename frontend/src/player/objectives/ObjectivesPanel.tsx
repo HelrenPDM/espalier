@@ -2,6 +2,7 @@ import { useId } from "react";
 import { useTranslation } from "react-i18next";
 import { linkClasses } from "../../app/formStyles";
 import { jumpHandler } from "../jump";
+import { useContentLang } from "../contentLang";
 import type { ModuleView } from "../runtime";
 import { AREAS, areaKey, depthKey } from "./labels";
 
@@ -16,6 +17,7 @@ import { AREAS, areaKey, depthKey } from "./labels";
 export function ObjectivesPanel({ module }: { module: ModuleView }) {
   const { t } = useTranslation();
   const headingId = useId();
+  const lang = useContentLang();
   if (module.objectives.length === 0) return null;
 
   const lessonTitle = (id: string) =>
@@ -45,13 +47,18 @@ export function ObjectivesPanel({ module }: { module: ModuleView }) {
                   tabIndex={-1}
                   className="rounded-md focus:outline-2 focus:outline-offset-2 focus:outline-accent-500"
                 >
-                  <p>{objective.statement}</p>
+                  <p lang={lang}>{objective.statement}</p>
                   <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">
                     {t("objectives.depthLine", {
                       depth: t(depthKey(objective.depth)),
                     })}
-                    {objective.domain !== null &&
-                      ` ${t("objectives.domainLine", { domain: objective.domain })}`}
+                    {objective.domain !== null && (
+                      <>
+                        {" "}
+                        {t("objectives.domain")}{" "}
+                        <span lang={lang}>{objective.domain}</span>.
+                      </>
+                    )}
                   </p>
                   {objective.lesson_ids.length > 0 && (
                     <p className="mt-1 text-sm">
@@ -61,6 +68,7 @@ export function ObjectivesPanel({ module }: { module: ModuleView }) {
                           {index > 0 && ", "}
                           <a
                             href={`#lesson-${id}`}
+                            lang={lang}
                             onClick={jumpHandler(`lesson-${id}`)}
                             className={linkClasses}
                           >

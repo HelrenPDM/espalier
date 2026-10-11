@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { buttonClasses } from "../app/formStyles";
 import { PracticeItem } from "../player/items/PracticeItem";
+import { useContentLang } from "../player/contentLang";
 import { ObjectivesPanel } from "../player/objectives/ObjectivesPanel";
 import { statusCounts } from "../player/objectives/status";
 import { PathSwitch } from "../player/PathSwitch";
@@ -30,6 +31,7 @@ function ModuleContent({ module }: { module: ModuleView }) {
   const [justCompleted, setJustCompleted] = useState(false);
   const [openExams, setOpenExams] = useState<OpenAssessment[] | null>(null);
   const [failed, setFailed] = useState(false);
+  const lang = useContentLang();
 
   const lessons = [...module.lessons].sort((a, b) => a.position - b.position);
   const lessonIds = new Set(lessons.map((lesson) => lesson.id));
@@ -163,7 +165,9 @@ function ModuleContent({ module }: { module: ModuleView }) {
             <p className="font-medium">{t("station.examsOpen")}</p>
             <ul className="mt-1 list-disc pl-5">
               {openExams.map((exam) => (
-                <li key={exam.id}>{exam.title}</li>
+                <li key={exam.id} lang={lang}>
+                  {exam.title}
+                </li>
               ))}
             </ul>
           </div>

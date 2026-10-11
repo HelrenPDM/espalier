@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { FOCUS_RING } from "../../app/formStyles";
 import { jumpHandler } from "../jump";
+import { useContentLang } from "../contentLang";
 import { moduleStation } from "../program";
 import type { ObjectiveView, ProgramView } from "../runtime";
 import { Tooltip } from "../Tooltip";
@@ -33,6 +34,7 @@ export function ObjectiveChips({
   moduleId: string;
 }) {
   const { t } = useTranslation();
+  const lang = useContentLang();
   const targets = objectiveKeys.flatMap((key): ChipTarget[] => {
     for (const module of program.modules) {
       const objective = module.objectives.find((entry) => entry.key === key);
@@ -87,7 +89,9 @@ export function ObjectiveChips({
         };
         return (
           <li key={objective.key}>
-            <Tooltip text={objective.statement}>{chip}</Tooltip>
+            <Tooltip text={objective.statement} lang={lang}>
+              {chip}
+            </Tooltip>
           </li>
         );
       })}

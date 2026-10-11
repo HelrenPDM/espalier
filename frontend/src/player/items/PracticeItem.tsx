@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { linkClasses } from "../../app/formStyles";
 import { jumpHandler } from "../jump";
+import { useContentLang } from "../contentLang";
 import type { Answer, ItemFeedback, ItemView, Lesson } from "../runtime";
 import { useRuntime } from "../RuntimeContext";
 import { ItemByKind } from "./ItemByKind";
@@ -34,6 +35,7 @@ export function PracticeItem({
 }) {
   const { t } = useTranslation();
   const runtime = useRuntime();
+  const lang = useContentLang();
   const [value, setValue] = useState<Answer | undefined>();
   const [feedback, setFeedback] = useState<ItemFeedback | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -89,6 +91,7 @@ export function PracticeItem({
                 {t("items.revealed")}{" "}
                 <a
                   href={`#lesson-${lesson.id}`}
+                  lang={lang}
                   onClick={jumpHandler(`lesson-${lesson.id}`)}
                   className={linkClasses}
                 >

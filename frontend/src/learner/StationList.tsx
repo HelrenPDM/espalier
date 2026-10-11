@@ -2,6 +2,7 @@ import { CheckIcon } from "@heroicons/react/20/solid";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { FOCUS_RING } from "../app/formStyles";
+import { useContentLang } from "../player/contentLang";
 import { sortedStations } from "../player/program";
 import type { ProgramView, ResumeState } from "../player/runtime";
 
@@ -19,6 +20,7 @@ export function StationList({
   current?: number | null;
 }) {
   const { t } = useTranslation();
+  const lang = useContentLang();
   const stations = sortedStations(program);
   return (
     <nav aria-label={t("station.listLabel")}>
@@ -40,7 +42,7 @@ export function StationList({
                 <span className="w-5 shrink-0 text-right tabular-nums">
                   {index + 1}.
                 </span>
-                <span className="min-w-0 flex-1 break-words">
+                <span lang={lang} className="min-w-0 flex-1 break-words">
                   {station.title}
                 </span>
                 {visited && (

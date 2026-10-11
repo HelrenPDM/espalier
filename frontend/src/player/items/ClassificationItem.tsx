@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { feedbackFor } from "./answers";
+import { useContentLang } from "../contentLang";
 import { ItemFrame, type ItemProps } from "./ItemFrame";
 import { FeedbackMark, FeedbackText } from "./parts";
 import { SELECT_CLASSES } from "./SlotBuilderItem";
@@ -8,6 +9,7 @@ import { SELECT_CLASSES } from "./SlotBuilderItem";
 export function ClassificationItem(props: ItemProps) {
   const { t } = useTranslation();
   const { item, value, onChange, feedback } = props;
+  const lang = useContentLang();
   const cases = value?.cases ?? {};
   const categoryLabel = (key: string | null | undefined) =>
     item.categories.find((category) => category.key === key)?.label;
@@ -23,11 +25,12 @@ export function ClassificationItem(props: ItemProps) {
             const expected = categoryLabel(result?.expected);
             return (
               <li key={entry.key}>
-                <label htmlFor={id} className="block text-sm">
+                <label htmlFor={id} lang={lang} className="block text-sm">
                   {entry.text}
                 </label>
                 <select
                   id={id}
+                  lang={lang}
                   value={cases[entry.key] ?? ""}
                   disabled={locked}
                   onChange={(event) => {
@@ -52,11 +55,16 @@ export function ClassificationItem(props: ItemProps) {
                 {result && (
                   <div className="mt-1">
                     <FeedbackMark correct={result.correct}>
-                      {result.correct
-                        ? t("items.case.correct")
-                        : expected
-                          ? t("items.case.expected", { category: expected })
-                          : t("items.case.wrong")}
+                      {result.correct ? (
+                        t("items.case.correct")
+                      ) : expected ? (
+                        <>
+                          {t("items.case.expected")}{" "}
+                          <span lang={lang}>{expected}</span>
+                        </>
+                      ) : (
+                        t("items.case.wrong")
+                      )}
                     </FeedbackMark>
                     <FeedbackText text={result.feedback} />
                   </div>

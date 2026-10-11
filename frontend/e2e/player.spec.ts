@@ -268,6 +268,28 @@ test("every station renders without console errors and fits 360 pixels", async (
       );
     }
   }
+
+  // An open tooltip of a glossary term or an objective chip stays inside
+  // the viewport as well.
+  await page.goto(`/programs/${SLUG}/stations/${MODULE_1_POSITION}`);
+  await expect(
+    page.getByRole("region", { name: "Objectives of this topic" }),
+  ).toBeVisible();
+  const triggers = page.locator(
+    "main .prose button, main ul[aria-label='Objectives of this item'] a",
+  );
+  const count = await triggers.count();
+  expect(count).toBeGreaterThan(0);
+  for (let index = 0; index < count; index++) {
+    await triggers.nth(index).focus();
+    await expect(page.getByTestId("tooltip")).toBeVisible();
+    const [scrollWidth, viewport] = await page.evaluate<[number, number]>(
+      "[document.documentElement.scrollWidth, window.innerWidth]",
+    );
+    expect(scrollWidth, `tooltip ${index} at 360`).toBeLessThanOrEqual(
+      viewport,
+    );
+  }
   expect(errors).toEqual([]);
 });
 

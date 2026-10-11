@@ -1,11 +1,12 @@
 import { PrinterIcon } from "@heroicons/react/20/solid";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router";
 import { LoadingStatus } from "../app/LoadingStatus";
-import { buttonClasses, linkClasses } from "../app/formStyles";
+import { buttonClasses } from "../app/formStyles";
 import { useHandbook } from "../api/programs";
 import { Markdown } from "../player/Markdown";
+import { useContentLang } from "../player/contentLang";
 import { useCurrentPlayer } from "../player/usePlayer";
+import { BackToProgram } from "./BackToProgram";
 
 /**
  * `/programs/:slug/handbook`: every rule with statement and action, grouped
@@ -16,21 +17,20 @@ import { useCurrentPlayer } from "../player/usePlayer";
 export function HandbookPage() {
   const { t } = useTranslation();
   const { program } = useCurrentPlayer();
+  const lang = useContentLang();
   const handbook = useHandbook(program.slug);
 
   return (
     <article className="max-w-3xl">
       <p className="no-print text-sm">
-        <Link to={`/programs/${program.slug}`} className={linkClasses}>
-          {t("program.back", { title: program.title })}
-        </Link>
+        <BackToProgram />
       </p>
       <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
             {t("handbook.title")}
           </h1>
-          <p className="mt-1 text-gray-700 dark:text-gray-300">
+          <p lang={lang} className="mt-1 text-gray-700 dark:text-gray-300">
             {program.title}
           </p>
         </div>
@@ -63,10 +63,8 @@ export function HandbookPage() {
                 id={`handbook-module-${module.id}`}
                 className="text-xl font-semibold tracking-tight"
               >
-                {t("handbook.module", {
-                  number: module.number,
-                  title: module.title,
-                })}
+                {t("handbook.module", { number: module.number })}{" "}
+                <span lang={lang}>{module.title}</span>
               </h2>
               <ol className="mt-3 space-y-4">
                 {module.rules.map((rule) => (

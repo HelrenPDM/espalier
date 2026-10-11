@@ -303,10 +303,10 @@
   },
   "program": {
     "start": "Start",
-    "continue": "Continue with {{title}}",
+    "continue": "Continue with",
     "stations": "Stations",
     "moreLabel": "More on this program",
-    "back": "Back to {{title}}"
+    "back": "Back to"
   },
   "player": {
     "loading": "Loading the program…",
@@ -327,8 +327,8 @@
     "position": "Station {{position}} of {{total}}",
     "listLabel": "Stations",
     "pagerLabel": "Previous and next station",
-    "previous": "Previous: {{title}}",
-    "next": "Next: {{title}}",
+    "previous": "Previous:",
+    "next": "Next:",
     "visited": "Visited",
     "pending": "This station is not available in this version yet.",
     "notFound": {
@@ -389,7 +389,7 @@
     "case": {
       "correct": "Correct",
       "wrong": "Not correct",
-      "expected": "Expected: {{category}}"
+      "expected": "Expected:"
     },
     "checklist": {
       "required": "(required)",
@@ -403,7 +403,7 @@
       "submit": "Send answer"
     },
     "rules": "The rules behind this question:",
-    "ruleLink": "Rule {{number}}: {{statement}}",
+    "ruleLink": "Rule {{number}}:",
     "revealed": "The explanation in this lesson is open now:"
   },
   "exam": {
@@ -442,7 +442,7 @@
       "open": "Open"
     },
     "depthLine": "Depth: {{depth}}.",
-    "domainLine": "Domain: {{domain}}.",
+    "domain": "Domain:",
     "taughtIn": "Taught in:",
     "chipsLabel": "Objectives of this item",
     "chip": "{{area}}, {{depth}}"
@@ -461,8 +461,8 @@
       "practised": "You answered a practice item for the objective.",
       "open": "Neither applies so far."
     },
-    "formatNote": "Attendance at the format “{{format}}” provides the evidence.",
-    "formatLink": "Go to the station “{{station}}”."
+    "formatNote": "Attendance at this format provides the evidence:",
+    "formatLink": "Go to the station"
   },
   "rules": {
     "title": "The rules of this module",
@@ -478,7 +478,7 @@
     "loading": "Loading the handbook…",
     "print": "Print",
     "loadFailed": "The handbook could not be loaded. Please try again later.",
-    "module": "Module {{number}}: {{title}}",
+    "module": "Module {{number}}:",
     "placeholders": "Rules of your organization",
     "placeholderNote": "Your organization adds its text here."
   }

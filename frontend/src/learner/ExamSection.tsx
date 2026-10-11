@@ -2,6 +2,7 @@ import { useId, useRef, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { buttonClasses } from "../app/formStyles";
 import { answerComplete } from "../player/items/answers";
+import { useContentLang } from "../player/contentLang";
 import { ItemByKind } from "../player/items/ItemByKind";
 import type {
   Answer,
@@ -30,6 +31,7 @@ export function ExamSection({
   const { t } = useTranslation();
   const { runtime, state, update } = useCurrentPlayer();
   const headingId = useId();
+  const lang = useContentLang();
   const resultRef = useRef<HTMLDivElement>(null);
   const [answers, setAnswers] = useState<Record<string, Answer>>({});
   const [result, setResult] = useState<AttemptResult | null>(null);
@@ -91,7 +93,11 @@ export function ExamSection({
       aria-labelledby={headingId}
       className="rounded-lg border border-gray-300 p-4 dark:border-gray-600"
     >
-      <h2 id={headingId} className="text-xl font-semibold tracking-tight">
+      <h2
+        id={headingId}
+        lang={lang}
+        className="text-xl font-semibold tracking-tight"
+      >
         {exam.title}
       </h2>
       <p className="mt-2 text-sm text-gray-700 dark:text-gray-300">

@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { buttonClasses, linkClasses } from "../app/formStyles";
 import { PathSwitch } from "../player/PathSwitch";
+import { useContentLang } from "../player/contentLang";
 import { sortedStations } from "../player/program";
 import { useCurrentPlayer } from "../player/usePlayer";
 import { StationList } from "./StationList";
@@ -13,6 +14,7 @@ import { StationList } from "./StationList";
 export function ProgramPage() {
   const { t } = useTranslation();
   const { program, state } = useCurrentPlayer();
+  const lang = useContentLang();
   const stations = sortedStations(program);
   const next =
     stations.find(
@@ -22,7 +24,7 @@ export function ProgramPage() {
   return (
     <div className="max-w-3xl space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">
+        <h1 lang={lang} className="text-2xl font-semibold tracking-tight">
           {program.title}
         </h1>
         {next && (
@@ -31,9 +33,13 @@ export function ProgramPage() {
               to={`/programs/${program.slug}/stations/${next.position}`}
               className={buttonClasses("primary")}
             >
-              {state.visitedStations.length === 0
-                ? t("program.start")
-                : t("program.continue", { title: next.title })}
+              {state.visitedStations.length === 0 ? (
+                t("program.start")
+              ) : (
+                <>
+                  {t("program.continue")} <span lang={lang}>{next.title}</span>
+                </>
+              )}
             </Link>
           </p>
         )}

@@ -1,10 +1,13 @@
 import { useTranslation } from "react-i18next";
 import { Markdown } from "../Markdown";
-import { SourceTitle } from "../Citations";
+import { CitationText } from "../Citations";
 import { ProvenanceBadge } from "../ProvenanceBadge";
 import type { Block } from "../runtime";
 
-/** A verbatim quote with a citation line per source. */
+/**
+ * A verbatim quote. Its one caption holds the full citation of each source:
+ * title, publisher, edition date, retrieval date and locator.
+ */
 export function QuoteBlock({ block }: { block: Block }) {
   const { t } = useTranslation();
   return (
@@ -18,18 +21,15 @@ export function QuoteBlock({ block }: { block: Block }) {
       <blockquote className="border-l-4 border-gray-400 pl-4 dark:border-gray-500">
         <Markdown className="italic">{block.body}</Markdown>
       </blockquote>
-      {block.citations.map((citation, index) => (
-        <figcaption
-          key={`${citation.source.key}-${index}`}
-          className="mt-2 pl-5 text-sm text-gray-700 dark:text-gray-300"
-        >
-          <SourceTitle citation={citation} />
-          {", "}
-          {citation.source.publisher}
-          {citation.locator &&
-            ` ${t("citations.locator", { locator: citation.locator })}`}
+      {block.citations.length > 0 && (
+        <figcaption className="mt-2 pl-5 text-sm text-gray-700 dark:text-gray-300">
+          {block.citations.map((citation, index) => (
+            <span key={`${citation.source.key}-${index}`} className="block">
+              <CitationText citation={citation} />
+            </span>
+          ))}
         </figcaption>
-      ))}
+      )}
     </figure>
   );
 }

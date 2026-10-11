@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { Markdown } from "../../player/Markdown";
+import { useContentLang } from "../../player/contentLang";
 import type { Station } from "../../player/runtime";
 
 /**
@@ -9,9 +10,12 @@ import type { Station } from "../../player/runtime";
  */
 export function PendingStation({ station }: { station: Station }) {
   const { t } = useTranslation();
+  const lang = useContentLang();
   return (
     <div className="rounded-lg border border-dashed border-gray-400 p-4 dark:border-gray-500">
-      <p className="font-semibold">{station.title}</p>
+      <p lang={lang} className="font-semibold">
+        {station.title}
+      </p>
       {station.intro && <Markdown className="mt-2">{station.intro}</Markdown>}
       <p className="mt-2 text-sm text-gray-700 dark:text-gray-300">
         {t("station.pending")}

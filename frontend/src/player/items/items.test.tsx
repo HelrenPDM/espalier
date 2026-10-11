@@ -45,8 +45,21 @@ async function renderItem(
  * The element around the visible text `text` of an option, slot, case or
  * check: the label and the feedback below it share this parent.
  */
+// The row of an option, slot, case or check: the nearest list item or box
+// around its label text.
 const rowOf = (frame: HTMLElement, text: string) =>
-  within(within(frame).getByText(text).parentElement as HTMLElement);
+  within(within(frame).getByText(text).closest("li, div") as HTMLElement);
+
+/**
+ * Matches the innermost element whose text is `text`, also when the text
+ * spans child elements, such as the content language span in "Expected:
+ * <category>".
+ */
+const fullText =
+  (text: string) => (_content: string, element: Element | null) =>
+    element !== null &&
+    element.textContent === text &&
+    Array.from(element.children).every((child) => child.textContent !== text);
 
 const RULE_1 = {
   id: IDS.rule1,
@@ -662,7 +675,9 @@ describe("ClassificationItem", () => {
     expect(figure.getByText("Correct")).toBeInTheDocument();
     expect(figure.getByText("A figure needs its source.")).toBeInTheDocument();
     const thanks = rowOf(frame, CASE_THANKS);
-    expect(thanks.getByText(`Expected: ${READY}`)).toBeInTheDocument();
+    expect(
+      thanks.getByText(fullText(`Expected: ${READY}`)),
+    ).toBeInTheDocument();
     expect(thanks.getByText("A greeting states no fact.")).toBeInTheDocument();
     for (const select of within(frame).getAllByRole("combobox"))
       expect(select).toBeDisabled();
@@ -733,7 +748,7 @@ describe("ClassificationItem", () => {
       expect(select).toBeEnabled();
     }
     expect(
-      within(frame).queryByText(`Expected: ${READY}`),
+      within(frame).queryByText(fullText(`Expected: ${READY}`)),
     ).not.toBeInTheDocument();
     expect(status).toBeEmptyDOMElement();
     expect(

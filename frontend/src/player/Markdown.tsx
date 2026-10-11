@@ -4,6 +4,7 @@ import ReactMarkdown, {
   type ExtraProps,
 } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { useContentLang } from "./contentLang";
 import { GlossaryTerm } from "./GlossaryTerm";
 import { remarkCaseColumns } from "./remarkCaseColumns";
 import {
@@ -37,6 +38,7 @@ const caseRemarkPlugins = [...remarkPlugins, remarkCaseColumns];
  * protocol, such as `javascript:`, by an empty string (ASVS 1.2.2).
  * `[[term:slug]]` and `[[term:slug|label]]` render as `GlossaryTerm`.
  * `caseColumns` lays the cases of a case comparison out in two columns.
+ * Inside a player the text carries the language of the program.
  */
 export function Markdown({
   children,
@@ -47,8 +49,10 @@ export function Markdown({
   className?: string;
   caseColumns?: boolean;
 }) {
+  const lang = useContentLang();
   return (
     <div
+      lang={lang}
       className={`prose prose-gray max-w-none dark:prose-invert ${className}`}
     >
       <ReactMarkdown

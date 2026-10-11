@@ -1,6 +1,7 @@
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
 import { Citations } from "../player/Citations";
+import { useContentLang } from "../player/contentLang";
 import type { Rule } from "../player/runtime";
 
 /**
@@ -10,6 +11,7 @@ import type { Rule } from "../player/runtime";
 export function RulesRecap({ rules }: { rules: Rule[] }) {
   const { t } = useTranslation();
   const headingId = useId();
+  const lang = useContentLang();
   if (rules.length === 0) return null;
   return (
     <section
@@ -30,10 +32,10 @@ export function RulesRecap({ rules }: { rules: Rule[] }) {
             <p className="font-semibold">
               {t("rules.number", { number: rule.number })}
             </p>
-            <p>{rule.statement}</p>
+            <p lang={lang}>{rule.statement}</p>
             <p className="mt-1 text-gray-700 dark:text-gray-300">
               <span className="font-medium">{t("rules.action")}</span>{" "}
-              {rule.action}
+              <span lang={lang}>{rule.action}</span>
             </p>
             <Citations citations={rule.citations} />
           </li>
