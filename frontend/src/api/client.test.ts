@@ -128,6 +128,9 @@ describe("a 403 answer", () => {
     expect(queryClient.getQueryData<Session>(sessionQueryKey)?.csrfToken).toBe(
       "token-2",
     );
+    expect(queryClient.getQueryState(sessionQueryKey)?.isInvalidated).toBe(
+      false,
+    );
   });
 
   test(`with ${CSRF_ERROR_CODE} after the repeat reaches the caller`, async () => {
@@ -179,5 +182,33 @@ test("a 401 answer invalidates the session query", async () => {
   const { response } = await client.GET("/api/programs");
 
   expect(response.status).toBe(401);
+  expect(queryClient.getQueryState(sessionQueryKey)?.isInvalidated).toBe(true);
+});
+
+test("a 401 answer to the repeat invalidates the refetched session", async () => {
+  let posts = 0;
+  const { fetchImpl, requests } = stubFetch((request) => {
+    if (path(request) === "/api/session")
+      return json(200, sessionPayload("token-2"));
+    posts += 1;
+    return posts === 1
+      ? json(403, { error: CSRF_ERROR_CODE })
+      : json(401, { error: "unauthenticated" });
+  });
+  const client = createApiClient(queryClient, fetchImpl);
+
+  const { response } = await client.POST("/api/auth/demo", {
+    body: { slot: 2 },
+  });
+
+  expect(response.status).toBe(401);
+  expect(requests.map(path)).toEqual([
+    "/api/auth/demo",
+    "/api/session",
+    "/api/auth/demo",
+  ]);
+  expect(queryClient.getQueryData<Session>(sessionQueryKey)?.csrfToken).toBe(
+    "token-2",
+  );
   expect(queryClient.getQueryState(sessionQueryKey)?.isInvalidated).toBe(true);
 });

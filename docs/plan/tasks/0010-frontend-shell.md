@@ -164,10 +164,15 @@ tasks rely on the implemented form.
   because `index.html` links it.
 - Theme (step 3): the toggle cycles `system`, `light` and `dark` in this
   order. `followSystemTheme()` in `main.tsx` applies a change of
-  `prefers-color-scheme` while the setting is `system`.
+  `prefers-color-scheme` while the setting is `system`. `storeTheme()` also
+  keeps the choice in memory, and `readTheme()` returns it before it reads
+  the storage, so a choice holds until the page reloads when the storage
+  throws; otherwise a change of the system preference would override a
+  chosen `light` or `dark`.
 - API client (step 6): `onResponse` returns the original 403 when the
-  refetch of the session fails. `client.ts` also exports the type
-  `ApiClient`.
+  refetch of the session fails. The repeat after a 403 `csrf` bypasses the
+  middleware, so `onResponse` checks its answer itself and invalidates the
+  session query on a 401. `client.ts` also exports the type `ApiClient`.
 - Session (step 7): `toSession()` copies each provider entry member by
   member under its received names (`key`, `type`, `kind`, `label`,
   `start_url`), so no other key of the payload reaches the cache.
@@ -224,15 +229,19 @@ tasks rely on the implemented form.
   the document URL, as a browser does (jsdom has no fetch API, and the
   `Request` of Node rejects a relative URL), and stubs `ResizeObserver`,
   which Headless UI calls when a menu opens. `src/test/session.ts` builds the
-  fixed `SessionContext` value. Three test files go beyond the list of this
-  step: `src/app/pages.test.tsx` renders the `/sign-in` placeholder, the 403
+  fixed `SessionContext` value. Four test files go beyond the list of this
+  step: `src/app/theme.test.ts` checks the theme with blocked storage
+  through `Storage.prototype` and a stubbed `matchMedia`,
+  `src/app/pages.test.tsx` renders the `/sign-in` placeholder, the 403
   page, the not-found page and the error page in German,
   `src/i18n/i18n.test.ts` checks that `en.json` and `de.json` hold the same
   keys, and `src/test/clientSurface.test.ts` runs the checks of the rows
   3.7.1, 14.2.3 and 15.3.5 in `make check`: no plugin element under `src/`
   or in `index.html`, `index.html` loads only its own entry module, and both
   `tsconfig` files set `strict`. `Layout.test.tsx` also renders a display
-  name that holds an `<img>` tag as text (rows 1.1.2, 1.2.1 and 3.2.2).
+  name that holds an `<img>` tag as text (rows 1.1.2, 1.2.1 and 3.2.2), and
+  `client.test.ts` checks that a 401 answer to the repeat invalidates the
+  session query.
 - Verification matrix (step 15): the rows 3.7.2, 14.2.3 and 15.3.5 name only
   tasks that have now landed (0004, 0006, 0009 and this task), so they take
   the status `verified` together with 3.5.5, 3.7.1 and 15.3.6. The addendum

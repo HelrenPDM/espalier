@@ -16,8 +16,8 @@ const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
  * `csrf`, the client refetches the session and repeats the request once with
  * the new token; the repeat bypasses the middleware, so a second 403 reaches
  * the caller unchanged. Any other 403, such as `cross_site_request` of the
- * Fetch Metadata plug, reaches the caller without a refetch. A 401
- * invalidates the session query.
+ * Fetch Metadata plug, reaches the caller without a refetch. A 401, also as
+ * the answer to the repeat, invalidates the session query.
  */
 export function createApiClient(
   queryClient: QueryClient,
@@ -29,6 +29,8 @@ export function createApiClient(
     fetch: fetchImpl,
   });
   const retries = new WeakMap<Request, Request>();
+  const invalidateSession = () =>
+    queryClient.invalidateQueries({ queryKey: sessionQueryKey });
 
   client.use({
     onRequest({ request }) {
@@ -44,7 +46,7 @@ export function createApiClient(
       const retry = retries.get(request);
       retries.delete(request);
       if (response.status === 401) {
-        await queryClient.invalidateQueries({ queryKey: sessionQueryKey });
+        await invalidateSession();
         return undefined;
       }
       if (response.status !== 403 || retry === undefined) return undefined;
@@ -60,7 +62,10 @@ export function createApiClient(
         return undefined;
       }
       retry.headers.set(CSRF_HEADER, session.csrfToken);
-      return fetchImpl(retry);
+      // The repeat bypasses the middleware, so its 401 is handled here.
+      const repeated = await fetchImpl(retry);
+      if (repeated.status === 401) await invalidateSession();
+      return repeated;
     },
   });
 
