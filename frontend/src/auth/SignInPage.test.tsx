@@ -120,6 +120,48 @@ describe("conditional UI", () => {
     expect(webauthn.cancelCeremony).toHaveBeenCalled();
   });
 
+  test("a password submit aborts the conditional options request still in flight", async () => {
+    const { requests, user } = renderSignIn({
+      responses: {
+        // The options answer never arrives before the password step.
+        [`POST ${OPTIONS}`]: () => new Promise(() => {}),
+        "POST /api/auth/password": {
+          status: 200,
+          body: { next: "second_factor" },
+        },
+      },
+    });
+    await waitFor(() => expect(optionRequests(requests)).toHaveLength(1));
+    const [conditional] = requestsTo(requests, "POST", OPTIONS);
+    expect(conditional.signal.aborted).toBe(false);
+
+    await user.type(screen.getByLabelText("E-mail address"), "a@example.test");
+    await user.type(screen.getByLabelText("Password"), "a long passphrase");
+    await user.click(
+      screen.getByRole("button", { name: "Continue with password" }),
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Confirm your sign-in" }),
+    ).toBeInTheDocument();
+    expect(conditional.signal.aborted).toBe(true);
+    expect(webauthn.startAuthentication).not.toHaveBeenCalled();
+    expect(
+      requests.map((request) => `${request.method} ${request.path}`),
+    ).toEqual([`POST ${OPTIONS}`, "POST /api/auth/password"]);
+  });
+
+  test("leaving the first step aborts the conditional options request", async () => {
+    const { requests, unmount } = renderSignIn({
+      responses: { [`POST ${OPTIONS}`]: () => new Promise(() => {}) },
+    });
+    await waitFor(() => expect(optionRequests(requests)).toHaveLength(1));
+
+    unmount();
+
+    expect(requestsTo(requests, "POST", OPTIONS)[0].signal.aborted).toBe(true);
+  });
+
   test("the conditional request renews its options after 290 seconds", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const { requests } = renderSignIn();

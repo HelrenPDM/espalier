@@ -20,9 +20,10 @@ const RENEW_AFTER_MS = 290_000;
  * options request and a rejection of the conditional request show nothing;
  * `onRejected` runs when the server rejects a passkey the person picked.
  *
- * The returned `stop()` ends the ceremony for good: every other action of
- * the page calls it first, so no new `sign_in` options request replaces the
- * ceremony id of a second-factor passkey in the session cookie.
+ * The returned `stop()` ends the ceremony for good and aborts a request of
+ * the run still in flight: every other action of the page calls it first,
+ * so neither a new nor a late `sign_in` options answer replaces the session
+ * cookie of that action, such as the ceremony id of a second-factor passkey.
  */
 export function useConditionalPasskey(
   onSignedIn: (session: SessionPayload) => void,
@@ -42,6 +43,11 @@ export function useConditionalPasskey(
     if (!enabled) return undefined;
     let active = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    // Aborts the requests of the run. A response that arrives after stop()
+    // would otherwise still set the session cookie of the conditional
+    // ceremony and replace the cookie of a later action, such as the
+    // pending state after the password.
+    const requests = new AbortController();
 
     const clearTimer = () => {
       if (timer !== undefined) clearTimeout(timer);
@@ -55,6 +61,7 @@ export function useConditionalPasskey(
       try {
         ({ data: options } = await client.POST("/api/auth/passkey/options", {
           body: { purpose: "sign_in" },
+          signal: requests.signal,
         }));
       } catch {
         return;
@@ -83,6 +90,7 @@ export function useConditionalPasskey(
       try {
         const { data } = await client.POST("/api/auth/passkey", {
           body: assertion,
+          signal: requests.signal,
         });
         if (!active) return;
         if (data === undefined) callbacks.current.onRejected?.();
@@ -95,6 +103,7 @@ export function useConditionalPasskey(
     const stop = () => {
       active = false;
       clearTimer();
+      requests.abort();
       WebAuthnAbortService.cancelCeremony();
     };
     stopRef.current = stop;

@@ -42,6 +42,7 @@ export interface RecordedRequest {
   /** The parsed JSON body, or `null`. */
   body: unknown;
   headers: Headers;
+  signal: AbortSignal;
 }
 
 const json = ({ status, body, headers = {} }: StubAnswer) =>
@@ -78,20 +79,31 @@ export function stubFetch(responses: StubResponses) {
       path,
       body,
       headers: request.headers,
+      signal: request.signal,
     };
     requests.push(recorded);
 
     const key = `${request.method} ${path}`;
     const entry = responses[key];
-    if (entry === undefined)
-      return json({ status: 404, body: { error: "not_found" } });
-    if (typeof entry === "function") return json(await entry(recorded));
-    if (Array.isArray(entry)) {
-      const index = calls.get(key) ?? 0;
-      calls.set(key, index + 1);
-      return json(entry[Math.min(index, entry.length - 1)]);
-    }
-    return json(entry);
+    const answer = async (): Promise<StubAnswer> => {
+      if (entry === undefined)
+        return { status: 404, body: { error: "not_found" } };
+      if (typeof entry === "function") return entry(recorded);
+      if (Array.isArray(entry)) {
+        const index = calls.get(key) ?? 0;
+        calls.set(key, index + 1);
+        return entry[Math.min(index, entry.length - 1)];
+      }
+      return entry;
+    };
+    // An aborted request rejects with an AbortError, as fetch does.
+    const aborted = new Promise<never>((_resolve, reject) => {
+      const abort = () =>
+        reject(new DOMException("The request was aborted.", "AbortError"));
+      if (request.signal.aborted) abort();
+      else request.signal.addEventListener("abort", abort, { once: true });
+    });
+    return json(await Promise.race([answer(), aborted]));
   });
 
   return { fetchImpl, requests };

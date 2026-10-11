@@ -450,7 +450,11 @@ tasks rely on the implemented form.
   tab, so a tab never handles its own message; `useSessionTabSync` takes the
   sign-out of `SessionProvider` as its `signed-out` handler.
 - Sign-in (steps 6 and 7): `useConditionalPasskey(onSignedIn, { enabled,
-  onRejected })` runs only with `flags.localAccounts`. `SignInPage` keeps the
+  onRejected })` runs only with `flags.localAccounts`. `stop()` and the
+  effect cleanup also abort a request of the conditional run that is still
+  in flight: a late answer to the `sign_in` options request would set the
+  session cookie as it was before a later action and replace, for example,
+  the pending state after the password. `SignInPage` keeps the
   destination of a completed sign-in in state and navigates when the
   refetched session reaches it: `return_to`, or `/account/security` with the
   location state `{ recoveryCodesRemaining }` after a recovery code. The
@@ -489,7 +493,7 @@ tasks rely on the implemented form.
   tests reach browser storage only through `rememberReturnTo`,
   `takeReturnTo` and `Storage.prototype`, and listen to channels through
   `listenMessages`, so the greps of the acceptance list the modules of the
-  spec and nothing else. 27 files with 324 tests pass; the security page
+  spec and nothing else. 27 files with 326 tests pass; the security page
   test renders inside `<main>`, as the layout does.
 - End-to-end tests (step 18): `e2e/support/account.ts` holds the shared
   flows (invitation, passkey enrollment with the downloaded codes, the
@@ -509,7 +513,7 @@ tasks rely on the implemented form.
   minute meets `auth_ip` and `passkey_ip`, so `config/dev.exs` keeps its
   limits.
 - Verification (2026-10-11): `make check` passes (ExUnit 1164 tests and 2
-  properties, Vitest 324 tests). The Playwright suite, the eight account
+  properties, Vitest 326 tests). The Playwright suite, the eight account
   specs with `@oidc` and `@ldap` and the specs of 0010, passes in one run
   (20 tests) against a copy of the checkout with the database
   `espalier_e2e`, Phoenix on 4100, Vite on 5174 and the mock provider on
