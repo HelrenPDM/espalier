@@ -1,0 +1,31 @@
+import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
+import { ChevronDownIcon } from "@heroicons/react/20/solid";
+import { useTranslation } from "react-i18next";
+import { useSession } from "../auth/SessionProvider";
+
+/** The display name of a signed-in session with the sign-out action (ASVS 7.4.4). */
+export function UserMenu() {
+  const { t } = useTranslation();
+  const { user, signOut } = useSession();
+  if (user === null) return null;
+
+  return (
+    <Menu as="div" className="relative">
+      <MenuButton className="flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium text-gray-900 hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500 dark:text-gray-100 dark:hover:bg-gray-800">
+        {user.displayName ?? t("layout.account")}
+        <ChevronDownIcon aria-hidden="true" className="size-4" />
+      </MenuButton>
+      <MenuItems className="absolute right-0 z-10 mt-2 w-48 rounded-md border border-gray-200 bg-white py-1 shadow-lg focus:outline-none dark:border-gray-700 dark:bg-gray-900">
+        <MenuItem>
+          <button
+            type="button"
+            onClick={() => void signOut()}
+            className="block w-full px-4 py-2 text-left text-sm text-gray-900 data-focus:bg-accent-50 dark:text-gray-100 dark:data-focus:bg-accent-700"
+          >
+            {t("layout.signOut")}
+          </button>
+        </MenuItem>
+      </MenuItems>
+    </Menu>
+  );
+}

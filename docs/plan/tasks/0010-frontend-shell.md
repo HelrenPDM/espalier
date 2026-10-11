@@ -141,3 +141,111 @@ The SPA code and the tests of this task also extend these rows of other tasks:
 - `toSession()`, `CSRF_ERROR_CODE` and the demo request body are the only places that depend on names fixed outside this task: the session payload and the demo body of 0004 step 35, and the error code `csrf` of README section 6.10.
 - Playwright starts the `webServer` command with an open standard input pipe. In playwright 1.59.1, `lib/plugins/webServerPlugin.js` passes `stdio: "stdin"` to `launchProcess`, and in playwright-core 1.59.1, `lib/server/utils/processLauncher.js` turns every value other than `"pipe"` into `["pipe", "pipe", "pipe"]`. The `iex` session of `make run` therefore keeps running. IEx stops the node when its standard input reaches end of file, so `make run < /dev/null` ends the server at once.
 - Playwright stays at 1.59.1 to match `playwright-driver` in the pinned nixpkgs (README section 3). The passkey tests of 0011 use the Chromium DevTools virtual authenticator, because the cross-browser `browserContext.credentials` API needs Playwright 1.61 (README section 16).
+
+## Addendum: implementation
+The implementation departs from the steps above in the points below, and later
+tasks rely on the implemented form.
+
+- Dependencies (step 1): `tailwindcss` and `@tailwindcss/vite` 4.3.3,
+  `@tailwindcss/typography` 0.5.20, `react-router` 8.4.0,
+  `@tanstack/react-query` 5.104.1, `@headlessui/react` 2.2.10,
+  `@heroicons/react` 2.2.0, `i18next` 26.4.2, `react-i18next` 17.0.15,
+  `i18next-browser-languagedetector` 8.2.1 and `@axe-core/playwright` 4.13.0,
+  each installed with `npm install --before=<seven days back>`, because npm
+  has no cooldown setting. `npm audit` reports two moderate findings:
+  `@tailwindcss/typography` 0.5.20 pins `postcss-selector-parser` 6.0.10
+  (GHSA-rj75-hqrm-r3gf, quadratic selector parsing, fixed in 7.1.6). The
+  plugin parses only the project's own CSS at build time. Task 0017, which
+  adds `npm audit` to `make check`, decides between an override and an
+  accepted finding.
+- Styles (step 2): `index.html` sets `scheme-light dark:scheme-dark` on
+  `<html>`, the page colors on `<body>` and the title `Espalier`. The
+  template's `public/icons.svg` is deleted; `public/favicon.svg` stays,
+  because `index.html` links it.
+- Theme (step 3): the toggle cycles `system`, `light` and `dark` in this
+  order. `followSystemTheme()` in `main.tsx` applies a change of
+  `prefers-color-scheme` while the setting is `system`. `storeTheme()` also
+  keeps the choice in memory, and `readTheme()` returns it before it reads
+  the storage, so a choice holds until the page reloads when the storage
+  throws; otherwise a change of the system preference would override a
+  chosen `light` or `dark`.
+- API client (step 6): `onResponse` returns the original 403 when the
+  refetch of the session fails. The repeat after a 403 `csrf` bypasses the
+  middleware, so `onResponse` checks its answer itself and invalidates the
+  session query on a 401. `client.ts` also exports the type `ApiClient`.
+- Session (step 7): `toSession()` copies each provider entry member by
+  member under its received names (`key`, `type`, `kind`, `label`,
+  `start_url`), so no other key of the payload reaches the cache.
+  `user.displayName` is `string | null` like `display_name` in the schema,
+  and the context holds `csrfToken: null` until the session has loaded.
+  `signOut()` clears the cache, navigates to `/sign-in` and only then
+  refetches the session: with the refetch first, the signed-out session
+  reaches `RequireAuth` before the navigation, which then redirects to
+  `/sign-in?return_to=%2F`. A failed `DELETE /api/session` leaves the
+  session unchanged. `SessionProvider.tsx` exports the context and the hook
+  next to the provider, as this step names them, so two comments
+  `oxlint-disable-next-line react/only-export-components` silence the fast
+  refresh warning there.
+- Router (step 8): `src/app/router.tsx` exports `appRoutes`,
+  `createRoutes(root, children = appRoutes)`, `createAppRouter()` and
+  `ADMIN_ROLES`. `main.tsx` calls `createAppRouter()`, so a test that imports
+  the route list creates no browser router. The root route has
+  `errorElement: <ErrorPage standalone />`, which brings its own `<main>`,
+  and a pathless child route with `errorElement: <ErrorPage />` holds every
+  page, so the error of a page renders inside the layout. `RequireAuth` and
+  `RequireRole` live in `src/auth/`, and every placeholder renders through
+  `src/app/PlaceholderPage.tsx`.
+- Layout (step 9): the demo banner is the first line of `<header>`, above
+  the bar with product name, language switch, theme toggle and user menu;
+  the bar carries `no-print`. `src/app/product.ts` holds the product name,
+  and an empty `VITE_PRODUCT_NAME` counts as unset. The language switch is a
+  native `<select>` that names each language in that language (`English`,
+  `Deutsch`), so a reader finds it in either UI language.
+- i18n (step 11): `supportedLngs` is `["en", "de"]` and `initAsync` is
+  `false`, so the first render has its strings. The module sets
+  `<html lang>` to the resolved language and follows every change.
+  `src/i18n/i18next.d.ts` types the keys of `t()` from `en.json`, which needs
+  `resolveJsonModule` in `tsconfig.app.json`.
+- Playwright (step 13): `signInAsDemo` waits for the answer to the SPA's own
+  `GET /api/session` on `/sign-in` before its `fetch` calls. Two first
+  requests without a cookie each set a new session cookie, and the later
+  answer can replace the cookie whose CSRF token the helper sends. The specs
+  import with the extension `.ts` (`module: nodenext` in
+  `tsconfig.node.json`) and import `AxeBuilder` as a named export. The axe
+  test clears the cookies before each color scheme and checks the `dark`
+  class on `<html>` before it runs axe.
+- WebKit (step 13): the WebKit of `playwright-driver` loads its EGL driver
+  through libglvnd and stops outside NixOS with "Could not create WPE EGL
+  display". `shell.nix` therefore exports `__EGL_VENDOR_LIBRARY_FILENAMES`
+  with the vendor file of Mesa from the same nixpkgs on Linux, a download of
+  about 57 MiB. With it, WebKit 26.4 starts and stores no `Secure` cookie
+  over `http://localhost`; Chromium 147.0.7727.15 and Firefox 148.0.2 store
+  it. `e2e/dev-cookie.spec.ts` marks the WebKit run with `test.fail()`, and
+  `docs/security/authentication.md` records the result of 2026-10-11.
+- Makefile (step 13): the pattern of `make help` admits digits, so it lists
+  `e2e` and `argon2-bench`.
+- Component tests (step 14): `src/test/setup.ts` imports `src/i18n`,
+  replaces `Request` with a subclass that resolves a relative URL against
+  the document URL, as a browser does (jsdom has no fetch API, and the
+  `Request` of Node rejects a relative URL), and stubs `ResizeObserver`,
+  which Headless UI calls when a menu opens. `src/test/session.ts` builds the
+  fixed `SessionContext` value. Four test files go beyond the list of this
+  step: `src/app/theme.test.ts` checks the theme with blocked storage
+  through `Storage.prototype` and a stubbed `matchMedia`,
+  `src/app/pages.test.tsx` renders the `/sign-in` placeholder, the 403
+  page, the not-found page and the error page in German,
+  `src/i18n/i18n.test.ts` checks that `en.json` and `de.json` hold the same
+  keys, and `src/test/clientSurface.test.ts` runs the checks of the rows
+  3.7.1, 14.2.3 and 15.3.5 in `make check`: no plugin element under `src/`
+  or in `index.html`, `index.html` loads only its own entry module, and both
+  `tsconfig` files set `strict`. `Layout.test.tsx` also renders a display
+  name that holds an `<img>` tag as text (rows 1.1.2, 1.2.1 and 3.2.2), and
+  `client.test.ts` checks that a 401 answer to the repeat invalidates the
+  session query.
+- Verification matrix (step 15): the rows 3.7.2, 14.2.3 and 15.3.5 name only
+  tasks that have now landed (0004, 0006, 0009 and this task), so they take
+  the status `verified` together with 3.5.5, 3.7.1 and 15.3.6. The addendum
+  of 0004 points to the cookie record.
+- Build: `vite build` warns that the entry chunk exceeds 500 kB (509 kB
+  minified, 163 kB with gzip). Splitting the routes of 0012 into chunks can
+  follow there.

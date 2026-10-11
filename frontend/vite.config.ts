@@ -1,6 +1,7 @@
 /// <reference types="vitest/config" />
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 
 // `make run` starts the dev server as a Phoenix watcher in its own session, so
 // it would outlive Phoenix and keep port 5173. Phoenix holds the other end of
@@ -21,7 +22,7 @@ function exitWithPhoenix(): Plugin {
 }
 
 export default defineConfig(({ command }) => ({
-  plugins: [react(), exitWithPhoenix()],
+  plugins: [react(), tailwindcss(), exitWithPhoenix()],
   base: command === "build" ? "/spa/" : "/",
   server: {
     port: 5173,
@@ -36,5 +37,7 @@ export default defineConfig(({ command }) => ({
   test: {
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
+    // The specs in e2e/ belong to Playwright.
+    include: ["src/**/*.test.{ts,tsx}"],
   },
 }));

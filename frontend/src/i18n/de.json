@@ -1,0 +1,63 @@
+{
+  "layout": {
+    "skipLink": "Zum Inhalt springen",
+    "demoBanner": "Demo-Modus: Jedes Konto hier ist ein pseudonymes Testkonto.",
+    "language": "Sprache",
+    "account": "Konto",
+    "signOut": "Abmelden"
+  },
+  "theme": {
+    "toggle": "Farbschema: {{value}}",
+    "system": "Systemeinstellung",
+    "light": "hell",
+    "dark": "dunkel"
+  },
+  "auth": {
+    "loading": "Die Sitzung wird geladen …"
+  },
+  "pages": {
+    "backHome": "Zur Startseite",
+    "notFound": {
+      "title": "Seite nicht gefunden",
+      "text": "Unter dieser Adresse gibt es keine Seite."
+    },
+    "forbidden": {
+      "title": "Kein Zugriff",
+      "text": "Ihre Rollen schließen diesen Bereich nicht ein."
+    },
+    "error": {
+      "title": "Ein Fehler ist aufgetreten",
+      "text": "Die Seite konnte nicht angezeigt werden. Bitte versuchen Sie es später erneut."
+    }
+  },
+  "placeholders": {
+    "signIn": {
+      "title": "Anmelden",
+      "text": "Die Anmeldung folgt in einer späteren Version."
+    },
+    "home": {
+      "title": "Startseite",
+      "text": "Hier erscheinen Ihre Programme."
+    },
+    "program": {
+      "title": "Programm",
+      "text": "Hier erscheint die Programmübersicht."
+    },
+    "station": {
+      "title": "Station",
+      "text": "Hier erscheint die Station."
+    },
+    "credentials": {
+      "title": "Nachweise",
+      "text": "Hier erscheinen Ihre Nachweise."
+    },
+    "credential": {
+      "title": "Nachweis",
+      "text": "Hier erscheint der Nachweis."
+    },
+    "admin": {
+      "title": "Verwaltung",
+      "text": "Hier erscheinen die Verwaltungsseiten."
+    }
+  }
+}

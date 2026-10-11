@@ -123,9 +123,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `openapi-typescript`, `make check` fails when they differ from the
   committed files, and `openapi-fetch` is a dependency of the frontend
   (task 0009).
+- The frontend shell (task 0010): Tailwind CSS 4 with one accent token, a
+  layout with skip link, theme toggle, language switch, user menu and demo
+  banner, React Router with learner and admin areas behind the guards
+  `RequireAuth` and `RequireRole`, the session context with `signOut()`, a
+  typed API client that sends the CSRF token and repeats a request once after
+  a 403 `csrf`, the guarded message listener `listenMessages`, `return_to`
+  validation, and English and German UI strings.
+- The Oxlint rule `react/no-danger` and TypeScript strict mode in both
+  `tsconfig` files (task 0010).
+- `make e2e` with Playwright 1.59.1, axe and the demo sign-in, and the check
+  whether the development browsers store the session cookie over
+  `http://localhost`, with its result in `docs/security/authentication.md`
+  (task 0010).
 
 ### Changed
 
+- `decimal` 3.1.2 replaces 3.1.1, which carries EEF-CVE-2026-97853
+  (unbounded allocation in `Decimal.round/3`); the update bypasses the
+  seven-day Hex cooldown.
+- The nix shell points libglvnd at the EGL driver of Mesa on Linux, so the
+  WebKit of Playwright starts outside NixOS, and `make help` lists the
+  targets whose names hold a digit, such as `e2e` (task 0010).
 - Production requires an `https` `PUBLIC_URL`, because the passkey origin
   and relying party id derive from it (task 0005).
 - `PUT /api/me/password` sets the password without the current one in an
