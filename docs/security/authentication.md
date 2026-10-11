@@ -392,11 +392,25 @@ also rejects a request without the header), the Fetch Metadata plug
 `test/espalier_web/csrf_coverage_test.exs` sends every mutating route a
 request without the token.
 
-The development server runs on `http://localhost:5173`. Whether the browsers
-used for development store a `Secure` `__Host-` cookie over plain
-`http://localhost` is not yet checked in a browser; the check is open (task
-0004 Notes, to be done with `make run` and the developer tools of each
-browser). Task 0017 checks the cookies on the container behind TLS.
+The development server runs on `http://localhost:5173`, so the `Secure`
+cookie `__Host-espalier` travels over plain `http://localhost` through the
+Vite proxy. `frontend/e2e/dev-cookie.spec.ts` (task 0010) signs in with a demo
+account and checks that the browser stores the cookie with `Secure`,
+`HttpOnly`, `SameSite=Strict` and `Path=/` and sends it with the next
+`GET /api/session`. `make e2e` runs it in every browser of
+`PLAYWRIGHT_BROWSERS_PATH`, the browsers of `playwright-driver` in the pinned
+nixpkgs (Playwright 1.59.1). Result on 2026-10-11:
+
+| Browser | Version | Stores the cookie over `http://localhost` |
+|---|---|---|
+| Chromium | 147.0.7727.15 | yes |
+| Firefox | 148.0.2 | yes |
+| WebKit | 26.4 | no: the cookie jar stays empty, and the demo sign-in answers 403 `csrf` |
+
+WebKit is unsuitable for development against `http://localhost`. Its project
+stays in `frontend/playwright.config.ts`, and the spec marks its run with
+`test.fail()`, so that `make e2e` keeps passing and shows a change of the
+outcome. Task 0017 checks the cookies on the container behind TLS.
 
 ## Abuse protection
 

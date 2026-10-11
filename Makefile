@@ -112,6 +112,10 @@ auth-reference: ## Regenerate the phx.gen.auth reference project in tmp/auth-ref
 	$(NIX) "cd tmp/auth-reference/espalier && mix deps.get && printf 'Y\n' | mix phx.gen.auth Accounts User users --no-live --hashing-lib argon2"
 	test -f tmp/auth-reference/espalier/lib/espalier_web/user_auth.ex
 
+.PHONY: e2e
+e2e: ## Run the Playwright tests against make run
+	$(NIX) "cd frontend && npx playwright test"
+
 .PHONY: test-integration
 test-integration: ## Run the LDAP and mail tests against the dev services
 	$(NIX) "DATABASE_PORT=$(DATABASE_PORT) mix test --only ldap --only mail"
@@ -158,4 +162,4 @@ docker-migrate: ## run migrations in the app container
 
 .PHONY: help
 help: ## show this help
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'

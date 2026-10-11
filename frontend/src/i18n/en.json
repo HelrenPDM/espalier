@@ -1,0 +1,63 @@
+{
+  "layout": {
+    "skipLink": "Skip to content",
+    "demoBanner": "Demo mode: every account here is a pseudonymous test account.",
+    "language": "Language",
+    "account": "Account",
+    "signOut": "Sign out"
+  },
+  "theme": {
+    "toggle": "Color theme: {{value}}",
+    "system": "system setting",
+    "light": "light",
+    "dark": "dark"
+  },
+  "auth": {
+    "loading": "Loading the session…"
+  },
+  "pages": {
+    "backHome": "Back to the start page",
+    "notFound": {
+      "title": "Page not found",
+      "text": "No page exists at this address."
+    },
+    "forbidden": {
+      "title": "Access denied",
+      "text": "Your roles do not include this area."
+    },
+    "error": {
+      "title": "Something went wrong",
+      "text": "The page could not be shown. Please try again later."
+    }
+  },
+  "placeholders": {
+    "signIn": {
+      "title": "Sign in",
+      "text": "Sign-in follows in a later version."
+    },
+    "home": {
+      "title": "Home",
+      "text": "Your programs appear here."
+    },
+    "program": {
+      "title": "Program",
+      "text": "The program overview appears here."
+    },
+    "station": {
+      "title": "Station",
+      "text": "The station appears here."
+    },
+    "credentials": {
+      "title": "Credentials",
+      "text": "Your credentials appear here."
+    },
+    "credential": {
+      "title": "Credential",
+      "text": "The credential appears here."
+    },
+    "admin": {
+      "title": "Administration",
+      "text": "The administration pages appear here."
+    }
+  }
+}

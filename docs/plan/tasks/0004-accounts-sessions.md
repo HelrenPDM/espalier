@@ -744,9 +744,10 @@ specs that cite them.
   `send_file` carry one.
 - `docs/architecture/domain-records.puml` shows `idp_sid_hash` as
   `binary (keyed hash)` (step 12).
-- Open: whether the browsers used for development store the `__Host-espalier`
-  cookie over `http://localhost` (Notes) is not yet checked in a browser;
-  task 0004a assigns the check.
+- Whether the browsers used for development store the `__Host-espalier`
+  cookie over `http://localhost` (Notes): task 0004a assigned the check to
+  task 0010, whose `e2e/dev-cookie.spec.ts` runs it in every browser of the
+  nix shell; `docs/security/authentication.md` records the result.
 
 ## Notes
 - `phx.gen.auth` at tag `v1.8.15` of Phoenix (released 2026-09-25): it refuses projects without `phoenix_html`; it stores session tokens raw and e-mail tokens as SHA-256 hashes; it reissues session tokens after 7 days without deleting the old row and never purges expired rows; its remember-me cookie lives 14 days with `SameSite=Lax`; `require_sudo_mode/2` uses a 10-minute window; `renew_session` deletes the CSRF token at sign-in and sign-out; the `:api` pipeline of a `--no-html` project holds only `plug :accepts, ["json"]`. The endpoint's `Plug.Session` cookie is signed and readable without `encryption_salt` (Plug 1.20.3).

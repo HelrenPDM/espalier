@@ -27,5 +27,10 @@ pkgs.mkShell {
     export ERL_AFLAGS="-kernel shell_history enabled"
     export PLAYWRIGHT_BROWSERS_PATH="${pkgs.playwright-driver.browsers}"
     export PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS=true
+  '' + pkgs.lib.optionalString pkgs.stdenv.isLinux ''
+    # The WebKit of playwright-driver loads its EGL driver through libglvnd,
+    # which finds none outside NixOS ("Could not create WPE EGL display").
+    # Mesa of the same nixpkgs provides it.
+    export __EGL_VENDOR_LIBRARY_FILENAMES="${pkgs.mesa}/share/glvnd/egl_vendor.d/50_mesa.json"
   '';
 }
