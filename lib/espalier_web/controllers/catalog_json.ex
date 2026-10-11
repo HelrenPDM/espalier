@@ -88,10 +88,14 @@ defmodule EspalierWeb.CatalogJSON do
 
   @doc """
   Renders a module with its lessons, rules, practice items, exams and
-  objectives (the map of `Espalier.Catalog.module_view/1`).
+  objectives (the map of `Espalier.Catalog.module_view/1`). `policies` maps
+  a policy key to its current version (`Espalier.Policies`), so that a
+  block of kind `placeholder` carries the policy text (README section 7,
+  domain rule 8).
   """
-  def module(%{view: view}) do
+  def module(%{view: view} = assigns) do
     %{module: module, objective_keys: keys} = view
+    policies = Map.get(assigns, :policies, %{})
 
     %{
       id: module.id,
@@ -101,7 +105,7 @@ defmodule EspalierWeb.CatalogJSON do
       summary: module.summary,
       phases: module.phases,
       single_path: module.single_path,
-      lessons: Enum.map(view.lessons, &lesson/1),
+      lessons: Enum.map(view.lessons, &lesson(&1, policies)),
       rules: Enum.map(view.rules, &rule/1),
       practice_items: Enum.map(view.practice_items, &item(&1, keys)),
       exams:
@@ -119,17 +123,17 @@ defmodule EspalierWeb.CatalogJSON do
     }
   end
 
-  defp lesson(%Lesson{} = lesson) do
+  defp lesson(%Lesson{} = lesson, policies) do
     %{
       id: lesson.id,
       key: lesson.key,
       position: lesson.position,
       title: lesson.title,
-      blocks: Enum.map(lesson.blocks, &block/1)
+      blocks: Enum.map(lesson.blocks, &block(&1, policies))
     }
   end
 
-  defp block(%Block{} = block) do
+  defp block(%Block{} = block, policies) do
     %{
       id: block.id,
       kind: block.kind,
@@ -137,8 +141,41 @@ defmodule EspalierWeb.CatalogJSON do
       provenance: block.provenance,
       collapsed_on: block.collapsed_on,
       placeholder_key: block.placeholder_key,
+      policy: block_policy(block, policies),
       citations: Enum.map(block.citations, &citation/1)
     }
+  end
+
+  defp block_policy(%Block{kind: :placeholder, placeholder_key: key}, policies)
+       when is_binary(key),
+       do: policies |> Map.get(key) |> policy_text()
+
+  defp block_policy(_block, _policies), do: nil
+
+  @doc """
+  Renders the current version of a policy (schema `PolicyText`), or `nil`.
+  """
+  def policy_text(nil), do: nil
+
+  def policy_text(version) do
+    %{
+      key: version.policy.key,
+      number: version.number,
+      effective_from: version.effective_from,
+      body: version.body
+    }
+  end
+
+  @doc """
+  Returns the placeholder keys of the blocks of a module view, for the
+  lookup of their current policy versions.
+  """
+  def placeholder_keys(%{lessons: lessons}) do
+    for lesson <- lessons,
+        %Block{kind: :placeholder, placeholder_key: key} <- lesson.blocks,
+        is_binary(key),
+        uniq: true,
+        do: key
   end
 
   defp rule(%Rule{} = rule) do
@@ -244,8 +281,13 @@ defmodule EspalierWeb.CatalogJSON do
     %{terms: Enum.map(terms, &%{slug: &1.slug, label: &1.label, short_text: &1.short_text})}
   end
 
-  @doc "Renders the handbook: every rule per module, and the placeholder keys."
-  def handbook(%{handbook: handbook}) do
+  @doc """
+  Renders the handbook: every rule per module, and every placeholder key
+  with the current version of its policy (`policies` maps a key to it).
+  """
+  def handbook(%{handbook: handbook} = assigns) do
+    policies = Map.get(assigns, :policies, %{})
+
     %{
       modules:
         Enum.map(handbook.modules, fn module ->
@@ -260,7 +302,11 @@ defmodule EspalierWeb.CatalogJSON do
               )
           }
         end),
-      placeholders: handbook.placeholders
+      placeholders:
+        Enum.map(
+          handbook.placeholders,
+          &%{key: &1, policy: policies |> Map.get(&1) |> policy_text()}
+        )
     }
   end
 

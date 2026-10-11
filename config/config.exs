@@ -30,13 +30,19 @@ config :espalier,
 # (docs/security/authentication.md).
 config :argon2_elixir, argon2_type: 2, parallelism: 1, t_cost: 2, m_cost: 16
 
+# webhooks delivers the credential events of task 0013, and exports serves
+# the exports of task 0016. The credential sweep of task 0013 runs daily.
 config :espalier, Oban,
   engine: Oban.Engines.Basic,
   repo: Espalier.Repo,
-  queues: [default: 10, mail: 5],
+  queues: [default: 10, mail: 5, webhooks: 5, exports: 1],
   plugins: [
     {Oban.Plugins.Pruner, max_age: 86_400},
-    {Oban.Plugins.Cron, crontab: [{"0 2 * * *", Espalier.Accounts.PurgeExpiredTokensWorker}]}
+    {Oban.Plugins.Cron,
+     crontab: [
+       {"0 2 * * *", Espalier.Accounts.PurgeExpiredTokensWorker},
+       {"0 3 * * *", Espalier.Credentials.SweepWorker}
+     ]}
   ]
 
 # Rate limit buckets as {scale_ms, limit} (docs/security/authentication.md).

@@ -106,6 +106,96 @@ defmodule Espalier.RuntimeConfigTest do
     end
   end
 
+  describe "the variables of task 0013 (spec step 2)" do
+    test "default to 30 notice days, 30 grace days, no registrar and no webhook host" do
+      config = RuntimeConfig.parse!(%{}, :dev)
+      assert config[:credential_notice_days] == 30
+      assert config[:credential_grace_days] == 30
+      assert config[:registrar_enabled] == false
+      assert config[:webhook_allowed_hosts] == []
+    end
+
+    test "CREDENTIAL_NOTICE_DAYS and CREDENTIAL_GRACE_DAYS accept positive integers" do
+      config =
+        RuntimeConfig.parse!(
+          %{"CREDENTIAL_NOTICE_DAYS" => "1", "CREDENTIAL_GRACE_DAYS" => ~s("365")},
+          :dev
+        )
+
+      assert config[:credential_notice_days] == 1
+      assert config[:credential_grace_days] == 365
+    end
+
+    test "CREDENTIAL_NOTICE_DAYS and CREDENTIAL_GRACE_DAYS reject other values with the variable name" do
+      for name <- ["CREDENTIAL_NOTICE_DAYS", "CREDENTIAL_GRACE_DAYS"],
+          value <- ["0", "-5", "thirty", "1.5", "30d"] do
+        assert_raise ArgumentError, ~r/^#{name} /, fn ->
+          RuntimeConfig.parse!(%{name => value}, :dev)
+        end
+      end
+    end
+
+    test "REGISTRAR_ENABLED accepts only true and false" do
+      assert RuntimeConfig.parse!(%{"REGISTRAR_ENABLED" => "true"}, :dev)[:registrar_enabled] ==
+               true
+
+      assert RuntimeConfig.parse!(%{"REGISTRAR_ENABLED" => "false"}, :dev)[:registrar_enabled] ==
+               false
+
+      for value <- ["TRUE", "1", "yes", "on"] do
+        assert_raise ArgumentError, ~r/^REGISTRAR_ENABLED /, fn ->
+          RuntimeConfig.parse!(%{"REGISTRAR_ENABLED" => value}, :dev)
+        end
+      end
+    end
+
+    test "WEBHOOK_ALLOWED_HOSTS gives {host, port} with the host lower-case" do
+      config =
+        RuntimeConfig.parse!(
+          %{
+            "WEBHOOK_ALLOWED_HOSTS" => "Hooks.Example.org, receiver.example.org:8443, [::1]:4100"
+          },
+          :dev
+        )
+
+      assert config[:webhook_allowed_hosts] == [
+               {"hooks.example.org", nil},
+               {"receiver.example.org", 8443},
+               {"::1", 4100}
+             ]
+
+      assert RuntimeConfig.parse!(%{"WEBHOOK_ALLOWED_HOSTS" => ~s("localhost:4100")}, :dev)[
+               :webhook_allowed_hosts
+             ] == [{"localhost", 4100}]
+    end
+
+    test "WEBHOOK_ALLOWED_HOSTS rejects a scheme, a path, a query, userinfo, a port out of range and an empty host" do
+      for entry <- [
+            "https://hooks.example.org",
+            "hooks.example.org/espalier",
+            "hooks.example.org?event=issued",
+            "hooks.example.org#issued",
+            "user@hooks.example.org",
+            "user:pass@hooks.example.org:8443",
+            "hooks.example.org:0",
+            "hooks.example.org:70000",
+            "hooks.example.org:",
+            ":8443",
+            "[]:8443",
+            "[:::]:8443",
+            "[1.2.3.4]",
+            "[::1"
+          ] do
+        assert_raise ArgumentError, ~r/^WEBHOOK_ALLOWED_HOSTS /, fn ->
+          RuntimeConfig.parse!(
+            %{"WEBHOOK_ALLOWED_HOSTS" => "receiver.example.org, " <> entry},
+            :dev
+          )
+        end
+      end
+    end
+  end
+
   test "production needs PUBLIC_URL, and MAIL_FROM together with SMTP_HOST" do
     assert_raise ArgumentError, ~r/PUBLIC_URL/, fn -> RuntimeConfig.parse!(%{}, :prod) end
 

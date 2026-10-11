@@ -446,7 +446,7 @@ logs `excess_rate_limit_exceeded`.
 | `ldap_ip` | 1 minute | 20 | client IP | `POST /api/auth/ldap/:provider`, `POST /api/me/identities/ldap/:provider` |
 | `ldap_account` | 1 minute | 5 | keyed hash of the provider key and the trimmed, lower-case username | the same routes, inside `Espalier.Accounts.LdapSignIn` |
 | `ldap_subject` | 1 minute | 5 | keyed hash of the provider key and the directory subject | the same routes, between the search and the user bind |
-| `learner_write` | 1 minute | 120 | keyed hash of the session user id | `POST /api/enrollments`, `PATCH /api/enrollments/:id`, `POST /api/items/:id/responses`, `POST /api/modules/:id/completion` |
+| `learner_write` | 1 minute | 120 | keyed hash of the session user id | `POST /api/enrollments`, `PATCH /api/enrollments/:id`, `POST /api/items/:id/responses`, `POST /api/modules/:id/completion`, `POST /api/policy-versions/:id/acknowledgements` |
 | `assessment_attempt` | 10 minutes | 10 | keyed hash of the session user id | `POST /api/assessments/:id/attempts` |
 
 One Active Directory account answers to `sAMAccountName` and to
@@ -774,9 +774,9 @@ with the member `_json`, answers 422 with the member `body`
 |---|---|---|---|
 | `GET /api/programs` | `slug`, `title` and `locale` of every published program | none | |
 | `GET /api/programs/:slug` | program `id`, `slug`, `title`, `locale`, `pack_version`; stations (`position`, `kind`, `title`, `module_id`, `question`, `intro`, `questions` with `key`, `kind`, `label` and options with `key` and `label`); segments (`key`, `label`, `description`, `default_path`); modules (`id`, `number`, `title`, `summary`, `phases`, `single_path`); companion formats (`id`, `key`, `title`, `description`, `phases`, `attendance_counts`) | `slug` in the path | |
-| `GET /api/modules/:id` | module `id`, `program_slug`, `number`, `title`, `summary`, `phases`, `single_path`; lessons (`id`, `key`, `position`, `title`) with blocks (`kind`, `body`, `provenance`, `collapsed_on`, `placeholder_key`, citations with `locator` and the source's `key`, `title`, `publisher`, `url`, `edition_date`, `retrieved_on`, `kind`); rules (`id`, `number`, `statement`, `action`, citations); practice items; exams (`id`, `key`, `title`, `max_wrong`, `counts_for_credential`) with their items; the `objectives` of the topic (`key`, `statement`, `area`, `depth`, `phase`, `domain`, `lesson_ids`, `evidence` with `kind` and `id`). Each item carries `id`, `key`, `kind`, `stem`, `provenance`, `lesson_id`, `objective_keys`, options (`key`, `label`), slots (`key`, `label`, options), cases (`key`, `text`), categories (`key`, `label`) and checks (`key`, `label`, `required`) | `id` in the path | |
+| `GET /api/modules/:id` | module `id`, `program_slug`, `number`, `title`, `summary`, `phases`, `single_path`; lessons (`id`, `key`, `position`, `title`) with blocks (`id`, `kind`, `body`, `provenance`, `collapsed_on`, `placeholder_key`, `policy` (`key`, `number`, `effective_from` and `body` of the current published version of the policy that `placeholder_key` names, or `null`), citations with `locator` and the source's `key`, `title`, `publisher`, `url`, `edition_date`, `retrieved_on`, `kind`); rules (`id`, `number`, `statement`, `action`, citations); practice items; exams (`id`, `key`, `title`, `max_wrong`, `counts_for_credential`) with their items; the `objectives` of the topic (`key`, `statement`, `area`, `depth`, `phase`, `domain`, `lesson_ids`, `evidence` with `kind` and `id`). Each item carries `id`, `key`, `kind`, `stem`, `provenance`, `lesson_id`, `objective_keys`, options (`key`, `label`), slots (`key`, `label`, options), cases (`key`, `text`), categories (`key`, `label`) and checks (`key`, `label`, `required`) | `id` in the path | |
 | `GET /api/programs/:slug/glossary` | `slug`, `label` and `short_text` per term | `slug` in the path | |
-| `GET /api/programs/:slug/handbook` | modules (`id`, `number`, `title`) with their rules (`number`, `statement`, `action`), and the keys of the placeholder blocks | `slug` in the path | |
+| `GET /api/programs/:slug/handbook` | modules (`id`, `number`, `title`) with their rules (`number`, `statement`, `action`), and the placeholders in key order, each with `key` and `policy` (the current version as in `GET /api/modules/:id`, or `null`) | `slug` in the path | |
 | `POST /api/enrollments` | the own enrollment: `id`, `program_id`, `path`, `path_chosen_manually`, `started_at` | `program_slug`, `path` | `user_id`, `program_id`, `started_at`, `path_chosen_manually` (false on a new row; an existing row takes `path` only while it is false) |
 | `PATCH /api/enrollments/:id` | the own enrollment, as above | `id` in the path, `path` in the body | `path_chosen_manually` (true) |
 | `POST /api/items/:id/responses` | the evaluation: `item_id`, `correct`, `option_feedback`, `rules` (`id`, `number`, `statement`, `action`), `reveals` | `id` in the path, `answer` (`options`, `slots`, `cases`, `checks`, `initials`) | in `item_stats`: `item_id`, `period`, `org_unit`, `attempts`, `correct`; with `TRACKING_DETAIL=standard`, in `item_responses`: `user_id`, `enrollment_id`, `item_id`, `correct`, `attempt_no`, `answered_on` |
@@ -803,9 +803,9 @@ An attempt row holds no answer and no result per item.
 The `objectives` of `GET /api/me/progress` hold one entry per learning
 objective of the program without `archived_at`. Their status is derived on
 every request from the user's own records: the passed exam attempts of the
-enrollment, the attendance certificates of the user (task 0013; until then
-none) and, with `TRACKING_DETAIL=standard` only, the correct item responses
-of the enrollment. No table stores a status per objective and person (README
+enrollment, the attendance certificates of the user (task 0013) and, with
+`TRACKING_DETAIL=standard` only, the correct item responses of the
+enrollment. No table stores a status per objective and person (README
 section 7, domain rule 15).
 
 No other role reads these rows. The reports of task 0014 aggregate only the

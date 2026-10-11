@@ -12,7 +12,9 @@ defmodule EspalierWeb.ApiSpec do
 
   Two security schemes describe the backend-for-frontend session: the
   session cookie `__Host-espalier` and the CSRF token in the `x-csrf-token`
-  header of every mutating request (README section 6.5).
+  header of every mutating request (README section 6.5). A third, the
+  bearer token of a machine client, describes the integration API of task
+  0013.
   """
   @behaviour OpenApiSpex.OpenApi
 
@@ -39,6 +41,13 @@ defmodule EspalierWeb.ApiSpec do
             name: "x-csrf-token",
             description:
               "The CSRF token of the session payload, sent with every mutating request."
+          },
+          "bearer_token" => %SecurityScheme{
+            type: "http",
+            scheme: "bearer",
+            description:
+              "The token of a machine client with the scope `credentials:read`, shown once " <>
+                "when an admin creates the client."
           }
         }
       }

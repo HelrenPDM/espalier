@@ -174,3 +174,135 @@ The rows below are ASVS 5.0.0 rows of `docs/security/asvs-l2.md`, exactly the ro
 - The integration API and the requirement kind `qualification_held` count a credential in `refresh_due` as in force, because its holder keeps it until the grace period ends (`credential-lifecycle.puml`). Each entry of the integration API carries its `status`, so a downstream system can tell `active` from `refresh_due`.
 - An attendance certificate is the only record of this task that the objective status reads. 0009 derives the status per request from exam attempts, attendance certificates and, with `TRACKING_DETAIL=standard`, item responses. With `attended_format_ids/2` of step 10 in place, the objectives `m1-self-own-responsibility` and `m1-social-team-transparency` of the demo pack, whose only evidence is the format `workshop`, can reach `evidenced` on the platform.
 - This task depends on 0009 for the learner API, `EspalierWeb.ApiSpec`, the stubs `evaluate/2` and `attended_format_ids/2` and the objective status of `GET /api/me/progress`, on 0010 for the frontend shell, and on 0012 for the player, `PlaceholderBlock` and the station navigation; through them it builds on 0004. It uses nothing from 0005. The revocation route needs `require_recent_auth/2` of 0004 and the step-up route of 0005, and it belongs to 0015, which depends on 0011 and therefore on 0005.
+
+## Addendum: implementation
+The implementation departs from the steps above in the points below, and later
+tasks rely on the implemented form.
+
+- Migrations and schemas (steps 4 to 6): every column that a row needs is
+  `null: false`; `policy_versions.published_at`, `approved_tools.conditions`
+  and `approved_tools.reviewed_on`, `credentials.valid_until` and
+  `credentials.refresh_due_at` and `attendance_certificates.issued_by_id` stay
+  nullable. `approved_tools.name` carries a unique index, which the demo seed
+  relies on. The unique index of `attendance_certificates` is named
+  `attendance_certificates_user_format_day_index`, because the default name
+  exceeds the 63 bytes of a PostgreSQL identifier. `webhooks.active` defaults
+  to `true`. The person-linked changesets (`Acknowledgement`, `Credential`,
+  `AttendanceCertificate`) cast nothing and take the scope, as the record
+  changesets of 0009 do: the context sets every value on the struct. The
+  `Policy` changeset checks the key format of content packs.
+- Generated context (step 4): `Espalier.Policies` keeps `list_policies/0`,
+  `get_policy!/1` and `get_policy_by_key/1` of the generated functions; the
+  generated `create_policy/1`, `update_policy/2`, `delete_policy/1`,
+  `change_policy/2`, their test and their fixture module are gone, because
+  0015 adds the admin functions with a scope. The context adds
+  `create_version(scope, policy, attrs)`, which requires `admin`, gives the
+  draft the next `number` under a row lock on the policy and writes the audit
+  event `policy_version.created`; the acceptance in `iex -S mix` and the test
+  fixtures create drafts through it. Further public functions:
+  `current_versions_by_key/1`, `get_published_version/1`,
+  `list_current_for/1` (behind `GET /api/policies`) and `acknowledged_at/2`.
+- Publication (step 8): `publish_version/2` answers `{:error, :published}`
+  for a published version and `{:error, :not_found}` for an unknown one, which
+  0015 maps to 409 `published` and 404. It locks the version and the policy
+  row; the audit event carries `policy_key`, `number`, `requires_refresher`
+  and `refresh_due_count`.
+- Acknowledgement (step 8): `acknowledge/2` evaluates every published program
+  in which the user holds an enrollment and, beyond the step, every published
+  program whose live qualifications require the acknowledged policy, so that a
+  learner without an enrollment, who met a qualification through attendance,
+  receives the credential when the acknowledgement is the last missing
+  requirement (README section 7, rule 6). An acknowledgement of an older
+  published version is stored and satisfies no requirement, because a
+  requirement reads the current version.
+- Evaluation (step 10): `evaluate/2` issues and restores nothing for a program
+  that is not published, ignores archived qualifications, and reads the
+  records of the scope user in the given program only. It takes a
+  transaction-level advisory lock per user
+  (`pg_advisory_xact_lock(13, hashtext(user_id))`), a share lock on the
+  policies that the requirements name, against which `publish_version/2`
+  takes its row lock, and `FOR UPDATE` on the user's credentials, and it
+  repeats until nothing changes, so an add-on is issued in the same call as
+  its prerequisite. `update_unit` needs a completion later than
+  `refresh_due_at` of every live module flagged `refresher_unit`;
+  `test_only` needs at least one `assessment_passed` requirement; a credential
+  without `refresh_due_at` counts from `issued_at`. Records count only when
+  they are strictly later than `refresh_due_at`, in whole seconds.
+- Qualifications without refresher mode (steps 10 and 12): a qualification
+  with `validity_kind: none` has no `refresher_mode` (0008), and a policy
+  version that requires a refresher still moves its credential to
+  `refresh_due`. Such a credential returns to `active` once every requirement
+  holds again, which means the acknowledgement of the new version; the
+  restore keeps `valid_until` empty. The spec left this case open.
+- Module completion (step 11): the upsert replaces `completed_at` and
+  `updated_at`, the open-exam check runs on every call, and
+  `Credentials.evaluate/2` runs after every completion, a repeated one
+  included, because a repeated completion can restore a credential.
+- Lifecycle (step 12): `sweep/1` returns `{:ok, %{refresh_due: moved,
+  expired: moved}}` and runs the expiry before the notice, so one sweep moves
+  a credential by one state. `mark_refresh_due_for_policy/1` returns
+  `{:ok, moved}` and moves credentials of archived qualifications as well;
+  `count_affected_by_policy/1` counts the same set.
+- Notifications (step 13): the mail job skips a credential whose status
+  changed again before delivery. A `refresh_due` mail for a credential without
+  `valid_until` asks for the refresher without naming an expiry.
+- Revocation (step 14): a second revocation answers
+  `{:error, :already_revoked}` (0015 answers 409 `already_revoked`), and the
+  audit event carries `previous_status`.
+- Routes (steps 15 to 19): `cache-control: no-store` also covers
+  `POST /api/formats/:id/attendance`, whose answer names user ids. The
+  acknowledgement route uses the rate limit bucket `learner_write`. A date
+  after today answers 422 `validation_failed` with `fields.held_on`
+  `["future"]` through a new clause of `EspalierWeb.FallbackController`.
+  Attendance accepts a live format of a published program only (an archived
+  format answers 404), lower-cases user ids, collapses duplicates, writes each
+  certificate in its own transaction and evaluates every found user, also for
+  the result `exists`. `GET /api/me/requirements` returns per qualification
+  `code`, `title`, `add_on`, `unlocks`, the user's `credential` (`id`,
+  `status`, `issued_at`, `valid_until`, or `null`) and `met` and `open`; every
+  requirement carries `station_position`, and an attendance requirement points
+  to the station of the companion formats. `CredentialView` carries
+  `qualification_code` and `locale`, the language of the program, besides the
+  members of step 17. The registrar list returns one entry per credential of
+  every qualification with the code, so a person who holds the code in two
+  programs appears twice; whether the route takes a program is a question for
+  0015, together with `qualification_code` in the integration API and the
+  webhook body. `ApiClientAuth` answers a 401 with `www-authenticate: Bearer`,
+  rejects a token longer than 256 bytes and logs `authz_fail` with the reason
+  `scope`; it does not update `last_used_at`. The integration API also lists
+  the credentials of a disabled user.
+- Webhooks (steps 6 and 20): the changeset rejects an empty event list, a URL
+  with user information (`format`), a URL longer than 255 characters, the
+  column size, and a scheme outside `https` (`scheme`; `http` also while
+  `:webhook_allow_http` is set). `WEBHOOK_ALLOWED_HOSTS` accepts an IPv6
+  address in square brackets. The worker also cancels a job whose credential
+  is gone, sends `user-agent: Espalier` and waits at most 10 seconds for an
+  answer, and the body carries `user_email: null` for a user without an
+  address, such as a demo user. `WebhookWorker.signature/2` computes the
+  header value.
+- Catalog views (step 21): the handbook's `placeholders` changed from a list
+  of keys to a list of `{key, policy}` objects, and `HandbookPage` renders the
+  policy text. `CatalogJSON.policy_text/1` renders the `PolicyText` schema.
+- Frontend (step 23): `/policies` loads in a chunk of its own through
+  `src/app/lazyPages.tsx`; `/me/credentials` and `/me/credentials/:id` load
+  with the entry chunk, so `src/app/guards.test.tsx` still finds their
+  heading at once. The user menu links to both pages, and the placeholder
+  variants `credentials` and `credential` of `PlaceholderPage` are gone. With
+  a policy, `PlaceholderBlock` shows the badge "Policy of your organization"
+  with the key and a line with the version and its effective date, and it
+  leaves out the citations of the block; `BlockFrame` takes a `badge` and
+  `ProvenanceBadge` a `policyKey` for it. `Markdown` takes `lang`: left out,
+  it keeps the language of the program; `null` renders no `lang`, so the
+  policy text of the organization inherits the document language in the
+  placeholder block, the handbook and on `/policies`. The credential pages set
+  `lang` from `CredentialView.locale` on the qualification title and the
+  tasks. The table of approved tools scrolls inside a focusable group at
+  phone width. The query client retries a failed query only after a network
+  error or a 5xx answer (`shouldRetryQuery` in `src/api/queryClient.ts`), so
+  a 404 shows its page at once. `renderWithProviders` of `src/test/render.tsx`
+  takes a `path` pattern for pages that read route parameters.
+- End-to-end (step 25): `e2e/credentials.spec.ts` signs in as demo slot 4,
+  needs the demo seed of `mix espalier.seed_demo`, skips on a second run the
+  steps that the demo user has already done, and runs axe on `/policies`
+  (also at 360 pixels width), the credential station and the credential
+  page.

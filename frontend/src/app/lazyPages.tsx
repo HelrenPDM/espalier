@@ -1,8 +1,8 @@
 import { lazy, Suspense, type ReactNode } from "react";
 import { LoadingStatus } from "./LoadingStatus";
 
-// The pages of a program load with the player and the Markdown renderer in
-// chunks of their own, so the sign-in pages stay small.
+// The pages of a program and the policies page load with the player and the
+// Markdown renderer in chunks of their own, so the sign-in pages stay small.
 const ProgramRouteChunk = lazy(() =>
   import("../learner/ProgramRoute").then((m) => ({ default: m.ProgramRoute })),
 );
@@ -17,6 +17,9 @@ const GlossaryPageChunk = lazy(() =>
 );
 const HandbookPageChunk = lazy(() =>
   import("../learner/HandbookPage").then((m) => ({ default: m.HandbookPage })),
+);
+const PoliciesPageChunk = lazy(() =>
+  import("../learner/PoliciesPage").then((m) => ({ default: m.PoliciesPage })),
 );
 
 function Chunk({ children }: { children: ReactNode }) {
@@ -59,6 +62,14 @@ export function HandbookPage() {
   return (
     <Chunk>
       <HandbookPageChunk />
+    </Chunk>
+  );
+}
+
+export function PoliciesPage() {
+  return (
+    <Chunk>
+      <PoliciesPageChunk />
     </Chunk>
   );
 }

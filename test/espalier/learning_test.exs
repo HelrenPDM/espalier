@@ -6,8 +6,18 @@ defmodule Espalier.LearningTest do
   import Espalier.LearningFixtures
   import EspalierWeb.ConnCase, only: [put_setting: 2]
 
+  import Espalier.CredentialsFixtures,
+    only: [
+      credential_for: 3,
+      published_policy!: 1,
+      put_credential!: 2,
+      qualify_basics!: 2,
+      set_completed_at!: 4
+    ]
+
+  alias Espalier.Credentials.Credential
   alias Espalier.Insights.ItemStat
-  alias Espalier.Learning
+  alias Espalier.{Learning, Policies}
   alias Espalier.Learning.{AssessmentAttempt, Enrollment, ItemResponse, ModuleCompletion}
 
   setup do
@@ -276,12 +286,60 @@ defmodule Espalier.LearningTest do
 
       assert {:ok, %{outcome: :passed}, _results} = submit(scope, exam, exam_answers(exam))
       assert {:ok, %ModuleCompletion{} = completion} = Learning.complete_module(scope, module.id)
-      assert {:ok, ^completion} = Learning.complete_module(scope, module.id)
+      assert {:ok, %ModuleCompletion{id: id}} = Learning.complete_module(scope, module.id)
+      assert id == completion.id
       assert Repo.aggregate(ModuleCompletion, :count) == 1
     end
 
     test "a module without an exam completes at once", %{program: program, scope: scope} do
       assert {:ok, %ModuleCompletion{}} = Learning.complete_module(scope, module!(program, 2).id)
+    end
+
+    test "a repeated completion records its time in completed_at and keeps one row",
+         %{program: program, scope: scope} do
+      module = module!(program, 2)
+      assert {:ok, %ModuleCompletion{} = first} = Learning.complete_module(scope, module.id)
+      earlier = DateTime.add(first.completed_at, -2, :day)
+
+      {1, _rows} =
+        Repo.update_all(from(c in ModuleCompletion, where: c.id == ^first.id),
+          set: [completed_at: earlier]
+        )
+
+      assert {:ok, %ModuleCompletion{} = second} = Learning.complete_module(scope, module.id)
+      assert second.id == first.id
+      assert DateTime.after?(second.completed_at, earlier)
+      assert DateTime.diff(DateTime.utc_now(:second), second.completed_at) in 0..60
+      assert Repo.get!(ModuleCompletion, first.id).completed_at == second.completed_at
+      assert Repo.aggregate(ModuleCompletion, :count) == 1
+    end
+
+    test "the completion of the last missing module issues the credential",
+         %{program: program, scope: scope} do
+      {:ok, _acknowledgement} = Policies.acknowledge(scope, published_policy!("usage-policy"))
+      exam = assessment!(program)
+      assert {:ok, %{outcome: :passed}, _results} = submit(scope, exam, exam_answers(exam))
+      assert {:ok, %ModuleCompletion{}} = Learning.complete_module(scope, module!(program, 1).id)
+      assert credential_for(scope.user, program, "basics") == nil
+
+      assert {:ok, %ModuleCompletion{}} = Learning.complete_module(scope, module!(program, 2).id)
+      assert %Credential{status: :active} = credential_for(scope.user, program, "basics")
+    end
+
+    test "a repeated completion of the refresher unit evaluates again and restores the credential",
+         %{program: program, scope: scope} do
+      credential = qualify_basics!(scope, program)
+      set_completed_at!(scope.user, program, 2, DateTime.add(DateTime.utc_now(:second), -2, :day))
+
+      put_credential!(credential,
+        status: :refresh_due,
+        refresh_due_at: DateTime.add(DateTime.utc_now(:second), -1, :hour)
+      )
+
+      assert {:ok, %ModuleCompletion{}} = Learning.complete_module(scope, module!(program, 2).id)
+
+      assert %Credential{status: :active, refresh_due_at: nil} =
+               credential_for(scope.user, program, "basics")
     end
 
     test "a passed attempt of another user does not count", %{program: program, scope: scope} do

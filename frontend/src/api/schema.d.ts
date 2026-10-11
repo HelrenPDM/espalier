@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+    "/api/registrar/credentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the credentials of a qualification */
+        get: operations["EspalierWeb.Registrar.CredentialController.index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/programs/{slug}": {
         parameters: {
             query?: never;
@@ -35,6 +52,43 @@ export interface paths {
          * @description Stores a single-use challenge for 300 seconds and answers the creation options. Needs a second factor within the last 10 minutes in an `mfa` session.
          */
         post: operations["EspalierWeb.Me.PasskeyController.options"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/credentials/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read an own credential */
+        get: operations["EspalierWeb.Me.CredentialController.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/formats/{id}/attendance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Issue attendance certificates
+         * @description Issues one certificate per active user for a format of a published program, held today or earlier. A format without `attendance_counts` records the certificate and satisfies no requirement.
+         */
+        post: operations["EspalierWeb.AttendanceController.create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -98,6 +152,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/policies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the current policy versions */
+        get: operations["EspalierWeb.PolicyController.index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/recovery/verify": {
         parameters: {
             query?: never;
@@ -132,6 +203,23 @@ export interface paths {
          * @description A directory bind is a first factor only: an enrolled user enters the pending second-factor state, a user without a local factor an enrollment session. Every authentication failure answers 401 `invalid_credentials`.
          */
         post: operations["EspalierWeb.Auth.LdapController.create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/facilitator/user-lookups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Find a user by e-mail address */
+        post: operations["EspalierWeb.Facilitator.UserLookupController.create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -227,7 +315,7 @@ export interface paths {
         };
         /**
          * Read the handbook of a program
-         * @description Every rule with its statement and action grouped by module, plus the keys of the program's placeholder blocks (README section 7, domain rule 10).
+         * @description Every rule with its statement and action grouped by module, plus the keys of the program's placeholder blocks with the current version of each policy (README section 7, domain rules 8 and 10).
          */
         get: operations["EspalierWeb.ProgramController.handbook"];
         put?: never;
@@ -527,6 +615,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/approved-tools": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the approved tools */
+        get: operations["EspalierWeb.PolicyController.approved_tools"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me/progress": {
         parameters: {
             query?: never;
@@ -628,6 +733,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/policy-versions/{id}/acknowledgements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Acknowledge a policy version */
+        post: operations["EspalierWeb.AcknowledgementController.create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me/security": {
         parameters: {
             query?: never;
@@ -674,6 +796,40 @@ export interface paths {
         };
         /** Read a module */
         get: operations["EspalierWeb.ModuleController.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/requirements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read the own requirements in a program */
+        get: operations["EspalierWeb.Me.RequirementController.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/credentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the own credentials */
+        get: operations["EspalierWeb.Me.CredentialController.index"];
         put?: never;
         post?: never;
         delete?: never;
@@ -736,6 +892,23 @@ export interface paths {
          * @description Sends a recovery link to a local account; the answer is the same for every address. `LOCAL_ACCOUNTS=false` answers 404.
          */
         post: operations["EspalierWeb.Auth.RecoveryController.start"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integration/credential-lookups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Look up the credentials in force of a person */
+        post: operations["EspalierWeb.Integration.CredentialLookupController.create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -845,6 +1018,16 @@ export interface components {
             username: string;
         };
         /**
+         * UserLookupResult
+         * @description An active user.
+         */
+        UserLookupResult: {
+            display_name: string | null;
+            /** Format: uuid */
+            id: string;
+            org_unit: string | null;
+        };
+        /**
          * Handbook
          * @description Every rule with its statement and action.
          */
@@ -861,8 +1044,38 @@ export interface components {
                 }[];
                 title: string;
             }[];
-            /** @description The keys of the policies that placeholder blocks name. */
-            placeholders: string[];
+            /** @description The policies that placeholder blocks name, ordered by key, each with its current version. */
+            placeholders: {
+                /** @description The policy key. */
+                key: string;
+                /** @description The current version of the policy, or `null` without a published version. */
+                policy: {
+                    /** @description Markdown. */
+                    body: string;
+                    /** Format: date */
+                    effective_from: string;
+                    /** @description The policy key, the `placeholder_key` of the block. */
+                    key: string;
+                    /** @description The number of the current version. */
+                    number: number;
+                } | null;
+            }[];
+        };
+        /**
+         * CredentialLookupResult
+         * @description The credentials in force of a person.
+         */
+        CredentialLookupResult: {
+            /** @description The credentials in force; an unknown address gives an empty list. */
+            credentials: {
+                qualification_code: string;
+                /** @enum {string} */
+                status: "active" | "refresh_due";
+                /** @description The tasks the credential unlocks. */
+                unlocks_snapshot: string[];
+                /** Format: date */
+                valid_until: string | null;
+            }[];
         };
         /**
          * NextStep
@@ -871,6 +1084,32 @@ export interface components {
         NextStep: {
             /** @enum {string} */
             next: "second_factor";
+        };
+        /**
+         * PolicyList
+         * @description The current policy versions with the acknowledgement of the signed-in user.
+         */
+        PolicyList: {
+            /** @description The current version of every policy, ordered by key. */
+            policies: {
+                /**
+                 * Format: date-time
+                 * @description When the signed-in user acknowledged this version.
+                 */
+                acknowledged_at: string | null;
+                /** @description Markdown. */
+                body: string;
+                /** Format: date */
+                effective_from: string;
+                /**
+                 * Format: uuid
+                 * @description The id of the current version.
+                 */
+                id: string;
+                key: string;
+                number: number;
+                title: string;
+            }[];
         };
         /**
          * EmailChangeRequest
@@ -900,6 +1139,31 @@ export interface components {
         EmailConfirmRequest: {
             /** @description The token of the confirmation link. */
             token: string;
+        };
+        /**
+         * CredentialView
+         * @description A credential of the signed-in user.
+         */
+        CredentialView: {
+            /** @description The display name of the holder. */
+            holder_display_name: string | null;
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            issued_at: string;
+            /** @description The language of the program, in which the qualification title and the unlocked tasks are written. */
+            locale: string;
+            qualification_code: string;
+            qualification_title: string;
+            /** @enum {string} */
+            status: "active" | "refresh_due" | "expired" | "revoked";
+            /** @description The tasks the credential unlocks, as issued. */
+            unlocks_snapshot: string[];
+            /**
+             * Format: date
+             * @description The last day of validity, or `null`.
+             */
+            valid_until: string | null;
         };
         /**
          * PasskeyRegistrationRequest
@@ -993,6 +1257,19 @@ export interface components {
              * @enum {string}
              */
             purpose: "link" | "step_up";
+        };
+        /**
+         * AttendanceRequest
+         * @description The attendance of a session of a format.
+         */
+        AttendanceRequest: {
+            /**
+             * Format: date
+             * @description The day of the session, today or earlier.
+             */
+            held_on: string;
+            /** @description The users who attended. */
+            user_ids: string[];
         };
         /**
          * PasskeyAssertion
@@ -1167,6 +1444,17 @@ export interface components {
                     kind: "text" | "explanation" | "example" | "case_comparison" | "quote" | "callout" | "placeholder";
                     /** @description The policy that a placeholder block renders. */
                     placeholder_key: string | null;
+                    /** @description The current version of the policy, or `null` without a published version. */
+                    policy: {
+                        /** @description Markdown. */
+                        body: string;
+                        /** Format: date */
+                        effective_from: string;
+                        /** @description The policy key, the `placeholder_key` of the block. */
+                        key: string;
+                        /** @description The number of the current version. */
+                        number: number;
+                    } | null;
                     /** @enum {string} */
                     provenance: "invented" | "sourced" | "vendor_statement" | "assumption" | "placeholder";
                 }[];
@@ -1288,6 +1576,35 @@ export interface components {
                 id: string;
                 locale: string;
             } | null;
+        };
+        /**
+         * ApprovedToolList
+         * @description The approved tool list.
+         */
+        ApprovedToolList: {
+            /** @description The tools ordered by position. */
+            tools: {
+                conditions: string | null;
+                /** Format: uuid */
+                id: string;
+                name: string;
+                position: number;
+                /** Format: date */
+                reviewed_on: string | null;
+                /** @enum {string} */
+                status: "approved" | "restricted" | "not_approved";
+                vendor: string;
+            }[];
+        };
+        /**
+         * AcknowledgementView
+         * @description The acknowledgement of a policy version by the signed-in user.
+         */
+        AcknowledgementView: {
+            /** Format: date-time */
+            acknowledged_at: string;
+            /** Format: uuid */
+            policy_version_id: string;
         };
         /**
          * EnrollmentRequest
@@ -1732,6 +2049,22 @@ export interface components {
             } | null;
         };
         /**
+         * AttendanceResult
+         * @description The result per user.
+         */
+        AttendanceResult: {
+            /** @description One result per distinct user id, in request order. */
+            results: {
+                /**
+                 * @description `issued` for a new certificate, `exists` when the user holds one for the format and the date, `not_found` without an active user.
+                 * @enum {string}
+                 */
+                result: "issued" | "exists" | "not_found";
+                /** Format: uuid */
+                user_id: string;
+            }[];
+        };
+        /**
          * FinishRequest
          * @description Ends an OIDC flow same-origin.
          */
@@ -1769,6 +2102,66 @@ export interface components {
             }[];
         };
         /**
+         * RegistrarCredentialList
+         * @description The credentials of one qualification (README section 10).
+         */
+        RegistrarCredentialList: {
+            /** @description One entry per credential of a qualification with this code, ordered by display name. Codes are unique per program, so a person who holds the code in two programs appears once per program. */
+            credentials: {
+                display_name: string | null;
+                /** Format: date-time */
+                issued_at: string;
+                org_unit: string | null;
+                /** @enum {string} */
+                status: "active" | "refresh_due" | "expired" | "revoked";
+                /** Format: date */
+                valid_until: string | null;
+            }[];
+        };
+        /**
+         * RequirementList
+         * @description The met and open requirements of the signed-in user per qualification.
+         */
+        RequirementList: {
+            /** @description The live qualifications of the program. */
+            qualifications: {
+                add_on: boolean;
+                code: string;
+                /** @description The credential of the signed-in user, or `null` without one. */
+                credential: {
+                    /** Format: uuid */
+                    id: string;
+                    /** Format: date-time */
+                    issued_at: string;
+                    /** @enum {string} */
+                    status: "active" | "refresh_due" | "expired" | "revoked";
+                    /** Format: date */
+                    valid_until: string | null;
+                } | null;
+                /** @description The requirements that hold. */
+                met: {
+                    /** @enum {string} */
+                    kind: "module_completed" | "assessment_passed" | "policy_acknowledged" | "attendance" | "qualification_held";
+                    /** @description The position of the station that satisfies the requirement, or `null` when no station of the program does. */
+                    station_position: number | null;
+                    /** @description The module number, the exam key, the policy key, the format key or the qualification code. */
+                    target_key: string;
+                }[];
+                /** @description The requirements that do not hold yet. */
+                open: {
+                    /** @enum {string} */
+                    kind: "module_completed" | "assessment_passed" | "policy_acknowledged" | "attendance" | "qualification_held";
+                    /** @description The position of the station that satisfies the requirement, or `null` when no station of the program does. */
+                    station_position: number | null;
+                    /** @description The module number, the exam key, the policy key, the format key or the qualification code. */
+                    target_key: string;
+                }[];
+                title: string;
+                /** @description The tasks that a credential unlocks. */
+                unlocks: string[];
+            }[];
+        };
+        /**
          * Glossary
          * @description The glossary of a program.
          */
@@ -1779,6 +2172,14 @@ export interface components {
                 short_text: string;
                 slug: string;
             }[];
+        };
+        /**
+         * EmailLookupRequest
+         * @description A lookup by e-mail address.
+         */
+        EmailLookupRequest: {
+            /** @description The exact address; letter case and surrounding spaces do not matter. */
+            email: string;
         };
         /**
          * SecondFactorRequest
@@ -1878,6 +2279,14 @@ export interface components {
             }[];
             /** @enum {string} */
             error: "assessments_open";
+        };
+        /**
+         * CredentialList
+         * @description The credentials of the signed-in user.
+         */
+        CredentialList: {
+            /** @description The credentials, the newest first. */
+            credentials: components["schemas"]["CredentialView"][];
         };
         /**
          * AttemptResult
@@ -1996,6 +2405,65 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    "EspalierWeb.Registrar.CredentialController.index": {
+        parameters: {
+            query: {
+                /** @description The code of a qualification. */
+                qualification: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The credentials */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistrarCredentialList"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     "EspalierWeb.ProgramController.show": {
         parameters: {
             query?: never;
@@ -2084,6 +2552,129 @@ export interface operations {
             };
             /** @description Error codes: `forbidden`, `reauth_required`, `csrf`, `cross_site_request` */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Me.CredentialController.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The credential id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The credential */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CredentialView"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `enrollment_required`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.AttendanceController.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The format id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description The attendance */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttendanceRequest"];
+            };
+        };
+        responses: {
+            /** @description One result per user */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttendanceResult"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2324,6 +2915,44 @@ export interface operations {
             };
         };
     };
+    "EspalierWeb.PolicyController.index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The current versions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyList"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `enrollment_required`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     "EspalierWeb.Auth.RecoveryController.verify": {
         parameters: {
             query?: never;
@@ -2472,6 +3101,67 @@ export interface operations {
                 headers: {
                     /** @description Seconds until the bucket admits the next request. */
                     "retry-after"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Facilitator.UserLookupController.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The address */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailLookupRequest"];
+            };
+        };
+        responses: {
+            /** @description The user */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserLookupResult"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
                     [name: string]: unknown;
                 };
                 content: {
@@ -3699,6 +4389,44 @@ export interface operations {
             };
         };
     };
+    "EspalierWeb.PolicyController.approved_tools": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The approved tool list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovedToolList"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `enrollment_required`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     "EspalierWeb.Me.ProgressController.show": {
         parameters: {
             query: {
@@ -4068,6 +4796,81 @@ export interface operations {
             };
         };
     };
+    "EspalierWeb.AcknowledgementController.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The id of a published policy version. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description No members */
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["EmptyRequest"];
+            };
+        };
+        responses: {
+            /** @description The acknowledgement */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcknowledgementView"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `enrollment_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `rate_limited` */
+            429: {
+                headers: {
+                    /** @description Seconds until the bucket admits the next request. */
+                    "retry-after"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     "EspalierWeb.Me.SecurityController.show": {
         parameters: {
             query?: never;
@@ -4194,6 +4997,103 @@ export interface operations {
             };
             /** @description Error codes: `validation_failed` */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Me.RequirementController.show": {
+        parameters: {
+            query: {
+                /** @description The slug of a published program. */
+                program: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The requirements */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequirementList"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `enrollment_required`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Me.CredentialController.index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The credentials */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CredentialList"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `enrollment_required`, `cross_site_request` */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4393,6 +5293,58 @@ export interface operations {
                 headers: {
                     /** @description Seconds until the bucket admits the next request. */
                     "retry-after"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Integration.CredentialLookupController.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The address */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailLookupRequest"];
+            };
+        };
+        responses: {
+            /** @description The credentials in force */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CredentialLookupResult"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
                     [name: string]: unknown;
                 };
                 content: {

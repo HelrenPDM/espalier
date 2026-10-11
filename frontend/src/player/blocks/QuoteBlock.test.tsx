@@ -20,6 +20,7 @@ const block: Block = {
   provenance: "sourced",
   collapsed_on: [],
   placeholder_key: null,
+  policy: null,
   citations: [
     { locator: "Interviews", source: source("office-study", "Office study") },
     { locator: null, source: source("second-study", "Second study") },

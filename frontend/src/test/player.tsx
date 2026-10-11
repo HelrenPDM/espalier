@@ -59,6 +59,7 @@ const block = (
   provenance: "invented",
   collapsed_on: [],
   placeholder_key: null,
+  policy: null,
   citations: [],
   ...overrides,
 });

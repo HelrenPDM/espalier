@@ -5,11 +5,25 @@ defmodule EspalierWeb.ApiSpecTest do
   the `/api` routes of tasks 0005, 0006 and 0007 have operations, every 2xx
   answer other than 204 names a schema, every path parameter is declared in
   the path, and `GET /api/openapi` serves the document.
+
+  Task 0013 step 15 adds the operations of its ten routes: every request
+  schema of its POST routes sets `additionalProperties: false` (ASVS
+  15.3.3), and the integration operation alone names the security scheme
+  `bearer_token`, which the document declares.
   """
   use EspalierWeb.ConnCase, async: true
 
   alias EspalierWeb.ApiSpec
-  alias OpenApiSpex.{MediaType, Operation, Reference, Response, Schema}
+
+  alias OpenApiSpex.{
+    MediaType,
+    Operation,
+    Reference,
+    RequestBody,
+    Response,
+    Schema,
+    SecurityScheme
+  }
 
   # Steps 13 (learner routes) and 15 (routes of task 0004).
   @routes [
@@ -54,8 +68,28 @@ defmodule EspalierWeb.ApiSpecTest do
     {:post, "/api/auth/finish"},
     {:post, "/api/auth/oidc/{provider}/intents"},
     {:post, "/api/auth/ldap/{provider}"},
-    {:post, "/api/me/identities/ldap/{provider}"}
+    {:post, "/api/me/identities/ldap/{provider}"},
+    # Task 0013 step 15: policies, credentials, attendance, the registrar
+    # list and the integration API.
+    {:get, "/api/policies"},
+    {:post, "/api/policy-versions/{id}/acknowledgements"},
+    {:get, "/api/approved-tools"},
+    {:get, "/api/me/requirements"},
+    {:get, "/api/me/credentials"},
+    {:get, "/api/me/credentials/{id}"},
+    {:post, "/api/formats/{id}/attendance"},
+    {:post, "/api/facilitator/user-lookups"},
+    {:get, "/api/registrar/credentials"},
+    {:post, "/api/integration/credential-lookups"}
   ]
+
+  # The POST routes of task 0013 and the schema of their request body.
+  @posts_0013 %{
+    "/api/policy-versions/{id}/acknowledgements" => "EmptyRequest",
+    "/api/formats/{id}/attendance" => "AttendanceRequest",
+    "/api/facilitator/user-lookups" => "EmailLookupRequest",
+    "/api/integration/credential-lookups" => "EmailLookupRequest"
+  }
 
   defp operations do
     for {path, item} <- ApiSpec.spec().paths,
@@ -161,6 +195,51 @@ defmodule EspalierWeb.ApiSpecTest do
                     Answer EmptyRequest) do
       assert ApiSpec.spec().components.schemas[title].additionalProperties == false, title
     end
+  end
+
+  test "every request schema of the POST routes of task 0013 sets additionalProperties false" do
+    spec = ApiSpec.spec()
+
+    for {path, title} <- @posts_0013 do
+      assert %Operation{requestBody: %RequestBody{content: content}} = spec.paths[path].post
+      assert %{"application/json" => %MediaType{schema: schema}} = content
+      assert %Reference{"$ref": "#/components/schemas/" <> ^title} = schema, path
+
+      for object <- objects(resolve(spec, schema), spec) do
+        assert object.additionalProperties == false, "#{path} #{title}"
+      end
+    end
+  end
+
+  test "the integration operation names the bearer token, which the document declares" do
+    spec = ApiSpec.spec()
+
+    assert spec.paths["/api/integration/credential-lookups"].post.security == [
+             %{"bearer_token" => []}
+           ]
+
+    assert %SecurityScheme{type: "http", scheme: "bearer"} =
+             spec.components.securitySchemes["bearer_token"]
+
+    for {{verb, path}, operation} <- operations(),
+        path != "/api/integration/credential-lookups",
+        requirement <- operation.security || [] do
+      refute Map.has_key?(requirement, "bearer_token"), "#{verb} #{path}"
+    end
+  end
+
+  defp resolve(spec, %Reference{"$ref": "#/components/schemas/" <> title}),
+    do: spec.components.schemas[title]
+
+  defp resolve(_spec, %Schema{} = schema), do: schema
+
+  # The schema and every object schema nested in its properties and items.
+  defp objects(%Schema{} = schema, spec) do
+    nested =
+      Map.values(schema.properties || %{}) ++ if(schema.items, do: [schema.items], else: [])
+
+    own = if schema.type == :object, do: [schema], else: []
+    own ++ Enum.flat_map(nested, &objects(resolve(spec, &1), spec))
   end
 
   test "the document names the API, its version and the security schemes" do

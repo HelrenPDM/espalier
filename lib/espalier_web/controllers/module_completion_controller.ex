@@ -2,7 +2,7 @@ defmodule EspalierWeb.ModuleCompletionController do
   @moduledoc """
   Completes a module once every exam of the module that counts for a
   credential has a passed attempt (ASVS 2.3.1). A repeated call answers 200
-  with the stored row.
+  and records its time in `completed_at` (task 0013, step 11).
   """
   use EspalierWeb, :controller
   use OpenApiSpex.ControllerSpecs

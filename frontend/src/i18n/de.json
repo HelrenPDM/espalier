@@ -4,7 +4,9 @@
     "demoBanner": "Demo-Modus: Jedes Konto hier ist ein pseudonymes Testkonto.",
     "language": "Sprache",
     "account": "Konto",
-    "signOut": "Abmelden"
+    "signOut": "Abmelden",
+    "credentials": "Nachweise",
+    "policies": "Richtlinien"
   },
   "theme": {
     "toggle": "Farbschema: {{value}}",
@@ -115,14 +117,6 @@
     }
   },
   "placeholders": {
-    "credentials": {
-      "title": "Nachweise",
-      "text": "Hier erscheinen Ihre Nachweise."
-    },
-    "credential": {
-      "title": "Nachweis",
-      "text": "Hier erscheint der Nachweis."
-    },
     "admin": {
       "title": "Verwaltung",
       "text": "Hier erscheinen die Verwaltungsseiten."
@@ -357,7 +351,8 @@
     "vendor_statement": "Herstellerangabe",
     "assumption": "Annahme",
     "placeholder": "Platzhalter",
-    "placeholderWithKey": "Platzhalter: {{key}}"
+    "placeholderWithKey": "Platzhalter: {{key}}",
+    "policy": "Richtlinie Ihrer Organisation: {{key}}"
   },
   "citations": {
     "title_one": "Quelle",
@@ -480,6 +475,96 @@
     "loadFailed": "Das Handbuch konnte nicht geladen werden. Bitte versuchen Sie es später erneut.",
     "module": "Modul {{number}}:",
     "placeholders": "Regeln Ihrer Organisation",
-    "placeholderNote": "Ihre Organisation ergänzt hier ihren Text."
+    "policyMissing": "Ihre Organisation hat diese Richtlinie noch nicht veröffentlicht."
+  },
+  "policies": {
+    "title": "Richtlinien",
+    "intro": "Die aktuelle Fassung jeder Richtlinie Ihrer Organisation und die Liste der freigegebenen Werkzeuge.",
+    "loading": "Die Richtlinien werden geladen …",
+    "loadFailed": "Die Richtlinien konnten nicht geladen werden. Bitte versuchen Sie es später erneut.",
+    "empty": "Ihre Organisation hat noch keine Richtlinie veröffentlicht.",
+    "version": "Fassung {{number}}, gültig ab {{date}}.",
+    "acknowledge": "Ich habe diese Fassung gelesen",
+    "acknowledging": "Wird gespeichert …",
+    "acknowledged": "Sie haben diese Fassung am {{date}} zur Kenntnis genommen.",
+    "acknowledgeFailed": "Die Kenntnisnahme konnte nicht gespeichert werden. Bitte versuchen Sie es erneut.",
+    "tools": {
+      "title": "Freigegebene Werkzeuge",
+      "loading": "Die freigegebenen Werkzeuge werden geladen …",
+      "loadFailed": "Die freigegebenen Werkzeuge konnten nicht geladen werden. Bitte versuchen Sie es später erneut.",
+      "empty": "Die Liste der freigegebenen Werkzeuge ist leer.",
+      "name": "Werkzeug",
+      "vendor": "Anbieter",
+      "status": "Status",
+      "conditions": "Bedingungen",
+      "reviewedOn": "Geprüft am",
+      "noConditions": "Keine",
+      "notReviewed": "Noch nicht geprüft",
+      "statuses": {
+        "approved": "Freigegeben",
+        "restricted": "Eingeschränkt",
+        "not_approved": "Nicht freigegeben"
+      }
+    }
+  },
+  "credentials": {
+    "title": "Nachweise",
+    "loading": "Die Nachweise werden geladen …",
+    "loadFailed": "Die Nachweise konnten nicht geladen werden. Bitte versuchen Sie es später erneut.",
+    "empty": "Sie haben noch keinen Nachweis. Die Nachweis-Station eines Programms zeigt, was jeder Nachweis voraussetzt.",
+    "detailTitle": "Nachweis",
+    "kicker": "Nachweis",
+    "loadingOne": "Der Nachweis wird geladen …",
+    "loadFailedOne": "Der Nachweis konnte nicht geladen werden. Bitte versuchen Sie es später erneut.",
+    "notFoundTitle": "Nachweis nicht gefunden",
+    "notFound": "Unter dieser Adresse gibt es keinen Nachweis von Ihnen.",
+    "back": "Zurück zu den Nachweisen",
+    "print": "Drucken",
+    "holder": "Inhaberin oder Inhaber",
+    "noDisplayName": "Kein Anzeigename hinterlegt",
+    "statusLabel": "Status",
+    "issued": "Ausgestellt am",
+    "validUntil": "Gültig bis",
+    "noExpiry": "Ohne Ablaufdatum",
+    "unlocks": "Diese Aufgaben darf die Inhaberin oder der Inhaber übernehmen",
+    "noUnlocks": "Dieser Nachweis nennt keine Aufgaben.",
+    "status": {
+      "active": "Gültig",
+      "refresh_due": "Auffrischung fällig",
+      "expired": "Abgelaufen",
+      "revoked": "Widerrufen"
+    },
+    "statusNote": {
+      "refresh_due": "Eine Auffrischung ist fällig. Der Nachweis gilt bis zum Ende der Kulanzfrist weiter.",
+      "expired": "Der Nachweis gilt nicht mehr. Die Auffrischung des Programms stellt ihn wieder her.",
+      "revoked": "Der Nachweis wurde widerrufen und gilt nicht mehr."
+    }
+  },
+  "credentialStation": {
+    "loading": "Die Voraussetzungen werden geladen …",
+    "loadFailed": "Die Voraussetzungen konnten nicht geladen werden. Bitte versuchen Sie es später erneut.",
+    "none": "Dieses Programm bietet keinen Nachweis an.",
+    "addOn": "Eine Ergänzung zu einem anderen Nachweis.",
+    "notIssued": "Noch nicht ausgestellt. Der Nachweis wird ausgestellt, sobald jede Voraussetzung erfüllt ist.",
+    "issued": "Ihr Nachweis:",
+    "validUntil": "gültig bis {{date}}",
+    "view": "Nachweis ansehen",
+    "open": "Offene Voraussetzungen",
+    "met": "Erfüllte Voraussetzungen",
+    "unlocks": "Diese Aufgaben erlaubt der Nachweis",
+    "todo": {
+      "module_completed": "Modul abschließen:",
+      "assessment_passed": "Prüfung bestehen:",
+      "policy_acknowledged": "Richtlinie zur Kenntnis nehmen:",
+      "attendance": "Am Format teilnehmen:",
+      "qualification_held": "Nachweis besitzen:"
+    },
+    "done": {
+      "module_completed": "Modul abgeschlossen:",
+      "assessment_passed": "Prüfung bestanden:",
+      "policy_acknowledged": "Richtlinie zur Kenntnis genommen:",
+      "attendance": "Am Format teilgenommen:",
+      "qualification_held": "Nachweis vorhanden:"
+    }
   }
 }

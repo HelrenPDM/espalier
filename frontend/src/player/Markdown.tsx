@@ -38,21 +38,29 @@ const caseRemarkPlugins = [...remarkPlugins, remarkCaseColumns];
  * protocol, such as `javascript:`, by an empty string (ASVS 1.2.2).
  * `[[term:slug]]` and `[[term:slug|label]]` render as `GlossaryTerm`.
  * `caseColumns` lays the cases of a case comparison out in two columns.
- * Inside a player the text carries the language of the program.
+ *
+ * Without `lang`, the text carries the language of the program inside a
+ * player, because pack text is written in the language of the pack. A
+ * string as `lang` sets that language instead. `null` renders no `lang`,
+ * so the text inherits the language of the document; text of the
+ * organization, such as the body of a policy, passes `null`, because the
+ * organization writes it independently of the language of the pack.
  */
 export function Markdown({
   children,
   className = "",
   caseColumns = false,
+  lang,
 }: {
   children: string;
   className?: string;
   caseColumns?: boolean;
+  lang?: string | null;
 }) {
-  const lang = useContentLang();
+  const contentLang = useContentLang();
   return (
     <div
-      lang={lang}
+      lang={lang === undefined ? contentLang : (lang ?? undefined)}
       className={`prose prose-gray max-w-none dark:prose-invert ${className}`}
     >
       <ReactMarkdown

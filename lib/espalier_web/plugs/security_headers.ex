@@ -3,7 +3,10 @@ defmodule EspalierWeb.Plugs.SecurityHeaders do
   Sets the security headers of README section 6.5 on every response: the
   SPA, the static assets, `/health` and the API. The endpoint runs it before
   `Plug.Static`. `/api/session`, `/api/auth/*` and `/api/me/*` also receive
-  `cache-control: no-store`. HSTS comes from the reverse proxy (task 0017).
+  `cache-control: no-store`, and since task 0013 so do `/api/facilitator/*`,
+  `/api/registrar/*`, `/api/integration/*` and the attendance route
+  `/api/formats/:id/attendance`, which return personal data (ASVS 14.2.2
+  and 14.3.2). HSTS comes from the reverse proxy (task 0017).
   """
   @behaviour Plug
 
@@ -58,6 +61,13 @@ defmodule EspalierWeb.Plugs.SecurityHeaders do
   defp put_no_store(%Plug.Conn{path_info: ["api", "session"]} = conn), do: no_store(conn)
   defp put_no_store(%Plug.Conn{path_info: ["api", "auth" | _]} = conn), do: no_store(conn)
   defp put_no_store(%Plug.Conn{path_info: ["api", "me" | _]} = conn), do: no_store(conn)
+  defp put_no_store(%Plug.Conn{path_info: ["api", "facilitator" | _]} = conn), do: no_store(conn)
+  defp put_no_store(%Plug.Conn{path_info: ["api", "registrar" | _]} = conn), do: no_store(conn)
+  defp put_no_store(%Plug.Conn{path_info: ["api", "integration" | _]} = conn), do: no_store(conn)
+
+  defp put_no_store(%Plug.Conn{path_info: ["api", "formats", _id, "attendance"]} = conn),
+    do: no_store(conn)
+
   defp put_no_store(conn), do: conn
 
   defp no_store(conn), do: Plug.Conn.put_resp_header(conn, "cache-control", "no-store")

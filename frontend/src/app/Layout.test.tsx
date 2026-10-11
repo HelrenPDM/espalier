@@ -71,6 +71,21 @@ test("a signed-in session shows the display name and sign-out", async () => {
   expect(value.signOut).toHaveBeenCalledTimes(1);
 });
 
+test("the user menu links to the credentials and the policies (task 0013)", async () => {
+  renderLayout(sessionValue());
+
+  await userEvent.click(screen.getByRole("button", { name: "Test person 1" }));
+
+  expect(screen.getByRole("menuitem", { name: "Credentials" })).toHaveAttribute(
+    "href",
+    "/me/credentials",
+  );
+  expect(screen.getByRole("menuitem", { name: "Policies" })).toHaveAttribute(
+    "href",
+    "/policies",
+  );
+});
+
 test("server values render as text, never as markup", () => {
   const markup = "<img src=x onerror=alert(1)>";
   const { container } = renderLayout(

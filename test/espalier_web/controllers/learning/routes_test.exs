@@ -109,7 +109,7 @@ defmodule EspalierWeb.Learning.RoutesTest do
 
     assert_schema(body, "Handbook", spec)
     assert Enum.map(body["modules"], &{&1["number"], length(&1["rules"])}) == [{1, 6}, {2, 4}]
-    assert body["placeholders"] == ["input-rules"]
+    assert body["placeholders"] == [%{"key" => "input-rules", "policy" => nil}]
   end
 
   test "POST /api/enrollments and PATCH /api/enrollments/:id",

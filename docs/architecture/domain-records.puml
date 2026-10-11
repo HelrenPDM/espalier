@@ -1,5 +1,5 @@
 @startuml domain-records
-title Domain model (2/3): accounts, policies, records and insights
+title Domain model (2/3): accounts, integration, policies, records and insights
 hide empty methods
 hide circle
 skinparam shadowing false
@@ -109,6 +109,15 @@ package "Accounts and authentication" {
     token_hash : binary
     scopes : string[]
     last_used_at : datetime
+  }
+}
+
+package "Integration" {
+  class Webhook {
+    url : string
+    events : string[]
+    secret_env : string
+    active : boolean
   }
 }
 
@@ -238,7 +247,7 @@ ModuleCompletion "0..*" --> "1" Module
 Acknowledgement "0..*" --> "1" User
 Acknowledgement "0..*" --> "1" PolicyVersion
 AttendanceCertificate "0..*" --> "1" User : holder
-AttendanceCertificate "0..*" --> "1" User : issued_by
+AttendanceCertificate "0..*" --> "0..1" User : issued_by
 AttendanceCertificate "0..*" --> "1" CompanionFormat
 Credential "0..*" --> "1" User
 Credential "0..*" --> "1" Qualification
@@ -304,6 +313,16 @@ note bottom of FailureCounter
   Directory counters (authenticator ldap) are keyed
   by provider_key and subject_hash, carry no user
   and exist before the account.
+end note
+
+note bottom of Webhook
+  The signing secret comes from the
+  environment variable named in secret_env;
+  the database holds only that name.
+  The URL must use https (http also in
+  dev and test), and its host and port
+  must match an entry of
+  WEBHOOK_ALLOWED_HOSTS.
 end note
 
 note right of Enrollment

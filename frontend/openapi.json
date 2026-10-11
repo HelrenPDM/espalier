@@ -264,6 +264,31 @@
         "title": "LdapCredentialsRequest",
         "type": "object"
       },
+      "UserLookupResult": {
+        "additionalProperties": false,
+        "description": "An active user.",
+        "properties": {
+          "display_name": {
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "org_unit": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "display_name",
+          "id",
+          "org_unit"
+        ],
+        "title": "UserLookupResult",
+        "type": "object"
+      },
       "Handbook": {
         "additionalProperties": false,
         "description": "Every rule with its statement and action.",
@@ -318,9 +343,50 @@
             "type": "array"
           },
           "placeholders": {
-            "description": "The keys of the policies that placeholder blocks name.",
+            "description": "The policies that placeholder blocks name, ordered by key, each with its current version.",
             "items": {
-              "type": "string"
+              "additionalProperties": false,
+              "properties": {
+                "key": {
+                  "description": "The policy key.",
+                  "type": "string"
+                },
+                "policy": {
+                  "additionalProperties": false,
+                  "description": "The current version of the policy, or `null` without a published version.",
+                  "nullable": true,
+                  "properties": {
+                    "body": {
+                      "description": "Markdown.",
+                      "type": "string"
+                    },
+                    "effective_from": {
+                      "format": "date",
+                      "type": "string"
+                    },
+                    "key": {
+                      "description": "The policy key, the `placeholder_key` of the block.",
+                      "type": "string"
+                    },
+                    "number": {
+                      "description": "The number of the current version.",
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "body",
+                    "effective_from",
+                    "key",
+                    "number"
+                  ],
+                  "type": "object"
+                }
+              },
+              "required": [
+                "key",
+                "policy"
+              ],
+              "type": "object"
             },
             "type": "array"
           }
@@ -330,6 +396,55 @@
           "placeholders"
         ],
         "title": "Handbook",
+        "type": "object"
+      },
+      "CredentialLookupResult": {
+        "additionalProperties": false,
+        "description": "The credentials in force of a person.",
+        "properties": {
+          "credentials": {
+            "description": "The credentials in force; an unknown address gives an empty list.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "qualification_code": {
+                  "type": "string"
+                },
+                "status": {
+                  "enum": [
+                    "active",
+                    "refresh_due"
+                  ],
+                  "type": "string"
+                },
+                "unlocks_snapshot": {
+                  "description": "The tasks the credential unlocks.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "valid_until": {
+                  "format": "date",
+                  "nullable": true,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "qualification_code",
+                "status",
+                "unlocks_snapshot",
+                "valid_until"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "credentials"
+        ],
+        "title": "CredentialLookupResult",
         "type": "object"
       },
       "NextStep": {
@@ -347,6 +462,64 @@
           "next"
         ],
         "title": "NextStep",
+        "type": "object"
+      },
+      "PolicyList": {
+        "additionalProperties": false,
+        "description": "The current policy versions with the acknowledgement of the signed-in user.",
+        "properties": {
+          "policies": {
+            "description": "The current version of every policy, ordered by key.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "acknowledged_at": {
+                  "description": "When the signed-in user acknowledged this version.",
+                  "format": "date-time",
+                  "nullable": true,
+                  "type": "string"
+                },
+                "body": {
+                  "description": "Markdown.",
+                  "type": "string"
+                },
+                "effective_from": {
+                  "format": "date",
+                  "type": "string"
+                },
+                "id": {
+                  "description": "The id of the current version.",
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "key": {
+                  "type": "string"
+                },
+                "number": {
+                  "type": "integer"
+                },
+                "title": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "acknowledged_at",
+                "body",
+                "effective_from",
+                "id",
+                "key",
+                "number",
+                "title"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "policies"
+        ],
+        "title": "PolicyList",
         "type": "object"
       },
       "EmailChangeRequest": {
@@ -403,6 +576,70 @@
           "token"
         ],
         "title": "EmailConfirmRequest",
+        "type": "object"
+      },
+      "CredentialView": {
+        "additionalProperties": false,
+        "description": "A credential of the signed-in user.",
+        "properties": {
+          "holder_display_name": {
+            "description": "The display name of the holder.",
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "issued_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "locale": {
+            "description": "The language of the program, in which the qualification title and the unlocked tasks are written.",
+            "type": "string"
+          },
+          "qualification_code": {
+            "type": "string"
+          },
+          "qualification_title": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "refresh_due",
+              "expired",
+              "revoked"
+            ],
+            "type": "string"
+          },
+          "unlocks_snapshot": {
+            "description": "The tasks the credential unlocks, as issued.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "valid_until": {
+            "description": "The last day of validity, or `null`.",
+            "format": "date",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "holder_display_name",
+          "id",
+          "issued_at",
+          "locale",
+          "qualification_code",
+          "qualification_title",
+          "status",
+          "unlocks_snapshot",
+          "valid_until"
+        ],
+        "title": "CredentialView",
         "type": "object"
       },
       "PasskeyRegistrationRequest": {
@@ -610,6 +847,33 @@
           "purpose"
         ],
         "title": "OidcIntentRequest",
+        "type": "object"
+      },
+      "AttendanceRequest": {
+        "additionalProperties": false,
+        "description": "The attendance of a session of a format.",
+        "properties": {
+          "held_on": {
+            "description": "The day of the session, today or earlier.",
+            "format": "date",
+            "type": "string"
+          },
+          "user_ids": {
+            "description": "The users who attended.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 200,
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "held_on",
+          "user_ids"
+        ],
+        "title": "AttendanceRequest",
         "type": "object"
       },
       "PasskeyAssertion": {
@@ -1156,6 +1420,36 @@
                         "nullable": true,
                         "type": "string"
                       },
+                      "policy": {
+                        "additionalProperties": false,
+                        "description": "The current version of the policy, or `null` without a published version.",
+                        "nullable": true,
+                        "properties": {
+                          "body": {
+                            "description": "Markdown.",
+                            "type": "string"
+                          },
+                          "effective_from": {
+                            "format": "date",
+                            "type": "string"
+                          },
+                          "key": {
+                            "description": "The policy key, the `placeholder_key` of the block.",
+                            "type": "string"
+                          },
+                          "number": {
+                            "description": "The number of the current version.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "body",
+                          "effective_from",
+                          "key",
+                          "number"
+                        ],
+                        "type": "object"
+                      },
                       "provenance": {
                         "enum": [
                           "invented",
@@ -1174,6 +1468,7 @@
                       "id",
                       "kind",
                       "placeholder_key",
+                      "policy",
                       "provenance"
                     ],
                     "type": "object"
@@ -1610,6 +1905,86 @@
           "user"
         ],
         "title": "SessionPayload",
+        "type": "object"
+      },
+      "ApprovedToolList": {
+        "additionalProperties": false,
+        "description": "The approved tool list.",
+        "properties": {
+          "tools": {
+            "description": "The tools ordered by position.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "conditions": {
+                  "nullable": true,
+                  "type": "string"
+                },
+                "id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "position": {
+                  "type": "integer"
+                },
+                "reviewed_on": {
+                  "format": "date",
+                  "nullable": true,
+                  "type": "string"
+                },
+                "status": {
+                  "enum": [
+                    "approved",
+                    "restricted",
+                    "not_approved"
+                  ],
+                  "type": "string"
+                },
+                "vendor": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "conditions",
+                "id",
+                "name",
+                "position",
+                "reviewed_on",
+                "status",
+                "vendor"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "tools"
+        ],
+        "title": "ApprovedToolList",
+        "type": "object"
+      },
+      "AcknowledgementView": {
+        "additionalProperties": false,
+        "description": "The acknowledgement of a policy version by the signed-in user.",
+        "properties": {
+          "acknowledged_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "policy_version_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "acknowledged_at",
+          "policy_version_id"
+        ],
+        "title": "AcknowledgementView",
         "type": "object"
       },
       "EnrollmentRequest": {
@@ -2967,6 +3342,44 @@
         "title": "ReauthSession",
         "type": "object"
       },
+      "AttendanceResult": {
+        "additionalProperties": false,
+        "description": "The result per user.",
+        "properties": {
+          "results": {
+            "description": "One result per distinct user id, in request order.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "result": {
+                  "description": "`issued` for a new certificate, `exists` when the user holds one for the format and the date, `not_found` without an active user.",
+                  "enum": [
+                    "issued",
+                    "exists",
+                    "not_found"
+                  ],
+                  "type": "string"
+                },
+                "user_id": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "result",
+                "user_id"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "results"
+        ],
+        "title": "AttendanceResult",
+        "type": "object"
+      },
       "FinishRequest": {
         "additionalProperties": false,
         "description": "Ends an OIDC flow same-origin.",
@@ -3057,6 +3470,210 @@
         "title": "ProviderList",
         "type": "object"
       },
+      "RegistrarCredentialList": {
+        "additionalProperties": false,
+        "description": "The credentials of one qualification (README section 10).",
+        "properties": {
+          "credentials": {
+            "description": "One entry per credential of a qualification with this code, ordered by display name. Codes are unique per program, so a person who holds the code in two programs appears once per program.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "display_name": {
+                  "nullable": true,
+                  "type": "string"
+                },
+                "issued_at": {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                "org_unit": {
+                  "nullable": true,
+                  "type": "string"
+                },
+                "status": {
+                  "enum": [
+                    "active",
+                    "refresh_due",
+                    "expired",
+                    "revoked"
+                  ],
+                  "type": "string"
+                },
+                "valid_until": {
+                  "format": "date",
+                  "nullable": true,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "display_name",
+                "issued_at",
+                "org_unit",
+                "status",
+                "valid_until"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "credentials"
+        ],
+        "title": "RegistrarCredentialList",
+        "type": "object"
+      },
+      "RequirementList": {
+        "additionalProperties": false,
+        "description": "The met and open requirements of the signed-in user per qualification.",
+        "properties": {
+          "qualifications": {
+            "description": "The live qualifications of the program.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "add_on": {
+                  "type": "boolean"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "credential": {
+                  "additionalProperties": false,
+                  "description": "The credential of the signed-in user, or `null` without one.",
+                  "nullable": true,
+                  "properties": {
+                    "id": {
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    "issued_at": {
+                      "format": "date-time",
+                      "type": "string"
+                    },
+                    "status": {
+                      "enum": [
+                        "active",
+                        "refresh_due",
+                        "expired",
+                        "revoked"
+                      ],
+                      "type": "string"
+                    },
+                    "valid_until": {
+                      "format": "date",
+                      "nullable": true,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "issued_at",
+                    "status",
+                    "valid_until"
+                  ],
+                  "type": "object"
+                },
+                "met": {
+                  "description": "The requirements that hold.",
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "enum": [
+                          "module_completed",
+                          "assessment_passed",
+                          "policy_acknowledged",
+                          "attendance",
+                          "qualification_held"
+                        ],
+                        "type": "string"
+                      },
+                      "station_position": {
+                        "description": "The position of the station that satisfies the requirement, or `null` when no station of the program does.",
+                        "nullable": true,
+                        "type": "integer"
+                      },
+                      "target_key": {
+                        "description": "The module number, the exam key, the policy key, the format key or the qualification code.",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "station_position",
+                      "target_key"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "open": {
+                  "description": "The requirements that do not hold yet.",
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "enum": [
+                          "module_completed",
+                          "assessment_passed",
+                          "policy_acknowledged",
+                          "attendance",
+                          "qualification_held"
+                        ],
+                        "type": "string"
+                      },
+                      "station_position": {
+                        "description": "The position of the station that satisfies the requirement, or `null` when no station of the program does.",
+                        "nullable": true,
+                        "type": "integer"
+                      },
+                      "target_key": {
+                        "description": "The module number, the exam key, the policy key, the format key or the qualification code.",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "station_position",
+                      "target_key"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "unlocks": {
+                  "description": "The tasks that a credential unlocks.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "add_on",
+                "code",
+                "credential",
+                "met",
+                "open",
+                "title",
+                "unlocks"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "qualifications"
+        ],
+        "title": "RequirementList",
+        "type": "object"
+      },
       "Glossary": {
         "additionalProperties": false,
         "description": "The glossary of a program.",
@@ -3090,6 +3707,23 @@
           "terms"
         ],
         "title": "Glossary",
+        "type": "object"
+      },
+      "EmailLookupRequest": {
+        "additionalProperties": false,
+        "description": "A lookup by e-mail address.",
+        "properties": {
+          "email": {
+            "description": "The exact address; letter case and surrounding spaces do not matter.",
+            "maxLength": 254,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "EmailLookupRequest",
         "type": "object"
       },
       "SecondFactorRequest": {
@@ -3349,6 +3983,24 @@
           "error"
         ],
         "title": "AssessmentsOpenError",
+        "type": "object"
+      },
+      "CredentialList": {
+        "additionalProperties": false,
+        "description": "The credentials of the signed-in user.",
+        "properties": {
+          "credentials": {
+            "description": "The credentials, the newest first.",
+            "items": {
+              "$ref": "#/components/schemas/CredentialView"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "credentials"
+        ],
+        "title": "CredentialList",
         "type": "object"
       },
       "AttemptResult": {
@@ -3655,6 +4307,11 @@
       }
     },
     "securitySchemes": {
+      "bearer_token": {
+        "description": "The token of a machine client with the scope `credentials:read`, shown once when an admin creates the client.",
+        "scheme": "bearer",
+        "type": "http"
+      },
       "csrf_header": {
         "description": "The CSRF token of the session payload, sent with every mutating request.",
         "in": "header",
@@ -3675,6 +4332,88 @@
   },
   "openapi": "3.0.0",
   "paths": {
+    "/api/registrar/credentials": {
+      "get": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Registrar.CredentialController.index",
+        "parameters": [
+          {
+            "description": "The code of a qualification.",
+            "in": "query",
+            "name": "qualification",
+            "required": true,
+            "schema": {
+              "description": "The code of a qualification.",
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[a-z0-9][a-z0-9-]*$(?!\\n)",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrarCredentialList"
+                }
+              }
+            },
+            "description": "The credentials"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "List the credentials of a qualification",
+        "tags": [
+          "Registrar"
+        ]
+      }
+    },
     "/api/programs/{slug}": {
       "get": {
         "callbacks": {},
@@ -3804,6 +4543,177 @@
         "summary": "Start a passkey registration",
         "tags": [
           "Account"
+        ]
+      }
+    },
+    "/api/me/credentials/{id}": {
+      "get": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Me.CredentialController.show",
+        "parameters": [
+          {
+            "description": "The credential id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CredentialView"
+                }
+              }
+            },
+            "description": "The credential"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `enrollment_required`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "Read an own credential",
+        "tags": [
+          "Credentials"
+        ]
+      }
+    },
+    "/api/formats/{id}/attendance": {
+      "post": {
+        "callbacks": {},
+        "description": "Issues one certificate per active user for a format of a published program, held today or earlier. A format without `attendance_counts` records the certificate and satisfies no requirement.",
+        "operationId": "EspalierWeb.AttendanceController.create",
+        "parameters": [
+          {
+            "description": "The format id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttendanceRequest"
+              }
+            }
+          },
+          "description": "The attendance",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttendanceResult"
+                }
+              }
+            },
+            "description": "One result per user"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Issue attendance certificates",
+        "tags": [
+          "Attendance"
         ]
       }
     },
@@ -4140,6 +5050,54 @@
         ]
       }
     },
+    "/api/policies": {
+      "get": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.PolicyController.index",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyList"
+                }
+              }
+            },
+            "description": "The current versions"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `enrollment_required`, `cross_site_request`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "List the current policy versions",
+        "tags": [
+          "Policies"
+        ]
+      }
+    },
     "/api/auth/recovery/verify": {
       "post": {
         "callbacks": {},
@@ -4357,6 +5315,86 @@
         "summary": "Sign in with a directory account",
         "tags": [
           "Session"
+        ]
+      }
+    },
+    "/api/facilitator/user-lookups": {
+      "post": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Facilitator.UserLookupController.create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailLookupRequest"
+              }
+            }
+          },
+          "description": "The address",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserLookupResult"
+                }
+              }
+            },
+            "description": "The user"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Find a user by e-mail address",
+        "tags": [
+          "Attendance"
         ]
       }
     },
@@ -4674,7 +5712,7 @@
     "/api/programs/{slug}/handbook": {
       "get": {
         "callbacks": {},
-        "description": "Every rule with its statement and action grouped by module, plus the keys of the program's placeholder blocks (README section 7, domain rule 10).",
+        "description": "Every rule with its statement and action grouped by module, plus the keys of the program's placeholder blocks with the current version of each policy (README section 7, domain rules 8 and 10).",
         "operationId": "EspalierWeb.ProgramController.handbook",
         "parameters": [
           {
@@ -6055,6 +7093,54 @@
         ]
       }
     },
+    "/api/approved-tools": {
+      "get": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.PolicyController.approved_tools",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovedToolList"
+                }
+              }
+            },
+            "description": "The approved tool list"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `enrollment_required`, `cross_site_request`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "List the approved tools",
+        "tags": [
+          "Policies"
+        ]
+      }
+    },
     "/api/me/progress": {
       "get": {
         "callbacks": {},
@@ -6557,6 +7643,117 @@
         ]
       }
     },
+    "/api/policy-versions/{id}/acknowledgements": {
+      "post": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.AcknowledgementController.create",
+        "parameters": [
+          {
+            "description": "The id of a published policy version.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyRequest"
+              }
+            }
+          },
+          "description": "No members",
+          "required": false
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcknowledgementView"
+                }
+              }
+            },
+            "description": "The acknowledgement"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `enrollment_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `rate_limited`",
+            "headers": {
+              "retry-after": {
+                "description": "Seconds until the bucket admits the next request.",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "style": "simple"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Acknowledge a policy version",
+        "tags": [
+          "Policies"
+        ]
+      }
+    },
     "/api/me/security": {
       "get": {
         "callbacks": {},
@@ -6730,6 +7927,136 @@
         "summary": "Read a module",
         "tags": [
           "Catalog"
+        ]
+      }
+    },
+    "/api/me/requirements": {
+      "get": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Me.RequirementController.show",
+        "parameters": [
+          {
+            "description": "The slug of a published program.",
+            "in": "query",
+            "name": "program",
+            "required": true,
+            "schema": {
+              "description": "The slug of a published program.",
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[a-z0-9][a-z0-9-]*$(?!\\n)",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequirementList"
+                }
+              }
+            },
+            "description": "The requirements"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `enrollment_required`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "Read the own requirements in a program",
+        "tags": [
+          "Credentials"
+        ]
+      }
+    },
+    "/api/me/credentials": {
+      "get": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Me.CredentialController.index",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CredentialList"
+                }
+              }
+            },
+            "description": "The credentials"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `enrollment_required`, `cross_site_request`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "List the own credentials",
+        "tags": [
+          "Credentials"
         ]
       }
     },
@@ -7011,6 +8338,75 @@
         "summary": "Request a recovery link",
         "tags": [
           "Session"
+        ]
+      }
+    },
+    "/api/integration/credential-lookups": {
+      "post": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Integration.CredentialLookupController.create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailLookupRequest"
+              }
+            }
+          },
+          "description": "The address",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CredentialLookupResult"
+                }
+              }
+            },
+            "description": "The credentials in force"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "bearer_token": []
+          }
+        ],
+        "summary": "Look up the credentials in force of a person",
+        "tags": [
+          "Integration"
         ]
       }
     },

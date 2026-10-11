@@ -8,7 +8,7 @@ purpose.
 |---|---|---|
 | [`context.puml`](context.puml) | component | System context, Phoenix contexts, vault, rate limiter, SPA, identity providers, external LMS, downstream systems |
 | [`domain-catalog.puml`](domain-catalog.puml) | class | Catalog and content: program, stations, segments, qualifications, modules, lessons, blocks, rules, items, assessments, companion formats, glossary, sources, learning objectives with their links to lessons, items and companion formats |
-| [`domain-records.puml`](domain-records.puml) | class | Accounts and authentication, policies, person-linked records, anonymous insights |
+| [`domain-records.puml`](domain-records.puml) | class | Accounts and authentication, integration (webhooks), policies, person-linked records, anonymous insights |
 | [`domain-values.puml`](domain-values.puml) | class | Enumerations used by both domain diagrams |
 | [`learner-journey.puml`](learner-journey.puml) | activity | Path selection, objectives of the topic, lessons, reveal on wrong answer, exam pass rule, evidence of the objectives at module completion, credential |
 | [`credential-lifecycle.puml`](credential-lifecycle.puml) | state | Issue, refresher, expiry and revocation of a credential |

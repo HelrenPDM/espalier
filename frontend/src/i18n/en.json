@@ -4,7 +4,9 @@
     "demoBanner": "Demo mode: every account here is a pseudonymous test account.",
     "language": "Language",
     "account": "Account",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "credentials": "Credentials",
+    "policies": "Policies"
   },
   "theme": {
     "toggle": "Color theme: {{value}}",
@@ -115,14 +117,6 @@
     }
   },
   "placeholders": {
-    "credentials": {
-      "title": "Credentials",
-      "text": "Your credentials appear here."
-    },
-    "credential": {
-      "title": "Credential",
-      "text": "The credential appears here."
-    },
     "admin": {
       "title": "Administration",
       "text": "The administration pages appear here."
@@ -357,7 +351,8 @@
     "vendor_statement": "Vendor statement",
     "assumption": "Assumption",
     "placeholder": "Placeholder",
-    "placeholderWithKey": "Placeholder: {{key}}"
+    "placeholderWithKey": "Placeholder: {{key}}",
+    "policy": "Policy of your organization: {{key}}"
   },
   "citations": {
     "title_one": "Source",
@@ -480,6 +475,96 @@
     "loadFailed": "The handbook could not be loaded. Please try again later.",
     "module": "Module {{number}}:",
     "placeholders": "Rules of your organization",
-    "placeholderNote": "Your organization adds its text here."
+    "policyMissing": "Your organization has not published this policy yet."
+  },
+  "policies": {
+    "title": "Policies",
+    "intro": "The current version of each policy of your organization, and the list of approved tools.",
+    "loading": "Loading the policies…",
+    "loadFailed": "The policies could not be loaded. Please try again later.",
+    "empty": "Your organization has not published a policy yet.",
+    "version": "Version {{number}}, in effect from {{date}}.",
+    "acknowledge": "I have read this version",
+    "acknowledging": "Saving…",
+    "acknowledged": "You acknowledged this version on {{date}}.",
+    "acknowledgeFailed": "The acknowledgement could not be saved. Please try again.",
+    "tools": {
+      "title": "Approved tools",
+      "loading": "Loading the approved tools…",
+      "loadFailed": "The approved tools could not be loaded. Please try again later.",
+      "empty": "The list of approved tools is empty.",
+      "name": "Tool",
+      "vendor": "Vendor",
+      "status": "Status",
+      "conditions": "Conditions",
+      "reviewedOn": "Reviewed on",
+      "noConditions": "None",
+      "notReviewed": "Not reviewed yet",
+      "statuses": {
+        "approved": "Approved",
+        "restricted": "Restricted",
+        "not_approved": "Not approved"
+      }
+    }
+  },
+  "credentials": {
+    "title": "Credentials",
+    "loading": "Loading the credentials…",
+    "loadFailed": "The credentials could not be loaded. Please try again later.",
+    "empty": "You hold no credential yet. The credential station of a program shows what each credential requires.",
+    "detailTitle": "Credential",
+    "kicker": "Credential",
+    "loadingOne": "Loading the credential…",
+    "loadFailedOne": "The credential could not be loaded. Please try again later.",
+    "notFoundTitle": "Credential not found",
+    "notFound": "No credential of yours exists at this address.",
+    "back": "Back to the credentials",
+    "print": "Print",
+    "holder": "Holder",
+    "noDisplayName": "No display name recorded",
+    "statusLabel": "Status",
+    "issued": "Issued on",
+    "validUntil": "Valid until",
+    "noExpiry": "No expiry date",
+    "unlocks": "The holder may carry out these tasks",
+    "noUnlocks": "This credential names no tasks.",
+    "status": {
+      "active": "Active",
+      "refresh_due": "Refresher due",
+      "expired": "Expired",
+      "revoked": "Revoked"
+    },
+    "statusNote": {
+      "refresh_due": "A refresher is due. The credential stays in force until the grace period ends.",
+      "expired": "The credential is no longer in force. The refresher of the program restores it.",
+      "revoked": "The credential was revoked and is no longer in force."
+    }
+  },
+  "credentialStation": {
+    "loading": "Loading the requirements…",
+    "loadFailed": "The requirements could not be loaded. Please try again later.",
+    "none": "This program offers no credential.",
+    "addOn": "An add-on to another credential.",
+    "notIssued": "Not issued yet. The credential is issued once every requirement is met.",
+    "issued": "Your credential:",
+    "validUntil": "valid until {{date}}",
+    "view": "View the credential",
+    "open": "Open requirements",
+    "met": "Met requirements",
+    "unlocks": "The credential permits these tasks",
+    "todo": {
+      "module_completed": "Complete the module:",
+      "assessment_passed": "Pass the exam:",
+      "policy_acknowledged": "Acknowledge the policy:",
+      "attendance": "Attend the format:",
+      "qualification_held": "Hold the credential:"
+    },
+    "done": {
+      "module_completed": "Module completed:",
+      "assessment_passed": "Exam passed:",
+      "policy_acknowledged": "Policy acknowledged:",
+      "attendance": "Format attended:",
+      "qualification_held": "Credential held:"
+    }
   }
 }

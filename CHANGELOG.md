@@ -168,6 +168,52 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Markdown rendering with `react-markdown` 10.1.0 and `remark-gfm` 4.0.1,
   without raw HTML, and Playwright specs for the walk through module 1, the
   stations at 360 pixels and the handbook PDF (task 0012).
+- Policies (task 0013): policies with numbered versions in Markdown, an
+  effective date and the option to require a refresher; the learner's
+  acknowledgement of a published version (`GET /api/policies` and
+  `POST /api/policy-versions/:id/acknowledgements`); the approved tool list
+  with vendor, status, conditions and review date (`GET /api/approved-tools`);
+  and the current policy text in the placeholder blocks of
+  `GET /api/modules/:id` and in the handbook.
+- Credentials (task 0013): the evaluation of the requirements of each
+  qualification after a passed exam, a module completion, an attendance
+  certificate and a policy acknowledgement, which issues and restores
+  credentials; the refresher, which moves the credentials that require a
+  policy to `refresh_due` when a version that requires a refresher is
+  published; the daily sweep `Espalier.Credentials.SweepWorker`, which moves
+  credentials to `refresh_due` and `expired` and sends a mail for each move;
+  revocation through `Credentials.revoke/2` for admins; and
+  `GET /api/me/requirements`, `GET /api/me/credentials` and
+  `GET /api/me/credentials/:id`. A credential carries no score.
+- Attendance certificates as objective evidence (task 0013): a facilitator
+  finds a learner by the exact address
+  (`POST /api/facilitator/user-lookups`) and issues certificates for a
+  companion format and date (`POST /api/formats/:id/attendance`); a format
+  with `attendance_counts` evidences its learning objectives in
+  `GET /api/me/progress`.
+- The registrar list `GET /api/registrar/credentials` with the holders of
+  the credentials of one qualification code, behind the role `registrar`
+  and `REGISTRAR_ENABLED`, which defaults to `false` (task 0013).
+- The integration API `POST /api/integration/credential-lookups`, which
+  returns the credentials in force of one address to an API client with a
+  bearer token and the scope `credentials:read`; its pipeline has no
+  session, CSRF or Fetch Metadata layer (task 0013).
+- Webhooks for the credential events `credential.issued`,
+  `credential.refresh_due`, `credential.expired` and `credential.revoked`,
+  signed with HMAC-SHA256 in `x-espalier-signature`, admitted only for the
+  hosts in `WEBHOOK_ALLOWED_HOSTS`, with the secrets in `WEBHOOK_SECRET_*`
+  variables, and delivered by the Oban queue `webhooks` (task 0013).
+- `CREDENTIAL_NOTICE_DAYS` and `CREDENTIAL_GRACE_DAYS`, each 30 by default,
+  for the days before and after `valid_until` at which the sweep moves a
+  credential (task 0013).
+- `mix espalier.seed_demo`, which seeds the demo policy `usage-policy` and
+  three approved tools and which `make setup` and `make refresh-db` run
+  (task 0013).
+- The learner pages for policies and credentials (task 0013): `/policies`
+  with the current versions, the acknowledgement and the approved tool list;
+  the credential station with the met and open requirements per
+  qualification; `/me/credentials`; and `/me/credentials/:id`, which prints
+  on A4.
 
 ### Changed
 

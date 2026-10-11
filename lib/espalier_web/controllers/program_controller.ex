@@ -7,7 +7,7 @@ defmodule EspalierWeb.ProgramController do
   use EspalierWeb, :controller
   use OpenApiSpex.ControllerSpecs
 
-  alias Espalier.Catalog
+  alias Espalier.{Catalog, Policies}
   alias EspalierWeb.ApiSpec.Responses
   alias EspalierWeb.CatalogJSON
   alias EspalierWeb.Schemas.{Fields, Glossary, Handbook, ProgramList, ProgramView}
@@ -86,7 +86,8 @@ defmodule EspalierWeb.ProgramController do
     summary: "Read the handbook of a program",
     description:
       "Every rule with its statement and action grouped by module, plus the keys of the " <>
-        "program's placeholder blocks (README section 7, domain rule 10).",
+        "program's placeholder blocks with the current version of each policy (README " <>
+        "section 7, domain rules 8 and 10).",
     parameters: @slug,
     responses:
       Map.merge(
@@ -101,7 +102,8 @@ defmodule EspalierWeb.ProgramController do
 
   def handbook(conn, %{slug: slug}) do
     with {:ok, handbook} <- Catalog.handbook(slug) do
-      json(conn, CatalogJSON.handbook(%{handbook: handbook}))
+      policies = Policies.current_versions_by_key(handbook.placeholders)
+      json(conn, CatalogJSON.handbook(%{handbook: handbook, policies: policies}))
     end
   end
 end
