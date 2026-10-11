@@ -131,6 +131,7 @@ defmodule EspalierWeb.CatalogJSON do
 
   defp block(%Block{} = block) do
     %{
+      id: block.id,
       kind: block.kind,
       body: block.body,
       provenance: block.provenance,

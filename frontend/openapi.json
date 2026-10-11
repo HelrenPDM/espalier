@@ -1134,6 +1134,11 @@
                         },
                         "type": "array"
                       },
+                      "id": {
+                        "description": "The block id, which the player keeps for opened explanations.",
+                        "format": "uuid",
+                        "type": "string"
+                      },
                       "kind": {
                         "enum": [
                           "text",
@@ -1166,6 +1171,7 @@
                       "body",
                       "citations",
                       "collapsed_on",
+                      "id",
                       "kind",
                       "placeholder_key",
                       "provenance"

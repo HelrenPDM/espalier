@@ -13,8 +13,16 @@ import { RequireRole } from "../auth/RequireRole";
 import { SessionProvider } from "../auth/SessionProvider";
 import { SignedOutPage } from "../auth/SignedOutPage";
 import { SignInPage } from "../auth/SignInPage";
+import { ProgramListPage } from "../learner/ProgramListPage";
 import { ErrorPage } from "./ErrorPage";
 import { Layout } from "./Layout";
+import {
+  GlossaryPage,
+  HandbookPage,
+  ProgramPage,
+  ProgramRoute,
+  StationPage,
+} from "./lazyPages";
 import { NotFoundPage } from "./NotFoundPage";
 import { PlaceholderPage } from "./PlaceholderPage";
 
@@ -48,12 +56,17 @@ export const appRoutes: RouteObject[] = [
       </RequireAuth>
     ),
     children: [
-      { index: true, element: <PlaceholderPage page="home" /> },
+      { index: true, element: <ProgramListPage /> },
       { path: "account/security", element: <SecurityPage /> },
-      { path: "programs/:slug", element: <PlaceholderPage page="program" /> },
       {
-        path: "programs/:slug/stations/:position",
-        element: <PlaceholderPage page="station" />,
+        path: "programs/:slug",
+        element: <ProgramRoute />,
+        children: [
+          { index: true, element: <ProgramPage /> },
+          { path: "stations/:position", element: <StationPage /> },
+          { path: "glossary", element: <GlossaryPage /> },
+          { path: "handbook", element: <HandbookPage /> },
+        ],
       },
       {
         path: "me/credentials",

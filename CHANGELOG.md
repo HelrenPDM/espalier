@@ -152,8 +152,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   for invitation, passkeys, the authenticator app, recovery, e-mail change,
   OIDC and LDAP with the Chromium virtual authenticator, Mailpit, the mock
   OIDC provider and lldap (task 0011).
+- The player and learner UI (task 0012): the program list, the program page
+  with the path switch and the step list, the stations with previous and
+  next, and the module station with the objectives of the topic grouped by
+  the four competence areas, lessons with every block kind and collapsible
+  explanations, practice items of every kind with feedback, objective chips
+  and the reveal of explanations after a wrong answer on the short path, the
+  exam with the pass rule, the rules recap, module completion and a summary
+  of the objectives with the statuses evidenced, practised and open; the
+  glossary with glossary terms in Markdown, and the printable handbook on A4.
+- The `Runtime` interface with the view types and `PlatformRuntime`, which
+  keeps opened explanations, visited stations and, with
+  `TRACKING_DETAIL=minimal`, answered items in the `localStorage` entry
+  `espalier.player.<program slug>` (task 0012).
+- Markdown rendering with `react-markdown` 10.1.0 and `remark-gfm` 4.0.1,
+  without raw HTML, and Playwright specs for the walk through module 1, the
+  stations at 360 pixels and the handbook PDF (task 0012).
 
 ### Changed
+
+- Blocks in `GET /api/modules/:id` carry their `id`, and the pages of a
+  program load in chunks of their own (task 0012).
+- Dark styles apply on screen only, so printed pages are light (task 0012).
 
 - `decimal` 3.1.2 replaces 3.1.1, which carries EEF-CVE-2026-97853
   (unbounded allocation in `Decimal.round/3`); the update bypasses the

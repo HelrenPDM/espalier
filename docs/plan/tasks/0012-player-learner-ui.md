@@ -158,3 +158,139 @@ This list holds exactly the rows whose `Task` column names this task, as the own
 - The objectives panel groups by the four competence areas and shows an area only when the module has an objective in it. A module that covers an area elsewhere names that place in `areas_elsewhere` (0008 step 5), and the module view of 0009 carries no such field, so the panel shows no group for that area.
 - This task can land before 0011, because it uses no route of 0005 to 0007 and changes no module under `src/auth/`. The row 14.3.3 exists from 0004 step 42 on, so step 17 does not wait for 0011. The storage check in the acceptance of 0011 allows `src/runtimes/platform.ts`.
 - Later tasks build on these names: `PlaceholderBlock` and `Markdown` (0013), the path switch and the station map in `src/learner/stations/index.ts` (0014), `Markdown`, the view types and the player components (0015), steps 1 to 3 and 11 with `AssessmentsOpenError` (0016), and `ObjectivesPanel`, `ObjectiveChips`, `objectiveStatus`, `CompletionSummary` and the member `evidencedObjectives` of `ResumeState`, which the admin preview of 0015 and the SCORM package of 0016 render through the module station.
+
+## Addendum: implementation
+The implementation departs from the steps above in the points below, and later
+tasks rely on the implemented form.
+
+- Block ids (steps 2 and 7): `openedExplanations` holds block ids, and the
+  module view of 0009 rendered blocks without one. `EspalierWeb.CatalogJSON`
+  and the schema `ModuleView` now carry `id` on every block, and
+  `make api-types` regenerated `frontend/openapi.json` and
+  `frontend/src/api/schema.d.ts`. The task adds no route, no operation and no
+  table.
+- Dependencies (step 4): `react-markdown` 10.1.0 and `remark-gfm` 4.0.1, and
+  as development dependencies `@types/mdast` 4.0.4 for the remark plugins and
+  `yaml` 2.9.1, with which `e2e/player.spec.ts` reads the demo pack. All were
+  installed with `npm install --before=<seven days back>`; no version of an
+  installed package changed, and `npm audit` still reports the two findings of
+  the 0010 addendum only.
+- View types (step 1): `src/player/runtime.ts` also exports the types of the
+  parts of a view (`Station`, `Lesson`, `Block`, `Citation`, `Rule`, `Exam`,
+  `GlossaryEntry`, `CompanionFormat`, `Path`, `ExamOutcome`,
+  `OpenAssessment`) and `emptyResumeState(path)`. `ProgramView` is the program
+  of the API with `modules` replaced by the `ModuleView`s and with `glossary`
+  added.
+- Runtime (step 2): `saveState` calls run one after the other, so two quick
+  path changes end with the last path on the server. A 422 answer to the first
+  enrollment, which a concurrent first enrollment of the same user causes
+  (0009 addendum), makes `loadState` read the progress again and use the
+  enrollment found there. Before the first progress answer, `saveState`
+  writes no `answeredItems`. A missing or unparsable entry and an entry with
+  another `v` yield empty lists, and members of the wrong type are dropped.
+- Player state (step 3): `PlayerProvider` (`src/player/PlayerProvider.tsx`)
+  calls `usePlayer` once and provides the loaded player through
+  `PlayerContext` and `useCurrentPlayer()` (`src/player/usePlayer.ts`), so the
+  program page, the stations, the glossary and the handbook share one state;
+  it shows a loading status and a load error itself. The player components
+  read the program and the state through `useCurrentPlayer()`, so a host of
+  the module station (the admin preview of 0015, the SCORM package of 0016)
+  renders `RuntimeContext` and `PlayerProvider` around it. `usePlayer` loads
+  once per runtime and slug, also under the double effect of `StrictMode`,
+  and passes the loaded state once through `saveState`, so the entry appears
+  once a program page or a station has been opened. A failed save shows an
+  alert above the page.
+- Routes (step 3): the four program pages and `ProgramRoute` load in chunks
+  of their own through `src/app/lazyPages.tsx`, so the Markdown renderer stays
+  out of the entry chunk. The entry chunk is 511 kB (157 kB with gzip), close
+  to the 509 kB of the 0010 addendum, and `vite build` keeps its size warning.
+  The home placeholder and the placeholders of the program routes are gone;
+  `src/app/guards.test.tsx` checks `RequireAuth` on `/me/credentials`, and
+  `e2e/shell.spec.ts` expects the heading "Programs" on `/`.
+  `LoadingStatus` takes an optional text.
+- Markdown (step 4): `Markdown` takes `caseColumns`, which adds
+  `remarkCaseColumns` for the case comparison: a case starts at a paragraph
+  that holds only bold text, each case spans as many top-level elements as the
+  first, and the text before the first case and after the last stays full
+  width. `remarkGlossary` turns a term inside a link into its label as text,
+  because a link holds no button. Outside a player, and for a slug that the
+  glossary lacks, `GlossaryTerm` renders its label as text.
+- Blocks and citations (steps 6 and 7): `Citations` shows title, publisher,
+  edition date, retrieval date and locator (`CitationText`), and the title of
+  a source links to its URL only with the scheme `http` or `https`
+  (`safeSourceUrl` in `src/player/format.ts`). `QuoteBlock` holds one
+  `figcaption` with the full citation of each source.
+  `PlaceholderBlock` always carries the `placeholder` badge with its key.
+  Headless UI 2.2.10 offers `defaultOpen` and no controlled `open` on
+  `Disclosure`, so an explanation has the `key` `<block id>:<path>:<reveal
+  count of its lesson>`, and a path change or a reveal applies the new start
+  state.
+- Content language: a pack can be written in another language than the UI.
+  `useContentLang()` (`src/player/contentLang.ts`) gives the `locale` of the
+  `ProgramView`, and every element that holds pack text carries it as
+  `lang`: the `Markdown` container, titles of program, stations, lessons,
+  exams and formats, stems, options, feedback texts, case and check labels,
+  objective statements and domains, rules and the glossary. Translated
+  controls and labels keep the language of the document, so sentences that
+  named pack text through interpolation (`program.back`, `station.next`,
+  `items.case.expected` and others) now hold the translated part only, and
+  the pack text follows in an element of its own (`src/learner/BackToProgram.tsx`
+  for the link back to the program).
+- Tooltip (steps 5 and 11): the bubble starts at the left edge of its
+  trigger and moves left, measured before the browser paints it, as far as
+  it would cross the right edge of the viewport, keeping 8 pixels to both
+  edges; the 360-pixel test of `e2e/player.spec.ts` opens every tooltip of
+  the module 1 station and checks the page width.
+- Items (step 8): `PracticeItem` connects an item to `Runtime.submitItem`,
+  and `ItemByKind` picks the component. A practice item offers "Try again"
+  after its feedback, which clears answer and feedback. The status region of
+  the frame names the lessons that a reveal opened, with links to them. In an
+  exam the frame has no submit button and no status region of its own; the
+  exam's status region announces the outcome. A 429 answer shows the message
+  of `errors.tooManyAttempts`. The initials of a checklist drill count
+  grapheme clusters with `Intl.Segmenter`, as `String.length/1` of the
+  evaluator does, so client and server agree on decomposed accents.
+- Radio groups (steps 8 and 10): Headless UI 2.2.10 sets `aria-labelledby`
+  and `aria-describedby` of a `RadioGroup` from its own `Label` and
+  `Description` children and drops ids that the caller passes. The choice
+  items therefore name their group with `aria-label` (the stem), and
+  `PathSwitch` holds its label and explanation as Headless UI `Label` and
+  `Description` inside the group.
+- Learner pages (steps 9 to 14): `src/learner/` also holds `LessonSection`,
+  `RulesRecap`, `StationList`, `StationPage`, `ProgramPage`,
+  `ProgramListPage` and `stations/OverviewStation` and
+  `stations/PendingStation`. The step list is a `nav` with
+  `aria-current="step"` and a "Visited" mark; previous and next are links.
+  The program page offers "Start" or "Continue with <station>". In-page links
+  (`#lesson-…`, `#objective-…`, `#rule-…`) call `jumpTo` of
+  `src/player/jump.ts`, which scrolls to the target and moves focus to it, or
+  to the lesson heading inside a lesson section. A chip of another module
+  links to `/programs/:slug/stations/<position>#objective-<key>`, and the
+  station page moves focus to the element of the fragment instead of the
+  heading. Practice items without a lesson appear in a section "More
+  practice". `objectiveStatus` counts the `practice_items` of every module
+  view as practice items, and `statusCounts` in
+  `src/player/objectives/status.ts` gives the numbers per status.
+- Print (step 14): the `dark` variant in `src/styles/app.css` applies on
+  screen only, so a printed page is always light. The handbook passes rule
+  statements and actions through `Markdown`.
+- Tests (steps 15 and 16): the lesson `01-first-lesson` of module 1, which
+  the practice item `m1-how-models-write` reveals, already holds an
+  explanation with `collapsed_on=short`, so `content/demo/` is unchanged.
+  `src/test/player.tsx` holds the fixture program,
+  the fake runtime and `renderPlayer`. Beyond the list of step 15,
+  `ExamSection.test.tsx` covers the exam and `textRendering.test.tsx` the
+  rows 1.1.2 and 1.2.1; `contentLanguage.test.tsx`, `Tooltip.test.tsx`,
+  `QuoteBlock.test.tsx` and `answers.test.ts` cover the content language,
+  the tooltip position, the quote caption and the initials (review of
+  PR #27). The storage helper of `e2e/support/account.ts` (0011)
+  admits the keys `espalier.player.*`. The e2e specs ran on an isolated stack
+  (a test-env Phoenix with `AUTH_DEMO=true` and the published demo pack on
+  4100, Vite on 5174) under both settings of `TRACKING_DETAIL` and twice in a
+  row with the records of the first run; `make e2e` through `make run` is
+  still unrun. The handbook PDF has two A4 pages, module 2 starts the second,
+  and it shows no navigation.
+- Verification matrix (step 17): the row 1.2.2 names 0010, 0004 and this
+  task, which have all added their code and tests, so it takes the status
+  `verified` together with 1.3.5. The rows 1.1.2 and 1.2.1 stay `open` for
+  0016, and 14.3.3 for 0014.
