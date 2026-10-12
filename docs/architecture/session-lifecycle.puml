@@ -11,8 +11,8 @@ state "Ended" as Ended
 
 [*] --> Pending : first factor ok, local factor enrolled\n(password; LDAP; OIDC in local mode,\nor idp_trusted with a single-factor amr)
 [*] --> Active : passkey with UV, or OIDC with idp_trusted\nand an amr that is missing or multi-factor
-[*] --> Enrollment : invitation link accepted
-[*] --> Enrollment : first OIDC or LDAP sign-in\nwithout a local factor
+[*] --> Enrollment : invitation link accepted\n(also the new invitation of a local account\nafter an admin reset of its second factors)
+[*] --> Enrollment : first OIDC or LDAP sign-in\nwithout a local factor (also the first\nafter an admin reset of second factors)
 [*] --> Recovery : recovery code and e-mail link verified
 Pending --> Active : TOTP, passkey or recovery code accepted\n(new token, new CSRF token)
 Pending --> Ended : 5 minutes passed or fifth failed attempt
@@ -21,17 +21,18 @@ Recovery --> Active : new factor enrolled\n(new token, new recovery codes, failu
 Active --> Recent : step-up with a local second factor\n(POST /api/me/reauth, new token)
 Active --> Recent : OIDC step-up with max_age=0\n(idp_trusted users, new token)
 Recent --> Active : 10 minutes passed
-Active --> Ended : logout, inactivity 60 min, absolute 24 h,\nrevoked by user or admin, user disabled,\nrole grants changed (manual, or idp_claim\nat a sign-in), oldest session beyond\nSESSION_MAX_CONCURRENT, front-channel logout
+Active --> Ended : logout, inactivity 60 min, absolute 24 h,\nrevoked by user or admin (one user or all users),\nuser disabled, second factors reset by an admin\n(decision D11), role grants changed (manual,\nor idp_claim at a sign-in), oldest session beyond\nSESSION_MAX_CONCURRENT, front-channel logout
 Recent --> Ended : same as Active
-Enrollment --> Ended : 30 minutes passed or logout
-Recovery --> Ended : 30 minutes passed or logout
+Enrollment --> Ended : 30 minutes passed, logout, or ended by an admin\n(sessions ended, user disabled, second factors reset)
+Recovery --> Ended : 30 minutes passed, logout, or ended by an admin\n(sessions ended, user disabled, second factors reset)
 Ended --> [*]
 
 note right of Recent
   Required for changes to e-mail, password,
   factors, recovery codes, sessions and for
-  every admin change (ASVS 7.5.1). Without it,
-  these routes answer 403 reauth_required.
+  every admin change under /api/admin
+  (ASVS 7.5.1). Without it, these routes
+  answer 403 reauth_required.
 end note
 
 note left of Enrollment

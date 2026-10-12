@@ -34,6 +34,7 @@ defmodule Espalier.RuntimeConfig do
   | `RETENTION_ANONYMOUS_DAYS` | `:insights`, `:retention_anonymous_days` | unset |
   | `RETENTION_AUDIT_DAYS` | `:insights`, `:retention_audit_days` | unset |
   | `RETENTION_ATTEMPTS_DAYS` | `:insights`, `:retention_attempts_days` | unset |
+  | `PACK_UPLOAD_MAX_MB` | `:pack_upload_max_mb` | 20 |
 
   `TRACKING_DETAIL` and `INSIGHTS_ORG_UNIT` (README section 10) come back
   under the key `:learning`, so that `config :espalier, :learning` holds
@@ -51,6 +52,11 @@ defmodule Espalier.RuntimeConfig do
   `port` `nil` for an entry without a port, which stands for the default
   port of the webhook URL's scheme. An entry with a scheme or a path stops
   the boot.
+
+  `PACK_UPLOAD_MAX_MB` (task 0015) bounds the body of a content pack upload
+  in MB (ASVS 5.2.1); the archive check of
+  `Espalier.Catalog.Pack.Archive.extract/2` admits declared sizes of at most
+  five times that limit.
   """
 
   @doc "Returns the settings as a keyword list for `config :espalier`."
@@ -90,6 +96,7 @@ defmodule Espalier.RuntimeConfig do
       credential_grace_days: positive!(env, "CREDENTIAL_GRACE_DAYS", 30),
       registrar_enabled: boolean!(env, "REGISTRAR_ENABLED", false),
       webhook_allowed_hosts: env |> list("WEBHOOK_ALLOWED_HOSTS") |> Enum.map(&webhook_host!/1),
+      pack_upload_max_mb: positive!(env, "PACK_UPLOAD_MAX_MB", 20),
       learning: [
         tracking_detail:
           enum!(

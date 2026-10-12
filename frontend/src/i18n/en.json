@@ -116,12 +116,6 @@
       "text": "The page could not be shown. Please try again later."
     }
   },
-  "placeholders": {
-    "admin": {
-      "title": "Administration",
-      "text": "The administration pages appear here."
-    }
-  },
   "reports": {
     "title": "Reports",
     "intro": "The reports count the anonymous answers and the credentials of a program. A cell with fewer entries than the minimum group size shows no number.",
@@ -694,6 +688,648 @@
       "examFailedCore": "Exam {{assessment}} failed: a core item was wrong",
       "examFailedErrors": "Exam {{assessment}} failed: too many wrong answers",
       "formatVoted": "Vote for a format at station {{station}}"
+    }
+  },
+  "admin": {
+    "title": "Administration",
+    "intro": "Choose a section. Each section appears for the role that it serves.",
+    "nav": {
+      "label": "Administration sections",
+      "packs": "Packs",
+      "users": "Users",
+      "policies": "Policies",
+      "approvedTools": "Approved tools",
+      "roles": "Roles",
+      "apiClients": "API clients",
+      "webhooks": "Webhooks",
+      "audit": "Audit",
+      "attendance": "Attendance",
+      "insights": "Reports",
+      "registrar": "Credentials"
+    },
+    "passkeyRequired": {
+      "title": "A passkey is required",
+      "text": "Administrators reach the administration sections only with a passkey. Add a passkey in your security settings.",
+      "link": "Open the security settings"
+    },
+    "common": {
+      "loadFailed": "The data could not be loaded. Please try again later.",
+      "previousPage": "Previous page",
+      "nextPage": "Next page",
+      "pageOf": "Page {{page}} of {{pages}}",
+      "page": "Page {{page}}",
+      "none": "None",
+      "never": "Never",
+      "noName": "No name",
+      "copy": "Copy",
+      "copied": "Copied to the clipboard.",
+      "copyFailed": "Copying failed. Select the text and copy it by hand.",
+      "idFormat": "Enter the id in the form 01234567-89ab-cdef-0123-456789abcdef.",
+      "errors": {
+        "reauthCancelled": "The change was not made, because the confirmation with a second factor was cancelled.",
+        "forbidden": "Your account may not make this change.",
+        "notFound": "The entry no longer exists. Reload the page.",
+        "validation": "The server did not accept the entry. Check the fields and try again.",
+        "ownAccount": "This action is not available for your own account.",
+        "userExists": "An account with this e-mail address exists already.",
+        "notInvitable": "This person cannot receive an invitation: the account is set up, disabled or signs in through a provider.",
+        "idpClaim": "This role comes from the identity provider and changes only there.",
+        "demoUser": "Demo accounts receive no roles.",
+        "alreadyRevoked": "This credential is revoked already.",
+        "identityVerificationRequired": "Confirm that the organization has verified the person's identity."
+      }
+    },
+    "packs": {
+      "title": "Content packs",
+      "intro": "Upload a content pack as a zip archive. The server checks the archive and validates the pack. The page of the import then shows the validation report, the alignment of the pack, a preview and the publication.",
+      "file": "Pack archive (zip)",
+      "fileHint": "The archive holds pack.yaml at its top level or in a single folder.",
+      "upload": "Upload",
+      "uploading": "Uploading and validating the pack…",
+      "errors": {
+        "noFile": "Choose a zip archive.",
+        "tooLarge": "The archive exceeds the upload limit of this instance.",
+        "unsupported": "The server accepts the pack only as a zip archive in a form upload.",
+        "rejected": "The archive was rejected before its extraction:",
+        "invalid": "The upload carried no archive. Choose the zip archive again."
+      }
+    },
+    "pack": {
+      "title": "Content pack",
+      "heading": "Content pack {{key}}, version {{version}}",
+      "back": "Back to the upload",
+      "loading": "Loading the import…",
+      "loadFailed": "The import could not be loaded.",
+      "notFound": "This import does not exist.",
+      "statusLabel": "Status",
+      "status": {
+        "validated": "Validated",
+        "failed": "Failed",
+        "published": "Published"
+      },
+      "uploadedAt": "Uploaded",
+      "publishedAt": "Published",
+      "preview": "Preview",
+      "entry": {
+        "line": "line {{line}}",
+        "noLine": "no line",
+        "check": "check {{check}}",
+        "module": "module {{module}}"
+      },
+      "report": {
+        "title": "Validation report",
+        "empty": "The validation reports no finding outside the alignment checks.",
+        "errors": "Errors ({{count}})",
+        "warnings": "Warnings ({{count}})"
+      },
+      "alignment": {
+        "title": "Alignment",
+        "description": "The alignment matrix lists per module, competence area and depth the objectives, the lessons that teach them, their evidence and the place that areas_elsewhere names.",
+        "caption": "Module {{module}}, mode {{mode}}",
+        "modes": {
+          "strict": "strict",
+          "warn": "warn"
+        },
+        "area": "Area",
+        "depth": "Depth",
+        "objectives": "Objectives",
+        "lessons": "Lessons",
+        "evidence": "Evidence",
+        "elsewhere": "Elsewhere",
+        "noMatrix": "This import holds no alignment matrix, because it stored no payload. The findings of the alignment checks follow.",
+        "errors": "Alignment errors ({{count}})",
+        "warnings": "Alignment warnings ({{count}})",
+        "none": "None."
+      },
+      "publish": {
+        "button": "Publish",
+        "reason": {
+          "published": "This import is already published.",
+          "failed": "The import failed validation and cannot be published.",
+          "alignment": "The alignment checks report errors. Correct the pack and upload it again."
+        },
+        "dialogTitle": "Publish {{key}}?",
+        "intro": "The publication changes the live program as follows.",
+        "diffLoading": "Loading the changes against the live program…",
+        "diffFailed": "The changes against the live program could not be loaded.",
+        "noChanges": "The publication changes no key of the live program.",
+        "added": "Added ({{count}})",
+        "changed": "Changed ({{count}})",
+        "archived": "Archived ({{count}})",
+        "fields": "fields: {{fields}}",
+        "kinds": {
+          "modules": "Modules",
+          "lessons": "Lessons",
+          "learning_objectives": "Learning objectives",
+          "items": "Items",
+          "rules": "Rules",
+          "assessments": "Assessments",
+          "qualifications": "Qualifications",
+          "formats": "Companion formats",
+          "sources": "Sources",
+          "segments": "Segments",
+          "glossary_terms": "Glossary terms"
+        },
+        "warnings": "Alignment warnings: {{count}}.",
+        "confirm": "Publish",
+        "publishing": "Publishing…",
+        "done": "The pack is published.",
+        "refused": "The publication was refused, because the alignment checks report errors on the stored pack. The import stays unpublished.",
+        "notPublishable": "The import cannot be published in its current status.",
+        "failed": "The publication failed. Try again."
+      }
+    },
+    "preview": {
+      "title": "Preview",
+      "label": "Preview of {{title}}, version {{version}}",
+      "text": "The player runs on the uploaded pack in your browser. Answers, exam attempts and completions stay on this page and create no record. Stations that read or record data on the platform, such as the self-assessment, the credential, the companion formats and the feedback, show no data in the preview.",
+      "back": "Back to the import",
+      "noPayload": "This import holds no pack to preview. Only a validated import can be previewed.",
+      "provenance": {
+        "title": "Provenance overview",
+        "description": "The number of blocks and items of the pack per provenance value.",
+        "value": "Provenance",
+        "blocks": "Blocks",
+        "items": "Items"
+      },
+      "handbook": "The handbook lists the rules of the published program and is not part of the preview."
+    },
+    "users": {
+      "title": "Users",
+      "intro": "Invite people, find an account by its e-mail address, and end sessions or reset the sign-in of a person who needs help.",
+      "invite": {
+        "title": "Invite a person",
+        "email": "E-mail address",
+        "displayName": "Display name",
+        "displayNameHint": "Optional. Without a name, the account shows the part of the address before the @.",
+        "submit": "Send invitation",
+        "sent": "The invitation is on its way. Its link is valid for 10 minutes.",
+        "emailInvalid": "Enter a valid e-mail address.",
+        "nameInvalid": "Enter a name of at most 160 characters.",
+        "localAccountsOff": "Local accounts are turned off on this instance. People receive their account at their first sign-in through the identity provider."
+      },
+      "lookup": {
+        "title": "Find a person",
+        "email": "E-mail address",
+        "hint": "Enter the exact address. Letter case does not matter.",
+        "submit": "Find",
+        "loading": "Searching …",
+        "notFound": "No account has this address.",
+        "result": "Search result"
+      },
+      "list": {
+        "title": "All users",
+        "description": "50 people per page, in the order in which their accounts were created.",
+        "loading": "The users are loading …",
+        "empty": "There are no users yet.",
+        "name": "Name",
+        "status": "Status",
+        "roles": "Roles",
+        "providers": "Linked providers",
+        "lastSignIn": "Last sign-in",
+        "actions": "Actions",
+        "you": "You",
+        "notEnrolled": "No second factor yet",
+        "pagination": "Pages of the user list"
+      },
+      "status": {
+        "active": "Active",
+        "disabled": "Disabled"
+      },
+      "actions": {
+        "resendInvitation": "Resend invitation",
+        "disable": "Disable",
+        "endSessions": "End sessions",
+        "resetFactors": "Reset second factors",
+        "resetCounters": "Reset failure counters"
+      },
+      "done": {
+        "invitationResent": "A new invitation to {{name}} is on its way.",
+        "disabled": "{{name}} is disabled, and every session of the person has ended.",
+        "sessionsEnded": "Every session of {{name}} has ended.",
+        "factorsResetInvited": "The second factors of {{name}} are reset. A new invitation is on its way.",
+        "factorsReset": "The second factors of {{name}} are reset. The person sets up a new second factor at the next sign-in through the identity provider.",
+        "countersReset": "The failure counters of {{name}} are reset."
+      },
+      "disableDialog": {
+        "title": "Disable this account?",
+        "text": "{{name}} can no longer sign in, and every session of the person ends at once."
+      },
+      "endSessionsDialog": {
+        "title": "End the sessions?",
+        "text": "Every session of {{name}} ends at once. The person signs in again on every device.",
+        "own": "This is your own account: your current session ends as well, and you sign in again."
+      },
+      "resetDialog": {
+        "title": "Reset the second factors?",
+        "text": "Every passkey, authenticator app and recovery code of {{name}} is removed, and every session of the person ends.",
+        "invitation": "A local account receives a new invitation, with which the person sets up a new sign-in. A person who signs in through an identity provider sets up a new second factor at the next sign-in.",
+        "verified": "The organization has verified this person's identity",
+        "confirm": "Reset second factors"
+      },
+      "endAll": {
+        "title": "All sessions",
+        "text": "Ends the session of every person at once, for example after a security incident.",
+        "button": "End all sessions",
+        "dialogTitle": "End every session?",
+        "dialogText": "Every person is signed out at once. Your own session ends as well, and you sign in again afterwards.",
+        "confirm": "End all sessions"
+      },
+      "revoke": {
+        "title": "Revoke a credential",
+        "text": "The holder finds the id of a credential in the address of its credential page, and a webhook event carries it as credential_id.",
+        "id": "Credential id",
+        "submit": "Revoke",
+        "dialogTitle": "Revoke this credential?",
+        "dialogText": "The credential {{id}} receives the status revoked at once.",
+        "confirm": "Revoke credential",
+        "done": "The credential of the qualification {{code}} is revoked.",
+        "notFound": "No credential has this id."
+      }
+    },
+    "policies": {
+      "title": "Policies",
+      "intro": "The policies of the organization with their numbered versions. A draft can change until it is published. The published version with the highest number is the current version, which every signed-in person reads and acknowledges.",
+      "list": {
+        "title": "All policies",
+        "loading": "Loading the policies…",
+        "loadFailed": "The policies could not be loaded. Please try again later.",
+        "empty": "No policy exists yet. Create the first one below.",
+        "columns": {
+          "title": "Title",
+          "key": "Key",
+          "actions": "Actions"
+        },
+        "open": "Open"
+      },
+      "fields": {
+        "title": "Title",
+        "key": "Key",
+        "keyHint": "Lower-case letters, digits and hyphens. Qualification requirements name the policy by its key."
+      },
+      "create": {
+        "title": "New policy",
+        "submit": "Create the policy",
+        "created": "The policy {{title}} is created."
+      },
+      "edit": {
+        "title": "Key and title",
+        "submit": "Save key and title",
+        "saved": "Key and title are saved."
+      },
+      "delete": {
+        "button": "Delete the policy",
+        "title": "Delete the policy?",
+        "text": "{{title}} is deleted together with its drafts. A policy with a published version cannot be deleted.",
+        "deleted": "The policy {{title}} is deleted."
+      },
+      "versions": {
+        "title": "Versions",
+        "loading": "Loading the versions…",
+        "loadFailed": "The versions could not be loaded. Please try again later.",
+        "empty": "This policy has no version yet.",
+        "columns": {
+          "number": "Version",
+          "state": "State",
+          "effectiveFrom": "In effect from",
+          "refresher": "Refresher",
+          "actions": "Actions"
+        },
+        "number": "Version {{number}}",
+        "published": "Published on {{date}}",
+        "draft": "Draft",
+        "superseded": "Superseded draft",
+        "supersededHint": "A version with a higher number is published, so this draft cannot be published.",
+        "refresherRequired": "Required",
+        "refresherNotRequired": "Not required",
+        "edit": "Edit",
+        "publish": "Publish",
+        "newDraft": "New draft"
+      },
+      "editor": {
+        "newTitle": "New draft",
+        "editTitle": "Draft of version {{number}}",
+        "effectiveFrom": "In effect from",
+        "body": "Text (Markdown)",
+        "bodyHint": "Headings start with #, list items with - or 1., and **two asterisks** mark bold text. The preview shows the text as people read it.",
+        "preview": "Preview",
+        "previewEmpty": "The preview appears here as you write.",
+        "save": "Save the draft",
+        "saving": "Saving…",
+        "cancel": "Cancel",
+        "saved": "The draft of version {{number}} is saved."
+      },
+      "publish": {
+        "title": "Publish version {{number}} of {{policy}}",
+        "text": "Version {{number}} becomes the current version of the policy, in effect from {{date}}. A published version cannot change.",
+        "requiresRefresher": "Requires a refresher",
+        "requiresRefresherHint": "Moves the credentials whose qualification requires this policy to the status Refresher due.",
+        "refreshDue_one": "With this option, {{count}} credential moves to Refresher due now.",
+        "refreshDue_other": "With this option, {{count}} credentials move to Refresher due now.",
+        "countLoading": "Counting the affected credentials…",
+        "countFailed": "The affected credentials could not be counted.",
+        "confirm": "Publish",
+        "publishing": "Publishing…",
+        "cancel": "Cancel",
+        "close": "Close",
+        "superseded": "This draft cannot be published. The policy has a published version with a higher number, so this draft would never become the current version.",
+        "published": "This version is already published and can no longer change.",
+        "done": "Version {{number}} is published."
+      },
+      "errors": {
+        "required": "Enter a value.",
+        "tooLong": "Use at most {{max}} characters.",
+        "keyFormat": "Use lower-case letters, digits and hyphens, starting with a letter or a digit.",
+        "keyTaken": "Another policy has this key.",
+        "keyInUse": "The key of a policy with a published version cannot change.",
+        "policyInUse": "This policy has a published version and cannot be deleted.",
+        "draftPublished": "This version is published and can no longer change.",
+        "dateRequired": "Enter the day from which the version is in effect.",
+        "bodyRequired": "Enter the text of the version.",
+        "rejected": "The values were not accepted. Check the fields and try again."
+      }
+    },
+    "approvedTools": {
+      "title": "Approved tools",
+      "intro": "The list that every signed-in person sees on the policies page. Sort the table by a column, edit a row in place, add a tool below the table or delete one.",
+      "tableTitle": "Tool list",
+      "loading": "Loading the approved tools…",
+      "loadFailed": "The approved tools could not be loaded. Please try again later.",
+      "empty": "The list of approved tools is empty. Add the first tool below.",
+      "columns": {
+        "position": "Position",
+        "name": "Name",
+        "vendor": "Vendor",
+        "status": "Status",
+        "conditions": "Conditions",
+        "reviewed_on": "Reviewed on",
+        "actions": "Actions"
+      },
+      "edit": "Edit",
+      "save": "Save",
+      "saving": "Saving…",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "saved": "The changes to {{name}} are saved.",
+      "deleteTitle": "Delete the tool?",
+      "deleteText": "{{name}} leaves the approved tool list, and the policies page no longer shows it.",
+      "deleted": "{{name}} is deleted.",
+      "add": {
+        "title": "Add a tool",
+        "submit": "Add the tool",
+        "added": "{{name}} is added."
+      },
+      "errors": {
+        "required": "Enter a value.",
+        "tooLong": "Use at most {{max}} characters.",
+        "nameTaken": "Another tool has this name.",
+        "position": "Enter a whole number from 0.",
+        "invalid": "This value was not accepted.",
+        "rejected": "The values were not accepted. Check the fields and try again."
+      }
+    },
+    "roles": {
+      "title": "Roles",
+      "intro": "Grant and remove roles. A role that an identity provider assigns changes only at that provider.",
+      "names": {
+        "learner": "Learner",
+        "facilitator": "Facilitator",
+        "author": "Author",
+        "registrar": "Registrar",
+        "analyst": "Analyst",
+        "admin": "Administrator"
+      },
+      "holders": {
+        "title": "People with roles",
+        "description": "Everyone who holds a role beyond learner.",
+        "loading": "The people with roles are loading …",
+        "empty": "Nobody holds a role beyond learner yet.",
+        "person": "Person",
+        "grants": "Roles",
+        "add": "Add a role"
+      },
+      "source": {
+        "manual": "granted here",
+        "idpClaim": "from {{provider}}",
+        "idpClaimUnknown": "from the identity provider"
+      },
+      "role": "Role for {{name}}",
+      "grant": "Grant",
+      "remove": "Remove",
+      "grantLabel": "Grant the chosen role to {{name}}",
+      "removeLabel": "Remove the role {{role}} of {{name}}",
+      "allGranted": "Holds every role that can be granted here.",
+      "grantDialog": {
+        "title": "Grant this role?",
+        "text": "{{name}} receives the role {{role}}."
+      },
+      "removeDialog": {
+        "title": "Remove this role?",
+        "text": "{{name}} loses the role {{role}}."
+      },
+      "endsSessions": "The change ends every session of the person, so that the roles apply from the next sign-in.",
+      "own": "This is your own account: you sign in again afterwards.",
+      "granted": "{{name}} holds the role {{role}}.",
+      "removed": "{{name}} no longer holds the role {{role}}."
+    },
+    "apiClients": {
+      "title": "API clients",
+      "intro": "Machine clients read credentials through the integration API with a bearer token.",
+      "create": {
+        "title": "Create an API client",
+        "name": "Name",
+        "nameHint": "For example the name of the system that reads the credentials.",
+        "nameInvalid": "Enter a name of 1 to 100 characters.",
+        "scopes": "Scopes",
+        "scopeRequired": "Choose at least one scope.",
+        "submit": "Create client"
+      },
+      "scopeNames": {
+        "credentialsRead": "credentials:read, read credentials"
+      },
+      "token": {
+        "title": "The token of {{name}}",
+        "text": "Copy the token now. It appears only this once, because the server stores only a hash of it.",
+        "label": "Token",
+        "copy": "Copy token",
+        "done": "Done"
+      },
+      "list": {
+        "title": "Clients",
+        "loading": "The API clients are loading …",
+        "empty": "There are no API clients yet.",
+        "name": "Name",
+        "scopes": "Scopes",
+        "created": "Created",
+        "lastUsed": "Last used",
+        "actions": "Actions"
+      },
+      "delete": "Delete",
+      "deleteDialog": {
+        "title": "Delete this API client?",
+        "text": "The token of {{name}} stops working at once."
+      },
+      "deleted": "The API client {{name}} is deleted."
+    },
+    "webhooks": {
+      "title": "Webhooks",
+      "intro": "A webhook sends credential events to a receiver. The server signs every request with the secret in the named environment variable.",
+      "create": {
+        "title": "Add a webhook",
+        "url": "Receiver URL",
+        "urlHint": "An https address of a host that the operator admits in WEBHOOK_ALLOWED_HOSTS.",
+        "events": "Events",
+        "secretEnv": "Secret variable",
+        "secretEnvHint": "The name of the environment variable on the server that holds the signing secret, such as WEBHOOK_SECRET_RECEIVER.",
+        "active": "Active",
+        "submit": "Add webhook"
+      },
+      "events": {
+        "issued": "Credential issued",
+        "refreshDue": "Refresher due",
+        "expired": "Credential expired",
+        "revoked": "Credential revoked"
+      },
+      "errors": {
+        "urlInvalid": "Enter a complete address without user name or password, such as https://hooks.example.org/credentials.",
+        "urlHttps": "The address must start with https://.",
+        "urlTooLong": "The address may have at most 255 characters.",
+        "hostNotAllowed": "The server does not admit this host. The operator lists the admitted hosts in WEBHOOK_ALLOWED_HOSTS.",
+        "eventsRequired": "Choose at least one event.",
+        "secretPrefix": "The name starts with WEBHOOK_SECRET_ and continues with capital letters, digits or underscores.",
+        "secretUnset": "The server has no value for this variable. Set it in the environment of the server first."
+      },
+      "created": "The webhook is added.",
+      "list": {
+        "title": "Receivers",
+        "loading": "The webhooks are loading …",
+        "empty": "There are no webhooks yet.",
+        "url": "URL",
+        "events": "Events",
+        "secretEnv": "Secret variable",
+        "status": "Status",
+        "actions": "Actions"
+      },
+      "state": {
+        "active": "Active",
+        "inactive": "Inactive"
+      },
+      "delete": "Delete",
+      "deleteDialog": {
+        "title": "Delete this webhook?",
+        "text": "{{url}} receives no more events."
+      },
+      "deleted": "The webhook is deleted."
+    },
+    "audit": {
+      "title": "Audit log",
+      "intro": "Every change in the administration, the newest first, 50 events per page.",
+      "filters": {
+        "title": "Filters",
+        "action": "Action",
+        "actionHint": "The exact action, such as user.disabled.",
+        "actor": "Actor id",
+        "actorHint": "The id of a person. Choose a name in the table to fill it in.",
+        "apply": "Apply filters",
+        "clear": "Clear filters"
+      },
+      "table": {
+        "title": "Events",
+        "loading": "The events are loading …",
+        "empty": "No event matches the filters.",
+        "time": "Time",
+        "actor": "Actor",
+        "action": "Action",
+        "subject": "Subject"
+      },
+      "system": "System",
+      "unknownActor": "Unknown person",
+      "filterActor": "Show only the events of {{name}}",
+      "pagination": "Pages of the audit log"
+    },
+    "attendance": {
+      "title": "Attendance",
+      "intro": "Record who attended a session of a companion format held outside the platform. Each person receives an attendance certificate, which counts as evidence for the objectives that name the format.",
+      "session": {
+        "title": "Session",
+        "program": "Program",
+        "programsLoading": "Loading the programs…",
+        "programsFailed": "The programs could not be loaded. Please try again later.",
+        "noPrograms": "No program is published.",
+        "format": "Format",
+        "chooseFormat": "Choose a format",
+        "formatsLoading": "Loading the formats…",
+        "formatsFailed": "The formats could not be loaded. Please try again later.",
+        "noFormats": "This program has no format whose attendance counts as evidence.",
+        "date": "Day of the session",
+        "dateHint": "A day from {{earliest}} to today."
+      },
+      "people": {
+        "title": "People",
+        "email": "E-mail address",
+        "emailHint": "The exact address of the person's account. Each address adds one person to the list.",
+        "add": "Add the person",
+        "adding": "Looking up…",
+        "added": "{{name}} is added to the list.",
+        "removed": "{{name}} is removed from the list.",
+        "remove": "Remove",
+        "emailRequired": "Enter an e-mail address.",
+        "invalidEmail": "Enter a valid e-mail address.",
+        "notFound": "No active account has this address.",
+        "duplicate": "{{name}} is already on the list.",
+        "full": "One record holds at most {{max}} people. Record this list first.",
+        "listTitle_one": "{{count}} person on the list",
+        "listTitle_other": "{{count}} people on the list",
+        "empty": "No person is on the list yet."
+      },
+      "submit": "Record attendance",
+      "submitting": "Recording…",
+      "errors": {
+        "check": "Check the marked fields.",
+        "formatRequired": "Choose a format.",
+        "dateRequired": "Enter the day of the session.",
+        "future": "The day of the session cannot be after today.",
+        "past": "Attendance records start on {{earliest}}. Enter a later day.",
+        "peopleRequired": "Add at least one person.",
+        "formatGone": "The format is no longer available. Choose another format.",
+        "rejected": "The attendance was not accepted. Check the fields and try again."
+      },
+      "results": {
+        "title": "Result",
+        "recorded_one": "The attendance of {{count}} person is processed.",
+        "recorded_other": "The attendance of {{count}} people is processed.",
+        "person": "Person",
+        "result": "Result",
+        "outcomes": {
+          "issued": "Certificate issued",
+          "exists": "Already recorded for this format and day",
+          "not_found": "No active account, nothing recorded"
+        }
+      }
+    },
+    "registrar": {
+      "title": "Credentials of a qualification",
+      "intro": "Enter the code of a qualification to list each of its credentials with holder, org unit, status and dates. A person who holds the code in two programs appears once per credential.",
+      "codeLabel": "Qualification code",
+      "codeHint": "Lower-case letters, digits and hyphens, as the content pack names the qualification.",
+      "codeInvalid": "Enter the code in lower-case letters, digits and hyphens.",
+      "show": "Show credentials",
+      "loading": "Loading the credentials…",
+      "loadFailed": "The credentials could not be loaded. Please try again later.",
+      "disabledTitle": "The credential list is turned off",
+      "disabled": "The credential list is turned off on this instance.",
+      "tableTitle": "Credentials of {{code}}",
+      "count_one": "{{count}} credential",
+      "count_other": "{{count}} credentials",
+      "empty": "No credential of the qualification {{code}} exists.",
+      "name": "Holder",
+      "orgUnit": "Org unit",
+      "status": "Status",
+      "issuedAt": "Issued on",
+      "validUntil": "Valid until",
+      "noDisplayName": "No display name recorded",
+      "noOrgUnit": "No org unit recorded",
+      "noExpiry": "No expiry date"
     }
   }
 }

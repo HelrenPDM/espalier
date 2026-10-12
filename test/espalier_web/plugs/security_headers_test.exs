@@ -64,7 +64,27 @@ defmodule EspalierWeb.Plugs.SecurityHeadersTest do
     refute get_resp_header(get(conn, "/health"), "cache-control") == ["no-store"]
   end
 
-  test "the plug sets no-store under each prefix of task 0013 and not on /health" do
+  # Task 0015 step 1 (ASVS 14.2.2 and 14.3.2): the admin area, whose
+  # answers carry API tokens once and pack payloads with answer keys. The
+  # answers here are refusals; the route test of task 0015 checks the
+  # answers of signed-in admins and authors.
+  test "answers under /api/admin are not stored", %{conn: conn} do
+    id = Ecto.UUID.generate()
+
+    for {method, path} <- [
+          {"GET", "/api/admin/users"},
+          {"POST", "/api/admin/user-lookups"},
+          {"POST", "/api/admin/api-clients"},
+          {"GET", "/api/admin/packs/#{id}"},
+          {"POST", "/api/admin/packs"},
+          {"DELETE", "/api/admin/sessions"}
+        ] do
+      response = dispatch(conn, @endpoint, method, path, nil)
+      assert get_resp_header(response, "cache-control") == ["no-store"], "#{method} #{path}"
+    end
+  end
+
+  test "the plug sets no-store under each prefix of tasks 0013 and 0015 and not on /health" do
     no_store? = fn path ->
       conn =
         :get
@@ -83,7 +103,11 @@ defmodule EspalierWeb.Plugs.SecurityHeadersTest do
           "/api/integration/credential-lookups",
           "/api/integration/any",
           "/api/formats/#{Ecto.UUID.generate()}/attendance",
-          "/api/policies"
+          "/api/policies",
+          # Task 0015.
+          "/api/admin/users",
+          "/api/admin/packs/#{Ecto.UUID.generate()}",
+          "/api/admin/any"
         ] do
       assert no_store?.(path), path
     end

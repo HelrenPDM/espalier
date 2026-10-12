@@ -6,9 +6,9 @@ defmodule EspalierWeb.DevE2EController do
   `dev_routes: true`, which `config/dev.exs` alone sets. A release contains
   neither the module nor its routes.
 
-  `invitations/2` is the one place where a request reaches
-  `Espalier.Accounts.Scope.system/0`; task 0004 keeps that scope away from
-  every other request.
+  `invitations/2` and `role_grants/2` (task 0015) are the places where a
+  request reaches `Espalier.Accounts.Scope.system/0`; task 0004 keeps that
+  scope away from every other request.
   """
   use EspalierWeb, :controller
 
@@ -74,6 +74,55 @@ defmodule EspalierWeb.DevE2EController do
       _other ->
         conn |> put_status(:unauthorized) |> json(%{error: "unauthenticated"})
     end
+  end
+
+  # The roles of POST /api/dev/e2e/role-grants, mapped without creating atoms.
+  @roles %{
+    "facilitator" => :facilitator,
+    "author" => :author,
+    "registrar" => :registrar,
+    "analyst" => :analyst,
+    "admin" => :admin
+  }
+
+  @doc """
+  Grants `role` to the user with `email` through `Accounts.grant_role/3`
+  with `Scope.system/0` (task 0015): 204, 404 for an unknown address. The
+  grant ends every session of the user.
+  """
+  def role_grants(conn, %{"email" => email, "role" => role})
+      when is_binary(email) and is_map_key(@roles, role) do
+    case Accounts.get_user_by_email(email) do
+      %User{} = user ->
+        {:ok, _grant} = Accounts.grant_role(Scope.system(), user, Map.fetch!(@roles, role))
+        send_resp(conn, :no_content, "")
+
+      nil ->
+        conn |> put_status(:not_found) |> json(%{error: "not_found"})
+    end
+  end
+
+  def role_grants(conn, _params), do: bad_request(conn)
+
+  @doc """
+  Zips `content/demo/` in memory with `:zip.create/3` (task 0015), the
+  archive that the pack upload of `packs.spec.ts` sends.
+  """
+  def demo_pack(conn, _params) do
+    root = Path.expand("content/demo", File.cwd!())
+
+    files =
+      root
+      |> Path.join("**")
+      |> Path.wildcard()
+      |> Enum.filter(&File.regular?/1)
+      |> Enum.map(&String.to_charlist(Path.relative_to(&1, root)))
+
+    {:ok, {_name, zip}} = :zip.create(~c"demo-pack.zip", files, [:memory, cwd: ~c"#{root}"])
+
+    conn
+    |> put_resp_content_type("application/zip")
+    |> send_resp(:ok, zip)
   end
 
   defp bad_request(conn), do: conn |> put_status(:bad_request) |> json(%{error: "bad_request"})

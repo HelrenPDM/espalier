@@ -95,6 +95,69 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/packs/{id}/diff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Compare an import with the live program */
+        get: operations["EspalierWeb.Admin.PackController.diff"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/policies/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read a policy */
+        get: operations["EspalierWeb.Admin.PolicyController.show"];
+        /**
+         * Change a policy
+         * @description A policy with a published version keeps its key (409 `policy_in_use`).
+         */
+        put: operations["EspalierWeb.Admin.PolicyController.update"];
+        post?: never;
+        /**
+         * Delete a policy
+         * @description Deletes a policy together with its drafts. A policy with a published version answers 409 `policy_in_use`.
+         */
+        delete: operations["EspalierWeb.Admin.PolicyController.delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a policy
+         * @description A policy with a published version keeps its key (409 `policy_in_use`).
+         */
+        patch: operations["EspalierWeb.Admin.PolicyController.update (2)"];
+        trace?: never;
+    };
+    "/api/admin/users/{id}/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** End the sessions of a user */
+        delete: operations["EspalierWeb.Admin.UserAdminController.end_sessions"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/passkey/options": {
         parameters: {
             query?: never;
@@ -109,6 +172,24 @@ export interface paths {
          * @description Stores a single-use challenge for 300 seconds and answers the request options. `second_factor` needs the pending state of a first factor, `reauth` an `mfa` session, and `sign_in` local accounts.
          */
         post: operations["EspalierWeb.Auth.PasskeyAuthController.options"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/approved-tools": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the approved tools */
+        get: operations["EspalierWeb.Admin.ApprovedToolController.index"];
+        put?: never;
+        /** Add an approved tool */
+        post: operations["EspalierWeb.Admin.ApprovedToolController.create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -152,6 +233,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List audit events */
+        get: operations["EspalierWeb.Admin.AuditController.index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/assessments/{id}/attempts": {
         parameters: {
             query?: never;
@@ -163,6 +261,26 @@ export interface paths {
         put?: never;
         /** Submit an exam attempt */
         post: operations["EspalierWeb.AttemptController.create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/user-lookups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Find a user by e-mail address
+         * @description The address travels in the body, so no URL carries it. The route changes no state.
+         */
+        post: operations["EspalierWeb.Admin.UserAdminController.lookup"];
         delete?: never;
         options?: never;
         head?: never;
@@ -220,6 +338,26 @@ export interface paths {
          * @description A directory bind is a first factor only: an enrolled user enters the pending second-factor state, a user without a local factor an enrollment session. Every authentication failure answers 401 `invalid_credentials`.
          */
         post: operations["EspalierWeb.Auth.LdapController.create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/users/{id}/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Disable a user
+         * @description Sets the status `disabled` and deletes every token row of the user.
+         */
+        post: operations["EspalierWeb.Admin.UserAdminController.disable"];
         delete?: never;
         options?: never;
         head?: never;
@@ -343,6 +481,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/users/{id}/reset-failure-counters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reset the failure counters of a user */
+        post: operations["EspalierWeb.Admin.UserAdminController.reset_failure_counters"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/modules/{id}/completion": {
         parameters: {
             query?: never;
@@ -355,6 +510,23 @@ export interface paths {
         /** Complete a module */
         post: operations["EspalierWeb.ModuleCompletionController.create"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/api-clients/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete an API client */
+        delete: operations["EspalierWeb.Admin.ApiClientController.delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -397,6 +569,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/approved-tools/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read an approved tool */
+        get: operations["EspalierWeb.Admin.ApprovedToolController.show"];
+        /** Change an approved tool */
+        put: operations["EspalierWeb.Admin.ApprovedToolController.update"];
+        post?: never;
+        /** Delete an approved tool */
+        delete: operations["EspalierWeb.Admin.ApprovedToolController.delete"];
+        options?: never;
+        head?: never;
+        /** Change an approved tool */
+        patch: operations["EspalierWeb.Admin.ApprovedToolController.update (2)"];
+        trace?: never;
+    };
+    "/api/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the users */
+        get: operations["EspalierWeb.Admin.UserAdminController.index"];
+        put?: never;
+        /**
+         * Invite a local user
+         * @description Sends a single-use invitation link (10 minutes). With `LOCAL_ACCOUNTS=false` the route answers 404, because federated users are created at their first sign-in.
+         */
+        post: operations["EspalierWeb.Admin.UserAdminController.create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/providers": {
         parameters: {
             query?: never;
@@ -432,6 +645,66 @@ export interface paths {
          * @description Needs a second factor within the last 10 minutes.
          */
         delete: operations["EspalierWeb.Me.SessionController.delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/packs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload a content pack
+         * @description A zip archive of at most `PACK_UPLOAD_MAX_MB` (default 20) with at most 2,000 entries and declared sizes of at most five times that limit.
+         */
+        post: operations["EspalierWeb.Admin.PackController.create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/webhooks/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read a webhook */
+        get: operations["EspalierWeb.Admin.WebhookController.show"];
+        /** Change a webhook */
+        put: operations["EspalierWeb.Admin.WebhookController.update"];
+        post?: never;
+        /** Delete a webhook */
+        delete: operations["EspalierWeb.Admin.WebhookController.delete"];
+        options?: never;
+        head?: never;
+        /** Change a webhook */
+        patch: operations["EspalierWeb.Admin.WebhookController.update (2)"];
+        trace?: never;
+    };
+    "/api/admin/packs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read an import
+         * @description A `validated` import carries its payload with the answer keys.
+         */
+        get: operations["EspalierWeb.Admin.PackController.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -485,6 +758,27 @@ export interface paths {
         get: operations["EspalierWeb.ReportController.formats"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/role-grants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the users with role grants */
+        get: operations["EspalierWeb.Admin.RoleGrantController.index"];
+        put?: never;
+        /**
+         * Grant a role
+         * @description Ends every session of the user.
+         */
+        post: operations["EspalierWeb.Admin.RoleGrantController.create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -571,6 +865,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/users/{id}/invitation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send a new invitation */
+        post: operations["EspalierWeb.Admin.UserAdminController.resend_invitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/api-clients": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the API clients */
+        get: operations["EspalierWeb.Admin.ApiClientController.index"];
+        put?: never;
+        /**
+         * Create an API client
+         * @description The answer carries the token once.
+         */
+        post: operations["EspalierWeb.Admin.ApiClientController.create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/webhooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the webhooks */
+        get: operations["EspalierWeb.Admin.WebhookController.index"];
+        put?: never;
+        /** Create a webhook */
+        post: operations["EspalierWeb.Admin.WebhookController.create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/programs": {
         parameters: {
             query?: never;
@@ -623,6 +973,23 @@ export interface paths {
          * @description Needs a second factor within the last 10 minutes. The last remaining second factor and, with `ADMIN_REQUIRE_PASSKEY=true`, the last passkey of an admin stay.
          */
         delete: operations["EspalierWeb.Me.PasskeyController.delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/packs/{id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publish an import */
+        post: operations["EspalierWeb.Admin.PackController.publish"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -685,6 +1052,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/role-grants/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke a manual grant
+         * @description Ends every session of the user. An `idp_claim` grant answers 409 `idp_claim`.
+         */
+        delete: operations["EspalierWeb.Admin.RoleGrantController.delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/session": {
         parameters: {
             query?: never;
@@ -704,6 +1091,44 @@ export interface paths {
          * @description Answers 200 with `logout_url` for an OIDC session whose provider has an end-session endpoint on its allowed hosts, and 204 otherwise.
          */
         delete: operations["EspalierWeb.SessionController.delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/policies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the policies */
+        get: operations["EspalierWeb.Admin.PolicyController.index"];
+        put?: never;
+        /** Create a policy */
+        post: operations["EspalierWeb.Admin.PolicyController.create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * End the sessions of all users
+         * @description Also ends the session of the acting admin.
+         */
+        delete: operations["EspalierWeb.Admin.UserAdminController.end_all_sessions"];
         options?: never;
         head?: never;
         patch?: never;
@@ -740,6 +1165,24 @@ export interface paths {
         put?: never;
         /** Answer a practice item */
         post: operations["EspalierWeb.ItemResponseController.create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/policy-versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the versions of a policy */
+        get: operations["EspalierWeb.Admin.PolicyVersionController.index"];
+        put?: never;
+        /** Create a draft version */
+        post: operations["EspalierWeb.Admin.PolicyVersionController.create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -864,6 +1307,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/policy-versions/{id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish a draft
+         * @description Stores `requires_refresher` and publishes in one transaction. A published version answers 409 `published`, a draft below a published version 409 `superseded`.
+         */
+        post: operations["EspalierWeb.Admin.PolicyVersionController.publish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/users/{id}/reset-factors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset the second factors of a user
+         * @description Decision D11: after the organization verified the person's identity, every second factor, every session and the failure counters of the user are removed in one transaction, and a local account receives a new invitation.
+         */
+        post: operations["EspalierWeb.Admin.UserAdminController.reset_factors"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/enrollments": {
         parameters: {
             query?: never;
@@ -882,6 +1365,42 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/admin/credentials/{id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revoke a credential */
+        post: operations["EspalierWeb.Admin.CredentialAdminController.revoke"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/policy-versions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read a policy version */
+        get: operations["EspalierWeb.Admin.PolicyVersionController.show"];
+        /** Change a draft */
+        put: operations["EspalierWeb.Admin.PolicyVersionController.update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Change a draft */
+        patch: operations["EspalierWeb.Admin.PolicyVersionController.update (2)"];
         trace?: never;
     };
     "/api/me/password": {
@@ -1139,6 +1658,14 @@ export interface components {
             status: "accepted";
         };
         /**
+         * AdminFactorResetResult
+         * @description The result of a factor reset.
+         */
+        AdminFactorResetResult: {
+            /** @description True when a local account received a new invitation. */
+            invitation_sent: boolean;
+        };
+        /**
          * ProgramView
          * @description A published program.
          */
@@ -1197,6 +1724,17 @@ export interface components {
                 title: string;
             }[];
             title: string;
+        };
+        /**
+         * AdminPolicyVersionUpdateRequest
+         * @description Changed fields of a draft.
+         */
+        AdminPolicyVersionUpdateRequest: {
+            /** @description Markdown. */
+            body?: string;
+            /** Format: date */
+            effective_from?: string;
+            requires_refresher?: boolean;
         };
         /**
          * LdapCredentialsRequest
@@ -1263,6 +1801,43 @@ export interface components {
             format_votes: string[];
             /** @description True after the self-assessment of the program. */
             self_assessment: boolean;
+        };
+        /**
+         * AdminRoleGrant
+         * @description A role grant.
+         */
+        AdminRoleGrant: {
+            /** Format: uuid */
+            id: string;
+            provider_key: string | null;
+            /** @enum {string} */
+            role: "learner" | "facilitator" | "author" | "registrar" | "analyst" | "admin";
+            /** @enum {string} */
+            source: "idp_claim" | "manual";
+            /** Format: uuid */
+            user_id: string;
+        };
+        /**
+         * AdminPolicyVersionList
+         * @description The versions of a policy, the highest number first.
+         */
+        AdminPolicyVersionList: {
+            versions: {
+                /** @description Markdown. */
+                body: string;
+                /** Format: date */
+                effective_from: string;
+                /** Format: uuid */
+                id: string;
+                number: number;
+                /** Format: uuid */
+                policy_id: string;
+                policy_key: string;
+                policy_title: string;
+                /** Format: date-time */
+                published_at: string | null;
+                requires_refresher: boolean;
+            }[];
         };
         /**
          * CredentialLookupResult
@@ -1348,6 +1923,100 @@ export interface components {
             }[];
         };
         /**
+         * AdminPolicyVersionPublishRequest
+         * @description The publication of a draft.
+         */
+        AdminPolicyVersionPublishRequest: {
+            /** @description True moves the credentials whose qualification requires the policy to refresh_due. */
+            requires_refresher: boolean;
+        };
+        /**
+         * AdminPackDiff
+         * @description The difference between a pack and the live program.
+         */
+        AdminPackDiff: {
+            assessments: {
+                added: string[];
+                archived: string[];
+                changed: string[];
+            };
+            formats: {
+                added: string[];
+                archived: string[];
+                changed: string[];
+            };
+            glossary_terms: {
+                added: string[];
+                archived: string[];
+                changed: string[];
+            };
+            items: {
+                added: string[];
+                archived: string[];
+                changed: string[];
+            };
+            learning_objectives: {
+                added: string[];
+                archived: string[];
+                changed: string[];
+                /** @description The names of the differing fields per changed objective key. */
+                changed_fields: {
+                    [key: string]: string[];
+                };
+            };
+            lessons: {
+                added: string[];
+                archived: string[];
+                changed: string[];
+            };
+            modules: {
+                added: string[];
+                archived: string[];
+                changed: string[];
+            };
+            qualifications: {
+                added: string[];
+                archived: string[];
+                changed: string[];
+            };
+            rules: {
+                added: string[];
+                archived: string[];
+                changed: string[];
+            };
+            segments: {
+                added: string[];
+                archived: string[];
+                changed: string[];
+            };
+            sources: {
+                added: string[];
+                archived: string[];
+                changed: string[];
+            };
+        };
+        /**
+         * AdminFactorResetRequest
+         * @description The confirmation of the identity check.
+         */
+        AdminFactorResetRequest: {
+            /** @description Must be true: the organization has verified the person's identity. Without it the route answers 422 identity_verification_required. */
+            identity_verified?: boolean;
+        };
+        /**
+         * AdminAlignmentCheckFinding
+         * @description An alignment finding of a check at publish time.
+         */
+        AdminAlignmentCheckFinding: {
+            check: number;
+            /** @description objectives.yaml, items.yaml or module.yaml. */
+            file: string;
+            key: string;
+            message: string;
+            /** @description The module number. */
+            module: number;
+        };
+        /**
          * EmailChangeRequest
          * @description Requests an e-mail change; the link goes to the new address.
          */
@@ -1400,6 +2069,22 @@ export interface components {
              * @description The last day of validity, or `null`.
              */
             valid_until: string | null;
+        };
+        /**
+         * AdminArchiveRejected
+         * @description The upload was rejected.
+         */
+        AdminArchiveRejected: {
+            /** @enum {string} */
+            error: "archive_rejected" | "validation_failed";
+            /** @description For `validation_failed`: the error codes per member. */
+            fields?: {
+                [key: string]: string[];
+            };
+            report?: {
+                errors: components["schemas"]["AdminReportEntry"][];
+                warnings: components["schemas"]["AdminReportEntry"][];
+            };
         };
         /**
          * PasskeyRegistrationRequest
@@ -1533,6 +2218,68 @@ export interface components {
             path: "short" | "full" | null;
         };
         /**
+         * AdminAuditEventList
+         * @description One page of audit events, newest first.
+         */
+        AdminAuditEventList: {
+            events: {
+                action: string;
+                actor_display_name: string | null;
+                /** Format: uuid */
+                actor_id: string | null;
+                /** Format: date-time */
+                at: string;
+                /** @description Role names, keys and counts. */
+                details: Record<string, never>;
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                subject_id: string | null;
+                subject_type: string | null;
+            }[];
+            page: number;
+            per_page: number;
+        };
+        /**
+         * AdminApprovedToolList
+         * @description The approved tool list, ordered by position and name.
+         */
+        AdminApprovedToolList: {
+            data: {
+                conditions: string | null;
+                /** Format: uuid */
+                id: string;
+                name: string;
+                position: number;
+                /** Format: date */
+                reviewed_on: string | null;
+                /** @enum {string} */
+                status: "approved" | "restricted" | "not_approved";
+                vendor: string;
+            }[];
+        };
+        /**
+         * AdminPolicyVersion
+         * @description A policy version.
+         */
+        AdminPolicyVersion: {
+            /** @description Markdown. */
+            body: string;
+            /** Format: date */
+            effective_from: string;
+            /** Format: uuid */
+            id: string;
+            number: number;
+            /** Format: uuid */
+            policy_id: string;
+            policy_key: string;
+            policy_title: string;
+            /** Format: date-time */
+            published_at: string | null;
+            refresh_due_count: number;
+            requires_refresher: boolean;
+        };
+        /**
          * AttendanceRequest
          * @description The attendance of a session of a format.
          */
@@ -1544,6 +2291,20 @@ export interface components {
             held_on: string;
             /** @description The users who attended. */
             user_ids: string[];
+        };
+        /**
+         * AdminWebhookRequest
+         * @description A new webhook.
+         */
+        AdminWebhookRequest: {
+            webhook: {
+                active?: boolean;
+                events: ("credential.issued" | "credential.refresh_due" | "credential.expired" | "credential.revoked")[];
+                /** @description The environment variable that holds the signing secret. */
+                secret_env: string;
+                /** @description An https URL of a host in WEBHOOK_ALLOWED_HOSTS. */
+                url: string;
+            };
         };
         /**
          * PasskeyAssertion
@@ -1632,6 +2393,22 @@ export interface components {
             session?: components["schemas"]["SessionPayload"];
         };
         /**
+         * AdminPolicyVersionRequest
+         * @description A new draft version.
+         */
+        AdminPolicyVersionRequest: {
+            /** @description Markdown. */
+            body: string;
+            /** Format: date */
+            effective_from: string;
+            /**
+             * Format: uuid
+             * @description The policy of the draft.
+             */
+            policy_id: string;
+            requires_refresher?: boolean;
+        };
+        /**
          * TotpEnrollment
          * @description A TOTP secret awaiting its first code.
          */
@@ -1641,6 +2418,24 @@ export interface components {
             qr_svg_data_url: string;
             /** @description The secret in base32 without padding. */
             secret_base32: string;
+        };
+        /**
+         * AdminApprovedTool
+         * @description An entry of the approved tool list.
+         */
+        AdminApprovedTool: {
+            data: {
+                conditions: string | null;
+                /** Format: uuid */
+                id: string;
+                name: string;
+                position: number;
+                /** Format: date */
+                reviewed_on: string | null;
+                /** @enum {string} */
+                status: "approved" | "restricted" | "not_approved";
+                vendor: string;
+            };
         };
         /**
          * SecuritySummary
@@ -1783,6 +2578,37 @@ export interface components {
             totp?: string;
         };
         /**
+         * AdminPackImport
+         * @description A content pack import.
+         */
+        AdminPackImport: {
+            alignment: {
+                errors: components["schemas"]["AdminAlignmentFinding"][];
+                matrix: components["schemas"]["AdminAlignmentMatrixRow"][] | null;
+                /** @enum {string|null} */
+                mode: "strict" | "warn" | null;
+                warnings: components["schemas"]["AdminAlignmentFinding"][];
+            };
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            inserted_at: string;
+            pack_key: string | null;
+            pack_version: string | null;
+            /** @description The normalized pack of a validated import. */
+            payload: {
+                [key: string]: unknown;
+            } | null;
+            /** Format: date-time */
+            published_at: string | null;
+            report: {
+                errors: components["schemas"]["AdminReportEntry"][];
+                warnings: components["schemas"]["AdminReportEntry"][];
+            };
+            /** @enum {string} */
+            status: "validated" | "failed" | "published";
+        };
+        /**
          * FactorChange
          * @description The factor was removed.
          */
@@ -1915,6 +2741,16 @@ export interface components {
             }[];
         };
         /**
+         * AdminUserList
+         * @description One page of users, ordered by creation.
+         */
+        AdminUserList: {
+            page: number;
+            per_page: number;
+            total: number;
+            users: components["schemas"]["AdminUser"][];
+        };
+        /**
          * AcknowledgementView
          * @description The acknowledgement of a policy version by the signed-in user.
          */
@@ -1936,6 +2772,16 @@ export interface components {
             path: "short" | "full";
             /** @description The slug of a published program. */
             program_slug: string;
+        };
+        /**
+         * AdminRoleGrantRequest
+         * @description A manual role grant.
+         */
+        AdminRoleGrantRequest: {
+            /** @enum {string} */
+            role: "facilitator" | "author" | "registrar" | "analyst" | "admin";
+            /** Format: uuid */
+            user_id: string;
         };
         /**
          * ModuleCompletionView
@@ -2151,6 +2997,22 @@ export interface components {
             }[];
         };
         /**
+         * AdminApprovedToolRequest
+         * @description A new entry of the approved tool list.
+         */
+        AdminApprovedToolRequest: {
+            approved_tool: {
+                conditions?: string | null;
+                name: string;
+                position: number;
+                /** Format: date */
+                reviewed_on?: string | null;
+                /** @enum {string} */
+                status: "approved" | "restricted" | "not_approved";
+                vendor: string;
+            };
+        };
+        /**
          * PasskeyView
          * @description A registered passkey.
          */
@@ -2175,6 +3037,15 @@ export interface components {
         InvitationRequest: {
             /** @description The e-mail address to invite. */
             email: string;
+        };
+        /**
+         * AdminAlignmentErrors
+         * @description The publish was refused.
+         */
+        AdminAlignmentErrors: {
+            /** @enum {string} */
+            error: "not_publishable" | "alignment_errors";
+            findings?: components["schemas"]["AdminAlignmentCheckFinding"][];
         };
         /**
          * ObjectiveView
@@ -2234,6 +3105,24 @@ export interface components {
             logout_url: string;
         };
         /**
+         * AdminAlignmentMatrixRow
+         * @description A row of the alignment matrix.
+         */
+        AdminAlignmentMatrixRow: {
+            /** @enum {string} */
+            area: "subject" | "method" | "self" | "social";
+            /** @enum {string} */
+            depth: "know" | "apply" | "judge";
+            /** @description The place of areas_elsewhere. */
+            elsewhere: string | null;
+            /** @description Entries item:<key> and format:<key>. */
+            evidence: string[];
+            lessons: string[];
+            /** @description The module number. */
+            module: number;
+            objectives: string[];
+        };
+        /**
          * EnrollmentView
          * @description The enrollment of the signed-in user.
          */
@@ -2268,6 +3157,36 @@ export interface components {
             segment_key: string;
         };
         /**
+         * AdminApprovedToolUpdateRequest
+         * @description Changed fields of an approved tool.
+         */
+        AdminApprovedToolUpdateRequest: {
+            approved_tool: {
+                conditions?: string | null;
+                name?: string;
+                position?: number;
+                /** Format: date */
+                reviewed_on?: string | null;
+                /** @enum {string} */
+                status?: "approved" | "restricted" | "not_approved";
+                vendor?: string;
+            };
+        };
+        /**
+         * AdminWebhook
+         * @description A webhook.
+         */
+        AdminWebhook: {
+            data: {
+                active: boolean;
+                events: string[];
+                /** Format: uuid */
+                id: string;
+                secret_env: string;
+                url: string;
+            };
+        };
+        /**
          * EnrollmentPathRequest
          * @description Sets the path by the learner's choice.
          */
@@ -2286,6 +3205,21 @@ export interface components {
             key: string;
             /** @enum {string} */
             status: "evidenced" | "open";
+        };
+        /**
+         * AdminAlignmentFinding
+         * @description An alignment finding with file and line.
+         */
+        AdminAlignmentFinding: {
+            check: number;
+            /** @description The path in the pack. */
+            file: string;
+            /** @description The objective key, the item key or the area. */
+            key: string;
+            line: number;
+            message: string;
+            /** @description The module number. */
+            module: number;
         };
         /**
          * PasskeyCreationOptions
@@ -2433,6 +3367,11 @@ export interface components {
                 user_id: string;
             }[];
         };
+        /** AdminPackUpload */
+        AdminPackUpload: {
+            /** Format: binary */
+            file: string;
+        };
         /**
          * FinishRequest
          * @description Ends an OIDC flow same-origin.
@@ -2442,12 +3381,33 @@ export interface components {
             ticket: string;
         };
         /**
+         * AdminGrantHolderList
+         * @description The users with a grant beyond learner.
+         */
+        AdminGrantHolderList: {
+            users: components["schemas"]["AdminUser"][];
+        };
+        /**
          * RecoveryCodeList
          * @description New recovery codes.
          */
         RecoveryCodeList: {
             /** @description Shown once: ten new codes; every earlier code stops working. */
             recovery_codes: string[];
+        };
+        /**
+         * AdminReportEntry
+         * @description A report entry.
+         */
+        AdminReportEntry: {
+            check?: number;
+            file: string;
+            key?: string;
+            line: number | null;
+            message: string;
+            module?: number;
+            /** @description The number of entries a closing entry stands for. */
+            omitted?: number;
         };
         /**
          * InsightRecorded
@@ -2620,6 +3580,18 @@ export interface components {
             title: string;
         };
         /**
+         * AdminPolicy
+         * @description A policy.
+         */
+        AdminPolicy: {
+            data: {
+                /** Format: uuid */
+                id: string;
+                key: string;
+                title: string;
+            };
+        };
+        /**
          * PasswordSignInRequest
          * @description A password sign-in; it yields the pending second-factor state.
          */
@@ -2667,6 +3639,20 @@ export interface components {
             suppressed: true;
         };
         /**
+         * AdminWebhookUpdateRequest
+         * @description Changed fields of a webhook.
+         */
+        AdminWebhookUpdateRequest: {
+            webhook: {
+                active?: boolean;
+                events?: ("credential.issued" | "credential.refresh_due" | "credential.expired" | "credential.revoked")[];
+                /** @description The environment variable that holds the signing secret. */
+                secret_env?: string;
+                /** @description An https URL of a host in WEBHOOK_ALLOWED_HOSTS. */
+                url?: string;
+            };
+        };
+        /**
          * DemoSignInRequest
          * @description A demo sign-in with `AUTH_DEMO=true`.
          */
@@ -2703,6 +3689,83 @@ export interface components {
             };
         };
         /**
+         * AdminPolicyRequest
+         * @description A new policy.
+         */
+        AdminPolicyRequest: {
+            policy: {
+                /** @description The key that qualification requirements name. */
+                key: string;
+                title: string;
+            };
+        };
+        /**
+         * AdminUser
+         * @description A user with roles, grants and linked providers.
+         */
+        AdminUser: {
+            display_name: string | null;
+            /** @description True when the user holds a passkey or a confirmed TOTP factor. */
+            enrolled: boolean;
+            grants: {
+                /** Format: uuid */
+                id: string;
+                provider_key: string | null;
+                /** @enum {string} */
+                role: "learner" | "facilitator" | "author" | "registrar" | "analyst" | "admin";
+                /** @enum {string} */
+                source: "idp_claim" | "manual";
+                /** Format: uuid */
+                user_id: string;
+            }[];
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            last_login_at: string | null;
+            /** @description The provider keys of the external identities; no subject. */
+            provider_keys: string[];
+            roles: ("learner" | "facilitator" | "author" | "registrar" | "analyst" | "admin")[];
+            /** @enum {string} */
+            status: "active" | "disabled";
+        };
+        /**
+         * AdminPolicyUpdateRequest
+         * @description Changed fields of a policy.
+         */
+        AdminPolicyUpdateRequest: {
+            policy: {
+                /** @description The key that qualification requirements name. */
+                key?: string;
+                title?: string;
+            };
+        };
+        /**
+         * AdminApiClientCreated
+         * @description A new machine client with its token.
+         */
+        AdminApiClientCreated: {
+            client: {
+                /** Format: uuid */
+                id: string;
+                /** Format: date-time */
+                inserted_at: string;
+                /** Format: date-time */
+                last_used_at: string | null;
+                name: string;
+                scopes: "credentials:read"[];
+            };
+            /** @description The bearer token, shown once. */
+            token: string;
+        };
+        /**
+         * AdminUserInviteRequest
+         * @description An invitation of a new local user.
+         */
+        AdminUserInviteRequest: {
+            display_name?: string;
+            email: string;
+        };
+        /**
          * AssessmentsOpenError
          * @description The open exams of the module.
          */
@@ -2724,6 +3787,39 @@ export interface components {
         CredentialList: {
             /** @description The credentials, the newest first. */
             credentials: components["schemas"]["CredentialView"][];
+        };
+        /**
+         * AdminWebhookList
+         * @description The webhooks, ordered by URL.
+         */
+        AdminWebhookList: {
+            data: {
+                active: boolean;
+                events: string[];
+                /** Format: uuid */
+                id: string;
+                secret_env: string;
+                url: string;
+            }[];
+        };
+        /**
+         * AdminRevokedCredential
+         * @description A revoked credential.
+         */
+        AdminRevokedCredential: {
+            /** Format: uuid */
+            id: string;
+            qualification_code: string;
+            /** @enum {string} */
+            status: "revoked";
+        };
+        /**
+         * AdminApiClientRequest
+         * @description A new machine client.
+         */
+        AdminApiClientRequest: {
+            name: string;
+            scopes: "credentials:read"[];
         };
         /**
          * AttemptResult
@@ -2794,6 +3890,22 @@ export interface components {
             }[];
         };
         /**
+         * AdminApiClientList
+         * @description The machine clients, ordered by name.
+         */
+        AdminApiClientList: {
+            clients: {
+                /** Format: uuid */
+                id: string;
+                /** Format: date-time */
+                inserted_at: string;
+                /** Format: date-time */
+                last_used_at: string | null;
+                name: string;
+                scopes: "credentials:read"[];
+            }[];
+        };
+        /**
          * RecoveryStartRequest
          * @description Sends a recovery link.
          */
@@ -2832,6 +3944,18 @@ export interface components {
             timeout: number;
             /** @enum {string} */
             userVerification: "required";
+        };
+        /**
+         * AdminPolicyList
+         * @description The policies, ordered by key.
+         */
+        AdminPolicyList: {
+            data: {
+                /** Format: uuid */
+                id: string;
+                key: string;
+                title: string;
+            }[];
         };
     };
     responses: never;
@@ -3121,6 +4245,402 @@ export interface operations {
             };
         };
     };
+    "EspalierWeb.Admin.PackController.diff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The import id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The diff */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPackDiff"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_publishable` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.PolicyController.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The policy id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The policy */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPolicy"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.PolicyController.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The policy id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description The changed fields */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminPolicyUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description The policy */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPolicy"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `policy_in_use` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.PolicyController.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The policy id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The policy is deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `policy_in_use` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.PolicyController.update (2)": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The policy id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description The changed fields */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminPolicyUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description The policy */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPolicy"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `policy_in_use` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.UserAdminController.end_sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The user id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The sessions are ended */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     "EspalierWeb.Auth.PasskeyAuthController.options": {
         parameters: {
             query?: never;
@@ -3185,6 +4705,96 @@ export interface operations {
                 headers: {
                     /** @description Seconds until the bucket admits the next request. */
                     "retry-after"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.ApprovedToolController.index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The approved tool list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminApprovedToolList"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.ApprovedToolController.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The tool */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminApprovedToolRequest"];
+            };
+        };
+        responses: {
+            /** @description The tool */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminApprovedTool"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
                     [name: string]: unknown;
                 };
                 content: {
@@ -3327,6 +4937,60 @@ export interface operations {
             };
         };
     };
+    "EspalierWeb.Admin.AuditController.index": {
+        parameters: {
+            query?: {
+                /** @description An action, such as `user.disabled`. */
+                action?: string;
+                /** @description An actor. */
+                actor_id?: string;
+                /** @description The page, from 1; 50 events per page. */
+                page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of events */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAuditEventList"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     "EspalierWeb.AttemptController.create": {
         parameters: {
             query?: never;
@@ -3403,6 +5067,67 @@ export interface operations {
                 headers: {
                     /** @description Seconds until the bucket admits the next request. */
                     "retry-after"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.UserAdminController.lookup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The address */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailLookupRequest"];
+            };
+        };
+        responses: {
+            /** @description The user with its grants */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUser"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
                     [name: string]: unknown;
                 };
                 content: {
@@ -3597,6 +5322,79 @@ export interface operations {
                 headers: {
                     /** @description Seconds until the bucket admits the next request. */
                     "retry-after"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.UserAdminController.disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The user id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description No members */
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["EmptyRequest"];
+            };
+        };
+        responses: {
+            /** @description The user */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUser"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `own_account` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
                     [name: string]: unknown;
                 };
                 content: {
@@ -3950,6 +5748,68 @@ export interface operations {
             };
         };
     };
+    "EspalierWeb.Admin.UserAdminController.reset_failure_counters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The user id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description No members */
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["EmptyRequest"];
+            };
+        };
+        responses: {
+            /** @description The counters are reset */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     "EspalierWeb.ModuleCompletionController.create": {
         parameters: {
             query?: never;
@@ -4026,6 +5886,63 @@ export interface operations {
                 headers: {
                     /** @description Seconds until the bucket admits the next request. */
                     "retry-after"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.ApiClientController.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The client id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The client is deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
                     [name: string]: unknown;
                 };
                 content: {
@@ -4156,6 +6073,370 @@ export interface operations {
             };
         };
     };
+    "EspalierWeb.Admin.ApprovedToolController.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tool id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The tool */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminApprovedTool"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.ApprovedToolController.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tool id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description The changed fields */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminApprovedToolUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description The tool */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminApprovedTool"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.ApprovedToolController.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tool id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The tool is deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.ApprovedToolController.update (2)": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tool id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description The changed fields */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminApprovedToolUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description The tool */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminApprovedTool"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.UserAdminController.index": {
+        parameters: {
+            query?: {
+                /** @description The page, from 1; 50 users per page. */
+                page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of users */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUserList"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.UserAdminController.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The invitation */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminUserInviteRequest"];
+            };
+        };
+        responses: {
+            /** @description The invitation is queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Accepted"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `user_exists` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     "EspalierWeb.ProviderController.index": {
         parameters: {
             query?: never;
@@ -4224,6 +6505,382 @@ export interface operations {
             };
             /** @description Error codes: `not_found` */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.PackController.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The archive */
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The import */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPackImport"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `request_too_large` */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `unsupported_media_type` */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The rejected archive */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminArchiveRejected"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.WebhookController.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The webhook id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The webhook */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminWebhook"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.WebhookController.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The webhook id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description The changed fields */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminWebhookUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description The webhook */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminWebhook"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed`, `secret_env_unset` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.WebhookController.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The webhook id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The webhook is deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.WebhookController.update (2)": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The webhook id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description The changed fields */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminWebhookUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description The webhook */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminWebhook"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed`, `secret_env_unset` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.PackController.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The import id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The import */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPackImport"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4398,6 +7055,114 @@ export interface operations {
             };
             /** @description Error codes: `not_found` */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.RoleGrantController.index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The users with grants */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminGrantHolderList"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.RoleGrantController.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The grant */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminRoleGrantRequest"];
+            };
+        };
+        responses: {
+            /** @description The grant */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminRoleGrant"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `demo_user` */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4703,6 +7468,259 @@ export interface operations {
             };
         };
     };
+    "EspalierWeb.Admin.UserAdminController.resend_invitation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The user id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description No members */
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["EmptyRequest"];
+            };
+        };
+        responses: {
+            /** @description The invitation is queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Accepted"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_invitable` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.ApiClientController.index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The clients */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminApiClientList"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.ApiClientController.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The client */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminApiClientRequest"];
+            };
+        };
+        responses: {
+            /** @description The client with its token */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminApiClientCreated"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.WebhookController.index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The webhooks */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminWebhookList"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.WebhookController.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The webhook */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminWebhookRequest"];
+            };
+        };
+        responses: {
+            /** @description The webhook */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminWebhook"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed`, `secret_env_unset` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     "EspalierWeb.ProgramController.index": {
         parameters: {
             query?: never;
@@ -4854,6 +7872,79 @@ export interface operations {
             };
             /** @description Error codes: `last_factor`, `admin_passkey_required` */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.PackController.publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The import id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description No members */
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["EmptyRequest"];
+            };
+        };
+        responses: {
+            /** @description The published import */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPackImport"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_publishable`, `alignment_errors` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAlignmentErrors"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5060,6 +8151,72 @@ export interface operations {
             };
         };
     };
+    "EspalierWeb.Admin.RoleGrantController.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The grant id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The grant is revoked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `idp_claim`, `demo_user` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     "EspalierWeb.SessionController.show": {
         parameters: {
             query?: never;
@@ -5115,6 +8272,132 @@ export interface operations {
                 content?: never;
             };
             /** @description Error codes: `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.PolicyController.index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The policies */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPolicyList"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.PolicyController.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The policy */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminPolicyRequest"];
+            };
+        };
+        responses: {
+            /** @description The policy */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPolicy"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.UserAdminController.end_all_sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every session is ended */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request` */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -5260,6 +8543,126 @@ export interface operations {
                 headers: {
                     /** @description Seconds until the bucket admits the next request. */
                     "retry-after"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.PolicyVersionController.index": {
+        parameters: {
+            query: {
+                /** @description The policy. */
+                policy_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The versions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPolicyVersionList"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.PolicyVersionController.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The draft */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminPolicyVersionRequest"];
+            };
+        };
+        responses: {
+            /** @description The draft */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPolicyVersion"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
                     [name: string]: unknown;
                 };
                 content: {
@@ -5662,6 +9065,152 @@ export interface operations {
             };
         };
     };
+    "EspalierWeb.Admin.PolicyVersionController.publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The version id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description The publication */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminPolicyVersionPublishRequest"];
+            };
+        };
+        responses: {
+            /** @description The published version */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPolicyVersion"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `published`, `superseded` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.UserAdminController.reset_factors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The user id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description The identity check */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminFactorResetRequest"];
+            };
+        };
+        responses: {
+            /** @description The result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminFactorResetResult"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `own_account` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed`, `identity_verification_required` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     "EspalierWeb.EnrollmentController.create": {
         parameters: {
             query?: never;
@@ -5735,6 +9284,284 @@ export interface operations {
                 headers: {
                     /** @description Seconds until the bucket admits the next request. */
                     "retry-after"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.CredentialAdminController.revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The credential id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description No members */
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["EmptyRequest"];
+            };
+        };
+        responses: {
+            /** @description The revoked credential */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminRevokedCredential"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `already_revoked` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.PolicyVersionController.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The version id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The version */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPolicyVersion"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.PolicyVersionController.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The version id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description The changed fields */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminPolicyVersionUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description The draft */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPolicyVersion"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `published` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.PolicyVersionController.update (2)": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The version id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description The changed fields */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminPolicyVersionUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description The draft */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPolicyVersion"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `published` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
                     [name: string]: unknown;
                 };
                 content: {

@@ -1,0 +1,942 @@
+{
+  "description": "Shared cases of Espalier.Learning.Evaluator and Espalier.Learning.PassRule (task 0009) and of their TypeScript port frontend/src/player/evaluate.ts (task 0015, step 9). Items have the shape of the normalized pack payload; answers have the shape Answer of the API. `context` holds the rules and lessons of the module, by which `rules` (rule numbers) and `reveals` (lesson keys) of an item resolve. A case with `valid: false` fails validation and is not evaluated. test/espalier/learning/evaluator_parity_test.exs and frontend/src/player/evaluate.test.ts read this file.",
+  "context": {
+    "rules": [
+      { "id": "rule-3", "number": 3, "statement": "Statement 3", "action": "Action 3" },
+      { "id": "rule-1", "number": 1, "statement": "Statement 1", "action": "Action 1" },
+      { "id": "rule-2", "number": 2, "statement": "Statement 2", "action": "Action 2" }
+    ],
+    "lessons": [
+      { "id": "lesson-b", "key": "b-second", "position": 2 },
+      { "id": "lesson-a", "key": "a-first", "position": 1 },
+      { "id": "lesson-c", "key": "c-tie", "position": 2 }
+    ]
+  },
+  "items": {
+    "sc-capital": {
+      "key": "sc-capital",
+      "kind": "single_choice",
+      "lesson": "a-first",
+      "stem": "Which option is correct?",
+      "core": false,
+      "phase": "understand",
+      "provenance": "invented",
+      "objectives": ["m1-subject-know"],
+      "rules": [1, 3],
+      "reveals": ["a-first", "b-second"],
+      "cite": [],
+      "options": [
+        { "key": "a", "label": "Option a", "correct": false, "feedback": "Feedback a" },
+        { "key": "b", "label": "Option b", "correct": true, "feedback": "Feedback b" },
+        { "key": "c", "label": "Option c", "correct": false, "feedback": "Feedback c" }
+      ],
+      "config": {}
+    },
+    "mc-sources": {
+      "key": "mc-sources",
+      "kind": "multiple_choice",
+      "lesson": "b-second",
+      "stem": "Which sources do you check?",
+      "core": false,
+      "phase": "understand",
+      "provenance": "invented",
+      "objectives": ["m1-subject-know"],
+      "rules": [2],
+      "reveals": ["b-second", "c-tie"],
+      "cite": [],
+      "options": [
+        { "key": "d", "label": "Option d", "correct": true, "feedback": "Feedback d" },
+        { "key": "b", "label": "Option b", "correct": false, "feedback": "Feedback b" },
+        { "key": "e", "label": "Option e", "correct": true, "feedback": "Feedback e" },
+        { "key": "a", "label": "Option a", "correct": false, "feedback": "Feedback a" }
+      ],
+      "config": {}
+    },
+    "sb-prompt": {
+      "key": "sb-prompt",
+      "kind": "slot_builder",
+      "lesson": "a-first",
+      "stem": "Build the request.",
+      "core": false,
+      "phase": "apply",
+      "provenance": "invented",
+      "objectives": ["m1-method-apply"],
+      "rules": [],
+      "reveals": ["c-tie"],
+      "cite": [],
+      "options": [],
+      "config": {
+        "slots": [
+          {
+            "key": "task",
+            "label": "Task",
+            "options": [
+              { "key": "task-clear", "label": "Clear task", "correct": true, "feedback": "Feedback task-clear" },
+              { "key": "task-vague", "label": "Vague task", "correct": false, "feedback": "Feedback task-vague" }
+            ]
+          },
+          {
+            "key": "context",
+            "label": "Context",
+            "options": [
+              { "key": "context-team", "label": "Team context", "correct": true, "feedback": "Feedback context-team" },
+              { "key": "context-none", "label": "No context", "correct": false, "feedback": "Feedback context-none" }
+            ]
+          }
+        ]
+      }
+    },
+    "cl-claims": {
+      "key": "cl-claims",
+      "kind": "classification",
+      "lesson": "b-second",
+      "stem": "Sort the statements.",
+      "core": false,
+      "phase": "apply",
+      "provenance": "invented",
+      "objectives": ["m1-method-apply"],
+      "rules": [1],
+      "reveals": ["b-second"],
+      "cite": [],
+      "options": [],
+      "config": {
+        "categories": [
+          { "key": "needs-source", "label": "Check against a source" },
+          { "key": "needs-rewrite", "label": "Rewrite or remove" },
+          { "key": "ready", "label": "Ready to use" }
+        ],
+        "cases": [
+          { "key": "case-figure", "text": "A figure", "feedback": "Feedback case-figure" },
+          { "key": "case-claim", "text": "A claim", "feedback": "Feedback case-claim" },
+          { "key": "case-thanks", "text": "A thank you", "feedback": "Feedback case-thanks" }
+        ],
+        "expected": {
+          "case-figure": "needs-source",
+          "case-claim": "needs-rewrite",
+          "case-thanks": "ready"
+        }
+      }
+    },
+    "cd-release": {
+      "key": "cd-release",
+      "kind": "checklist_drill",
+      "lesson": "c-tie",
+      "stem": "Release the text.",
+      "core": false,
+      "phase": "apply",
+      "provenance": "invented",
+      "objectives": ["m1-method-apply"],
+      "rules": [3, 2],
+      "reveals": ["a-first"],
+      "cite": [],
+      "options": [],
+      "config": {
+        "checks": [
+          { "key": "facts-checked", "label": "Facts checked", "required": true },
+          { "key": "sources-named", "label": "Sources named", "required": true },
+          { "key": "second-reader", "label": "Second reader", "required": false }
+        ]
+      }
+    },
+    "po-usage": {
+      "key": "po-usage",
+      "kind": "poll",
+      "lesson": "a-first",
+      "stem": "How often do you use such tools?",
+      "core": false,
+      "phase": "orient",
+      "provenance": "invented",
+      "objectives": [],
+      "rules": [1],
+      "reveals": ["a-first"],
+      "cite": [],
+      "options": [
+        { "key": "often", "label": "Often", "correct": false, "feedback": "Feedback often" },
+        { "key": "rarely", "label": "Rarely", "correct": false, "feedback": "Feedback rarely" },
+        { "key": "never", "label": "Never", "correct": false, "feedback": "Feedback never" }
+      ],
+      "config": {}
+    },
+    "ex-core": {
+      "key": "ex-core",
+      "kind": "single_choice",
+      "lesson": null,
+      "stem": "The core question.",
+      "core": true,
+      "phase": "anchor",
+      "provenance": "invented",
+      "objectives": ["m1-subject-know"],
+      "rules": [],
+      "reveals": [],
+      "cite": [],
+      "options": [
+        { "key": "x", "label": "Option x", "correct": true, "feedback": "Feedback x" },
+        { "key": "y", "label": "Option y", "correct": false, "feedback": "Feedback y" }
+      ],
+      "config": {}
+    },
+    "ex-mc": {
+      "key": "ex-mc",
+      "kind": "multiple_choice",
+      "lesson": null,
+      "stem": "Choose every fitting option.",
+      "core": false,
+      "phase": "anchor",
+      "provenance": "invented",
+      "objectives": ["m1-subject-know"],
+      "rules": [],
+      "reveals": [],
+      "cite": [],
+      "options": [
+        { "key": "p", "label": "Option p", "correct": true, "feedback": "Feedback p" },
+        { "key": "q", "label": "Option q", "correct": true, "feedback": "Feedback q" },
+        { "key": "r", "label": "Option r", "correct": false, "feedback": "Feedback r" }
+      ],
+      "config": {}
+    },
+    "ex-check": {
+      "key": "ex-check",
+      "kind": "checklist_drill",
+      "lesson": null,
+      "stem": "Confirm the release.",
+      "core": false,
+      "phase": "anchor",
+      "provenance": "invented",
+      "objectives": ["m1-method-apply"],
+      "rules": [],
+      "reveals": [],
+      "cite": [],
+      "options": [],
+      "config": {
+        "checks": [{ "key": "confirm", "label": "Confirmed", "required": true }]
+      }
+    },
+    "ex-poll": {
+      "key": "ex-poll",
+      "kind": "poll",
+      "lesson": null,
+      "stem": "Was the exam clear?",
+      "core": false,
+      "phase": "anchor",
+      "provenance": "invented",
+      "objectives": [],
+      "rules": [],
+      "reveals": [],
+      "cite": [],
+      "options": [
+        { "key": "yes", "label": "Yes", "correct": false, "feedback": "Feedback yes" },
+        { "key": "no", "label": "No", "correct": false, "feedback": "Feedback no" }
+      ],
+      "config": {}
+    }
+  },
+  "cases": [
+    {
+      "name": "single_choice: the correct option is correct, every option carries its feedback, rules by number",
+      "item": "sc-capital",
+      "answer": { "options": ["b"] },
+      "valid": true,
+      "expected": {
+        "correct": true,
+        "option_feedback": [
+          { "key": "a", "selected": false, "correct": false, "feedback": "Feedback a" },
+          { "key": "b", "selected": true, "correct": true, "feedback": "Feedback b" },
+          { "key": "c", "selected": false, "correct": false, "feedback": "Feedback c" }
+        ],
+        "rules": [
+          { "id": "rule-1", "number": 1, "statement": "Statement 1", "action": "Action 1" },
+          { "id": "rule-3", "number": 3, "statement": "Statement 3", "action": "Action 3" }
+        ],
+        "reveals": []
+      }
+    },
+    {
+      "name": "single_choice: a wrong option is wrong and reveals its lessons by position",
+      "item": "sc-capital",
+      "answer": { "options": ["c"] },
+      "valid": true,
+      "expected": {
+        "correct": false,
+        "option_feedback": [
+          { "key": "a", "selected": false, "correct": false, "feedback": "Feedback a" },
+          { "key": "b", "selected": false, "correct": true, "feedback": "Feedback b" },
+          { "key": "c", "selected": true, "correct": false, "feedback": "Feedback c" }
+        ],
+        "rules": [
+          { "id": "rule-1", "number": 1, "statement": "Statement 1", "action": "Action 1" },
+          { "id": "rule-3", "number": 3, "statement": "Statement 3", "action": "Action 3" }
+        ],
+        "reveals": ["lesson-a", "lesson-b"]
+      }
+    },
+    {
+      "name": "single_choice: an empty choice is valid and wrong",
+      "item": "sc-capital",
+      "answer": { "options": [] },
+      "valid": true,
+      "expected": {
+        "correct": false,
+        "option_feedback": [
+          { "key": "a", "selected": false, "correct": false, "feedback": "Feedback a" },
+          { "key": "b", "selected": false, "correct": true, "feedback": "Feedback b" },
+          { "key": "c", "selected": false, "correct": false, "feedback": "Feedback c" }
+        ],
+        "rules": [
+          { "id": "rule-1", "number": 1, "statement": "Statement 1", "action": "Action 1" },
+          { "id": "rule-3", "number": 3, "statement": "Statement 3", "action": "Action 3" }
+        ],
+        "reveals": ["lesson-a", "lesson-b"]
+      }
+    },
+    {
+      "name": "single_choice: the correct option together with a wrong one is wrong",
+      "item": "sc-capital",
+      "answer": { "options": ["a", "b"] },
+      "valid": true,
+      "expected": {
+        "correct": false,
+        "option_feedback": [
+          { "key": "a", "selected": true, "correct": false, "feedback": "Feedback a" },
+          { "key": "b", "selected": true, "correct": true, "feedback": "Feedback b" },
+          { "key": "c", "selected": false, "correct": false, "feedback": "Feedback c" }
+        ],
+        "rules": [
+          { "id": "rule-1", "number": 1, "statement": "Statement 1", "action": "Action 1" },
+          { "id": "rule-3", "number": 3, "statement": "Statement 3", "action": "Action 3" }
+        ],
+        "reveals": ["lesson-a", "lesson-b"]
+      }
+    },
+    {
+      "name": "single_choice: an unknown option key is invalid",
+      "item": "sc-capital",
+      "answer": { "options": ["z"] },
+      "valid": false
+    },
+    {
+      "name": "single_choice: a member of another kind is invalid",
+      "item": "sc-capital",
+      "answer": { "options": ["b"], "slots": {} },
+      "valid": false
+    },
+    {
+      "name": "single_choice: an answer without options is invalid",
+      "item": "sc-capital",
+      "answer": {},
+      "valid": false
+    },
+    {
+      "name": "single_choice: a repeated option key is invalid",
+      "item": "sc-capital",
+      "answer": { "options": ["b", "b"] },
+      "valid": false
+    },
+    {
+      "name": "multiple_choice: the set of correct options in any order is correct",
+      "item": "mc-sources",
+      "answer": { "options": ["e", "d"] },
+      "valid": true,
+      "expected": {
+        "correct": true,
+        "option_feedback": [
+          { "key": "d", "selected": true, "correct": true, "feedback": "Feedback d" },
+          { "key": "b", "selected": false, "correct": false, "feedback": "Feedback b" },
+          { "key": "e", "selected": true, "correct": true, "feedback": "Feedback e" },
+          { "key": "a", "selected": false, "correct": false, "feedback": "Feedback a" }
+        ],
+        "rules": [
+          { "id": "rule-2", "number": 2, "statement": "Statement 2", "action": "Action 2" }
+        ],
+        "reveals": []
+      }
+    },
+    {
+      "name": "multiple_choice: a subset is wrong, and lessons of equal position reveal by key",
+      "item": "mc-sources",
+      "answer": { "options": ["d"] },
+      "valid": true,
+      "expected": {
+        "correct": false,
+        "option_feedback": [
+          { "key": "d", "selected": true, "correct": true, "feedback": "Feedback d" },
+          { "key": "b", "selected": false, "correct": false, "feedback": "Feedback b" },
+          { "key": "e", "selected": false, "correct": true, "feedback": "Feedback e" },
+          { "key": "a", "selected": false, "correct": false, "feedback": "Feedback a" }
+        ],
+        "rules": [
+          { "id": "rule-2", "number": 2, "statement": "Statement 2", "action": "Action 2" }
+        ],
+        "reveals": ["lesson-b", "lesson-c"]
+      }
+    },
+    {
+      "name": "multiple_choice: a superset is wrong",
+      "item": "mc-sources",
+      "answer": { "options": ["d", "e", "b"] },
+      "valid": true,
+      "expected": {
+        "correct": false,
+        "option_feedback": [
+          { "key": "d", "selected": true, "correct": true, "feedback": "Feedback d" },
+          { "key": "b", "selected": true, "correct": false, "feedback": "Feedback b" },
+          { "key": "e", "selected": true, "correct": true, "feedback": "Feedback e" },
+          { "key": "a", "selected": false, "correct": false, "feedback": "Feedback a" }
+        ],
+        "rules": [
+          { "id": "rule-2", "number": 2, "statement": "Statement 2", "action": "Action 2" }
+        ],
+        "reveals": ["lesson-b", "lesson-c"]
+      }
+    },
+    {
+      "name": "multiple_choice: an empty choice is wrong",
+      "item": "mc-sources",
+      "answer": { "options": [] },
+      "valid": true,
+      "expected": {
+        "correct": false,
+        "option_feedback": [
+          { "key": "d", "selected": false, "correct": true, "feedback": "Feedback d" },
+          { "key": "b", "selected": false, "correct": false, "feedback": "Feedback b" },
+          { "key": "e", "selected": false, "correct": true, "feedback": "Feedback e" },
+          { "key": "a", "selected": false, "correct": false, "feedback": "Feedback a" }
+        ],
+        "rules": [
+          { "id": "rule-2", "number": 2, "statement": "Statement 2", "action": "Action 2" }
+        ],
+        "reveals": ["lesson-b", "lesson-c"]
+      }
+    },
+    {
+      "name": "slot_builder: a correct option in every slot is correct",
+      "item": "sb-prompt",
+      "answer": { "slots": { "task": "task-clear", "context": "context-team" } },
+      "valid": true,
+      "expected": {
+        "correct": true,
+        "option_feedback": [
+          { "key": "task", "choice": "task-clear", "correct": true, "feedback": "Feedback task-clear" },
+          { "key": "context", "choice": "context-team", "correct": true, "feedback": "Feedback context-team" }
+        ],
+        "rules": [],
+        "reveals": []
+      }
+    },
+    {
+      "name": "slot_builder: one wrong slot is wrong and carries the feedback of its option",
+      "item": "sb-prompt",
+      "answer": { "slots": { "task": "task-vague", "context": "context-team" } },
+      "valid": true,
+      "expected": {
+        "correct": false,
+        "option_feedback": [
+          { "key": "task", "choice": "task-vague", "correct": false, "feedback": "Feedback task-vague" },
+          { "key": "context", "choice": "context-team", "correct": true, "feedback": "Feedback context-team" }
+        ],
+        "rules": [],
+        "reveals": ["lesson-c"]
+      }
+    },
+    {
+      "name": "slot_builder: an empty slot is wrong and has no feedback",
+      "item": "sb-prompt",
+      "answer": { "slots": { "task": "task-clear" } },
+      "valid": true,
+      "expected": {
+        "correct": false,
+        "option_feedback": [
+          { "key": "task", "choice": "task-clear", "correct": true, "feedback": "Feedback task-clear" },
+          { "key": "context", "choice": null, "correct": false, "feedback": null }
+        ],
+        "rules": [],
+        "reveals": ["lesson-c"]
+      }
+    },
+    {
+      "name": "slot_builder: no filled slot is valid and wrong",
+      "item": "sb-prompt",
+      "answer": { "slots": {} },
+      "valid": true,
+      "expected": {
+        "correct": false,
+        "option_feedback": [
+          { "key": "task", "choice": null, "correct": false, "feedback": null },
+          { "key": "context", "choice": null, "correct": false, "feedback": null }
+        ],
+        "rules": [],
+        "reveals": ["lesson-c"]
+      }
+    },
+    {
+      "name": "slot_builder: an option of another slot is invalid",
+      "item": "sb-prompt",
+      "answer": { "slots": { "task": "context-team" } },
+      "valid": false
+    },
+    {
+      "name": "slot_builder: an unknown slot is invalid",
+      "item": "sb-prompt",
+      "answer": { "slots": { "other": "task-clear" } },
+      "valid": false
+    },
+    {
+      "name": "classification: the expected mapping is correct",
+      "item": "cl-claims",
+      "answer": {
+        "cases": {
+          "case-figure": "needs-source",
+          "case-claim": "needs-rewrite",
+          "case-thanks": "ready"
+        }
+      },
+      "valid": true,
+      "expected": {
+        "correct": true,
+        "option_feedback": [
+          { "key": "case-figure", "choice": "needs-source", "expected": "needs-source", "correct": true, "feedback": "Feedback case-figure" },
+          { "key": "case-claim", "choice": "needs-rewrite", "expected": "needs-rewrite", "correct": true, "feedback": "Feedback case-claim" },
+          { "key": "case-thanks", "choice": "ready", "expected": "ready", "correct": true, "feedback": "Feedback case-thanks" }
+        ],
+        "rules": [
+          { "id": "rule-1", "number": 1, "statement": "Statement 1", "action": "Action 1" }
+        ],
+        "reveals": []
+      }
+    },
+    {
+      "name": "classification: one case in another category is wrong",
+      "item": "cl-claims",
+      "answer": {
+        "cases": {
+          "case-figure": "needs-source",
+          "case-claim": "needs-rewrite",
+          "case-thanks": "needs-source"
+        }
+      },
+      "valid": true,
+      "expected": {
+        "correct": false,
+        "option_feedback": [
+          { "key": "case-figure", "choice": "needs-source", "expected": "needs-source", "correct": true, "feedback": "Feedback case-figure" },
+          { "key": "case-claim", "choice": "needs-rewrite", "expected": "needs-rewrite", "correct": true, "feedback": "Feedback case-claim" },
+          { "key": "case-thanks", "choice": "needs-source", "expected": "ready", "correct": false, "feedback": "Feedback case-thanks" }
+        ],
+        "rules": [
+          { "id": "rule-1", "number": 1, "statement": "Statement 1", "action": "Action 1" }
+        ],
+        "reveals": ["lesson-b"]
+      }
+    },
+    {
+      "name": "classification: a case without a category is wrong",
+      "item": "cl-claims",
+      "answer": {
+        "cases": { "case-figure": "needs-source", "case-thanks": "ready" }
+      },
+      "valid": true,
+      "expected": {
+        "correct": false,
+        "option_feedback": [
+          { "key": "case-figure", "choice": "needs-source", "expected": "needs-source", "correct": true, "feedback": "Feedback case-figure" },
+          { "key": "case-claim", "choice": null, "expected": "needs-rewrite", "correct": false, "feedback": "Feedback case-claim" },
+          { "key": "case-thanks", "choice": "ready", "expected": "ready", "correct": true, "feedback": "Feedback case-thanks" }
+        ],
+        "rules": [
+          { "id": "rule-1", "number": 1, "statement": "Statement 1", "action": "Action 1" }
+        ],
+        "reveals": ["lesson-b"]
+      }
+    },
+    {
+      "name": "classification: an unknown category is invalid",
+      "item": "cl-claims",
+      "answer": { "cases": { "case-figure": "maybe" } },
+      "valid": false
+    },
+    {
+      "name": "classification: an unknown case is invalid",
+      "item": "cl-claims",
+      "answer": { "cases": { "case-other": "ready" } },
+      "valid": false
+    },
+    {
+      "name": "checklist_drill: every check and two initials are correct",
+      "item": "cd-release",
+      "answer": {
+        "checks": ["facts-checked", "sources-named", "second-reader"],
+        "initials": "AB"
+      },
+      "valid": true,
+      "expected": {
+        "correct": true,
+        "option_feedback": [
+          { "key": "facts-checked", "selected": true, "required": true, "correct": true },
+          { "key": "sources-named", "selected": true, "required": true, "correct": true },
+          { "key": "second-reader", "selected": true, "required": false, "correct": true }
+        ],
+        "rules": [
+          { "id": "rule-2", "number": 2, "statement": "Statement 2", "action": "Action 2" },
+          { "id": "rule-3", "number": 3, "statement": "Statement 3", "action": "Action 3" }
+        ],
+        "reveals": []
+      }
+    },
+    {
+      "name": "checklist_drill: a missing required check is wrong",
+      "item": "cd-release",
+      "answer": { "checks": ["facts-checked"], "initials": "AB" },
+      "valid": true,
+      "expected": {
+        "correct": false,
+        "option_feedback": [
+          { "key": "facts-checked", "selected": true, "required": true, "correct": true },
+          { "key": "sources-named", "selected": false, "required": true, "correct": false },
+          { "key": "second-reader", "selected": false, "required": false, "correct": true }
+        ],
+        "rules": [
+          { "id": "rule-2", "number": 2, "statement": "Statement 2", "action": "Action 2" },
+          { "id": "rule-3", "number": 3, "statement": "Statement 3", "action": "Action 3" }
+        ],
+        "reveals": ["lesson-a"]
+      }
+    },
+    {
+      "name": "checklist_drill: the required checks suffice, and the initials are trimmed",
+      "item": "cd-release",
+      "answer": { "checks": ["sources-named", "facts-checked"], "initials": " ab " },
+      "valid": true,
+      "expected": {
+        "correct": true,
+        "option_feedback": [
+          { "key": "facts-checked", "selected": true, "required": true, "correct": true },
+          { "key": "sources-named", "selected": true, "required": true, "correct": true },
+          { "key": "second-reader", "selected": false, "required": false, "correct": true }
+        ],
+        "rules": [
+          { "id": "rule-2", "number": 2, "statement": "Statement 2", "action": "Action 2" },
+          { "id": "rule-3", "number": 3, "statement": "Statement 3", "action": "Action 3" }
+        ],
+        "reveals": []
+      }
+    },
+    {
+      "name": "checklist_drill: five characters of initials are correct",
+      "item": "cd-release",
+      "answer": { "checks": ["facts-checked", "sources-named"], "initials": "ABCDE" },
+      "valid": true,
+      "expected": {
+        "correct": true,
+        "option_feedback": [
+          { "key": "facts-checked", "selected": true, "required": true, "correct": true },
+          { "key": "sources-named", "selected": true, "required": true, "correct": true },
+          { "key": "second-reader", "selected": false, "required": false, "correct": true }
+        ],
+        "rules": [
+          { "id": "rule-2", "number": 2, "statement": "Statement 2", "action": "Action 2" },
+          { "id": "rule-3", "number": 3, "statement": "Statement 3", "action": "Action 3" }
+        ],
+        "reveals": []
+      }
+    },
+    {
+      "name": "checklist_drill: one character of initials is wrong",
+      "item": "cd-release",
+      "answer": { "checks": ["facts-checked", "sources-named"], "initials": "A" },
+      "valid": true,
+      "expected": {
+        "correct": false,
+        "option_feedback": [
+          { "key": "facts-checked", "selected": true, "required": true, "correct": true },
+          { "key": "sources-named", "selected": true, "required": true, "correct": true },
+          { "key": "second-reader", "selected": false, "required": false, "correct": true }
+        ],
+        "rules": [
+          { "id": "rule-2", "number": 2, "statement": "Statement 2", "action": "Action 2" },
+          { "id": "rule-3", "number": 3, "statement": "Statement 3", "action": "Action 3" }
+        ],
+        "reveals": ["lesson-a"]
+      }
+    },
+    {
+      "name": "checklist_drill: six characters of initials are wrong",
+      "item": "cd-release",
+      "answer": { "checks": ["facts-checked", "sources-named"], "initials": "ABCDEF" },
+      "valid": true,
+      "expected": {
+        "correct": false,
+        "option_feedback": [
+          { "key": "facts-checked", "selected": true, "required": true, "correct": true },
+          { "key": "sources-named", "selected": true, "required": true, "correct": true },
+          { "key": "second-reader", "selected": false, "required": false, "correct": true }
+        ],
+        "rules": [
+          { "id": "rule-2", "number": 2, "statement": "Statement 2", "action": "Action 2" },
+          { "id": "rule-3", "number": 3, "statement": "Statement 3", "action": "Action 3" }
+        ],
+        "reveals": ["lesson-a"]
+      }
+    },
+    {
+      "name": "checklist_drill: a letter with a combining mark counts as one character",
+      "item": "cd-release",
+      "answer": { "checks": ["facts-checked", "sources-named"], "initials": "e\u0301" },
+      "valid": true,
+      "expected": {
+        "correct": false,
+        "option_feedback": [
+          { "key": "facts-checked", "selected": true, "required": true, "correct": true },
+          { "key": "sources-named", "selected": true, "required": true, "correct": true },
+          { "key": "second-reader", "selected": false, "required": false, "correct": true }
+        ],
+        "rules": [
+          { "id": "rule-2", "number": 2, "statement": "Statement 2", "action": "Action 2" },
+          { "id": "rule-3", "number": 3, "statement": "Statement 3", "action": "Action 3" }
+        ],
+        "reveals": ["lesson-a"]
+      }
+    },
+    {
+      "name": "checklist_drill: U+0085 counts as white space and is trimmed",
+      "item": "cd-release",
+      "answer": { "checks": ["facts-checked", "sources-named"], "initials": "\u0085A\u0085" },
+      "valid": true,
+      "expected": {
+        "correct": false,
+        "option_feedback": [
+          { "key": "facts-checked", "selected": true, "required": true, "correct": true },
+          { "key": "sources-named", "selected": true, "required": true, "correct": true },
+          { "key": "second-reader", "selected": false, "required": false, "correct": true }
+        ],
+        "rules": [
+          { "id": "rule-2", "number": 2, "statement": "Statement 2", "action": "Action 2" },
+          { "id": "rule-3", "number": 3, "statement": "Statement 3", "action": "Action 3" }
+        ],
+        "reveals": ["lesson-a"]
+      }
+    },
+    {
+      "name": "checklist_drill: U+FEFF is no white space and counts as a character",
+      "item": "cd-release",
+      "answer": { "checks": ["facts-checked", "sources-named"], "initials": "\ufeffABCDE" },
+      "valid": true,
+      "expected": {
+        "correct": false,
+        "option_feedback": [
+          { "key": "facts-checked", "selected": true, "required": true, "correct": true },
+          { "key": "sources-named", "selected": true, "required": true, "correct": true },
+          { "key": "second-reader", "selected": false, "required": false, "correct": true }
+        ],
+        "rules": [
+          { "id": "rule-2", "number": 2, "statement": "Statement 2", "action": "Action 2" },
+          { "id": "rule-3", "number": 3, "statement": "Statement 3", "action": "Action 3" }
+        ],
+        "reveals": ["lesson-a"]
+      }
+    },
+    {
+      "name": "checklist_drill: no check set is valid and wrong",
+      "item": "cd-release",
+      "answer": { "checks": [], "initials": "AB" },
+      "valid": true,
+      "expected": {
+        "correct": false,
+        "option_feedback": [
+          { "key": "facts-checked", "selected": false, "required": true, "correct": false },
+          { "key": "sources-named", "selected": false, "required": true, "correct": false },
+          { "key": "second-reader", "selected": false, "required": false, "correct": true }
+        ],
+        "rules": [
+          { "id": "rule-2", "number": 2, "statement": "Statement 2", "action": "Action 2" },
+          { "id": "rule-3", "number": 3, "statement": "Statement 3", "action": "Action 3" }
+        ],
+        "reveals": ["lesson-a"]
+      }
+    },
+    {
+      "name": "checklist_drill: an answer without initials is invalid",
+      "item": "cd-release",
+      "answer": { "checks": ["facts-checked"] },
+      "valid": false
+    },
+    {
+      "name": "checklist_drill: an unknown check is invalid",
+      "item": "cd-release",
+      "answer": { "checks": ["facts-checked", "other"], "initials": "AB" },
+      "valid": false
+    },
+    {
+      "name": "checklist_drill: a repeated check is invalid",
+      "item": "cd-release",
+      "answer": { "checks": ["facts-checked", "facts-checked"], "initials": "AB" },
+      "valid": false
+    },
+    {
+      "name": "poll: any answer has no correctness, no feedback and no reveals",
+      "item": "po-usage",
+      "answer": { "options": ["often"] },
+      "valid": true,
+      "expected": {
+        "correct": null,
+        "option_feedback": [],
+        "rules": [
+          { "id": "rule-1", "number": 1, "statement": "Statement 1", "action": "Action 1" }
+        ],
+        "reveals": []
+      }
+    },
+    {
+      "name": "poll: an empty choice is valid",
+      "item": "po-usage",
+      "answer": { "options": [] },
+      "valid": true,
+      "expected": {
+        "correct": null,
+        "option_feedback": [],
+        "rules": [
+          { "id": "rule-1", "number": 1, "statement": "Statement 1", "action": "Action 1" }
+        ],
+        "reveals": []
+      }
+    },
+    {
+      "name": "poll: a member of another kind is invalid",
+      "item": "po-usage",
+      "answer": { "options": ["often"], "checks": [] },
+      "valid": false
+    }
+  ],
+  "attempts": [
+    {
+      "name": "every answer correct passes with max_wrong 0",
+      "assessment": { "max_wrong": 0, "core_required": true },
+      "items": ["ex-core", "ex-mc", "ex-check", "ex-poll"],
+      "answers": {
+        "ex-core": { "options": ["x"] },
+        "ex-mc": { "options": ["q", "p"] },
+        "ex-check": { "checks": ["confirm"], "initials": "AB" },
+        "ex-poll": { "options": ["yes"] }
+      },
+      "expected": {
+        "correct": [true, true, true, null],
+        "wrong_count": 0,
+        "core_failed": false,
+        "outcome": "passed"
+      }
+    },
+    {
+      "name": "a wrong core item fails with failed_core although max_wrong allows the wrong answer",
+      "assessment": { "max_wrong": 3, "core_required": true },
+      "items": ["ex-core", "ex-mc", "ex-check", "ex-poll"],
+      "answers": {
+        "ex-core": { "options": ["y"] },
+        "ex-mc": { "options": ["p", "q"] },
+        "ex-check": { "checks": ["confirm"], "initials": "AB" },
+        "ex-poll": { "options": ["no"] }
+      },
+      "expected": {
+        "correct": [false, true, true, null],
+        "wrong_count": 1,
+        "core_failed": true,
+        "outcome": "failed_core"
+      }
+    },
+    {
+      "name": "a wrong core item fails with failed_core also with core_required false",
+      "assessment": { "max_wrong": 3, "core_required": false },
+      "items": ["ex-core", "ex-mc", "ex-check", "ex-poll"],
+      "answers": {
+        "ex-core": { "options": ["y"] },
+        "ex-mc": { "options": ["p", "q"] },
+        "ex-check": { "checks": ["confirm"], "initials": "AB" },
+        "ex-poll": { "options": ["no"] }
+      },
+      "expected": {
+        "correct": [false, true, true, null],
+        "wrong_count": 1,
+        "core_failed": true,
+        "outcome": "failed_core"
+      }
+    },
+    {
+      "name": "more wrong answers than max_wrong fail with failed_errors",
+      "assessment": { "max_wrong": 1, "core_required": true },
+      "items": ["ex-core", "ex-mc", "ex-check", "ex-poll"],
+      "answers": {
+        "ex-core": { "options": ["x"] },
+        "ex-mc": { "options": ["p"] },
+        "ex-check": { "checks": [], "initials": "AB" },
+        "ex-poll": { "options": ["no"] }
+      },
+      "expected": {
+        "correct": [true, false, false, null],
+        "wrong_count": 2,
+        "core_failed": false,
+        "outcome": "failed_errors"
+      }
+    },
+    {
+      "name": "exactly max_wrong wrong answers pass",
+      "assessment": { "max_wrong": 1, "core_required": true },
+      "items": ["ex-core", "ex-mc", "ex-check", "ex-poll"],
+      "answers": {
+        "ex-core": { "options": ["x"] },
+        "ex-mc": { "options": ["p", "r"] },
+        "ex-check": { "checks": ["confirm"], "initials": "AB" },
+        "ex-poll": { "options": ["yes"] }
+      },
+      "expected": {
+        "correct": [true, false, true, null],
+        "wrong_count": 1,
+        "core_failed": false,
+        "outcome": "passed"
+      }
+    },
+    {
+      "name": "a poll never counts as wrong",
+      "assessment": { "max_wrong": 0, "core_required": false },
+      "items": ["ex-poll", "ex-core"],
+      "answers": {
+        "ex-poll": { "options": [] },
+        "ex-core": { "options": ["x"] }
+      },
+      "expected": {
+        "correct": [null, true],
+        "wrong_count": 0,
+        "core_failed": false,
+        "outcome": "passed"
+      }
+    },
+    {
+      "name": "a wrong core item with too many wrong answers gives failed_core",
+      "assessment": { "max_wrong": 0, "core_required": false },
+      "items": ["ex-core", "ex-mc", "ex-check"],
+      "answers": {
+        "ex-core": { "options": ["y"] },
+        "ex-mc": { "options": ["r"] },
+        "ex-check": { "checks": ["confirm"], "initials": "A" }
+      },
+      "expected": {
+        "correct": [false, false, false],
+        "wrong_count": 3,
+        "core_failed": true,
+        "outcome": "failed_core"
+      }
+    },
+    {
+      "name": "one wrong answer that is not core fails with max_wrong 0",
+      "assessment": { "max_wrong": 0, "core_required": true },
+      "items": ["ex-core", "ex-mc", "ex-check"],
+      "answers": {
+        "ex-core": { "options": ["x"] },
+        "ex-mc": { "options": ["p", "q"] },
+        "ex-check": { "checks": ["confirm"], "initials": "A" }
+      },
+      "expected": {
+        "correct": [true, true, false],
+        "wrong_count": 1,
+        "core_failed": false,
+        "outcome": "failed_errors"
+      }
+    }
+  ]
+}

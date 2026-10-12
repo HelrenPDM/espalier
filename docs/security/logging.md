@@ -60,7 +60,7 @@ exception only by its module in `exception`, never by its message.
 | `authn_password_change` | info | `Espalier.Accounts.update_user_password/3` | `user_id`, `factor`, `provider` |
 | `authn_password_change_fail` | warning | `update_user_password/3` | `user_id`, `factor`, `provider` |
 | `authn_token_created`, `authn_token_revoked` | info | `create_api_client/2`, `delete_api_client/2` | `reason` |
-| `authz_fail` | warning | the plugs of `EspalierWeb.UserAuth` (every 403, also the role checks of the attendance, lookup and registrar routes of task 0013; while `REGISTRAR_ENABLED=false`, the registrar route answers 404 before its role check and logs no `authz_fail`), `EspalierWeb.OidcIntentController` (an intent without a recent second factor or from a demo session), `EspalierWeb.Plugs.ApiClientAuth` (a machine client whose scopes lack the scope of the integration route, with `factor: "api_token"`) | `user_id`, `ip`, `factor`, `reason` (`enrollment_required`, `reauth_required`, `forbidden`, and `scope` for a machine client) |
+| `authz_fail` | warning | the plugs of `EspalierWeb.UserAuth` (every 403, also the role checks of the attendance, lookup and registrar routes of task 0013 and the role and recent-auth checks of the admin routes of task 0015; while `REGISTRAR_ENABLED=false`, the registrar route answers 404 before its role check and logs no `authz_fail`), `EspalierWeb.OidcIntentController` (an intent without a recent second factor or from a demo session), `EspalierWeb.Plugs.ApiClientAuth` (a machine client whose scopes lack the scope of the integration route, with `factor: "api_token"`), `EspalierWeb.Plugs.RequireAdminPasskey` (an admin without a passkey on a route of the pipelines `:admin` and `:admin_write` while `ADMIN_REQUIRE_PASSKEY=true`, task 0015) | `user_id`, `ip`, `factor`, `reason` (`enrollment_required`, `reauth_required`, `forbidden`, `passkey_required` for the passkey gate, and `scope` for a machine client) |
 | `privilege_permissions_changed` | info | `grant_role/3`, `revoke_role/3`, `replace_idp_role_grants/3` (also at an OIDC sign-in whose role claims change the `idp_claim` grants; the audit event `role.synced` holds the added and removed roles) | `user_id`, `reason` (the audit action) |
 | `excess_rate_limit_exceeded` | warning | `EspalierWeb.Plugs.RateLimit`; `LdapSignIn` once for each denial in `ldap_account` or `ldap_subject`, which it checks itself (the check of `ldap_subject` runs inside the sign-in task, so the event comes from the calling process after the task returned) | `ip`, `reason` (the bucket); directory: also `user_id` or `account_hash`, `factor`, `provider`, `purpose` |
 | `excess_sessions_exceeded` | warning | `create_session/2` at the concurrent limit | `user_id`, `session_id` |
@@ -70,7 +70,7 @@ exception only by its module in `exception`, never by its message.
 | `session_expired` | info | `get_session_by_token/2` (`idle`, `absolute`), `end_user_sessions/2` (`admin`), `end_all_sessions/1` (`admin_all`) | `user_id`, `session_id`, `reason`, `count` |
 | `session_logout` | info | `log_out_user/1` (also for a sign-out that answers with a `logout_url`), `put_pending_second_factor/3`, `delete_session/2`, `create_session/2` (replaced row of another user); `EspalierWeb.OidcController.front_channel_logout/2` for each front-channel request with a `sid`, with the number of ended session rows | `user_id`, `session_id`, `ip`, `reason`; front-channel logout: `provider`, `trigger` (`front_channel`), `count` |
 | `user_created` | info | `invite_user/2`, `create_signup_user/1`; `Espalier.Accounts.sign_in_external/2` when it provisions an account | `user_id`, `reason`; provisioning: `user_id`, `provider` |
-| `user_updated` | info | `confirm_email_change/3`, `disable_user/2`; `Espalier.Accounts.Factors.notify_change/3` for a factor change; `Espalier.Accounts.link_external_identity/3` for a new link (also of a directory account) and `sign_in_external/2` for a refreshed address; `FailureCounters.reset_directory/3` and `reset_directory_for_user/2` for a cleared directory counter | `user_id`, `reason`; for a factor change `change` (`factor_added`, `factor_removed`, `recovery_codes_regenerated`) and `factor`; for a link or an address `change` (`identity_linked`, `email`) and `provider`; for a counter reset `provider` and `reason` `directory_counter_reset`, with `user_id` when the account is known |
+| `user_updated` | info | `confirm_email_change/3`, `disable_user/2`; `Espalier.Accounts.Factors.notify_change/3` for a factor change; `Espalier.Accounts.link_external_identity/3` for a new link (also of a directory account) and `sign_in_external/2` for a refreshed address; `FailureCounters.reset_directory/3` and `reset_directory_for_user/2` for a cleared directory counter; `Espalier.Accounts.reset_factors/2` and `reset_failure_counters/2` for an admin reset, and `resend_invitation/2` for a resent invitation (task 0015; called by `POST /api/admin/users/:id/invitation`, by the reset of decision D11 and by `Espalier.Release.invite_user/1`) | `user_id`, `reason`; for a factor change `change` (`factor_added`, `factor_removed`, `recovery_codes_regenerated`) and `factor`; for a link or an address `change` (`identity_linked`, `email`) and `provider`; for a counter reset `provider` and `reason` `directory_counter_reset`, with `user_id` when the account is known; for an admin reset or a resent invitation `change` (`factors_reset` for the reset of second factors of decision D11, `failure_counters_reset` for the reset of the failure counters, `invitation_resent` for a new invitation of an existing account) |
 | `input_validation_fail` | warning | `Espalier.Accounts.Passkeys.ClientData` (rejected `clientDataJSON`), `Espalier.Accounts.Passkeys.WaxCall` (rescued `wax_` exception) | `reason`, `exception` (the module name) |
 | `breach_check_unavailable` | warning | `Espalier.Accounts.BreachedPasswords` | none |
 | `directory_tls_failed` | warning | the TLS probe of `LdapSignIn` after a failed LDAPS connect, at most once per provider and minute (`Espalier.Identity.Ldap.tls_probe/1`) | `provider`, `reason` (the TLS alert name, such as `unknown_ca` or `handshake_failure`, or the atom of another error) |
@@ -88,7 +88,17 @@ key and normalized username), as an unknown address does on the password
 pathway. Task 0013 adds no event name and no attribute key: the integration
 API writes `authn_login_fail` and `authz_fail` with the factor `api_token`,
 and a machine client appears by `ip` only, because its token never reaches
-the log.
+the log. Task 0015 adds no event name and no attribute key either: the
+passkey gate writes `authz_fail` with the reason `passkey_required`, the
+two admin resets write `user_updated` with the `change` values
+`factors_reset` and `failure_counters_reset`, and `resend_invitation/2`
+writes `user_updated` with the `change` value `invitation_resent`, also for
+the new invitation that the reset of decision D11 sends to an active local
+account. Both resets also delete the
+directory counters of the user's LDAP identities through
+`reset_directory_for_user/2`, which writes one `user_updated` event with
+the reason `directory_counter_reset` for each identity whose counter it
+deletes.
 
 An oidcc error term can hold a token or the claims of an ID token, so the log
 carries only its reason tag, the first atom of the term
@@ -191,12 +201,20 @@ Administrative actions are also written to the table `audit_events` through
 
 | Column | Content |
 |---|---|
-| `action` | `user.invited`, `user.invitation_resent`, `user.signed_up`, `user.disabled`, `role.granted`, `role.revoked`, `role.synced`, `sessions.ended`, `sessions.ended_all`, `api_client.created`, `api_client.deleted`; since task 0013 `policy_version.created`, `policy_version.published`, `attendance.issued`, `credential.revoked` |
+| `action` | `user.invited`, `user.invitation_resent`, `user.signed_up`, `user.disabled`, `role.granted`, `role.revoked`, `role.synced`, `sessions.ended`, `sessions.ended_all`, `api_client.created`, `api_client.deleted`; since task 0007 `failure_counter.reset`; since task 0013 `policy_version.created`, `policy_version.published`, `attendance.issued`, `credential.revoked`; since task 0015 `user.factors_reset`, `user.failure_counters_reset`, `policy.created`, `policy.updated`, `policy.deleted`, `approved_tool.created`, `approved_tool.updated`, `approved_tool.deleted`, `webhook.created`, `webhook.updated`, `webhook.deleted`, `policy_version.updated`, `pack.imported`, `pack.published` |
 | `actor_id` | the acting user; `null` for release functions, the boot task and the `signup` job (`Scope.system/0`) |
 | `subject_type`, `subject_id` | the changed record |
-| `details` | role names, provider keys and counts, and for task 0013 policy keys, version numbers, format keys, session dates and the previous credential status; no personal data |
+| `details` | role names, provider keys and counts, for task 0013 policy keys, version numbers, format keys, session dates and the previous credential status, and for task 0015 `identity_verified: true` of a factor reset, policy keys with version numbers or the number of deleted drafts, tool names, the events and the name of the secret variable of a webhook (no URL and no secret), and pack keys with the import status; no personal data |
 | `at` | UTC time of the action |
 
 Audit events are append-only: the context has no update or delete function
 apart from the retention job of task 0014. `Espalier.Audit.list_events/2`
-requires the role `admin` and serves the admin area of task 0015.
+requires the role `admin` and serves the audit page of task 0015
+(`GET /api/admin/audit`), newest first, with the filters `action` and
+`actor_id` and 50 events per page. `at` and `inserted_at` have second
+precision, so `id` is the last ordering key: events within one second keep
+one order across pages, which does not reflect the sequence in which they
+were written. Every admin change of task 0015 writes its event with the
+acting admin or author as actor and the changed record as subject. A factor
+reset that sends an invitation also writes `user.invitation_resent`, and a
+reset that deletes a directory counter also writes `failure_counter.reset`.

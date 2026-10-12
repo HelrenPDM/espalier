@@ -31,8 +31,12 @@ defmodule EspalierWeb.Endpoint do
   plug Plug.RequestId
   plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
 
+  # No multipart parser: the pack upload of task 0015 reads its body only in
+  # the router pipeline :pack_upload, behind the role and recent-auth checks
+  # and with the limit PACK_UPLOAD_MAX_MB (EspalierWeb.PackMultipart). With
+  # pass: ["*/*"], this parser leaves a multipart body unread.
   plug Plug.Parsers,
-    parsers: [:urlencoded, :multipart, :json],
+    parsers: [:urlencoded, :json],
     pass: ["*/*"],
     json_decoder: Phoenix.json_library()
 

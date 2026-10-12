@@ -14,6 +14,12 @@ defmodule EspalierWeb.ApiSpecTest do
   Task 0014 steps 4 and 8 add the operations of its ten routes, and every
   request schema of its three POST routes sets `additionalProperties:
   false` at the top level (ASVS 2.1.1 and 15.3.3).
+
+  Task 0015 step 10 adds the operations of the admin area under
+  `/api/admin`, and every request schema of its POST routes, the multipart
+  schema of the pack upload included, sets `additionalProperties: false`
+  (ASVS 2.1.1 and 15.3.3). The seeding routes under `/api/dev` have no
+  operation.
   """
   use EspalierWeb.ConnCase, async: true
 
@@ -96,7 +102,54 @@ defmodule EspalierWeb.ApiSpecTest do
     {:get, "/api/insights/competence"},
     {:get, "/api/insights/formats"},
     {:get, "/api/insights/feedback"},
-    {:get, "/api/insights/credentials"}
+    {:get, "/api/insights/credentials"},
+    # Task 0015 step 10: the admin area of steps 2, 3, 4, 6, 7 and 8. A
+    # resource route with `:update` answers PUT and PATCH alike.
+    {:get, "/api/admin/policies"},
+    {:post, "/api/admin/policies"},
+    {:get, "/api/admin/policies/{id}"},
+    {:put, "/api/admin/policies/{id}"},
+    {:patch, "/api/admin/policies/{id}"},
+    {:delete, "/api/admin/policies/{id}"},
+    {:get, "/api/admin/approved-tools"},
+    {:post, "/api/admin/approved-tools"},
+    {:get, "/api/admin/approved-tools/{id}"},
+    {:put, "/api/admin/approved-tools/{id}"},
+    {:patch, "/api/admin/approved-tools/{id}"},
+    {:delete, "/api/admin/approved-tools/{id}"},
+    {:get, "/api/admin/webhooks"},
+    {:post, "/api/admin/webhooks"},
+    {:get, "/api/admin/webhooks/{id}"},
+    {:put, "/api/admin/webhooks/{id}"},
+    {:patch, "/api/admin/webhooks/{id}"},
+    {:delete, "/api/admin/webhooks/{id}"},
+    {:get, "/api/admin/policy-versions"},
+    {:post, "/api/admin/policy-versions"},
+    {:get, "/api/admin/policy-versions/{id}"},
+    {:put, "/api/admin/policy-versions/{id}"},
+    {:patch, "/api/admin/policy-versions/{id}"},
+    {:post, "/api/admin/policy-versions/{id}/publish"},
+    {:get, "/api/admin/role-grants"},
+    {:post, "/api/admin/role-grants"},
+    {:delete, "/api/admin/role-grants/{id}"},
+    {:get, "/api/admin/api-clients"},
+    {:post, "/api/admin/api-clients"},
+    {:delete, "/api/admin/api-clients/{id}"},
+    {:get, "/api/admin/users"},
+    {:post, "/api/admin/user-lookups"},
+    {:post, "/api/admin/users"},
+    {:post, "/api/admin/users/{id}/invitation"},
+    {:post, "/api/admin/users/{id}/disable"},
+    {:delete, "/api/admin/users/{id}/sessions"},
+    {:delete, "/api/admin/sessions"},
+    {:post, "/api/admin/users/{id}/reset-factors"},
+    {:post, "/api/admin/users/{id}/reset-failure-counters"},
+    {:post, "/api/admin/credentials/{id}/revoke"},
+    {:get, "/api/admin/audit"},
+    {:post, "/api/admin/packs"},
+    {:get, "/api/admin/packs/{id}"},
+    {:get, "/api/admin/packs/{id}/diff"},
+    {:post, "/api/admin/packs/{id}/publish"}
   ]
 
   # The POST routes of task 0013 and the schema of their request body.
@@ -112,6 +165,27 @@ defmodule EspalierWeb.ApiSpecTest do
     "/api/self-assessments" => "SelfAssessmentRequest",
     "/api/formats/{id}/votes" => "FormatVoteRequest",
     "/api/feedback" => "FeedbackRequest"
+  }
+
+  # The POST routes of task 0015 and the schema of their request body. The
+  # pack upload is a multipart body with an inline schema.
+  @posts_0015 %{
+    "/api/admin/policies" => "AdminPolicyRequest",
+    "/api/admin/approved-tools" => "AdminApprovedToolRequest",
+    "/api/admin/webhooks" => "AdminWebhookRequest",
+    "/api/admin/policy-versions" => "AdminPolicyVersionRequest",
+    "/api/admin/policy-versions/{id}/publish" => "AdminPolicyVersionPublishRequest",
+    "/api/admin/role-grants" => "AdminRoleGrantRequest",
+    "/api/admin/api-clients" => "AdminApiClientRequest",
+    "/api/admin/user-lookups" => "EmailLookupRequest",
+    "/api/admin/users" => "AdminUserInviteRequest",
+    "/api/admin/users/{id}/invitation" => "EmptyRequest",
+    "/api/admin/users/{id}/disable" => "EmptyRequest",
+    "/api/admin/users/{id}/reset-factors" => "AdminFactorResetRequest",
+    "/api/admin/users/{id}/reset-failure-counters" => "EmptyRequest",
+    "/api/admin/credentials/{id}/revoke" => "EmptyRequest",
+    "/api/admin/packs" => "AdminPackUpload",
+    "/api/admin/packs/{id}/publish" => "EmptyRequest"
   }
 
   defp operations do
@@ -257,6 +331,38 @@ defmodule EspalierWeb.ApiSpecTest do
 
     answers = spec.components.schemas["FeedbackRequest"].properties.answers
     assert %Schema{type: :object, additionalProperties: %Schema{}} = answers
+  end
+
+  # Task 0015 step 10, Security requirement 15.3.3: every POST route under
+  # /api/admin is listed, and the multipart schema of the pack upload sets
+  # additionalProperties false like the JSON schemas.
+  test "every request schema of the POST routes of task 0015 sets additionalProperties false" do
+    spec = ApiSpec.spec()
+
+    admin_posts =
+      for {{:post, "/api/admin/" <> _rest = path}, _operation} <- operations(), do: path
+
+    assert Enum.sort(admin_posts) == Enum.sort(Map.keys(@posts_0015))
+
+    for {path, title} <- @posts_0015 do
+      assert %Operation{requestBody: %RequestBody{content: content}} = spec.paths[path].post
+
+      media_type =
+        if path == "/api/admin/packs", do: "multipart/form-data", else: "application/json"
+
+      assert [{^media_type, %MediaType{schema: schema}}] = Map.to_list(content), path
+      schema = resolve(spec, schema)
+      assert %Schema{title: ^title, type: :object, additionalProperties: false} = schema, path
+
+      for object <- objects(schema, spec) do
+        assert object.additionalProperties == false, "#{path} #{title}"
+      end
+    end
+
+    # The upload is described as a binary field `file` (step 10).
+    upload = spec.paths["/api/admin/packs"].post.requestBody.content["multipart/form-data"]
+    assert %Schema{type: :string, format: :binary} = upload.schema.properties.file
+    assert upload.schema.required == [:file]
   end
 
   test "the integration operation names the bearer token, which the document declares" do

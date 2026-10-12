@@ -22,6 +22,7 @@ import type {
   ProgramView,
   ResumeState,
 } from "../player/runtime";
+import { useProgramBase } from "../player/programBase";
 
 const STATUS_ICONS = {
   evidenced: CheckCircleIcon,
@@ -51,6 +52,7 @@ export function CompletionSummary({
   focusOnMount?: boolean;
 }) {
   const { t } = useTranslation();
+  const programBase = useProgramBase();
   const headingId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const lang = useContentLang();
@@ -164,7 +166,7 @@ export function CompletionSummary({
                               <>
                                 {" "}
                                 <Link
-                                  to={`/programs/${program.slug}/stations/${formatStation.position}`}
+                                  to={`${programBase}/${program.slug}/stations/${formatStation.position}`}
                                   className={linkClasses}
                                 >
                                   {t("completion.formatLink")}{" "}

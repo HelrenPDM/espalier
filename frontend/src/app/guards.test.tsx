@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import {
   createMemoryRouter,
   Outlet,
@@ -109,19 +109,42 @@ describe("RequireRole", () => {
   });
 
   test.each([
-    ["an analyst", "analyst", "/admin"],
-    ["a registrar", "registrar", "/admin/registrar"],
-    ["an analyst", "analyst", "/admin/other/page"],
-  ] as const)(
-    "renders the admin placeholder for %s (%s) on %s",
-    (_name, role, path) => {
-      renderAt(path, sessionValue({ roles: ["learner", role] }));
+    ["an analyst", "analyst"],
+    ["a registrar", "registrar"],
+    ["an author", "author"],
+    ["a facilitator", "facilitator"],
+    ["an admin", "admin"],
+  ] as const)("renders the admin start page for %s (%s)", (_name, role) => {
+    renderAt("/admin", sessionValue({ roles: ["learner", role] }));
 
-      expect(
-        screen.getByRole("heading", { level: 1, name: "Administration" }),
-      ).toBeInTheDocument();
-    },
-  );
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Administration" }),
+    ).toBeInTheDocument();
+  });
+
+  test("renders the not-found page for an unknown admin path", () => {
+    renderAt(
+      "/admin/other/page",
+      sessionValue({ roles: ["learner", "analyst"] }),
+    );
+
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Page not found" }),
+    ).toBeInTheDocument();
+  });
+
+  test("the admin navigation lists the sections of the session's roles only", () => {
+    renderAt("/admin", sessionValue({ roles: ["learner", "registrar"] }));
+
+    const navigation = screen.getByRole("navigation", {
+      name: "Administration sections",
+    });
+    expect(
+      within(navigation)
+        .getAllByRole("link")
+        .map((link) => link.textContent),
+    ).toEqual(["Credentials"]);
+  });
 
   // The reports page of 0014 sits under the admin guard and admits only
   // analysts; `src/admin/insights/InsightsPage.test.tsx` renders it for one.

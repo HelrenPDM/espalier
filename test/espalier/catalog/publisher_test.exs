@@ -504,6 +504,11 @@ defmodule Espalier.Catalog.PublisherTest do
       assert Repo.get!(PackImport, pack_import.id).status == :validated
     end
 
+    # The rows of this test exist only inside its sandbox transaction, so
+    # PostgreSQL plans its joins without statistics; under the load of the
+    # whole suite a query can take longer than the default 15 seconds.
+    @large_query_timeout 60_000
+
     # One insert_all chunk of the publisher holds 6,553 blocks (ten fields),
     # 7,281 options (nine fields) or 8,191 citations (eight fields), so each
     # of these tables takes more than one chunk here.
@@ -518,29 +523,35 @@ defmodule Espalier.Catalog.PublisherTest do
                counts(program)
 
       assert Repo.all(
-               from b in Block,
+               from(b in Block,
                  where: b.lesson_id == ^lesson_id,
                  order_by: b.position,
                  select: {b.position, b.kind, b.body, b.collapsed_on}
+               ),
+               timeout: @large_query_timeout
              ) == for(n <- 1..7_000, do: {n, :text, "Block #{n}.", [:short]})
 
       assert Repo.all(
-               from c in Citation,
+               from(c in Citation,
                  join: b in assoc(c, :block),
                  join: s in assoc(c, :source),
                  where: b.lesson_id == ^lesson_id,
                  order_by: [b.position, s.key],
                  select: {b.position, s.key, c.locator}
+               ),
+               timeout: @large_query_timeout
              ) ==
                Enum.flat_map(1..7_000, fn n ->
                  [{n, "invented-guide", "p. #{n}"}, {n, "invented-study", nil}]
                end)
 
       assert Repo.all(
-               from o in Option,
+               from(o in Option,
                  where: o.item_id == ^practice.id,
                  order_by: o.position,
                  select: {o.position, o.key, o.correct}
+               ),
+               timeout: @large_query_timeout
              ) == for(n <- 1..8_000, do: {n, "o#{n}", n == 1})
 
       assert length(citations(:item_id, practice.id)) == 1_000

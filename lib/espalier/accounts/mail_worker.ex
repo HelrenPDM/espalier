@@ -29,7 +29,7 @@ defmodule Espalier.Accounts.MailWorker do
   @kinds ~w(invitation signup change_email email_changed password_changed failed_attempts
             factor_added factor_removed recovery_codes_regenerated recovery_used
             authenticator_disabled recovery_instructions recovery_unavailable identity_linked
-            credential_refresh_due credential_expired none)
+            credential_refresh_due credential_expired factors_reset none)
 
   # Factor names of the job arguments, mapped without creating atoms.
   @factors %{
@@ -199,6 +199,12 @@ defmodule Espalier.Accounts.MailWorker do
 
   defp run("recovery_unavailable", %{"user_id" => user_id}) do
     with_mailbox(user_id, &UserNotifier.deliver_recovery_unavailable/1)
+  end
+
+  # Task 0015: the reset of decision D11. Users without an address receive
+  # no mail.
+  defp run("factors_reset", %{"user_id" => user_id}) do
+    with_mailbox(user_id, &UserNotifier.deliver_factors_reset/1)
   end
 
   defp run("identity_linked", %{"user_id" => user_id, "provider_key" => provider_key}) do

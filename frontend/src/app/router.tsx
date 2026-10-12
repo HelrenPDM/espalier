@@ -18,19 +18,33 @@ import { CredentialPage } from "../learner/CredentialPage";
 import { ProgramListPage } from "../learner/ProgramListPage";
 import { ErrorPage } from "./ErrorPage";
 import { Layout } from "./Layout";
+import { AdminHome } from "../admin/AdminHome";
+import { AdminLayout } from "../admin/AdminLayout";
+import { AdminPasskeyGate } from "../admin/passkeyGate";
 import {
+  AdminPoliciesPage,
+  ApiClientsPage,
+  ApprovedToolsPage,
+  AttendancePage,
+  AuditPage,
   GlossaryPage,
   HandbookPage,
   InsightsPage,
+  PackPage,
+  PackPreviewPage,
+  PacksPage,
   PoliciesPage,
   ProgramPage,
   ProgramRoute,
+  RegistrarPage,
+  RolesPage,
   StationPage,
+  UsersPage,
+  WebhooksPage,
 } from "./lazyPages";
 import { NotFoundPage } from "./NotFoundPage";
-import { PlaceholderPage } from "./PlaceholderPage";
 
-/** The roles that the admin navigation of 0015 serves (README section 9). */
+/** The roles that the admin navigation serves (README section 9, task 0015). */
 export const ADMIN_ROLES: readonly Role[] = [
   "author",
   "admin",
@@ -38,6 +52,18 @@ export const ADMIN_ROLES: readonly Role[] = [
   "analyst",
   "registrar",
 ];
+
+/** A section of the role `admin` behind its guard and the passkey gate. */
+function adminSection(path: string, page: ReactNode): RouteObject {
+  return {
+    path,
+    element: (
+      <RequireRole anyOf={["admin"]}>
+        <AdminPasskeyGate>{page}</AdminPasskeyGate>
+      </RequireRole>
+    ),
+  };
+}
 
 /**
  * The account routes of 0011 that serve sessions before a full sign-in sit
@@ -77,15 +103,45 @@ export const appRoutes: RouteObject[] = [
       { path: "me/credentials/:id", element: <CredentialPage /> },
       {
         // The guard of the admin area admits every role beyond `learner`;
-        // each page below it checks its own role. Every admin path without
-        // a page of its own keeps the placeholder until 0015.
+        // each section below it checks its own role, and the admin sections
+        // also show the passkey notice while the passkey gate is closed
+        // (task 0015, step 5). The server checks every role (ASVS 8.3.1).
         path: "admin",
         element: (
           <RequireRole anyOf={ADMIN_ROLES}>
-            <Outlet />
+            <AdminLayout />
           </RequireRole>
         ),
         children: [
+          { index: true, element: <AdminHome /> },
+          {
+            path: "packs",
+            element: (
+              <RequireRole anyOf={["author"]}>
+                <Outlet />
+              </RequireRole>
+            ),
+            children: [
+              { index: true, element: <PacksPage /> },
+              { path: ":id", element: <PackPage /> },
+              { path: ":id/preview/*", element: <PackPreviewPage /> },
+            ],
+          },
+          adminSection("users", <UsersPage />),
+          adminSection("policies", <AdminPoliciesPage />),
+          adminSection("approved-tools", <ApprovedToolsPage />),
+          adminSection("roles", <RolesPage />),
+          adminSection("api-clients", <ApiClientsPage />),
+          adminSection("webhooks", <WebhooksPage />),
+          adminSection("audit", <AuditPage />),
+          {
+            path: "attendance",
+            element: (
+              <RequireRole anyOf={["facilitator"]}>
+                <AttendancePage />
+              </RequireRole>
+            ),
+          },
           {
             path: "insights",
             element: (
@@ -94,8 +150,15 @@ export const appRoutes: RouteObject[] = [
               </RequireRole>
             ),
           },
-          { index: true, element: <PlaceholderPage page="admin" /> },
-          { path: "*", element: <PlaceholderPage page="admin" /> },
+          {
+            path: "registrar",
+            element: (
+              <RequireRole anyOf={["registrar"]}>
+                <RegistrarPage />
+              </RequireRole>
+            ),
+          },
+          { path: "*", element: <NotFoundPage /> },
         ],
       },
     ],

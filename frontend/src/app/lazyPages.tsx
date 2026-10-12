@@ -29,6 +29,59 @@ const InsightsPageChunk = lazy(() =>
   })),
 );
 
+// The pages of the admin area (task 0015) load in chunks of their own, so
+// learners never load them.
+const PacksPageChunk = lazy(() =>
+  import("../admin/packs/PacksPage").then((m) => ({ default: m.PacksPage })),
+);
+const PackPageChunk = lazy(() =>
+  import("../admin/packs/PackPage").then((m) => ({ default: m.PackPage })),
+);
+const PackPreviewPageChunk = lazy(() =>
+  import("../admin/packs/PackPreviewPage").then((m) => ({
+    default: m.PackPreviewPage,
+  })),
+);
+const UsersPageChunk = lazy(() =>
+  import("../admin/users/UsersPage").then((m) => ({ default: m.UsersPage })),
+);
+const AdminPoliciesPageChunk = lazy(() =>
+  import("../admin/policies/AdminPoliciesPage").then((m) => ({
+    default: m.AdminPoliciesPage,
+  })),
+);
+const ApprovedToolsPageChunk = lazy(() =>
+  import("../admin/tools/ApprovedToolsPage").then((m) => ({
+    default: m.ApprovedToolsPage,
+  })),
+);
+const RolesPageChunk = lazy(() =>
+  import("../admin/roles/RolesPage").then((m) => ({ default: m.RolesPage })),
+);
+const ApiClientsPageChunk = lazy(() =>
+  import("../admin/apiClients/ApiClientsPage").then((m) => ({
+    default: m.ApiClientsPage,
+  })),
+);
+const WebhooksPageChunk = lazy(() =>
+  import("../admin/webhooks/WebhooksPage").then((m) => ({
+    default: m.WebhooksPage,
+  })),
+);
+const AuditPageChunk = lazy(() =>
+  import("../admin/audit/AuditPage").then((m) => ({ default: m.AuditPage })),
+);
+const AttendancePageChunk = lazy(() =>
+  import("../admin/attendance/AttendancePage").then((m) => ({
+    default: m.AttendancePage,
+  })),
+);
+const RegistrarPageChunk = lazy(() =>
+  import("../admin/registrar/RegistrarPage").then((m) => ({
+    default: m.RegistrarPage,
+  })),
+);
+
 function Chunk({ children }: { children: ReactNode }) {
   return <Suspense fallback={<LoadingStatus />}>{children}</Suspense>;
 }
@@ -85,6 +138,102 @@ export function InsightsPage() {
   return (
     <Chunk>
       <InsightsPageChunk />
+    </Chunk>
+  );
+}
+
+export function PacksPage() {
+  return (
+    <Chunk>
+      <PacksPageChunk />
+    </Chunk>
+  );
+}
+
+export function PackPage() {
+  return (
+    <Chunk>
+      <PackPageChunk />
+    </Chunk>
+  );
+}
+
+export function PackPreviewPage() {
+  return (
+    <Chunk>
+      <PackPreviewPageChunk />
+    </Chunk>
+  );
+}
+
+export function UsersPage() {
+  return (
+    <Chunk>
+      <UsersPageChunk />
+    </Chunk>
+  );
+}
+
+export function AdminPoliciesPage() {
+  return (
+    <Chunk>
+      <AdminPoliciesPageChunk />
+    </Chunk>
+  );
+}
+
+export function ApprovedToolsPage() {
+  return (
+    <Chunk>
+      <ApprovedToolsPageChunk />
+    </Chunk>
+  );
+}
+
+export function RolesPage() {
+  return (
+    <Chunk>
+      <RolesPageChunk />
+    </Chunk>
+  );
+}
+
+export function ApiClientsPage() {
+  return (
+    <Chunk>
+      <ApiClientsPageChunk />
+    </Chunk>
+  );
+}
+
+export function WebhooksPage() {
+  return (
+    <Chunk>
+      <WebhooksPageChunk />
+    </Chunk>
+  );
+}
+
+export function AuditPage() {
+  return (
+    <Chunk>
+      <AuditPageChunk />
+    </Chunk>
+  );
+}
+
+export function AttendancePage() {
+  return (
+    <Chunk>
+      <AttendancePageChunk />
+    </Chunk>
+  );
+}
+
+export function RegistrarPage() {
+  return (
+    <Chunk>
+      <RegistrarPageChunk />
     </Chunk>
   );
 }

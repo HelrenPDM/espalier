@@ -19,6 +19,21 @@
         "title": "Accepted",
         "type": "object"
       },
+      "AdminFactorResetResult": {
+        "additionalProperties": false,
+        "description": "The result of a factor reset.",
+        "properties": {
+          "invitation_sent": {
+            "description": "True when a local account received a new invitation.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "invitation_sent"
+        ],
+        "title": "AdminFactorResetResult",
+        "type": "object"
+      },
       "ProgramView": {
         "additionalProperties": false,
         "description": "A published program.",
@@ -242,6 +257,27 @@
         "title": "ProgramView",
         "type": "object"
       },
+      "AdminPolicyVersionUpdateRequest": {
+        "additionalProperties": false,
+        "description": "Changed fields of a draft.",
+        "properties": {
+          "body": {
+            "description": "Markdown.",
+            "maxLength": 200000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "effective_from": {
+            "format": "date",
+            "type": "string"
+          },
+          "requires_refresher": {
+            "type": "boolean"
+          }
+        },
+        "title": "AdminPolicyVersionUpdateRequest",
+        "type": "object"
+      },
       "LdapCredentialsRequest": {
         "additionalProperties": false,
         "description": "A directory bind.",
@@ -425,6 +461,115 @@
           "self_assessment"
         ],
         "title": "Participation",
+        "type": "object"
+      },
+      "AdminRoleGrant": {
+        "additionalProperties": false,
+        "description": "A role grant.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "provider_key": {
+            "nullable": true,
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "learner",
+              "facilitator",
+              "author",
+              "registrar",
+              "analyst",
+              "admin"
+            ],
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "idp_claim",
+              "manual"
+            ],
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "provider_key",
+          "role",
+          "source",
+          "user_id"
+        ],
+        "title": "AdminRoleGrant",
+        "type": "object"
+      },
+      "AdminPolicyVersionList": {
+        "additionalProperties": false,
+        "description": "The versions of a policy, the highest number first.",
+        "properties": {
+          "versions": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "body": {
+                  "description": "Markdown.",
+                  "type": "string"
+                },
+                "effective_from": {
+                  "format": "date",
+                  "type": "string"
+                },
+                "id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "number": {
+                  "type": "integer"
+                },
+                "policy_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "policy_key": {
+                  "type": "string"
+                },
+                "policy_title": {
+                  "type": "string"
+                },
+                "published_at": {
+                  "format": "date-time",
+                  "nullable": true,
+                  "type": "string"
+                },
+                "requires_refresher": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "body",
+                "effective_from",
+                "id",
+                "number",
+                "policy_id",
+                "policy_key",
+                "policy_title",
+                "published_at",
+                "requires_refresher"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "versions"
+        ],
+        "title": "AdminPolicyVersionList",
         "type": "object"
       },
       "CredentialLookupResult": {
@@ -671,6 +816,418 @@
         "title": "PolicyList",
         "type": "object"
       },
+      "AdminPolicyVersionPublishRequest": {
+        "additionalProperties": false,
+        "description": "The publication of a draft.",
+        "properties": {
+          "requires_refresher": {
+            "description": "True moves the credentials whose qualification requires the policy to refresh_due.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "requires_refresher"
+        ],
+        "title": "AdminPolicyVersionPublishRequest",
+        "type": "object"
+      },
+      "AdminPackDiff": {
+        "additionalProperties": false,
+        "description": "The difference between a pack and the live program.",
+        "properties": {
+          "assessments": {
+            "additionalProperties": false,
+            "properties": {
+              "added": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "archived": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "changed": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "added",
+              "archived",
+              "changed"
+            ],
+            "type": "object"
+          },
+          "formats": {
+            "additionalProperties": false,
+            "properties": {
+              "added": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "archived": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "changed": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "added",
+              "archived",
+              "changed"
+            ],
+            "type": "object"
+          },
+          "glossary_terms": {
+            "additionalProperties": false,
+            "properties": {
+              "added": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "archived": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "changed": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "added",
+              "archived",
+              "changed"
+            ],
+            "type": "object"
+          },
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "added": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "archived": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "changed": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "added",
+              "archived",
+              "changed"
+            ],
+            "type": "object"
+          },
+          "learning_objectives": {
+            "additionalProperties": false,
+            "properties": {
+              "added": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "archived": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "changed": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "changed_fields": {
+                "additionalProperties": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "description": "The names of the differing fields per changed objective key.",
+                "type": "object"
+              }
+            },
+            "required": [
+              "added",
+              "archived",
+              "changed",
+              "changed_fields"
+            ],
+            "type": "object"
+          },
+          "lessons": {
+            "additionalProperties": false,
+            "properties": {
+              "added": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "archived": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "changed": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "added",
+              "archived",
+              "changed"
+            ],
+            "type": "object"
+          },
+          "modules": {
+            "additionalProperties": false,
+            "properties": {
+              "added": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "archived": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "changed": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "added",
+              "archived",
+              "changed"
+            ],
+            "type": "object"
+          },
+          "qualifications": {
+            "additionalProperties": false,
+            "properties": {
+              "added": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "archived": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "changed": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "added",
+              "archived",
+              "changed"
+            ],
+            "type": "object"
+          },
+          "rules": {
+            "additionalProperties": false,
+            "properties": {
+              "added": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "archived": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "changed": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "added",
+              "archived",
+              "changed"
+            ],
+            "type": "object"
+          },
+          "segments": {
+            "additionalProperties": false,
+            "properties": {
+              "added": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "archived": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "changed": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "added",
+              "archived",
+              "changed"
+            ],
+            "type": "object"
+          },
+          "sources": {
+            "additionalProperties": false,
+            "properties": {
+              "added": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "archived": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "changed": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "added",
+              "archived",
+              "changed"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "assessments",
+          "formats",
+          "glossary_terms",
+          "items",
+          "learning_objectives",
+          "lessons",
+          "modules",
+          "qualifications",
+          "rules",
+          "segments",
+          "sources"
+        ],
+        "title": "AdminPackDiff",
+        "type": "object"
+      },
+      "AdminFactorResetRequest": {
+        "additionalProperties": false,
+        "description": "The confirmation of the identity check.",
+        "properties": {
+          "identity_verified": {
+            "description": "Must be true: the organization has verified the person's identity. Without it the route answers 422 identity_verification_required.",
+            "type": "boolean"
+          }
+        },
+        "title": "AdminFactorResetRequest",
+        "type": "object"
+      },
+      "AdminAlignmentCheckFinding": {
+        "additionalProperties": false,
+        "description": "An alignment finding of a check at publish time.",
+        "properties": {
+          "check": {
+            "maximum": 4,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "file": {
+            "description": "objectives.yaml, items.yaml or module.yaml.",
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "module": {
+            "description": "The module number.",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "check",
+          "file",
+          "key",
+          "message",
+          "module"
+        ],
+        "title": "AdminAlignmentCheckFinding",
+        "type": "object"
+      },
       "EmailChangeRequest": {
         "additionalProperties": false,
         "description": "Requests an e-mail change; the link goes to the new address.",
@@ -789,6 +1346,56 @@
           "valid_until"
         ],
         "title": "CredentialView",
+        "type": "object"
+      },
+      "AdminArchiveRejected": {
+        "additionalProperties": false,
+        "description": "The upload was rejected.",
+        "properties": {
+          "error": {
+            "enum": [
+              "archive_rejected",
+              "validation_failed"
+            ],
+            "type": "string"
+          },
+          "fields": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "description": "For `validation_failed`: the error codes per member.",
+            "type": "object"
+          },
+          "report": {
+            "additionalProperties": false,
+            "properties": {
+              "errors": {
+                "items": {
+                  "$ref": "#/components/schemas/AdminReportEntry"
+                },
+                "type": "array"
+              },
+              "warnings": {
+                "items": {
+                  "$ref": "#/components/schemas/AdminReportEntry"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "errors",
+              "warnings"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "title": "AdminArchiveRejected",
         "type": "object"
       },
       "PasskeyRegistrationRequest": {
@@ -1103,6 +1710,192 @@
         "title": "SelfAssessmentResult",
         "type": "object"
       },
+      "AdminAuditEventList": {
+        "additionalProperties": false,
+        "description": "One page of audit events, newest first.",
+        "properties": {
+          "events": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "action": {
+                  "type": "string"
+                },
+                "actor_display_name": {
+                  "nullable": true,
+                  "type": "string"
+                },
+                "actor_id": {
+                  "format": "uuid",
+                  "nullable": true,
+                  "type": "string"
+                },
+                "at": {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                "details": {
+                  "description": "Role names, keys and counts.",
+                  "type": "object"
+                },
+                "id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "subject_id": {
+                  "format": "uuid",
+                  "nullable": true,
+                  "type": "string"
+                },
+                "subject_type": {
+                  "nullable": true,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "action",
+                "actor_display_name",
+                "actor_id",
+                "at",
+                "details",
+                "id",
+                "subject_id",
+                "subject_type"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "per_page": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "events",
+          "page",
+          "per_page"
+        ],
+        "title": "AdminAuditEventList",
+        "type": "object"
+      },
+      "AdminApprovedToolList": {
+        "additionalProperties": false,
+        "description": "The approved tool list, ordered by position and name.",
+        "properties": {
+          "data": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "conditions": {
+                  "nullable": true,
+                  "type": "string"
+                },
+                "id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "position": {
+                  "type": "integer"
+                },
+                "reviewed_on": {
+                  "format": "date",
+                  "nullable": true,
+                  "type": "string"
+                },
+                "status": {
+                  "enum": [
+                    "approved",
+                    "restricted",
+                    "not_approved"
+                  ],
+                  "type": "string"
+                },
+                "vendor": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "conditions",
+                "id",
+                "name",
+                "position",
+                "reviewed_on",
+                "status",
+                "vendor"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "AdminApprovedToolList",
+        "type": "object"
+      },
+      "AdminPolicyVersion": {
+        "additionalProperties": false,
+        "description": "A policy version.",
+        "properties": {
+          "body": {
+            "description": "Markdown.",
+            "type": "string"
+          },
+          "effective_from": {
+            "format": "date",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "number": {
+            "type": "integer"
+          },
+          "policy_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "policy_key": {
+            "type": "string"
+          },
+          "policy_title": {
+            "type": "string"
+          },
+          "published_at": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "refresh_due_count": {
+            "type": "integer"
+          },
+          "requires_refresher": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "body",
+          "effective_from",
+          "id",
+          "number",
+          "policy_id",
+          "policy_key",
+          "policy_title",
+          "published_at",
+          "refresh_due_count",
+          "requires_refresher"
+        ],
+        "title": "AdminPolicyVersion",
+        "type": "object"
+      },
       "AttendanceRequest": {
         "additionalProperties": false,
         "description": "The attendance of a session of a format.",
@@ -1128,6 +1921,57 @@
           "user_ids"
         ],
         "title": "AttendanceRequest",
+        "type": "object"
+      },
+      "AdminWebhookRequest": {
+        "additionalProperties": false,
+        "description": "A new webhook.",
+        "properties": {
+          "webhook": {
+            "additionalProperties": false,
+            "properties": {
+              "active": {
+                "type": "boolean"
+              },
+              "events": {
+                "items": {
+                  "enum": [
+                    "credential.issued",
+                    "credential.refresh_due",
+                    "credential.expired",
+                    "credential.revoked"
+                  ],
+                  "type": "string"
+                },
+                "maxItems": 4,
+                "minItems": 1,
+                "type": "array"
+              },
+              "secret_env": {
+                "description": "The environment variable that holds the signing secret.",
+                "maxLength": 255,
+                "pattern": "^WEBHOOK_SECRET_[A-Z0-9_]+$(?!\\n)",
+                "type": "string"
+              },
+              "url": {
+                "description": "An https URL of a host in WEBHOOK_ALLOWED_HOSTS.",
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "events",
+              "secret_env",
+              "url"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "webhook"
+        ],
+        "title": "AdminWebhookRequest",
         "type": "object"
       },
       "PasskeyAssertion": {
@@ -1412,6 +2256,37 @@
         "title": "PasskeyRegistrationResult",
         "type": "object"
       },
+      "AdminPolicyVersionRequest": {
+        "additionalProperties": false,
+        "description": "A new draft version.",
+        "properties": {
+          "body": {
+            "description": "Markdown.",
+            "maxLength": 200000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "effective_from": {
+            "format": "date",
+            "type": "string"
+          },
+          "policy_id": {
+            "description": "The policy of the draft.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "requires_refresher": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "body",
+          "effective_from",
+          "policy_id"
+        ],
+        "title": "AdminPolicyVersionRequest",
+        "type": "object"
+      },
       "TotpEnrollment": {
         "additionalProperties": false,
         "description": "A TOTP secret awaiting its first code.",
@@ -1434,6 +2309,62 @@
           "secret_base32"
         ],
         "title": "TotpEnrollment",
+        "type": "object"
+      },
+      "AdminApprovedTool": {
+        "additionalProperties": false,
+        "description": "An entry of the approved tool list.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "properties": {
+              "conditions": {
+                "nullable": true,
+                "type": "string"
+              },
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "position": {
+                "type": "integer"
+              },
+              "reviewed_on": {
+                "format": "date",
+                "nullable": true,
+                "type": "string"
+              },
+              "status": {
+                "enum": [
+                  "approved",
+                  "restricted",
+                  "not_approved"
+                ],
+                "type": "string"
+              },
+              "vendor": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "conditions",
+              "id",
+              "name",
+              "position",
+              "reviewed_on",
+              "status",
+              "vendor"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "AdminApprovedTool",
         "type": "object"
       },
       "SecuritySummary": {
@@ -1927,6 +2858,121 @@
         "title": "ReauthRequest",
         "type": "object"
       },
+      "AdminPackImport": {
+        "additionalProperties": false,
+        "description": "A content pack import.",
+        "properties": {
+          "alignment": {
+            "additionalProperties": false,
+            "properties": {
+              "errors": {
+                "items": {
+                  "$ref": "#/components/schemas/AdminAlignmentFinding"
+                },
+                "type": "array"
+              },
+              "matrix": {
+                "items": {
+                  "$ref": "#/components/schemas/AdminAlignmentMatrixRow"
+                },
+                "nullable": true,
+                "type": "array"
+              },
+              "mode": {
+                "enum": [
+                  "strict",
+                  "warn"
+                ],
+                "nullable": true,
+                "type": "string"
+              },
+              "warnings": {
+                "items": {
+                  "$ref": "#/components/schemas/AdminAlignmentFinding"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "errors",
+              "matrix",
+              "mode",
+              "warnings"
+            ],
+            "type": "object"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "inserted_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "pack_key": {
+            "nullable": true,
+            "type": "string"
+          },
+          "pack_version": {
+            "nullable": true,
+            "type": "string"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "description": "The normalized pack of a validated import.",
+            "nullable": true,
+            "type": "object"
+          },
+          "published_at": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "report": {
+            "additionalProperties": false,
+            "properties": {
+              "errors": {
+                "items": {
+                  "$ref": "#/components/schemas/AdminReportEntry"
+                },
+                "type": "array"
+              },
+              "warnings": {
+                "items": {
+                  "$ref": "#/components/schemas/AdminReportEntry"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "errors",
+              "warnings"
+            ],
+            "type": "object"
+          },
+          "status": {
+            "enum": [
+              "validated",
+              "failed",
+              "published"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "alignment",
+          "id",
+          "inserted_at",
+          "pack_key",
+          "pack_version",
+          "payload",
+          "published_at",
+          "report",
+          "status"
+        ],
+        "title": "AdminPackImport",
+        "type": "object"
+      },
       "FactorChange": {
         "additionalProperties": false,
         "description": "The factor was removed.",
@@ -2354,6 +3400,35 @@
         "title": "CompetenceReport",
         "type": "object"
       },
+      "AdminUserList": {
+        "additionalProperties": false,
+        "description": "One page of users, ordered by creation.",
+        "properties": {
+          "page": {
+            "type": "integer"
+          },
+          "per_page": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          },
+          "users": {
+            "items": {
+              "$ref": "#/components/schemas/AdminUser"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "page",
+          "per_page",
+          "total",
+          "users"
+        ],
+        "title": "AdminUserList",
+        "type": "object"
+      },
       "AcknowledgementView": {
         "additionalProperties": false,
         "description": "The acknowledgement of a policy version by the signed-in user.",
@@ -2399,6 +3474,32 @@
           "program_slug"
         ],
         "title": "EnrollmentRequest",
+        "type": "object"
+      },
+      "AdminRoleGrantRequest": {
+        "additionalProperties": false,
+        "description": "A manual role grant.",
+        "properties": {
+          "role": {
+            "enum": [
+              "facilitator",
+              "author",
+              "registrar",
+              "analyst",
+              "admin"
+            ],
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "user_id"
+        ],
+        "title": "AdminRoleGrantRequest",
         "type": "object"
       },
       "ModuleCompletionView": {
@@ -3058,6 +4159,62 @@
         "title": "ItemResult",
         "type": "object"
       },
+      "AdminApprovedToolRequest": {
+        "additionalProperties": false,
+        "description": "A new entry of the approved tool list.",
+        "properties": {
+          "approved_tool": {
+            "additionalProperties": false,
+            "properties": {
+              "conditions": {
+                "maxLength": 10000,
+                "nullable": true,
+                "type": "string"
+              },
+              "name": {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              "position": {
+                "maximum": 2147483647,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "reviewed_on": {
+                "format": "date",
+                "nullable": true,
+                "type": "string"
+              },
+              "status": {
+                "enum": [
+                  "approved",
+                  "restricted",
+                  "not_approved"
+                ],
+                "type": "string"
+              },
+              "vendor": {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "position",
+              "status",
+              "vendor"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "approved_tool"
+        ],
+        "title": "AdminApprovedToolRequest",
+        "type": "object"
+      },
       "PasskeyView": {
         "additionalProperties": false,
         "description": "A registered passkey.",
@@ -3120,6 +4277,30 @@
           "email"
         ],
         "title": "InvitationRequest",
+        "type": "object"
+      },
+      "AdminAlignmentErrors": {
+        "additionalProperties": false,
+        "description": "The publish was refused.",
+        "properties": {
+          "error": {
+            "enum": [
+              "not_publishable",
+              "alignment_errors"
+            ],
+            "type": "string"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/AdminAlignmentCheckFinding"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "title": "AdminAlignmentErrors",
         "type": "object"
       },
       "ObjectiveView": {
@@ -3298,6 +4479,68 @@
         "title": "LogoutRedirect",
         "type": "object"
       },
+      "AdminAlignmentMatrixRow": {
+        "additionalProperties": false,
+        "description": "A row of the alignment matrix.",
+        "properties": {
+          "area": {
+            "enum": [
+              "subject",
+              "method",
+              "self",
+              "social"
+            ],
+            "type": "string"
+          },
+          "depth": {
+            "enum": [
+              "know",
+              "apply",
+              "judge"
+            ],
+            "type": "string"
+          },
+          "elsewhere": {
+            "description": "The place of areas_elsewhere.",
+            "nullable": true,
+            "type": "string"
+          },
+          "evidence": {
+            "description": "Entries item:<key> and format:<key>.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "lessons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "module": {
+            "description": "The module number.",
+            "type": "integer"
+          },
+          "objectives": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "area",
+          "depth",
+          "elsewhere",
+          "evidence",
+          "lessons",
+          "module",
+          "objectives"
+        ],
+        "title": "AdminAlignmentMatrixRow",
+        "type": "object"
+      },
       "EnrollmentView": {
         "additionalProperties": false,
         "description": "The enrollment of the signed-in user.",
@@ -3378,6 +4621,99 @@
         "title": "SelfAssessmentRequest",
         "type": "object"
       },
+      "AdminApprovedToolUpdateRequest": {
+        "additionalProperties": false,
+        "description": "Changed fields of an approved tool.",
+        "properties": {
+          "approved_tool": {
+            "additionalProperties": false,
+            "properties": {
+              "conditions": {
+                "maxLength": 10000,
+                "nullable": true,
+                "type": "string"
+              },
+              "name": {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              "position": {
+                "maximum": 2147483647,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "reviewed_on": {
+                "format": "date",
+                "nullable": true,
+                "type": "string"
+              },
+              "status": {
+                "enum": [
+                  "approved",
+                  "restricted",
+                  "not_approved"
+                ],
+                "type": "string"
+              },
+              "vendor": {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "required": [
+          "approved_tool"
+        ],
+        "title": "AdminApprovedToolUpdateRequest",
+        "type": "object"
+      },
+      "AdminWebhook": {
+        "additionalProperties": false,
+        "description": "A webhook.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "properties": {
+              "active": {
+                "type": "boolean"
+              },
+              "events": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "secret_env": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "active",
+              "events",
+              "id",
+              "secret_env",
+              "url"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "AdminWebhook",
+        "type": "object"
+      },
       "EnrollmentPathRequest": {
         "additionalProperties": false,
         "description": "Sets the path by the learner's choice.",
@@ -3417,6 +4753,45 @@
           "status"
         ],
         "title": "ObjectiveProgress",
+        "type": "object"
+      },
+      "AdminAlignmentFinding": {
+        "additionalProperties": false,
+        "description": "An alignment finding with file and line.",
+        "properties": {
+          "check": {
+            "maximum": 4,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "file": {
+            "description": "The path in the pack.",
+            "type": "string"
+          },
+          "key": {
+            "description": "The objective key, the item key or the area.",
+            "type": "string"
+          },
+          "line": {
+            "type": "integer"
+          },
+          "message": {
+            "type": "string"
+          },
+          "module": {
+            "description": "The module number.",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "check",
+          "file",
+          "key",
+          "line",
+          "message",
+          "module"
+        ],
+        "title": "AdminAlignmentFinding",
         "type": "object"
       },
       "PasskeyCreationOptions": {
@@ -3891,6 +5266,20 @@
         "title": "AttendanceResult",
         "type": "object"
       },
+      "AdminPackUpload": {
+        "additionalProperties": false,
+        "properties": {
+          "file": {
+            "format": "binary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "AdminPackUpload",
+        "type": "object"
+      },
       "FinishRequest": {
         "additionalProperties": false,
         "description": "Ends an OIDC flow same-origin.",
@@ -3905,6 +5294,23 @@
           "ticket"
         ],
         "title": "FinishRequest",
+        "type": "object"
+      },
+      "AdminGrantHolderList": {
+        "additionalProperties": false,
+        "description": "The users with a grant beyond learner.",
+        "properties": {
+          "users": {
+            "items": {
+              "$ref": "#/components/schemas/AdminUser"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "users"
+        ],
+        "title": "AdminGrantHolderList",
         "type": "object"
       },
       "RecoveryCodeList": {
@@ -3923,6 +5329,44 @@
           "recovery_codes"
         ],
         "title": "RecoveryCodeList",
+        "type": "object"
+      },
+      "AdminReportEntry": {
+        "additionalProperties": false,
+        "description": "A report entry.",
+        "properties": {
+          "check": {
+            "maximum": 4,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "file": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "line": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "message": {
+            "type": "string"
+          },
+          "module": {
+            "type": "integer"
+          },
+          "omitted": {
+            "description": "The number of entries a closing entry stands for.",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "file",
+          "line",
+          "message"
+        ],
+        "title": "AdminReportEntry",
         "type": "object"
       },
       "InsightRecorded": {
@@ -4430,6 +5874,38 @@
         "title": "CompanionFormatView",
         "type": "object"
       },
+      "AdminPolicy": {
+        "additionalProperties": false,
+        "description": "A policy.",
+        "properties": {
+          "data": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "key": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "key",
+              "title"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "AdminPolicy",
+        "type": "object"
+      },
       "PasswordSignInRequest": {
         "additionalProperties": false,
         "description": "A password sign-in; it yields the pending second-factor state.",
@@ -4564,6 +6040,52 @@
         ],
         "title": "ReportCell"
       },
+      "AdminWebhookUpdateRequest": {
+        "additionalProperties": false,
+        "description": "Changed fields of a webhook.",
+        "properties": {
+          "webhook": {
+            "additionalProperties": false,
+            "properties": {
+              "active": {
+                "type": "boolean"
+              },
+              "events": {
+                "items": {
+                  "enum": [
+                    "credential.issued",
+                    "credential.refresh_due",
+                    "credential.expired",
+                    "credential.revoked"
+                  ],
+                  "type": "string"
+                },
+                "maxItems": 4,
+                "minItems": 1,
+                "type": "array"
+              },
+              "secret_env": {
+                "description": "The environment variable that holds the signing secret.",
+                "maxLength": 255,
+                "pattern": "^WEBHOOK_SECRET_[A-Z0-9_]+$(?!\\n)",
+                "type": "string"
+              },
+              "url": {
+                "description": "An https URL of a host in WEBHOOK_ALLOWED_HOSTS.",
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "required": [
+          "webhook"
+        ],
+        "title": "AdminWebhookUpdateRequest",
+        "type": "object"
+      },
       "DemoSignInRequest": {
         "additionalProperties": false,
         "description": "A demo sign-in with `AUTH_DEMO=true`.",
@@ -4653,6 +6175,251 @@
         "title": "TotpConfirmResult",
         "type": "object"
       },
+      "AdminPolicyRequest": {
+        "additionalProperties": false,
+        "description": "A new policy.",
+        "properties": {
+          "policy": {
+            "additionalProperties": false,
+            "properties": {
+              "key": {
+                "description": "The key that qualification requirements name.",
+                "maxLength": 255,
+                "minLength": 1,
+                "pattern": "^[a-z0-9][a-z0-9-]*$(?!\\n)",
+                "type": "string"
+              },
+              "title": {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "key",
+              "title"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "policy"
+        ],
+        "title": "AdminPolicyRequest",
+        "type": "object"
+      },
+      "AdminUser": {
+        "additionalProperties": false,
+        "description": "A user with roles, grants and linked providers.",
+        "properties": {
+          "display_name": {
+            "nullable": true,
+            "type": "string"
+          },
+          "enrolled": {
+            "description": "True when the user holds a passkey or a confirmed TOTP factor.",
+            "type": "boolean"
+          },
+          "grants": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "provider_key": {
+                  "nullable": true,
+                  "type": "string"
+                },
+                "role": {
+                  "enum": [
+                    "learner",
+                    "facilitator",
+                    "author",
+                    "registrar",
+                    "analyst",
+                    "admin"
+                  ],
+                  "type": "string"
+                },
+                "source": {
+                  "enum": [
+                    "idp_claim",
+                    "manual"
+                  ],
+                  "type": "string"
+                },
+                "user_id": {
+                  "format": "uuid",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "provider_key",
+                "role",
+                "source",
+                "user_id"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "last_login_at": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "provider_keys": {
+            "description": "The provider keys of the external identities; no subject.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "roles": {
+            "items": {
+              "enum": [
+                "learner",
+                "facilitator",
+                "author",
+                "registrar",
+                "analyst",
+                "admin"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "disabled"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "display_name",
+          "enrolled",
+          "grants",
+          "id",
+          "last_login_at",
+          "provider_keys",
+          "roles",
+          "status"
+        ],
+        "title": "AdminUser",
+        "type": "object"
+      },
+      "AdminPolicyUpdateRequest": {
+        "additionalProperties": false,
+        "description": "Changed fields of a policy.",
+        "properties": {
+          "policy": {
+            "additionalProperties": false,
+            "properties": {
+              "key": {
+                "description": "The key that qualification requirements name.",
+                "maxLength": 255,
+                "minLength": 1,
+                "pattern": "^[a-z0-9][a-z0-9-]*$(?!\\n)",
+                "type": "string"
+              },
+              "title": {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "required": [
+          "policy"
+        ],
+        "title": "AdminPolicyUpdateRequest",
+        "type": "object"
+      },
+      "AdminApiClientCreated": {
+        "additionalProperties": false,
+        "description": "A new machine client with its token.",
+        "properties": {
+          "client": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "inserted_at": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "last_used_at": {
+                "format": "date-time",
+                "nullable": true,
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "scopes": {
+                "items": {
+                  "enum": [
+                    "credentials:read"
+                  ],
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "id",
+              "inserted_at",
+              "last_used_at",
+              "name",
+              "scopes"
+            ],
+            "type": "object"
+          },
+          "token": {
+            "description": "The bearer token, shown once.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "client",
+          "token"
+        ],
+        "title": "AdminApiClientCreated",
+        "type": "object"
+      },
+      "AdminUserInviteRequest": {
+        "additionalProperties": false,
+        "description": "An invitation of a new local user.",
+        "properties": {
+          "display_name": {
+            "maxLength": 160,
+            "type": "string"
+          },
+          "email": {
+            "maxLength": 160,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "AdminUserInviteRequest",
+        "type": "object"
+      },
       "AssessmentsOpenError": {
         "additionalProperties": false,
         "description": "The open exams of the module.",
@@ -4712,6 +6479,106 @@
           "credentials"
         ],
         "title": "CredentialList",
+        "type": "object"
+      },
+      "AdminWebhookList": {
+        "additionalProperties": false,
+        "description": "The webhooks, ordered by URL.",
+        "properties": {
+          "data": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "active": {
+                  "type": "boolean"
+                },
+                "events": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "secret_env": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "active",
+                "events",
+                "id",
+                "secret_env",
+                "url"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "AdminWebhookList",
+        "type": "object"
+      },
+      "AdminRevokedCredential": {
+        "additionalProperties": false,
+        "description": "A revoked credential.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "qualification_code": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "revoked"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "qualification_code",
+          "status"
+        ],
+        "title": "AdminRevokedCredential",
+        "type": "object"
+      },
+      "AdminApiClientRequest": {
+        "additionalProperties": false,
+        "description": "A new machine client.",
+        "properties": {
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "scopes": {
+            "items": {
+              "enum": [
+                "credentials:read"
+              ],
+              "type": "string"
+            },
+            "maxItems": 1,
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "scopes"
+        ],
+        "title": "AdminApiClientRequest",
         "type": "object"
       },
       "AttemptResult": {
@@ -4921,6 +6788,58 @@
         "title": "SessionList",
         "type": "object"
       },
+      "AdminApiClientList": {
+        "additionalProperties": false,
+        "description": "The machine clients, ordered by name.",
+        "properties": {
+          "clients": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "inserted_at": {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                "last_used_at": {
+                  "format": "date-time",
+                  "nullable": true,
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "scopes": {
+                  "items": {
+                    "enum": [
+                      "credentials:read"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "id",
+                "inserted_at",
+                "last_used_at",
+                "name",
+                "scopes"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "clients"
+        ],
+        "title": "AdminApiClientList",
+        "type": "object"
+      },
       "RecoveryStartRequest": {
         "additionalProperties": false,
         "description": "Sends a recovery link.",
@@ -5014,6 +6933,41 @@
           "userVerification"
         ],
         "title": "PasskeyRequestOptions",
+        "type": "object"
+      },
+      "AdminPolicyList": {
+        "additionalProperties": false,
+        "description": "The policies, ordered by key.",
+        "properties": {
+          "data": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "key": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "key",
+                "title"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "AdminPolicyList",
         "type": "object"
       }
     },
@@ -5428,6 +7382,529 @@
         ]
       }
     },
+    "/api/admin/packs/{id}/diff": {
+      "get": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Admin.PackController.diff",
+        "parameters": [
+          {
+            "description": "The import id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPackDiff"
+                }
+              }
+            },
+            "description": "The diff"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_publishable`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "Compare an import with the live program",
+        "tags": [
+          "Admin: packs"
+        ]
+      }
+    },
+    "/api/admin/policies/{id}": {
+      "delete": {
+        "callbacks": {},
+        "description": "Deletes a policy together with its drafts. A policy with a published version answers 409 `policy_in_use`.",
+        "operationId": "EspalierWeb.Admin.PolicyController.delete",
+        "parameters": [
+          {
+            "description": "The policy id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The policy is deleted"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `policy_in_use`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Delete a policy",
+        "tags": [
+          "Admin: policies"
+        ]
+      },
+      "get": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Admin.PolicyController.show",
+        "parameters": [
+          {
+            "description": "The policy id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPolicy"
+                }
+              }
+            },
+            "description": "The policy"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "Read a policy",
+        "tags": [
+          "Admin: policies"
+        ]
+      },
+      "patch": {
+        "callbacks": {},
+        "description": "A policy with a published version keeps its key (409 `policy_in_use`).",
+        "operationId": "EspalierWeb.Admin.PolicyController.update (2)",
+        "parameters": [
+          {
+            "description": "The policy id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminPolicyUpdateRequest"
+              }
+            }
+          },
+          "description": "The changed fields",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPolicy"
+                }
+              }
+            },
+            "description": "The policy"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `policy_in_use`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Change a policy",
+        "tags": [
+          "Admin: policies"
+        ]
+      },
+      "put": {
+        "callbacks": {},
+        "description": "A policy with a published version keeps its key (409 `policy_in_use`).",
+        "operationId": "EspalierWeb.Admin.PolicyController.update",
+        "parameters": [
+          {
+            "description": "The policy id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminPolicyUpdateRequest"
+              }
+            }
+          },
+          "description": "The changed fields",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPolicy"
+                }
+              }
+            },
+            "description": "The policy"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `policy_in_use`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Change a policy",
+        "tags": [
+          "Admin: policies"
+        ]
+      }
+    },
+    "/api/admin/users/{id}/sessions": {
+      "delete": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Admin.UserAdminController.end_sessions",
+        "parameters": [
+          {
+            "description": "The user id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The sessions are ended"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "End the sessions of a user",
+        "tags": [
+          "Admin: users"
+        ]
+      }
+    },
     "/api/auth/passkey/options": {
       "post": {
         "callbacks": {},
@@ -5525,6 +8002,122 @@
         "summary": "Start a passkey assertion",
         "tags": [
           "Session"
+        ]
+      }
+    },
+    "/api/admin/approved-tools": {
+      "get": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Admin.ApprovedToolController.index",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminApprovedToolList"
+                }
+              }
+            },
+            "description": "The approved tool list"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `cross_site_request`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "List the approved tools",
+        "tags": [
+          "Admin: approved tools"
+        ]
+      },
+      "post": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Admin.ApprovedToolController.create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminApprovedToolRequest"
+              }
+            }
+          },
+          "description": "The tool",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminApprovedTool"
+                }
+              }
+            },
+            "description": "The tool"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Add an approved tool",
+        "tags": [
+          "Admin: approved tools"
         ]
       }
     },
@@ -5722,6 +8315,97 @@
         ]
       }
     },
+    "/api/admin/audit": {
+      "get": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Admin.AuditController.index",
+        "parameters": [
+          {
+            "description": "An action, such as `user.disabled`.",
+            "in": "query",
+            "name": "action",
+            "required": false,
+            "schema": {
+              "maxLength": 100,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "An actor.",
+            "in": "query",
+            "name": "actor_id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The page, from 1; 50 events per page.",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "maximum": 100000,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAuditEventList"
+                }
+              }
+            },
+            "description": "One page of events"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `cross_site_request`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "List audit events",
+        "tags": [
+          "Admin: audit"
+        ]
+      }
+    },
     "/api/assessments/{id}/attempts": {
       "post": {
         "callbacks": {},
@@ -5840,6 +8524,87 @@
         "summary": "Submit an exam attempt",
         "tags": [
           "Learning"
+        ]
+      }
+    },
+    "/api/admin/user-lookups": {
+      "post": {
+        "callbacks": {},
+        "description": "The address travels in the body, so no URL carries it. The route changes no state.",
+        "operationId": "EspalierWeb.Admin.UserAdminController.lookup",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailLookupRequest"
+              }
+            }
+          },
+          "description": "The address",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUser"
+                }
+              }
+            },
+            "description": "The user with its grants"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Find a user by e-mail address",
+        "tags": [
+          "Admin: users"
         ]
       }
     },
@@ -6108,6 +8873,108 @@
         "summary": "Sign in with a directory account",
         "tags": [
           "Session"
+        ]
+      }
+    },
+    "/api/admin/users/{id}/disable": {
+      "post": {
+        "callbacks": {},
+        "description": "Sets the status `disabled` and deletes every token row of the user.",
+        "operationId": "EspalierWeb.Admin.UserAdminController.disable",
+        "parameters": [
+          {
+            "description": "The user id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyRequest"
+              }
+            }
+          },
+          "description": "No members",
+          "required": false
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUser"
+                }
+              }
+            },
+            "description": "The user"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `own_account`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Disable a user",
+        "tags": [
+          "Admin: users"
         ]
       }
     },
@@ -6585,6 +9452,90 @@
         ]
       }
     },
+    "/api/admin/users/{id}/reset-failure-counters": {
+      "post": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Admin.UserAdminController.reset_failure_counters",
+        "parameters": [
+          {
+            "description": "The user id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyRequest"
+              }
+            }
+          },
+          "description": "No members",
+          "required": false
+        },
+        "responses": {
+          "204": {
+            "description": "The counters are reset"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Reset the failure counters of a user",
+        "tags": [
+          "Admin: users"
+        ]
+      }
+    },
     "/api/modules/{id}/completion": {
       "post": {
         "callbacks": {},
@@ -6710,6 +9661,79 @@
         "summary": "Complete a module",
         "tags": [
           "Learning"
+        ]
+      }
+    },
+    "/api/admin/api-clients/{id}": {
+      "delete": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Admin.ApiClientController.delete",
+        "parameters": [
+          {
+            "description": "The client id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The client is deleted"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Delete an API client",
+        "tags": [
+          "Admin: API clients"
         ]
       }
     },
@@ -6885,6 +9909,493 @@
         ]
       }
     },
+    "/api/admin/approved-tools/{id}": {
+      "delete": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Admin.ApprovedToolController.delete",
+        "parameters": [
+          {
+            "description": "The tool id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The tool is deleted"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Delete an approved tool",
+        "tags": [
+          "Admin: approved tools"
+        ]
+      },
+      "get": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Admin.ApprovedToolController.show",
+        "parameters": [
+          {
+            "description": "The tool id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminApprovedTool"
+                }
+              }
+            },
+            "description": "The tool"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "Read an approved tool",
+        "tags": [
+          "Admin: approved tools"
+        ]
+      },
+      "patch": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Admin.ApprovedToolController.update (2)",
+        "parameters": [
+          {
+            "description": "The tool id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminApprovedToolUpdateRequest"
+              }
+            }
+          },
+          "description": "The changed fields",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminApprovedTool"
+                }
+              }
+            },
+            "description": "The tool"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Change an approved tool",
+        "tags": [
+          "Admin: approved tools"
+        ]
+      },
+      "put": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Admin.ApprovedToolController.update",
+        "parameters": [
+          {
+            "description": "The tool id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminApprovedToolUpdateRequest"
+              }
+            }
+          },
+          "description": "The changed fields",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminApprovedTool"
+                }
+              }
+            },
+            "description": "The tool"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Change an approved tool",
+        "tags": [
+          "Admin: approved tools"
+        ]
+      }
+    },
+    "/api/admin/users": {
+      "get": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Admin.UserAdminController.index",
+        "parameters": [
+          {
+            "description": "The page, from 1; 50 users per page.",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "maximum": 100000,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserList"
+                }
+              }
+            },
+            "description": "One page of users"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `cross_site_request`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "List the users",
+        "tags": [
+          "Admin: users"
+        ]
+      },
+      "post": {
+        "callbacks": {},
+        "description": "Sends a single-use invitation link (10 minutes). With `LOCAL_ACCOUNTS=false` the route answers 404, because federated users are created at their first sign-in.",
+        "operationId": "EspalierWeb.Admin.UserAdminController.create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUserInviteRequest"
+              }
+            }
+          },
+          "description": "The invitation",
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Accepted"
+                }
+              }
+            },
+            "description": "The invitation is queued"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `user_exists`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Invite a local user",
+        "tags": [
+          "Admin: users"
+        ]
+      }
+    },
     "/auth/providers": {
       "get": {
         "callbacks": {},
@@ -6983,6 +10494,516 @@
         "summary": "End one of the own sessions",
         "tags": [
           "Account"
+        ]
+      }
+    },
+    "/api/admin/packs": {
+      "post": {
+        "callbacks": {},
+        "description": "A zip archive of at most `PACK_UPLOAD_MAX_MB` (default 20) with at most 2,000 entries and declared sizes of at most five times that limit.",
+        "operationId": "EspalierWeb.Admin.PackController.create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "file": {
+                    "format": "binary",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "file"
+                ],
+                "title": "AdminPackUpload",
+                "type": "object"
+              }
+            }
+          },
+          "description": "The archive",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPackImport"
+                }
+              }
+            },
+            "description": "The import"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `request_too_large`"
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unsupported_media_type`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminArchiveRejected"
+                }
+              }
+            },
+            "description": "The rejected archive"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Upload a content pack",
+        "tags": [
+          "Admin: packs"
+        ]
+      }
+    },
+    "/api/admin/webhooks/{id}": {
+      "delete": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Admin.WebhookController.delete",
+        "parameters": [
+          {
+            "description": "The webhook id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The webhook is deleted"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Delete a webhook",
+        "tags": [
+          "Admin: webhooks"
+        ]
+      },
+      "get": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Admin.WebhookController.show",
+        "parameters": [
+          {
+            "description": "The webhook id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminWebhook"
+                }
+              }
+            },
+            "description": "The webhook"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "Read a webhook",
+        "tags": [
+          "Admin: webhooks"
+        ]
+      },
+      "patch": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Admin.WebhookController.update (2)",
+        "parameters": [
+          {
+            "description": "The webhook id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminWebhookUpdateRequest"
+              }
+            }
+          },
+          "description": "The changed fields",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminWebhook"
+                }
+              }
+            },
+            "description": "The webhook"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`, `secret_env_unset`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Change a webhook",
+        "tags": [
+          "Admin: webhooks"
+        ]
+      },
+      "put": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Admin.WebhookController.update",
+        "parameters": [
+          {
+            "description": "The webhook id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminWebhookUpdateRequest"
+              }
+            }
+          },
+          "description": "The changed fields",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminWebhook"
+                }
+              }
+            },
+            "description": "The webhook"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`, `secret_env_unset`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Change a webhook",
+        "tags": [
+          "Admin: webhooks"
+        ]
+      }
+    },
+    "/api/admin/packs/{id}": {
+      "get": {
+        "callbacks": {},
+        "description": "A `validated` import carries its payload with the answer keys.",
+        "operationId": "EspalierWeb.Admin.PackController.show",
+        "parameters": [
+          {
+            "description": "The import id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPackImport"
+                }
+              }
+            },
+            "description": "The import"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "Read an import",
+        "tags": [
+          "Admin: packs"
         ]
       }
     },
@@ -7236,6 +11257,143 @@
         "summary": "Report the companion format votes",
         "tags": [
           "Reports"
+        ]
+      }
+    },
+    "/api/admin/role-grants": {
+      "get": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Admin.RoleGrantController.index",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminGrantHolderList"
+                }
+              }
+            },
+            "description": "The users with grants"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `cross_site_request`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "List the users with role grants",
+        "tags": [
+          "Admin: roles"
+        ]
+      },
+      "post": {
+        "callbacks": {},
+        "description": "Ends every session of the user.",
+        "operationId": "EspalierWeb.Admin.RoleGrantController.create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminRoleGrantRequest"
+              }
+            }
+          },
+          "description": "The grant",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRoleGrant"
+                }
+              }
+            },
+            "description": "The grant"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `demo_user`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Grant a role",
+        "tags": [
+          "Admin: roles"
         ]
       }
     },
@@ -7644,6 +11802,340 @@
         ]
       }
     },
+    "/api/admin/users/{id}/invitation": {
+      "post": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Admin.UserAdminController.resend_invitation",
+        "parameters": [
+          {
+            "description": "The user id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyRequest"
+              }
+            }
+          },
+          "description": "No members",
+          "required": false
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Accepted"
+                }
+              }
+            },
+            "description": "The invitation is queued"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_invitable`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Send a new invitation",
+        "tags": [
+          "Admin: users"
+        ]
+      }
+    },
+    "/api/admin/api-clients": {
+      "get": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Admin.ApiClientController.index",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminApiClientList"
+                }
+              }
+            },
+            "description": "The clients"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `cross_site_request`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "List the API clients",
+        "tags": [
+          "Admin: API clients"
+        ]
+      },
+      "post": {
+        "callbacks": {},
+        "description": "The answer carries the token once.",
+        "operationId": "EspalierWeb.Admin.ApiClientController.create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminApiClientRequest"
+              }
+            }
+          },
+          "description": "The client",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminApiClientCreated"
+                }
+              }
+            },
+            "description": "The client with its token"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Create an API client",
+        "tags": [
+          "Admin: API clients"
+        ]
+      }
+    },
+    "/api/admin/webhooks": {
+      "get": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Admin.WebhookController.index",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminWebhookList"
+                }
+              }
+            },
+            "description": "The webhooks"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `cross_site_request`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "List the webhooks",
+        "tags": [
+          "Admin: webhooks"
+        ]
+      },
+      "post": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Admin.WebhookController.create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminWebhookRequest"
+              }
+            }
+          },
+          "description": "The webhook",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminWebhook"
+                }
+              }
+            },
+            "description": "The webhook"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`, `secret_env_unset`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Create a webhook",
+        "tags": [
+          "Admin: webhooks"
+        ]
+      }
+    },
     "/api/programs": {
       "get": {
         "callbacks": {},
@@ -7861,6 +12353,107 @@
         "summary": "Remove a passkey",
         "tags": [
           "Account"
+        ]
+      }
+    },
+    "/api/admin/packs/{id}/publish": {
+      "post": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Admin.PackController.publish",
+        "parameters": [
+          {
+            "description": "The import id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyRequest"
+              }
+            }
+          },
+          "description": "No members",
+          "required": false
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPackImport"
+                }
+              }
+            },
+            "description": "The published import"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAlignmentErrors"
+                }
+              }
+            },
+            "description": "Error codes: `not_publishable`, `alignment_errors`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Publish an import",
+        "tags": [
+          "Admin: packs"
         ]
       }
     },
@@ -8148,6 +12741,90 @@
         ]
       }
     },
+    "/api/admin/role-grants/{id}": {
+      "delete": {
+        "callbacks": {},
+        "description": "Ends every session of the user. An `idp_claim` grant answers 409 `idp_claim`.",
+        "operationId": "EspalierWeb.Admin.RoleGrantController.delete",
+        "parameters": [
+          {
+            "description": "The grant id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The grant is revoked"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `idp_claim`, `demo_user`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Revoke a manual grant",
+        "tags": [
+          "Admin: roles"
+        ]
+      }
+    },
     "/api/session": {
       "delete": {
         "callbacks": {},
@@ -8222,6 +12899,165 @@
         "summary": "Read the session payload",
         "tags": [
           "Session"
+        ]
+      }
+    },
+    "/api/admin/policies": {
+      "get": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Admin.PolicyController.index",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPolicyList"
+                }
+              }
+            },
+            "description": "The policies"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `cross_site_request`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "List the policies",
+        "tags": [
+          "Admin: policies"
+        ]
+      },
+      "post": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Admin.PolicyController.create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminPolicyRequest"
+              }
+            }
+          },
+          "description": "The policy",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPolicy"
+                }
+              }
+            },
+            "description": "The policy"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Create a policy",
+        "tags": [
+          "Admin: policies"
+        ]
+      }
+    },
+    "/api/admin/sessions": {
+      "delete": {
+        "callbacks": {},
+        "description": "Also ends the session of the acting admin.",
+        "operationId": "EspalierWeb.Admin.UserAdminController.end_all_sessions",
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": "Every session is ended"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "End the sessions of all users",
+        "tags": [
+          "Admin: users"
         ]
       }
     },
@@ -8426,6 +13262,163 @@
         "summary": "Answer a practice item",
         "tags": [
           "Learning"
+        ]
+      }
+    },
+    "/api/admin/policy-versions": {
+      "get": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Admin.PolicyVersionController.index",
+        "parameters": [
+          {
+            "description": "The policy.",
+            "in": "query",
+            "name": "policy_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPolicyVersionList"
+                }
+              }
+            },
+            "description": "The versions"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "List the versions of a policy",
+        "tags": [
+          "Admin: policies"
+        ]
+      },
+      "post": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Admin.PolicyVersionController.create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminPolicyVersionRequest"
+              }
+            }
+          },
+          "description": "The draft",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPolicyVersion"
+                }
+              }
+            },
+            "description": "The draft"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Create a draft version",
+        "tags": [
+          "Admin: policies"
         ]
       }
     },
@@ -8961,6 +13954,210 @@
         ]
       }
     },
+    "/api/admin/policy-versions/{id}/publish": {
+      "post": {
+        "callbacks": {},
+        "description": "Stores `requires_refresher` and publishes in one transaction. A published version answers 409 `published`, a draft below a published version 409 `superseded`.",
+        "operationId": "EspalierWeb.Admin.PolicyVersionController.publish",
+        "parameters": [
+          {
+            "description": "The version id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminPolicyVersionPublishRequest"
+              }
+            }
+          },
+          "description": "The publication",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPolicyVersion"
+                }
+              }
+            },
+            "description": "The published version"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `published`, `superseded`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Publish a draft",
+        "tags": [
+          "Admin: policies"
+        ]
+      }
+    },
+    "/api/admin/users/{id}/reset-factors": {
+      "post": {
+        "callbacks": {},
+        "description": "Decision D11: after the organization verified the person's identity, every second factor, every session and the failure counters of the user are removed in one transaction, and a local account receives a new invitation.",
+        "operationId": "EspalierWeb.Admin.UserAdminController.reset_factors",
+        "parameters": [
+          {
+            "description": "The user id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminFactorResetRequest"
+              }
+            }
+          },
+          "description": "The identity check",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminFactorResetResult"
+                }
+              }
+            },
+            "description": "The result"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `own_account`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`, `identity_verification_required`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Reset the second factors of a user",
+        "tags": [
+          "Admin: users"
+        ]
+      }
+    },
     "/api/enrollments": {
       "post": {
         "callbacks": {},
@@ -9069,6 +14266,384 @@
         "summary": "Enroll in a program",
         "tags": [
           "Learning"
+        ]
+      }
+    },
+    "/api/admin/credentials/{id}/revoke": {
+      "post": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Admin.CredentialAdminController.revoke",
+        "parameters": [
+          {
+            "description": "The credential id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyRequest"
+              }
+            }
+          },
+          "description": "No members",
+          "required": false
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRevokedCredential"
+                }
+              }
+            },
+            "description": "The revoked credential"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `already_revoked`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Revoke a credential",
+        "tags": [
+          "Admin: credentials"
+        ]
+      }
+    },
+    "/api/admin/policy-versions/{id}": {
+      "get": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Admin.PolicyVersionController.show",
+        "parameters": [
+          {
+            "description": "The version id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPolicyVersion"
+                }
+              }
+            },
+            "description": "The version"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "Read a policy version",
+        "tags": [
+          "Admin: policies"
+        ]
+      },
+      "patch": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Admin.PolicyVersionController.update (2)",
+        "parameters": [
+          {
+            "description": "The version id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminPolicyVersionUpdateRequest"
+              }
+            }
+          },
+          "description": "The changed fields",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPolicyVersion"
+                }
+              }
+            },
+            "description": "The draft"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `published`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Change a draft",
+        "tags": [
+          "Admin: policies"
+        ]
+      },
+      "put": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Admin.PolicyVersionController.update",
+        "parameters": [
+          {
+            "description": "The version id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminPolicyVersionUpdateRequest"
+              }
+            }
+          },
+          "description": "The changed fields",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPolicyVersion"
+                }
+              }
+            },
+            "description": "The draft"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `passkey_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `published`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Change a draft",
+        "tags": [
+          "Admin: policies"
         ]
       }
     },

@@ -214,6 +214,25 @@ defmodule Espalier.Accounts.UserNotifier do
   end
 
   @doc """
+  Tells the user that an administrator removed every second factor of the
+  account after an identity check by the organization (task 0015, decision
+  D11). The mail carries no link.
+  """
+  def deliver_factors_reset(user) do
+    deliver(user.email, "Your sign-in methods were reset", """
+    Hi #{user.display_name},
+
+    An administrator removed every second factor of your Espalier account
+    after your organization verified your identity. Every session of your
+    account has ended. To sign in again, set up a new sign-in method: a
+    local account receives a separate invitation mail for that, and an
+    account of an identity provider sets it up at the next sign-in.
+
+    If you did not ask for this reset, contact an administrator at once.
+    """)
+  end
+
+  @doc """
   Tells the holder that a credential moved to `refresh_due` or `expired`
   (task 0013). `credential` carries its qualification. The mail names the
   qualification title, the new status and `valid_until`, and links to the

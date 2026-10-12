@@ -25,6 +25,15 @@ defmodule EspalierWeb.FallbackController do
   Task 0013 adds `validation_failed` (422) for a check of the context, such
   as an attendance date after today (member `held_on`, code `future`) or
   before 2000-01-01 (code `past`).
+
+  Task 0015 adds the codes of the admin area: 409 `user_exists`,
+  `not_invitable`, `own_account`, `idp_claim`, `demo_user`,
+  `policy_in_use`, `published`, `superseded`, `already_revoked` and
+  `not_publishable`, and 422 `identity_verification_required` and
+  `secret_env_unset`. The pack controller renders the 409 answer
+  `alignment_errors` with its findings and the 422 answer
+  `archive_rejected` with its report itself, and
+  `EspalierWeb.Plugs.RequireAdminPasskey` answers 403 `passkey_required`.
   """
   use EspalierWeb, :controller
 
@@ -48,7 +57,19 @@ defmodule EspalierWeb.FallbackController do
     identity_in_use: :conflict,
     provider_already_linked: :conflict,
     link_required: :conflict,
-    not_enrolled: :conflict
+    not_enrolled: :conflict,
+    user_exists: :conflict,
+    not_invitable: :conflict,
+    own_account: :conflict,
+    identity_verification_required: :unprocessable_entity,
+    idp_claim: :conflict,
+    demo_user: :conflict,
+    policy_in_use: :conflict,
+    published: :conflict,
+    superseded: :conflict,
+    already_revoked: :conflict,
+    not_publishable: :conflict,
+    secret_env_unset: :unprocessable_entity
   }
 
   def call(conn, {:error, %Ecto.Changeset{} = changeset}) do

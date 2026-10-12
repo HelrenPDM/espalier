@@ -57,9 +57,19 @@ defmodule Espalier.Catalog.Pack.Importer do
   @spec import(Path.t(), Ecto.UUID.t() | nil) ::
           {:ok, pack_import()} | {:error, Ecto.Changeset.t()}
   def import(path, actor_id) when is_binary(path) and (is_nil(actor_id) or is_binary(actor_id)) do
-    %PackImport{imported_by_id: actor_id}
-    |> PackImport.changeset(attrs(path))
-    |> Repo.insert()
+    path |> prepare(actor_id) |> Repo.insert()
+  end
+
+  @doc """
+  Loads and validates the pack at `path` and returns the changeset of its
+  `PackImport` without touching the database, so that a caller can insert
+  it in a transaction of its own together with further rows (task 0015:
+  the audit event of the upload). `import/2` inserts this changeset.
+  """
+  @spec prepare(Path.t(), Ecto.UUID.t() | nil) :: Ecto.Changeset.t()
+  def prepare(path, actor_id)
+      when is_binary(path) and (is_nil(actor_id) or is_binary(actor_id)) do
+    PackImport.changeset(%PackImport{imported_by_id: actor_id}, attrs(path))
   end
 
   defp attrs(path) do

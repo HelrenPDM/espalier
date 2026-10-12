@@ -11,6 +11,8 @@ defmodule EspalierWeb.ErrorJSON do
     401 => "unauthenticated",
     403 => "forbidden",
     404 => "not_found",
+    413 => "request_too_large",
+    415 => "unsupported_media_type",
     429 => "rate_limited",
     500 => "internal_error"
   }

@@ -12,9 +12,12 @@ defmodule Espalier.Catalog do
   """
 
   import Ecto.Query, warn: false
-  alias Espalier.Repo
+  alias Espalier.Accounts.Scope
+  alias Espalier.{Audit, Repo}
+  alias Espalier.Catalog.Pack.{Diff, Importer, Publisher}
 
   alias Espalier.Catalog.{
+    Alignment,
     Assessment,
     AssessmentItem,
     Block,
@@ -25,6 +28,7 @@ defmodule Espalier.Catalog do
     LearningObjective,
     Lesson,
     Option,
+    PackImport,
     Program,
     Rule,
     Segment,
@@ -32,6 +36,102 @@ defmodule Espalier.Catalog do
   }
 
   alias Espalier.Catalog.Module, as: CatalogModule
+
+  ## Pack administration (task 0015)
+
+  @doc """
+  Imports the pack directory `path` with the scope user as actor and writes
+  the audit event `pack.imported`. Requires the role `author`.
+
+  The pack is loaded and validated outside a transaction
+  (`Espalier.Catalog.Pack.Importer.prepare/2`); the import row and its audit
+  event are then written in one `Repo.transact/1`, so that neither persists
+  without the other.
+  """
+  def import_pack(%Scope{} = scope, path) when is_binary(path) do
+    with :ok <- require_author(scope) do
+      changeset = Importer.prepare(path, scope.user.id)
+      Repo.transact(fn -> insert_import(scope, changeset) end)
+    end
+  end
+
+  defp insert_import(scope, changeset) do
+    with {:ok, pack_import} <- Repo.insert(changeset) do
+      {:ok, _event} =
+        Audit.record(scope, "pack.imported", pack_import, %{
+          pack_key: pack_import.pack_key,
+          status: pack_import.status
+        })
+
+      {:ok, pack_import}
+    end
+  end
+
+  @doc """
+  Returns `{:ok, pack_import}`, or `{:error, :not_found}` for an unknown or
+  malformed id. Requires the role `author`.
+  """
+  def get_pack_import(%Scope{} = scope, id) do
+    with :ok <- require_author(scope) do
+      with {:ok, uuid} <- Ecto.UUID.cast(id),
+           %PackImport{} = pack_import <- Repo.get(PackImport, uuid) do
+        {:ok, pack_import}
+      else
+        _other -> {:error, :not_found}
+      end
+    end
+  end
+
+  @doc """
+  Compares the stored payload of `pack_import` with the live tables
+  (`Espalier.Catalog.Pack.Diff.compute/1`). An import without a payload
+  answers `{:error, :not_publishable}`. Requires the role `author`.
+  """
+  def pack_diff(%Scope{} = scope, %PackImport{payload: payload}) do
+    with :ok <- require_author(scope) do
+      if is_map(payload), do: {:ok, Diff.compute(payload)}, else: {:error, :not_publishable}
+    end
+  end
+
+  @doc """
+  Publishes a `validated` import. Requires the role `author`.
+
+  An import in any other status answers `{:error, :not_publishable}`. Before
+  the publisher runs, `Espalier.Catalog.Alignment.check/1` checks the stored
+  payload with the rules of the running release; at least one error answers
+  `{:error, {:alignment_errors, errors}}`, and the publisher does not run.
+  The publisher and the audit event `pack.published` run in one
+  `Repo.transact/2` with the timeout of the publisher, so that neither
+  persists without the other.
+  """
+  def publish_pack(%Scope{} = scope, %PackImport{} = pack_import) do
+    with :ok <- require_author(scope),
+         %PackImport{status: :validated, payload: %{} = payload} <- pack_import,
+         {[], _warnings} <- Alignment.check(payload),
+         {:ok, published} <-
+           Repo.transact(fn -> publish_audited(scope, pack_import) end,
+             timeout: Publisher.transaction_timeout()
+           ) do
+      {:ok, published}
+    else
+      {:error, :forbidden} -> {:error, :forbidden}
+      {[_error | _rest] = errors, _warnings} -> {:error, {:alignment_errors, errors}}
+      _other -> {:error, :not_publishable}
+    end
+  end
+
+  defp publish_audited(scope, pack_import) do
+    with {:ok, published} <- Publisher.publish(pack_import) do
+      {:ok, _event} =
+        Audit.record(scope, "pack.published", published, %{pack_key: published.pack_key})
+
+      {:ok, published}
+    end
+  end
+
+  defp require_author(scope) do
+    if Scope.has_role?(scope, :author), do: :ok, else: {:error, :forbidden}
+  end
 
   @doc """
   Returns the list of programs.

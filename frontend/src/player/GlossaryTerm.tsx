@@ -5,6 +5,7 @@ import { useContentLang } from "./contentLang";
 import { Tooltip } from "./Tooltip";
 import { PlayerContext } from "./usePlayer";
 import type { GlossaryEntry } from "./runtime";
+import { useProgramBase } from "./programBase";
 
 function TermButton({
   programSlug,
@@ -16,6 +17,7 @@ function TermButton({
   text: string;
 }) {
   const navigate = useNavigate();
+  const programBase = useProgramBase();
   const lang = useContentLang();
   return (
     <Tooltip text={term.short_text} lang={lang}>
@@ -24,7 +26,7 @@ function TermButton({
           type="button"
           aria-describedby={describedBy}
           onClick={() =>
-            navigate(`/programs/${programSlug}/glossary#${term.slug}`)
+            navigate(`${programBase}/${programSlug}/glossary#${term.slug}`)
           }
           className={`cursor-help rounded-sm font-medium text-accent-700 underline decoration-dotted underline-offset-4 hover:text-accent-600 dark:text-accent-100 dark:hover:text-accent-50 ${FOCUS_RING}`}
         >

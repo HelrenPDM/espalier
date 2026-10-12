@@ -8,6 +8,9 @@ defmodule EspalierWeb.ErrorJSONTest do
     assert ErrorJSON.render("403.json", %{}) == %{error: "forbidden"}
     assert ErrorJSON.render("404.json", %{}) == %{error: "not_found"}
     assert ErrorJSON.render("406.json", %{}) == %{error: "bad_request"}
+    # Task 0015 step 7: the limit and the content type of the pack upload.
+    assert ErrorJSON.render("413.json", %{}) == %{error: "request_too_large"}
+    assert ErrorJSON.render("415.json", %{}) == %{error: "unsupported_media_type"}
 
     assert ErrorJSON.render("500.json", %{reason: %RuntimeError{message: "secret"}}) ==
              %{error: "internal_error"}

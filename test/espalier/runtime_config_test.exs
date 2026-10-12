@@ -125,6 +125,21 @@ defmodule Espalier.RuntimeConfigTest do
     end
   end
 
+  describe "the variable of task 0015 (spec step 7)" do
+    test "PACK_UPLOAD_MAX_MB defaults to 20 and accepts a positive integer" do
+      assert RuntimeConfig.parse!(%{}, :dev)[:pack_upload_max_mb] == 20
+      assert RuntimeConfig.parse!(%{"PACK_UPLOAD_MAX_MB" => "5"}, :dev)[:pack_upload_max_mb] == 5
+    end
+
+    test "PACK_UPLOAD_MAX_MB rejects other values with the variable name" do
+      for value <- ["0", "-1", "twenty", "1.5", "20MB"] do
+        assert_raise ArgumentError, ~r/^PACK_UPLOAD_MAX_MB /, fn ->
+          RuntimeConfig.parse!(%{"PACK_UPLOAD_MAX_MB" => value}, :dev)
+        end
+      end
+    end
+  end
+
   describe "the variables of task 0013 (spec step 2)" do
     test "default to 30 notice days, 30 grace days, no registrar and no webhook host" do
       config = RuntimeConfig.parse!(%{}, :dev)
