@@ -31,6 +31,17 @@ export interface Player {
    * empty load leaves the list unchanged.
    */
   refreshEvidence(): Promise<void>;
+  /**
+   * Takes over a path that the server set, such as the default path of a
+   * self-assessment (task 0014, step 5): calls `loadState()`, which also
+   * refreshes the enrollment that a runtime caches, and replaces only
+   * `path`, without a `saveState` call. Passing the path through `update`
+   * would send it as a manual choice. Resolves `true` when the player holds
+   * the loaded path afterwards, and `false` when the load failed or
+   * returned no state; the path then stays unchanged, and the caller may
+   * try again.
+   */
+  refreshPath(): Promise<boolean>;
   /** The last `saveState` call failed. */
   saveFailed: boolean;
 }
@@ -152,6 +163,19 @@ export function usePlayer(slug: string): PlayerLoad {
     });
   }, [runtime, setState]);
 
+  const refreshPath = useCallback(async (): Promise<boolean> => {
+    let loaded: ResumeState | null;
+    try {
+      loaded = await runtime.loadState();
+    } catch {
+      return false;
+    }
+    const state = stateRef.current;
+    if (loaded === null || state === null) return false;
+    if (loaded.path !== state.path) setState({ ...state, path: loaded.path });
+    return true;
+  }, [runtime, setState]);
+
   return useMemo((): PlayerLoad => {
     if (load.status === "loading") return { status: "loading" };
     if (load.status === "error") return { status: "error", error: load.error };
@@ -163,10 +187,11 @@ export function usePlayer(slug: string): PlayerLoad {
         state: load.state,
         update,
         refreshEvidence,
+        refreshPath,
         saveFailed,
       },
     };
-  }, [load, runtime, update, refreshEvidence, saveFailed]);
+  }, [load, runtime, update, refreshEvidence, refreshPath, saveFailed]);
 }
 
 /** The player of the program routes, which `PlayerProvider` provides. */

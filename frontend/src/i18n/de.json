@@ -122,6 +122,67 @@
       "text": "Hier erscheinen die Verwaltungsseiten."
     }
   },
+  "reports": {
+    "title": "Berichte",
+    "intro": "Die Berichte zählen die anonymen Antworten und die Nachweise eines Programms. Eine Zelle mit weniger Einträgen als die Mindestgruppengröße zeigt keine Zahl.",
+    "program": "Programm",
+    "programsLoading": "Die Programme werden geladen …",
+    "programsFailed": "Die Programme konnten nicht geladen werden. Bitte versuchen Sie es später erneut.",
+    "noPrograms": "Es ist noch kein Programm veröffentlicht.",
+    "loading": "Der Bericht wird geladen …",
+    "loadFailed": "Der Bericht konnte nicht geladen werden. Bitte versuchen Sie es später erneut.",
+    "notFound": "Unter dieser Adresse gibt es kein Programm.",
+    "suppressed": "weniger als {{size}}",
+    "attempts_one": "{{count}} Versuch",
+    "attempts_other": "{{count}} Versuche",
+    "orgUnit": "Organisationseinheit",
+    "noOrgUnit": "Ohne Organisationseinheit",
+    "selfAssessment": {
+      "title": "Selbsteinschätzung",
+      "description": "Die Zahl der Antworten je Segment und Monat.",
+      "segment": "Segment",
+      "empty": "Es ist noch keine Selbsteinschätzung erfasst."
+    },
+    "items": {
+      "title": "Übungsaufgaben",
+      "description": "Der Anteil richtiger Antworten und die Zahl der Versuche je Übungsaufgabe und Monat.",
+      "module": "Modul",
+      "item": "Aufgabe",
+      "empty": "Es ist noch keine Übungsaufgabe beantwortet."
+    },
+    "competence": {
+      "title": "Kompetenzbereiche",
+      "description": "Der Anteil richtiger Antworten und die Zahl der Versuche der Übungsaufgaben je Kompetenzbereich und Tiefe der Lernziele, die sie nennen, und Monat.",
+      "area": "Kompetenzbereich",
+      "depth": "Tiefe",
+      "empty": "Es ist noch keine Übungsaufgabe mit einem Lernziel beantwortet."
+    },
+    "formats": {
+      "title": "Begleitformate",
+      "description": "Die Zahl der Personen je Format, die es nutzen würden.",
+      "format": "Format",
+      "votes": "Würde ich nutzen",
+      "empty": "Das Programm bietet kein Begleitformat an."
+    },
+    "feedback": {
+      "title": "Feedback",
+      "description": "Die Zahl der Antworten je Frage und Option der Feedback-Station.",
+      "question": "Frage",
+      "answer": "Antwort",
+      "count": "Antworten",
+      "freeText": "Freitextantworten",
+      "freeTextTitle": "Freitextantworten",
+      "freeTextOrder": "Die Antworten erscheinen in zufälliger Reihenfolge.",
+      "empty": "Das Programm hat keine Feedback-Station."
+    },
+    "credentials": {
+      "title": "Nachweise",
+      "description": "Die Zahl der Nachweise je Qualifikation und Status.",
+      "qualification": "Qualifikation",
+      "archived": "Archiviert",
+      "empty": "Das Programm bietet keine Qualifikation an."
+    }
+  },
   "account": {
     "menu": "Sicherheit",
     "title": "Sicherheitseinstellungen",
@@ -324,7 +385,6 @@
     "previous": "Zurück:",
     "next": "Weiter:",
     "visited": "Besucht",
-    "pending": "Diese Station ist in dieser Version noch nicht verfügbar.",
     "notFound": {
       "title": "Station nicht gefunden"
     },
@@ -565,6 +625,75 @@
       "policy_acknowledged": "Richtlinie zur Kenntnis genommen:",
       "attendance": "Am Format teilgenommen:",
       "qualification_held": "Nachweis vorhanden:"
+    }
+  },
+  "selfAssessment": {
+    "loading": "Ihre Antwort wird geladen …",
+    "loadFailed": "Ob Sie schon geantwortet haben, konnte nicht geladen werden. Sie können trotzdem antworten.",
+    "privacy": "Ihre Antwort wird ohne Ihren Namen gespeichert. Sie wählt nur Ihren Weg vor, und Sie können den Weg jederzeit wechseln.",
+    "segments": "Auswahl",
+    "suggestedPath": "Vorschlag: {{path}}",
+    "noSegments": "Dieses Programm bietet hier keine Auswahl.",
+    "saving": "Ihre Antwort wird gespeichert …",
+    "saveFailed": "Ihre Antwort konnte nicht gespeichert werden. Bitte versuchen Sie es erneut.",
+    "recorded": "Ihre Antwort ist gespeichert. Sie hat den Weg unten vorgewählt, und Sie können ihn wechseln.",
+    "recordedKept": "Ihre Antwort ist gespeichert. Sie haben Ihren Weg zuvor selbst gewählt, daher bleibt der Weg unten unverändert, und Sie können ihn wechseln.",
+    "recordedReload": "Ihre Antwort ist gespeichert. Der Weg, der jetzt gilt, erscheint unten, nachdem Sie die Seite neu geladen haben.",
+    "alreadyRecorded": "Ihre Antwort wurde bereits gespeichert. Unten steht Ihr aktueller Weg, und Sie können ihn wechseln.",
+    "skip": "Diese Frage überspringen"
+  },
+  "formatsStation": {
+    "anonymous": "Ihre Wahl ist anonym: Sie wird ohne Ihren Namen gespeichert und lässt sich danach nicht mehr ändern.",
+    "loading": "Ihre Wahl wird geladen …",
+    "loadFailed": "Ihre bisherige Wahl konnte nicht geladen werden.",
+    "none": "Dieses Programm hat keine Begleitformate.",
+    "phases": "Phasen: {{phases}}",
+    "phase": {
+      "orient": "Orientieren",
+      "understand": "Verstehen",
+      "apply": "Anwenden",
+      "anchor": "Verankern",
+      "update": "Auffrischen"
+    },
+    "wouldUse": "Würde ich nutzen",
+    "voted": "Ihre Stimme ist gespeichert.",
+    "voteFailed": "Ihre Stimme konnte nicht gespeichert werden. Bitte versuchen Sie es erneut."
+  },
+  "feedbackStation": {
+    "anonymous": "Ihr Feedback wird ohne Ihren Namen gespeichert. Sie können es einmal senden.",
+    "loading": "Wird geladen …",
+    "loadFailed": "Ob Sie schon Feedback gesendet haben, konnte nicht geladen werden. Sie können es trotzdem senden.",
+    "none": "Diese Station hat keine Fragen.",
+    "scaleHint": "Von 1 (gar nicht) bis 5 (voll und ganz).",
+    "freeTextHint": "Höchstens 2.000 Zeichen. Bitte lassen Sie Namen und andere persönliche Angaben weg.",
+    "optional": "Jede Frage ist freiwillig. Beantworten Sie mindestens eine, um Ihr Feedback zu senden.",
+    "submit": "Feedback senden",
+    "submitting": "Wird gesendet …",
+    "submitFailed": "Ihr Feedback konnte nicht gesendet werden. Bitte versuchen Sie es erneut.",
+    "thanks": "Vielen Dank. Ihr Feedback ist gespeichert.",
+    "alreadySent": "Sie haben Ihr Feedback bereits gesendet. Vielen Dank."
+  },
+  "testNotes": {
+    "title": "Testnotizen",
+    "intro": "Dieses Protokoll unterstützt einen Usability-Test. Es bleibt in diesem Browser-Tab bis zur nächsten Ab- oder Anmeldung, enthält keine personenbezogenen Daten und wird nie an den Server gesendet.",
+    "logLabel": "Aufgezeichnete Ereignisse",
+    "empty": "Noch keine Ereignisse aufgezeichnet.",
+    "copy": "Kopieren",
+    "clear": "Leeren",
+    "copied": "Die Notizen wurden kopiert.",
+    "copyFailed": "Die Notizen konnten nicht kopiert werden. Markieren Sie den Text und kopieren Sie ihn von Hand.",
+    "cleared": "Die Notizen wurden geleert.",
+    "events": {
+      "stationOpened": "Station {{station}} geöffnet",
+      "pathSwitched": "Weg gewechselt: {{path}}",
+      "itemCorrect": "Aufgabe {{item}} richtig beantwortet",
+      "itemWrong": "Aufgabe {{item}} falsch beantwortet",
+      "itemPoll": "Umfrage {{item}} beantwortet",
+      "explanationRevealed": "Erklärungen nach der Antwort auf Aufgabe {{item}} geöffnet",
+      "examPassed": "Prüfung {{assessment}} bestanden",
+      "examFailedCore": "Prüfung {{assessment}} nicht bestanden: eine Kernaufgabe war falsch",
+      "examFailedErrors": "Prüfung {{assessment}} nicht bestanden: zu viele falsche Antworten",
+      "formatVoted": "Stimme für ein Format an Station {{station}}"
     }
   }
 }

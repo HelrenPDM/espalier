@@ -41,6 +41,10 @@ export interface SessionFlags {
   localAccounts: boolean;
   signup: Signup;
   adminPasskeyRequired: boolean;
+  /** `TEST_NOTES`: the SPA records the test session notes in the browser (0014). */
+  testNotes: boolean;
+  /** `FEEDBACK_FREE_TEXT`: the feedback station shows free-text questions (0014). */
+  feedbackFreeText: boolean;
 }
 
 /** The client shape of the session that the query cache holds. */
@@ -109,6 +113,8 @@ export function toSession(payload: SessionPayload): Session {
       localAccounts: flags.local_accounts,
       signup: flags.signup,
       adminPasskeyRequired: flags.admin_passkey_required,
+      testNotes: flags.test_notes,
+      feedbackFreeText: flags.feedback_free_text,
     },
   };
 }

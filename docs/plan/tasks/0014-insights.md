@@ -118,3 +118,211 @@ This list holds exactly the rows whose `Task` column names this task, as the own
 - `item_stats` holds no objective. The report assigns the statistics of an item to the objectives the item names when the report runs, so a pack version that changes the objectives of an item, or the area or depth of an objective, moves the earlier months of that item to the new rows. No table stores a status per objective and person (README section 7, rule 15), and this report adds none.
 - The registrar list and the attendance routes of the facilitator are outside this task, because 0013 owns them. The reports of this task show analysts counts only. Following README section 10, no report covers enrollments, module completions, exam attempts, acknowledgements or attendance certificates.
 - README section 7, rule 1: the SPA preselects the segment's default path, and the learner can switch it. The server stores that path through `apply_default_path/3`, so that a manual choice keeps priority over a later self-assessment. The enrollment stores the path. It never stores the segment.
+
+## Addendum: implementation
+The implementation departs from the steps above in the points below, and later
+tasks rely on the implemented form.
+
+- Generators and migrations (step 1): the generators gave two pairs of
+  migrations the same timestamp; the four migrations carry the timestamps
+  `20261012064216` to `20261012064219` in the order of the commands. Every
+  column that a row needs is `null: false`; `self_assessment_responses.org_unit`
+  stays nullable. `participation_markers` keeps the generated index on
+  `user_id` next to the unique index on `(user_id, subject_type, subject_id)`.
+  `ParticipationMarker.subject_type` (`self_assessment`, `format_vote`,
+  `feedback`) and `InterestVote.choice` (`would_use`) are `Ecto.Enum` fields
+  over the generated string columns. The changesets of the three anonymous
+  schemas cast nothing and take no scope: the context sets every value on the
+  struct, as for `ItemStat` of 0009. The generated CRUD functions of
+  `phx.gen.context` for `SelfAssessmentResponse`, their test and their fixture
+  are gone, because no route lists, changes or deletes an anonymous row;
+  `Espalier.InsightsFixtures` holds the helpers of the tests of this task
+  instead.
+- `record_once/3` (step 3) takes the subject as `{subject_type, subject_id}`
+  and returns the result of `fun` for a new marker, so an error of `fun` rolls
+  the marker back. The org unit of a self-assessment row passes through
+  `Insights.org_unit/1` (trimmed, at most 255 code points), as for
+  `item_stats`.
+- Learner routes (step 4): a new and a repeated answer both answer 200.
+  `POST /api/self-assessments` answers 422 `validation_failed` with the member
+  `segment_key` (code `invalid`) for a key that names no live segment of the
+  program, and its `path` is `null` only for a repeated answer when the user
+  has no enrollment at that time. `POST /api/formats/:id/votes` and
+  `POST /api/feedback` answer `{"already_recorded": <boolean>}` (schema
+  `InsightRecorded`); a vote for an archived format or for a format of a
+  program that is not published answers 404. `POST /api/feedback` answers 404
+  for a program without a feedback station and 422 with the member `answers`
+  for an answer that does not fit: every key names a question of the station,
+  a `single_choice` answer is an option key, a `scale` answer an integer from
+  1 to 5, and a free text, only with `FEEDBACK_FREE_TEXT=true`, is valid UTF-8,
+  is stored trimmed and holds from 1 to 2,000 code points and no U+0000, which
+  a `jsonb` value cannot store. The limit counts code points, because one
+  grapheme can carry any number of combining marks; a textarea with
+  `maxlength` 2000 counts UTF-16 code units, of which a text has at least as
+  many. At least one question is answered, and a question may stay
+  unanswered. `answers` is the one request member whose keys are not fixed:
+  its schema admits strings and integers as values (`anyOf`, string first,
+  because OpenApiSpex 3.22 also casts a string of digits to an integer, which
+  made a `oneOf` reject a free text such as "3") and at most 100 members, and
+  the request object itself sets `additionalProperties: false`.
+  `GET /api/me/participation` lists the votes for live formats of the program
+  in format order.
+- `Learning.apply_default_path/3` (step 4) inserts the enrollment with
+  `on_conflict: :nothing` and then reads it under a row lock, so that an
+  enrollment that `enroll/3` creates at the same moment receives the default
+  path as well.
+- Reports (step 8): a report reads the program by slug in any status, so that
+  the data of an archived program stays readable, and checks the role before
+  it reads the program. Every report carries `min_group_size`, from which the
+  SPA renders "fewer than N", and `locale`, the content language of the
+  program, which the list of published programs lacks for an archived one. In
+  the count reports (self-assessment, formats, feedback, credentials) the
+  value of a cell repeats its count; in the item and competence reports the
+  count is the sum of `attempts` and the value the share correct, rounded to
+  four decimals. No report returns the total of a column or of a choice or
+  scale question, because a total minus the shown cells would reveal the
+  suppressed ones. The `count` of a free-text question appears only from the
+  threshold on and stands beside no other cell.
+  `/api/insights/*` answers carry `cache-control: no-store`. The shapes and
+  rules:
+  - self-assessment: `{"by_org_unit", "months", "rows": [{"segment_key",
+    "label", "org_unit", "cells"}]}`. Once any answer exists, every live
+    segment has a row (per org unit with answers when `by_org_unit`), so that
+    a missing row tells nothing: a segment without answers and one below the
+    threshold both show suppressed cells. An archived segment and a key
+    without a segment (`label` `null`) have a row only when one of their
+    cells is shown. Without answers, `months` and `rows` are empty. The rows
+    follow the live segments by position, then the archived segments, then
+    the keys without a segment in key order, and within each segment the org
+    units, `null` last.
+    With `INSIGHTS_ORG_UNIT=false` the org unit stays out of the grouping, as
+    in the competence report.
+  - items: `{"months", "rows": [{"item_id", "key", "kind", "module_number",
+    "stem", "cells"}]}` for the live items of live modules with statistics,
+    summed over the org units; polls stay out, because they have no correct
+    answer.
+  - competence: as step 8 describes; the subquery also skips items and
+    objectives of an archived module, as `Catalog.Alignment.matrix/1` does.
+    The item report shows the attempts of each item per month, so a
+    competence cell would otherwise reveal a suppressed item cell, or a
+    suppressed org-unit cell, by difference or by the bounds of the
+    suppressed cells (a cell suppressed for its size holds 1 to N-1
+    attempts), or by which cells are suppressed. The query therefore groups
+    by item as well. An item and month is suppressed when the item has fewer
+    attempts than the threshold in one org unit of that month (without the
+    breakdown: in that month), and every cell of each area and depth that a
+    suppressed item names is suppressed in that month, in every org unit;
+    any other cell is shown when its sum reaches the threshold. With the
+    breakdown, each area and depth has a row for every org unit that has a
+    shown cell somewhere in the report, so a suppressed cell may also hold no
+    attempt, and an org unit listed for its suppressed cells alone cannot show
+    that a suppressed item reached it; a report in which every cell is
+    suppressed lists no row. A shown cell then holds only counts at or above
+    the threshold, and whether a cell is suppressed never depends on the org
+    units a suppressed item reached. The rule costs detail: one org unit with
+    few attempts of an item hides its areas and depths in every org unit of
+    the month. Without the breakdown, the rule suppresses exactly the cells
+    that hold an item with fewer attempts than the threshold in the month, and
+    the rows keep `org_unit` `null`. The acceptance case with one item behaves
+    as step 8 says. A review with a replica of the report and the item report
+    found these inferences left, which the GDPR workstream documents:
+    - The item report shows the share of an item's whole month, so a share of
+      0 or 1 there holds for every org unit of that item and month.
+    - A suppressed area and depth shows that an item it is linked to had
+      attempts that month, as the lists of months and of areas and depths do.
+      With `INSIGHTS_MIN_GROUP_SIZE=2` that pins the month total of such an
+      item to exactly 1, which the item report alone already does for an item
+      with statistics in a single month.
+    - In an area, depth and month without a suppressed item, a suppressed
+      cell holds no attempt, so the column shows which org units had none.
+    - The rows show which org units have a shown cell somewhere in the
+      report.
+  - formats: `{"formats": [{"id", "key", "title", "cell"}]}` for the live
+    formats in format order.
+  - feedback: `{"questions": [{"key", "kind", "label", "choices": [{"key",
+    "label", "cell"}], "free_text"}]}` in the order of the station. A
+    `single_choice` question has one choice per option, a `scale` question one
+    per value with the keys `"1"` to `"5"` and `label` `null`. `free_text` is
+    `null` for these kinds; for a `free_text` question it is `{"count",
+    "answers"}` in random order once the number of its answers reaches the
+    threshold and `{"suppressed": true}` before. The answers of each question
+    are listed apart from those of the other questions, and the report has no
+    breakdown by month.
+  - credentials: `{"qualifications": [{"code", "title", "archived",
+    "statuses": [{"status", "cell"}]}]}` with the live qualifications by add-on
+    flag and code, followed by archived qualifications with at least one
+    shown cell.
+  The breakdown by org unit still shows which org units have answers or
+  attempts anywhere in a report; `INSIGHTS_ORG_UNIT=false`, the default,
+  avoids that.
+- Retention (step 10): a date column counts as older than the limit when it
+  lies before today minus the limit in days, a timestamp when it lies before
+  now minus the limit. Of the attempts older than the limit, the job keeps
+  the newest passed attempt (by `submitted_at`, then `number`) per user and
+  assessment for every
+  assessment whose key an `assessment_passed` requirement names in the program
+  of its qualification, where the user holds a credential of that
+  qualification in the status `active` or `refresh_due`. The job deletes the
+  attempts user by user, each in a transaction that first takes the
+  evaluation lock of `Espalier.Credentials.lock_evaluation!/1`, which
+  `evaluate/2` takes as well, so a credential that a running evaluation issues
+  keeps its attempt. Beyond the step, the reorder also covers
+  `participation_markers`, and before each `CLUSTER` one `UPDATE` rewrites
+  every row of the table, as a separate statement. `CLUSTER` keeps the
+  transaction id of a row (`xmin`), and an anonymous row and its marker are
+  written in one transaction, so without the rewrite equal ids would match
+  them after any number of reorder runs, and the id of a marker would show
+  when it was written. In one transaction with the `UPDATE`, `CLUSTER` would
+  copy the earlier row versions with their original ids, and it would take
+  its lock on `participation_markers` after the row locks of the `UPDATE`,
+  which deadlocks with a repeated answer. Versions that an older open
+  snapshot still sees, the write-ahead log and backups keep the earlier ids
+  (README section 10).
+- Participation markers: a format vote has the single choice `would_use`, so
+  a format-vote marker states with the person's id what the anonymous vote
+  states without it. No role of the application reads another person's
+  markers; README section 10 names this limit for the GDPR workstream.
+- Session payload (step 11): `flags.test_notes` and `flags.feedback_free_text`
+  come from `Espalier.Insights.test_notes?/0` and `feedback_free_text?/0`.
+- Stations (steps 5 to 7): `PendingStation` is gone. `Player.refreshPath()`
+  in `src/player/usePlayer.ts` adopts the path that the server set: it calls
+  `loadState()`, which also refreshes the enrollment that `PlatformRuntime`
+  caches, and replaces only `path`, so no `PATCH` marks the choice as manual;
+  it resolves `false` when the load fails or returns no state, and the
+  station then retries once and otherwise says that the path appears after a
+  reload. The station names the outcomes `recorded`, `kept` (a manual choice
+  kept priority), `reload` and `already` in `data-outcome`. The feedback
+  station shows `alreadySent` when the server answers
+  `already_recorded: true` and on a later visit whose participation says
+  that the feedback was sent. The feedback station reads the session
+  (`useSession()`) for `flags.feedbackFreeText`, so the admin preview of
+  0015 renders it inside `SessionProvider`; the self-assessment and
+  companion formats stations read no session.
+- Test session notes (step 11): `src/player/testNotes.ts` holds the context
+  that player and learner components record through; its default records
+  nothing, and `TestNotesProvider` in `ProgramRoute` wires it to
+  `src/learner/test-notes/store.ts` while `flags.testNotes` is true and shows
+  the panel below the program pages. The entry is
+  `{"v":1,"notes":[...]}` with at most 500 notes. Beyond the list of step 11,
+  a path switch records the path (`short` or `full`), and a vote records the
+  station position without the format id. `resetTestNotes()` ends the log at
+  a sign-out, at a new sign-in and at a sign-in reported by another tab, so
+  that the next test person in the tab sees none of the earlier notes.
+- Reports page (step 9): `/admin` nests `insights` under
+  `RequireRole anyOf={["analyst"]}`, and an index route and `*` keep the
+  placeholder for every other admin path. The picker lists the published
+  programs, starts with the first one and keeps a chosen slug in `?program=`;
+  pack text takes `lang` from the listed program or the report's `locale`.
+  Bars use 21 literal width classes (`w-0`, `w-1/20` to `w-19/20`,
+  `w-full`); count bars are relative to the largest shown count of their
+  table.
+- End-to-end tests (Acceptance): `e2e/insights.spec.ts` uses the demo slots 11
+  to 13 and resets them through the development route
+  `POST /api/dev/e2e/reset-demo {"slots": [...]}` (`DevE2EController`, with
+  `Espalier.Accounts.Demo.get_user/1`), which deletes the demo users of those
+  slots only, so the specs that run beside it keep their slots. A stack
+  without development routes answers 404 and has to start with a fresh
+  database. The spec ran on an isolated stack with a fresh database (a
+  test-env Phoenix on 4100 with `AUTH_DEMO=true` and `TEST_NOTES=true`, Vite
+  on 5174), together with the player, credentials and shell specs. That
+  stack has no development routes, so the reset answered 404 there.

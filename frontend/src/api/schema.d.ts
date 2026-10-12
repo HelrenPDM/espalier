@@ -135,6 +135,23 @@ export interface paths {
         patch: operations["EspalierWeb.EnrollmentController.update"];
         trace?: never;
     };
+    "/api/me/participation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read the own participation in a program */
+        get: operations["EspalierWeb.Me.ParticipationController.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/assessments/{id}/attempts": {
         parameters: {
             query?: never;
@@ -420,6 +437,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Answer the feedback station */
+        post: operations["EspalierWeb.FeedbackController.create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me/email/confirm": {
         parameters: {
             query?: never;
@@ -431,6 +465,26 @@ export interface paths {
         put?: never;
         /** Confirm an e-mail change */
         post: operations["EspalierWeb.Me.EmailController.confirm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/insights/formats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Report the companion format votes
+         * @description The number of "would use" votes per companion format.
+         */
+        get: operations["EspalierWeb.ReportController.formats"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -471,6 +525,26 @@ export interface paths {
          * @description Self-service invitation with `SIGNUP=invite` or `domain`; the answer is the same for every address. `SIGNUP=closed` and `LOCAL_ACCOUNTS=false` answer 404.
          */
         post: operations["EspalierWeb.Auth.InvitationController.create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/insights/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Report the feedback
+         * @description The choice and scale distributions per question, and the free-text answers in random order once their number reaches the threshold.
+         */
+        get: operations["EspalierWeb.ReportController.feedback"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -554,6 +628,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/formats/{id}/votes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Vote for a companion format */
+        post: operations["EspalierWeb.FormatVoteController.create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/demo": {
         parameters: {
             query?: never;
@@ -568,6 +659,26 @@ export interface paths {
          * @description Only with `AUTH_DEMO=true`; otherwise 404.
          */
         post: operations["EspalierWeb.Auth.DemoController.create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/insights/self-assessment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Report the self-assessment segments
+         * @description The number of answers per segment and month, and per org unit when enabled.
+         */
+        get: operations["EspalierWeb.ReportController.self_assessment"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -593,6 +704,26 @@ export interface paths {
          * @description Answers 200 with `logout_url` for an OIDC session whose provider has an end-session endpoint on its allowed hosts, and 204 otherwise.
          */
         delete: operations["EspalierWeb.SessionController.delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/insights/competence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Report the competence areas
+         * @description The share correct of the practice items per competence area and depth of the learning objectives they name, per month, and per org unit when enabled.
+         */
+        get: operations["EspalierWeb.ReportController.competence"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -624,6 +755,26 @@ export interface paths {
         };
         /** List the approved tools */
         get: operations["EspalierWeb.PolicyController.approved_tools"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/insights/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Report the practice items
+         * @description The attempts and the share correct per practice item and month.
+         */
+        get: operations["EspalierWeb.ReportController.items"];
         put?: never;
         post?: never;
         delete?: never;
@@ -688,6 +839,26 @@ export interface paths {
          * @description Needs a second factor within the last 10 minutes. The last remaining second factor stays.
          */
         delete: operations["EspalierWeb.Me.TotpController.delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/self-assessments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Answer the self-assessment
+         * @description Stores the segment without the person and applies its default path to the enrollment, which this call creates when none exists. A second answer of the same person stores nothing and changes nothing.
+         */
+        post: operations["EspalierWeb.SelfAssessmentController.create"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -779,6 +950,26 @@ export interface paths {
         };
         /** List the own sessions */
         get: operations["EspalierWeb.Me.SessionController.index"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/insights/credentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Report the credentials
+         * @description The number of credentials per qualification and status.
+         */
+        get: operations["EspalierWeb.ReportController.credentials"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1062,6 +1253,18 @@ export interface components {
             }[];
         };
         /**
+         * Participation
+         * @description What the signed-in user has answered in a program, from the participation markers; it holds no segment and no feedback answer, and the format ids are the user's own votes.
+         */
+        Participation: {
+            /** @description True after the feedback of the program. */
+            feedback: boolean;
+            /** @description The ids of the live companion formats of the program that the user voted for. */
+            format_votes: string[];
+            /** @description True after the self-assessment of the program. */
+            self_assessment: boolean;
+        };
+        /**
          * CredentialLookupResult
          * @description The credentials in force of a person.
          */
@@ -1075,6 +1278,39 @@ export interface components {
                 unlocks_snapshot: string[];
                 /** Format: date */
                 valid_until: string | null;
+            }[];
+        };
+        /**
+         * FeedbackReport
+         * @description The distributions of the feedback answers per question.
+         */
+        FeedbackReport: {
+            /** @description The content language of the program, which the pack text of the report carries. */
+            locale: string;
+            /** @description `INSIGHTS_MIN_GROUP_SIZE`: a cell whose count lies below it is suppressed. */
+            min_group_size: number;
+            /** @description The questions of the feedback station, in their order. */
+            questions: {
+                /** @description The number of answers per option or scale value; empty for `free_text`. */
+                choices: {
+                    cell: components["schemas"]["ReportCell"];
+                    /** @description The option key of a `single_choice` question, or the value `1` to `5` of a `scale` question. */
+                    key: string;
+                    /** @description The option label; `null` for a scale value. */
+                    label: string | null;
+                }[];
+                /** @description For a `free_text` question, the answers in random order once their number reaches `INSIGHTS_MIN_GROUP_SIZE`, and a suppressed entry before; `null` for the other kinds. */
+                free_text: ({
+                    answers: string[];
+                    count: number;
+                } | {
+                    /** @enum {boolean} */
+                    suppressed: true;
+                }) | null;
+                key: string;
+                /** @enum {string} */
+                kind: "single_choice" | "scale" | "free_text";
+                label: string;
             }[];
         };
         /**
@@ -1175,6 +1411,31 @@ export interface components {
             nickname?: string;
         };
         /**
+         * ItemReport
+         * @description The attempts and the share correct per practice item and month.
+         */
+        ItemReport: {
+            /** @description The content language of the program, which the pack text of the report carries. */
+            locale: string;
+            /** @description `INSIGHTS_MIN_GROUP_SIZE`: a cell whose count lies below it is suppressed. */
+            min_group_size: number;
+            /** @description Every month with statistics, in ascending order. */
+            months: string[];
+            /** @description One row per live item with statistics, by module number and item position; polls stay out. */
+            rows: {
+                /** @description One cell per entry of `months`: the attempts as count and the share correct as value. */
+                cells: components["schemas"]["ReportCell"][];
+                /** Format: uuid */
+                item_id: string;
+                key: string;
+                /** @enum {string} */
+                kind: "single_choice" | "multiple_choice" | "slot_builder" | "classification" | "checklist_drill";
+                module_number: number;
+                /** @description The question of the item, Markdown from the pack. */
+                stem: string;
+            }[];
+        };
+        /**
          * InvitationAcceptRequest
          * @description Accepts an invitation and opens an enrollment session.
          */
@@ -1257,6 +1518,19 @@ export interface components {
              * @enum {string}
              */
             purpose: "link" | "step_up";
+        };
+        /**
+         * SelfAssessmentResult
+         * @description The path after a self-assessment, stored without the person.
+         */
+        SelfAssessmentResult: {
+            /** @description True when the user had answered before; the answer and the enrollment stay unchanged. */
+            already_recorded: boolean;
+            /**
+             * @description The path of the enrollment afterwards. A new answer applies the segment's default path unless the learner chose the path by hand; `null` only for an answer recorded earlier when the user has no enrollment.
+             * @enum {string|null}
+             */
+            path: "short" | "full" | null;
         };
         /**
          * AttendanceRequest
@@ -1527,9 +1801,13 @@ export interface components {
                 admin_passkey_required: boolean;
                 /** @description Mirrors `AUTH_DEMO`. */
                 demo: boolean;
+                /** @description Mirrors `FEEDBACK_FREE_TEXT`: the feedback station shows free-text questions. */
+                feedback_free_text: boolean;
                 local_accounts: boolean;
                 /** @enum {string} */
                 signup: "closed" | "invite" | "domain";
+                /** @description Mirrors `TEST_NOTES`: the SPA records the test session notes in the browser. */
+                test_notes: boolean;
             };
             /** @description The pending second-factor state after a first factor. */
             pending: {
@@ -1578,6 +1856,18 @@ export interface components {
             } | null;
         };
         /**
+         * FeedbackRequest
+         * @description The answers to the feedback station, stored without the person.
+         */
+        FeedbackRequest: {
+            /** @description The answers by question key of the feedback station. Every key names a question of the station, and at least one question is answered; an answer that does not fit its question answers 422 with the member `answers`. */
+            answers: {
+                [key: string]: string | number;
+            };
+            /** @description The slug of a published program. */
+            program_slug: string;
+        };
+        /**
          * ApprovedToolList
          * @description The approved tool list.
          */
@@ -1594,6 +1884,34 @@ export interface components {
                 /** @enum {string} */
                 status: "approved" | "restricted" | "not_approved";
                 vendor: string;
+            }[];
+        };
+        /**
+         * CompetenceReport
+         * @description The share correct of the practice items per competence area and depth of the learning objectives they name, and month.
+         */
+        CompetenceReport: {
+            /** @description Mirrors `INSIGHTS_ORG_UNIT`. */
+            by_org_unit: boolean;
+            /** @description The content language of the program, which the pack text of the report carries. */
+            locale: string;
+            /** @description `INSIGHTS_MIN_GROUP_SIZE`: a cell whose count lies below it is suppressed. */
+            min_group_size: number;
+            /** @description Every month with statistics, in ascending order. */
+            months: string[];
+            /** @description One row per competence area and depth (and org unit) with statistics, by area, depth and org unit. */
+            rows: {
+                /**
+                 * @description The CORE competence area.
+                 * @enum {string}
+                 */
+                area: "subject" | "method" | "self" | "social";
+                /** @description One cell per entry of `months`: the attempts as count and the share correct as value. */
+                cells: components["schemas"]["ReportCell"][];
+                /** @enum {string} */
+                depth: "know" | "apply" | "judge";
+                /** @description `null` when `by_org_unit` is false, and in the row of the answers without an org unit. */
+                org_unit: string | null;
             }[];
         };
         /**
@@ -1640,9 +1958,13 @@ export interface components {
                 admin_passkey_required: boolean;
                 /** @description Mirrors `AUTH_DEMO`. */
                 demo: boolean;
+                /** @description Mirrors `FEEDBACK_FREE_TEXT`: the feedback station shows free-text questions. */
+                feedback_free_text: boolean;
                 local_accounts: boolean;
                 /** @enum {string} */
                 signup: "closed" | "invite" | "domain";
+                /** @description Mirrors `TEST_NOTES`: the SPA records the test session notes in the browser. */
+                test_notes: boolean;
             };
             /**
              * @description Only after a link: `true`.
@@ -1703,6 +2025,17 @@ export interface components {
             answer: components["schemas"]["Answer"];
         };
         /**
+         * FormatVoteRequest
+         * @description An anonymous vote for a companion format; it cannot be changed afterwards.
+         */
+        FormatVoteRequest: {
+            /**
+             * @description The only choice of a vote.
+             * @enum {string}
+             */
+            choice: "would_use";
+        };
+        /**
          * SecondFactorSession
          * @description The full session after the second factor.
          */
@@ -1713,9 +2046,13 @@ export interface components {
                 admin_passkey_required: boolean;
                 /** @description Mirrors `AUTH_DEMO`. */
                 demo: boolean;
+                /** @description Mirrors `FEEDBACK_FREE_TEXT`: the feedback station shows free-text questions. */
+                feedback_free_text: boolean;
                 local_accounts: boolean;
                 /** @enum {string} */
                 signup: "closed" | "invite" | "domain";
+                /** @description Mirrors `TEST_NOTES`: the SPA records the test session notes in the browser. */
+                test_notes: boolean;
             };
             /** @description The pending second-factor state after a first factor. */
             pending: {
@@ -1921,6 +2258,16 @@ export interface components {
             code: string;
         };
         /**
+         * SelfAssessmentRequest
+         * @description The segment that the learner chose in the self-assessment station.
+         */
+        SelfAssessmentRequest: {
+            /** @description The slug of a published program. */
+            program_slug: string;
+            /** @description The key of a live segment of the program. */
+            segment_key: string;
+        };
+        /**
          * EnrollmentPathRequest
          * @description Sets the path by the learner's choice.
          */
@@ -1983,6 +2330,24 @@ export interface components {
             };
         };
         /**
+         * FormatReport
+         * @description The number of "would use" votes per companion format.
+         */
+        FormatReport: {
+            /** @description One entry per live companion format, in format order. */
+            formats: {
+                cell: components["schemas"]["ReportCell"];
+                /** Format: uuid */
+                id: string;
+                key: string;
+                title: string;
+            }[];
+            /** @description The content language of the program, which the pack text of the report carries. */
+            locale: string;
+            /** @description `INSIGHTS_MIN_GROUP_SIZE`: a cell whose count lies below it is suppressed. */
+            min_group_size: number;
+        };
+        /**
          * ReauthSession
          * @description The reissued session after a re-authentication.
          */
@@ -1993,9 +2358,13 @@ export interface components {
                 admin_passkey_required: boolean;
                 /** @description Mirrors `AUTH_DEMO`. */
                 demo: boolean;
+                /** @description Mirrors `FEEDBACK_FREE_TEXT`: the feedback station shows free-text questions. */
+                feedback_free_text: boolean;
                 local_accounts: boolean;
                 /** @enum {string} */
                 signup: "closed" | "invite" | "domain";
+                /** @description Mirrors `TEST_NOTES`: the SPA records the test session notes in the browser. */
+                test_notes: boolean;
             };
             /** @description The pending second-factor state after a first factor. */
             pending: {
@@ -2079,6 +2448,14 @@ export interface components {
         RecoveryCodeList: {
             /** @description Shown once: ten new codes; every earlier code stops working. */
             recovery_codes: string[];
+        };
+        /**
+         * InsightRecorded
+         * @description Whether an anonymous answer was stored now or before.
+         */
+        InsightRecorded: {
+            /** @description True when the user had answered before; nothing new was stored. */
+            already_recorded: boolean;
         };
         /**
          * ProviderList
@@ -2174,6 +2551,29 @@ export interface components {
             }[];
         };
         /**
+         * CredentialReport
+         * @description The number of credentials per qualification and status.
+         */
+        CredentialReport: {
+            /** @description The content language of the program, which the pack text of the report carries. */
+            locale: string;
+            /** @description `INSIGHTS_MIN_GROUP_SIZE`: a cell whose count lies below it is suppressed. */
+            min_group_size: number;
+            /** @description The live qualifications, then archived ones with credentials. */
+            qualifications: {
+                /** @description True for an archived qualification that still has credentials. */
+                archived: boolean;
+                code: string;
+                /** @description One entry per status, in the order active, refresh_due, expired, revoked. */
+                statuses: {
+                    cell: components["schemas"]["ReportCell"];
+                    /** @enum {string} */
+                    status: "active" | "refresh_due" | "expired" | "revoked";
+                }[];
+                title: string;
+            }[];
+        };
+        /**
          * EmailLookupRequest
          * @description A lookup by e-mail address.
          */
@@ -2228,6 +2628,43 @@ export interface components {
             email: string;
             /** @description The password. */
             password: string;
+        };
+        /**
+         * SelfAssessmentReport
+         * @description The number of self-assessment answers per segment and month.
+         */
+        SelfAssessmentReport: {
+            /** @description Mirrors `INSIGHTS_ORG_UNIT`. */
+            by_org_unit: boolean;
+            /** @description The content language of the program, which the pack text of the report carries. */
+            locale: string;
+            /** @description `INSIGHTS_MIN_GROUP_SIZE`: a cell whose count lies below it is suppressed. */
+            min_group_size: number;
+            /** @description Every month with answers, in ascending order. */
+            months: string[];
+            /** @description One row per segment (and org unit) with answers, in segment order. */
+            rows: {
+                /** @description One cell per entry of `months`, in that order. */
+                cells: components["schemas"]["ReportCell"][];
+                /** @description The label of the segment; `null` when the program has no segment with this key. */
+                label: string | null;
+                /** @description `null` when `by_org_unit` is false, and in the row of the answers without an org unit. */
+                org_unit: string | null;
+                segment_key: string;
+            }[];
+        };
+        /**
+         * ReportCell
+         * @description A cell with its count and value, or a suppressed cell whose count lies below `INSIGHTS_MIN_GROUP_SIZE`; a suppressed cell carries neither.
+         */
+        ReportCell: {
+            /** @description The number counted. */
+            count: number;
+            /** @description The share correct from 0 to 1 in the item and competence reports; the count in every other report. */
+            value: number;
+        } | {
+            /** @enum {boolean} */
+            suppressed: true;
         };
         /**
          * DemoSignInRequest
@@ -2823,6 +3260,65 @@ export interface operations {
                 headers: {
                     /** @description Seconds until the bucket admits the next request. */
                     "retry-after"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Me.ParticipationController.show": {
+        parameters: {
+            query: {
+                /** @description The slug of a published program. */
+                program: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The participation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Participation"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `enrollment_required`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
                     [name: string]: unknown;
                 };
                 content: {
@@ -3737,6 +4233,78 @@ export interface operations {
             };
         };
     };
+    "EspalierWeb.FeedbackController.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The answers */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FeedbackRequest"];
+            };
+        };
+        responses: {
+            /** @description Whether the feedback is new */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InsightRecorded"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `enrollment_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `rate_limited` */
+            429: {
+                headers: {
+                    /** @description Seconds until the bucket admits the next request. */
+                    "retry-after"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     "EspalierWeb.Me.EmailController.confirm": {
         parameters: {
             query?: never;
@@ -3780,6 +4348,65 @@ export interface operations {
             };
             /** @description Error codes: `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request` */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.ReportController.formats": {
+        parameters: {
+            query: {
+                /** @description The slug of a program in any status. */
+                program: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The report */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FormatReport"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3937,6 +4564,65 @@ export interface operations {
                 headers: {
                     /** @description Seconds until the bucket admits the next request. */
                     "retry-after"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.ReportController.feedback": {
+        parameters: {
+            query: {
+                /** @description The slug of a program in any status. */
+                program: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The report */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeedbackReport"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
                     [name: string]: unknown;
                 };
                 content: {
@@ -4177,6 +4863,81 @@ export interface operations {
             };
         };
     };
+    "EspalierWeb.FormatVoteController.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The id of a live companion format of a published program. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description The choice */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FormatVoteRequest"];
+            };
+        };
+        responses: {
+            /** @description Whether the vote is new */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InsightRecorded"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `enrollment_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `rate_limited` */
+            429: {
+                headers: {
+                    /** @description Seconds until the bucket admits the next request. */
+                    "retry-after"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     "EspalierWeb.Auth.DemoController.create": {
         parameters: {
             query?: never;
@@ -4232,6 +4993,65 @@ export interface operations {
                 headers: {
                     /** @description Seconds until the bucket admits the next request. */
                     "retry-after"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.ReportController.self_assessment": {
+        parameters: {
+            query: {
+                /** @description The slug of a program in any status. */
+                program: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The report */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SelfAssessmentReport"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
                     [name: string]: unknown;
                 };
                 content: {
@@ -4296,6 +5116,65 @@ export interface operations {
             };
             /** @description Error codes: `csrf`, `cross_site_request` */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.ReportController.competence": {
+        parameters: {
+            query: {
+                /** @description The slug of a program in any status. */
+                program: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The report */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompetenceReport"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4418,6 +5297,65 @@ export interface operations {
             };
             /** @description Error codes: `enrollment_required`, `cross_site_request` */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.ReportController.items": {
+        parameters: {
+            query: {
+                /** @description The slug of a program in any status. */
+                program: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The report */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemReport"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4644,6 +5582,78 @@ export interface operations {
             /** @description Error codes: `last_factor` */
             409: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.SelfAssessmentController.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The program and the segment */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SelfAssessmentRequest"];
+            };
+        };
+        responses: {
+            /** @description The path */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SelfAssessmentResult"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `enrollment_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `rate_limited` */
+            429: {
+                headers: {
+                    /** @description Seconds until the bucket admits the next request. */
+                    "retry-after"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -4938,6 +5948,65 @@ export interface operations {
             };
             /** @description Error codes: `enrollment_required`, `cross_site_request` */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.ReportController.credentials": {
+        parameters: {
+            query: {
+                /** @description The slug of a program in any status. */
+                program: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The report */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CredentialReport"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

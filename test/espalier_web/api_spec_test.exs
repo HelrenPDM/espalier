@@ -10,6 +10,10 @@ defmodule EspalierWeb.ApiSpecTest do
   schema of its POST routes sets `additionalProperties: false` (ASVS
   15.3.3), and the integration operation alone names the security scheme
   `bearer_token`, which the document declares.
+
+  Task 0014 steps 4 and 8 add the operations of its ten routes, and every
+  request schema of its three POST routes sets `additionalProperties:
+  false` at the top level (ASVS 2.1.1 and 15.3.3).
   """
   use EspalierWeb.ConnCase, async: true
 
@@ -80,7 +84,19 @@ defmodule EspalierWeb.ApiSpecTest do
     {:post, "/api/formats/{id}/attendance"},
     {:post, "/api/facilitator/user-lookups"},
     {:get, "/api/registrar/credentials"},
-    {:post, "/api/integration/credential-lookups"}
+    {:post, "/api/integration/credential-lookups"},
+    # Task 0014 steps 4 and 8: the anonymous insights of learners and the
+    # reports for analysts.
+    {:post, "/api/self-assessments"},
+    {:post, "/api/formats/{id}/votes"},
+    {:post, "/api/feedback"},
+    {:get, "/api/me/participation"},
+    {:get, "/api/insights/self-assessment"},
+    {:get, "/api/insights/items"},
+    {:get, "/api/insights/competence"},
+    {:get, "/api/insights/formats"},
+    {:get, "/api/insights/feedback"},
+    {:get, "/api/insights/credentials"}
   ]
 
   # The POST routes of task 0013 and the schema of their request body.
@@ -89,6 +105,13 @@ defmodule EspalierWeb.ApiSpecTest do
     "/api/formats/{id}/attendance" => "AttendanceRequest",
     "/api/facilitator/user-lookups" => "EmailLookupRequest",
     "/api/integration/credential-lookups" => "EmailLookupRequest"
+  }
+
+  # The POST routes of task 0014 and the schema of their request body.
+  @posts_0014 %{
+    "/api/self-assessments" => "SelfAssessmentRequest",
+    "/api/formats/{id}/votes" => "FormatVoteRequest",
+    "/api/feedback" => "FeedbackRequest"
   }
 
   defp operations do
@@ -209,6 +232,31 @@ defmodule EspalierWeb.ApiSpecTest do
         assert object.additionalProperties == false, "#{path} #{title}"
       end
     end
+  end
+
+  # Task 0014, Security requirement 15.3.3. The member `answers` of
+  # FeedbackRequest maps question keys to answers, so its object admits
+  # further members only through the schema of an answer.
+  test "every request schema of the POST routes of task 0014 sets additionalProperties false" do
+    spec = ApiSpec.spec()
+
+    for {path, title} <- @posts_0014 do
+      assert %Operation{requestBody: %RequestBody{content: content, required: true}} =
+               spec.paths[path].post
+
+      assert %{"application/json" => %MediaType{schema: schema}} = content
+      assert %Reference{"$ref": "#/components/schemas/" <> ^title} = schema, path
+      assert %Schema{type: :object, additionalProperties: false} = resolve(spec, schema), path
+
+      for object <- objects(resolve(spec, schema), spec) do
+        assert object.additionalProperties == false or
+                 match?(%Schema{}, object.additionalProperties),
+               "#{path} #{title}"
+      end
+    end
+
+    answers = spec.components.schemas["FeedbackRequest"].properties.answers
+    assert %Schema{type: :object, additionalProperties: %Schema{}} = answers
   end
 
   test "the integration operation names the bearer token, which the document declares" do

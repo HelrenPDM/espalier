@@ -111,13 +111,36 @@ describe("RequireRole", () => {
   test.each([
     ["an analyst", "analyst", "/admin"],
     ["a registrar", "registrar", "/admin/registrar"],
-  ] as const)("renders the admin placeholder for %s", (_name, role, path) => {
-    renderAt(path, sessionValue({ roles: ["learner", role] }));
+    ["an analyst", "analyst", "/admin/other/page"],
+  ] as const)(
+    "renders the admin placeholder for %s (%s) on %s",
+    (_name, role, path) => {
+      renderAt(path, sessionValue({ roles: ["learner", role] }));
 
-    expect(
-      screen.getByRole("heading", { level: 1, name: "Administration" }),
-    ).toBeInTheDocument();
-  });
+      expect(
+        screen.getByRole("heading", { level: 1, name: "Administration" }),
+      ).toBeInTheDocument();
+    },
+  );
+
+  // The reports page of 0014 sits under the admin guard and admits only
+  // analysts; `src/admin/insights/InsightsPage.test.tsx` renders it for one.
+  test.each([
+    ["a learner", ["learner"]],
+    ["an author", ["learner", "author"]],
+  ] as const)(
+    "renders the 403 page for %s on /admin/insights",
+    (_name, roles) => {
+      renderAt("/admin/insights", sessionValue({ roles: [...roles] }));
+
+      expect(
+        screen.getByRole("heading", { level: 1, name: "Access denied" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("heading", { name: "Reports" }),
+      ).not.toBeInTheDocument();
+    },
+  );
 });
 
 test("a route component that throws renders the error page", () => {

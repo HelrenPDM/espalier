@@ -65,6 +65,8 @@ const DEFAULT_FLAGS: SessionFlags = {
   localAccounts: true,
   signup: "closed",
   adminPasskeyRequired: false,
+  testNotes: false,
+  feedbackFreeText: false,
 };
 
 const SIGNING_OUT = sessionValue(undefined);

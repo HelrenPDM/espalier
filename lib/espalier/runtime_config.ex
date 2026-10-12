@@ -27,10 +27,23 @@ defmodule Espalier.RuntimeConfig do
   | `CREDENTIAL_GRACE_DAYS` | `:credential_grace_days` | 30 |
   | `REGISTRAR_ENABLED` | `:registrar_enabled` | `false` |
   | `WEBHOOK_ALLOWED_HOSTS` | `:webhook_allowed_hosts` | none |
+  | `INSIGHTS_MIN_GROUP_SIZE` | `:insights`, `:min_group_size` | 5 |
+  | `FEEDBACK_FREE_TEXT` | `:insights`, `:feedback_free_text` | `false` |
+  | `TEST_NOTES` | `:insights`, `:test_notes` | `false` |
+  | `RETENTION_ITEM_RESPONSES_DAYS` | `:insights`, `:retention_item_responses_days` | unset |
+  | `RETENTION_ANONYMOUS_DAYS` | `:insights`, `:retention_anonymous_days` | unset |
+  | `RETENTION_AUDIT_DAYS` | `:insights`, `:retention_audit_days` | unset |
+  | `RETENTION_ATTEMPTS_DAYS` | `:insights`, `:retention_attempts_days` | unset |
 
   `TRACKING_DETAIL` and `INSIGHTS_ORG_UNIT` (README section 10) come back
   under the key `:learning`, so that `config :espalier, :learning` holds
   both.
+
+  The insights settings of task 0014 come back under the key `:insights`:
+  the group threshold of the reports, the switches for free-text feedback
+  and the test session notes, and the four retention periods in days. An
+  unset retention variable is `nil`, and `Espalier.Insights.RetentionWorker`
+  then deletes nothing from its tables (README section 10).
 
   `WEBHOOK_ALLOWED_HOSTS` (task 0013) lists the receivers of webhooks as
   comma-separated entries `host` or `host:port`, an IPv6 address in square
@@ -86,6 +99,15 @@ defmodule Espalier.RuntimeConfig do
             "minimal"
           ),
         insights_org_unit: boolean!(env, "INSIGHTS_ORG_UNIT", false)
+      ],
+      insights: [
+        min_group_size: positive!(env, "INSIGHTS_MIN_GROUP_SIZE", 5),
+        feedback_free_text: boolean!(env, "FEEDBACK_FREE_TEXT", false),
+        test_notes: boolean!(env, "TEST_NOTES", false),
+        retention_item_responses_days: positive!(env, "RETENTION_ITEM_RESPONSES_DAYS", nil),
+        retention_anonymous_days: positive!(env, "RETENTION_ANONYMOUS_DAYS", nil),
+        retention_audit_days: positive!(env, "RETENTION_AUDIT_DAYS", nil),
+        retention_attempts_days: positive!(env, "RETENTION_ATTEMPTS_DAYS", nil)
       ]
     ]
   end

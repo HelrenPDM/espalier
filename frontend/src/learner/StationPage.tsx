@@ -5,6 +5,7 @@ import { buttonClasses } from "../app/formStyles";
 import { jumpTo } from "../player/jump";
 import { useContentLang } from "../player/contentLang";
 import { sortedStations } from "../player/program";
+import { useTestNote } from "../player/testNotes";
 import { useCurrentPlayer } from "../player/usePlayer";
 import { STATION_COMPONENTS } from "./stations";
 import { BackToProgram } from "./BackToProgram";
@@ -13,17 +14,22 @@ import { StationList } from "./StationList";
 /**
  * `/programs/:slug/stations/:position`: the station by its kind, the
  * position ("3 of 7"), the step list and the previous and next buttons.
- * Opening a station adds its position to `visitedStations`, and a station
- * change moves focus to the station heading, or to the element of the URL
- * fragment when a link names one.
+ * Opening a station adds its position to `visitedStations` and
+ * `station_opened` to the test session notes, and a station change moves
+ * focus to the station heading, or to the element of the URL fragment when
+ * a link names one.
  */
 export function StationPage() {
   const { t } = useTranslation();
   const { position } = useParams();
   const { hash } = useLocation();
   const { program, state, update } = useCurrentPlayer();
+  const note = useTestNote();
   const lang = useContentLang();
   const headingRef = useRef<HTMLHeadingElement>(null);
+  // The station of the last `station_opened` note, so the second effect run
+  // of StrictMode adds none.
+  const notedRef = useRef<number | null>(null);
   const stations = sortedStations(program);
   const index = stations.findIndex(
     (station) => String(station.position) === position,
@@ -46,6 +52,10 @@ export function StationPage() {
             visitedStations: [...current.visitedStations, stationPosition],
           },
     );
+    if (notedRef.current !== stationPosition) {
+      notedRef.current = stationPosition;
+      note({ event: "station_opened", station: stationPosition });
+    }
     // Only a station change moves focus; the fragment of the URL is read
     // with it.
     let target = "";
@@ -56,7 +66,7 @@ export function StationPage() {
     }
     if (target !== "" && document.getElementById(target)) jumpTo(target);
     else headingRef.current?.focus();
-  }, [stationPosition, update]);
+  }, [stationPosition, update, note]);
 
   if (station === undefined)
     return (

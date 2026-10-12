@@ -31,7 +31,8 @@ config :espalier,
 config :argon2_elixir, argon2_type: 2, parallelism: 1, t_cost: 2, m_cost: 16
 
 # webhooks delivers the credential events of task 0013, and exports serves
-# the exports of task 0016. The credential sweep of task 0013 runs daily.
+# the exports of task 0016. The credential sweep of task 0013 and the
+# retention job of task 0014 run daily.
 config :espalier, Oban,
   engine: Oban.Engines.Basic,
   repo: Espalier.Repo,
@@ -41,7 +42,8 @@ config :espalier, Oban,
     {Oban.Plugins.Cron,
      crontab: [
        {"0 2 * * *", Espalier.Accounts.PurgeExpiredTokensWorker},
-       {"0 3 * * *", Espalier.Credentials.SweepWorker}
+       {"0 3 * * *", Espalier.Credentials.SweepWorker},
+       {"30 3 * * *", Espalier.Insights.RetentionWorker}
      ]}
   ]
 
@@ -71,7 +73,8 @@ config :espalier, :rate_limits, %{
   ldap_account: {:timer.minutes(1), 5},
   ldap_subject: {:timer.minutes(1), 5},
   learner_write: {:timer.minutes(1), 120},
-  assessment_attempt: {:timer.minutes(10), 10}
+  assessment_attempt: {:timer.minutes(10), 10},
+  insights_write: {:timer.minutes(1), 30}
 }
 
 # Failed directory sign-ins answer no earlier than this many milliseconds

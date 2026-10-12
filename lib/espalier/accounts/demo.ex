@@ -19,6 +19,9 @@ defmodule Espalier.Accounts.Demo do
   @doc "The provider key of demo identities."
   def provider_key, do: @provider_key
 
+  @doc "Returns the user of `slot`, or `nil` before its first use."
+  def get_user(slot) when is_integer(slot) and slot in @slots, do: lookup(slot)
+
   @doc "Returns the user of `slot`, creating it at its first use."
   def get_or_create_user(slot) when is_integer(slot) and slot in @slots do
     case lookup(slot) do

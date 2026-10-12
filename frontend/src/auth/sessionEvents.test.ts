@@ -12,6 +12,7 @@ import { sessionPayload, signedInPayload } from "../test/session";
 import { useSession } from "./SessionProvider";
 import { parseSessionMessage, sessionChanged } from "./sessionEvents";
 import { listenMessages } from "../app/messages";
+import { TEST_NOTES_KEY, testNotesLog } from "../learner/test-notes/store";
 
 const CHANNEL = "espalier-session";
 const securityKey = ["me", "security"] as const;
@@ -38,6 +39,8 @@ const delivery = () =>
 afterEach(() => {
   for (const channel of opened.splice(0)) channel.close();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+  testNotesLog(true).clear();
 });
 
 /** A finished mutation in the cache, such as a TOTP setup with its secret. */
@@ -254,5 +257,125 @@ describe("sessionChanged", () => {
     expect(queryClient.getQueryData<Session>(sessionQueryKey)?.csrfToken).toBe(
       "csrf-2",
     );
+  });
+});
+
+/**
+ * Task 0014 step 11: the test session notes of a tab end with a sign-out
+ * and a sign-in, so the next test person in the same tab sees neither the
+ * item correctness nor the exam outcomes of the previous one, and the clock
+ * of the log starts again.
+ */
+describe("the test session notes", () => {
+  const notes = testNotesLog(true);
+
+  /** Records two notes five seconds apart, as the previous person did. */
+  function recordNotes() {
+    const now = vi.spyOn(Date, "now");
+    now.mockReturnValue(10_000);
+    notes.record({ event: "item_answered", item: "item-1", correct: true });
+    now.mockReturnValue(15_000);
+    notes.record({
+      event: "exam_submitted",
+      assessment: "exam-1",
+      outcome: "passed",
+    });
+    now.mockRestore();
+    expect(notes.notes()).toHaveLength(2);
+    expect(sessionStorage.getItem(TEST_NOTES_KEY)).not.toBeNull();
+  }
+
+  /** The log is empty, its key gone, and the next note starts the clock. */
+  function expectNotesEnded() {
+    expect(notes.notes()).toEqual([]);
+    expect(sessionStorage.getItem(TEST_NOTES_KEY)).toBeNull();
+    const now = vi.spyOn(Date, "now").mockReturnValue(90_000);
+    notes.record({ event: "station_opened", station: 1 });
+    now.mockRestore();
+    expect(notes.notes()).toEqual([
+      { event: "station_opened", station: 1, at: 0 },
+    ]);
+  }
+
+  /** A page with the sign-out of `SessionProvider`. */
+  function SignOutButton() {
+    const { signOut } = useSession();
+    return createElement(
+      "button",
+      { type: "button", onClick: () => void signOut() },
+      "Sign out",
+    );
+  }
+
+  test("end with the sign-out of this tab", async () => {
+    const { user, location } = renderWithProviders(
+      createElement(SignOutButton),
+      {
+        route: "/account/security",
+        session: signedInPayload("mfa"),
+        responses: {
+          "DELETE /api/session": { status: 204 },
+          "GET /api/session": { status: 200, body: sessionPayload() },
+        },
+      },
+    );
+    await screen.findByRole("button", { name: "Sign out" });
+    recordNotes();
+
+    await user.click(screen.getByRole("button", { name: "Sign out" }));
+
+    await waitFor(() => expect(location()).toBe("/sign-in"));
+    expectNotesEnded();
+  });
+
+  test.each(["signed-out", "signed-in"] as const)(
+    "end with sessionChanged %s",
+    async (kind) => {
+      const { queryClient, client } = await renderTab({
+        "GET /api/session": {
+          status: 200,
+          body:
+            kind === "signed-out" ? sessionPayload() : signedInPayload("mfa"),
+        },
+      });
+      recordNotes();
+
+      await act(() => sessionChanged(kind, queryClient, client));
+
+      expectNotesEnded();
+    },
+  );
+
+  test.each(["signed-out", "signed-in"] as const)(
+    "end with a %s message of another tab",
+    async (kind) => {
+      const { requests } = await renderTab({
+        "GET /api/session": {
+          status: 200,
+          body:
+            kind === "signed-out" ? sessionPayload() : signedInPayload("mfa"),
+        },
+      });
+      recordNotes();
+
+      otherTab().channel.postMessage({ kind });
+
+      await waitFor(() => expect(sessionGets(requests)).toHaveLength(1));
+      expectNotesEnded();
+    },
+  );
+
+  test("stay with a renewed session", async () => {
+    const { queryClient, client, requests } = await renderTab({
+      "GET /api/session": { status: 200, body: signedInPayload("mfa") },
+    });
+    recordNotes();
+
+    await act(() => sessionChanged("renewed", queryClient, client));
+    otherTab().channel.postMessage({ kind: "renewed" });
+    await waitFor(() => expect(sessionGets(requests)).toHaveLength(2));
+
+    expect(notes.notes()).toHaveLength(2);
+    expect(sessionStorage.getItem(TEST_NOTES_KEY)).not.toBeNull();
   });
 });

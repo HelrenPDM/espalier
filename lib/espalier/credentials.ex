@@ -92,7 +92,7 @@ defmodule Espalier.Credentials do
 
   def evaluate(%Scope{user: %User{} = user} = scope, %Program{} = program) do
     Repo.transact(fn ->
-      Repo.query!(@lock_sql, [user.id])
+      lock_evaluation!(user.id)
       qualifications = live_qualifications(program.id)
       lock_required_policies!(qualifications)
       facts = facts(user.id, program, qualifications)
@@ -101,6 +101,24 @@ defmodule Espalier.Credentials do
 
       {:ok, evaluate_until_stable(scope, qualifications, facts, credentials, today, [])}
     end)
+  end
+
+  @doc """
+  Takes the transaction-level advisory lock that serializes the evaluations
+  of the user with `user_id` and returns `:ok` once the lock is granted.
+
+  `evaluate/2` takes it first in its transaction, and
+  `Espalier.Insights.RetentionWorker` takes it before it deletes the old
+  assessment attempts of the user, so that the deletion waits for a running
+  evaluation and sees the credential that the evaluation commits. The
+  function belongs inside a transaction: PostgreSQL holds the lock until
+  the transaction ends, and outside a transaction the statement would
+  release it at once.
+  """
+  @spec lock_evaluation!(Ecto.UUID.t()) :: :ok
+  def lock_evaluation!(user_id) when is_binary(user_id) do
+    Repo.query!(@lock_sql, [user_id])
+    :ok
   end
 
   # A share lock on the policies that the requirements name: a publication
