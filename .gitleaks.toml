@@ -48,3 +48,9 @@ description = "Objective key of the hand-written payloads in the preview and run
 condition = "AND"
 paths = ['''^frontend/src/(admin/packs/PackPreviewPage\.test\.tsx|runtimes/standalone\.test\.ts)$''']
 regexes = ['''^m1-subject-know$''']
+
+[[allowlists]]
+description = "The fake SCORM 2004 API object of the SCORM entry test of task 0016; the rule generic-api-key reads the window property `API_1484_11:` as an API key, no secret"
+condition = "AND"
+paths = ['''^frontend/src/scorm/boot\.test\.ts$''']
+regexes = ['''^scorm2004\.api$''']

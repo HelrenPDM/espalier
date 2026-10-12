@@ -6,7 +6,9 @@ defmodule Espalier.RuntimeConfigTest do
   `INSIGHTS_ORG_UNIT` of task 0009 (step 9), the credential settings of
   task 0013 (step 2), and the insights settings of task 0014 (steps 4, 10
   and 13) together with the crontab entry of the retention job and the
-  bucket `insights_write` in `config/config.exs`.
+  bucket `insights_write` in `config/config.exs`, `PACK_UPLOAD_MAX_MB` of
+  task 0015 (step 7), and `EXPORT_DIR` of task 0016 (step 7) together with
+  the queue `exports` with one slot in `config/config.exs`.
   """
   use ExUnit.Case, async: true
 
@@ -95,7 +97,8 @@ defmodule Espalier.RuntimeConfigTest do
           "BOOTSTRAP_ADMIN_EMAILS" => " Admin@Example.org ",
           "TRUSTED_PROXIES" => "10.0.0.0/8,192.0.2.1",
           "MAIL_FROM" => ~s("Espalier <noreply@example.org>"),
-          "PUBLIC_URL" => "https://app.example.org/"
+          "PUBLIC_URL" => "https://app.example.org/",
+          "EXPORT_DIR" => ~s("/data/exports")
         },
         :prod
       )
@@ -108,6 +111,7 @@ defmodule Espalier.RuntimeConfigTest do
     assert config[:trusted_proxies] == [{{10, 0, 0, 0}, 8}, {{192, 0, 2, 1}, 32}]
     assert config[:mail_from] == {"Espalier", "noreply@example.org"}
     assert config[:public_url] == "https://app.example.org"
+    assert config[:export_dir] == "/data/exports"
   end
 
   test "invalid values raise with the variable name" do
@@ -122,6 +126,51 @@ defmodule Espalier.RuntimeConfigTest do
           {%{"MAIL_FROM" => "nobody"}, "MAIL_FROM"}
         ] do
       assert_raise ArgumentError, ~r/#{name}/, fn -> RuntimeConfig.parse!(env, :dev) end
+    end
+  end
+
+  describe "the variable of task 0016 (spec step 7)" do
+    test "EXPORT_DIR defaults to tmp/exports in development and tmp/test-exports in tests" do
+      assert RuntimeConfig.parse!(%{}, :dev)[:export_dir] == "tmp/exports"
+      assert RuntimeConfig.parse!(%{}, :test)[:export_dir] == "tmp/test-exports"
+
+      # The empty value of .env.example counts as unset.
+      assert RuntimeConfig.parse!(%{"EXPORT_DIR" => ""}, :dev)[:export_dir] == "tmp/exports"
+
+      assert RuntimeConfig.parse!(%{"EXPORT_DIR" => "  "}, :test)[:export_dir] ==
+               "tmp/test-exports"
+    end
+
+    test "EXPORT_DIR takes a path and strips one pair of surrounding quotes" do
+      assert RuntimeConfig.parse!(%{"EXPORT_DIR" => "/data/exports"}, :dev)[:export_dir] ==
+               "/data/exports"
+
+      assert RuntimeConfig.parse!(%{"EXPORT_DIR" => ~s("/srv/espalier exports")}, :test)[
+               :export_dir
+             ] == "/srv/espalier exports"
+    end
+
+    test "production stops the boot without EXPORT_DIR" do
+      base = %{"PUBLIC_URL" => "https://app.example.org"}
+
+      for env <- [base, Map.put(base, "EXPORT_DIR", ""), Map.put(base, "EXPORT_DIR", ~s(""))] do
+        assert_raise ArgumentError, "EXPORT_DIR is required", fn ->
+          RuntimeConfig.parse!(env, :prod)
+        end
+      end
+
+      assert RuntimeConfig.parse!(Map.put(base, "EXPORT_DIR", "/data/exports"), :prod)[
+               :export_dir
+             ] == "/data/exports"
+    end
+
+    test "the defaults lie below tmp/, which .gitignore covers" do
+      assert "/tmp/" in String.split(File.read!(".gitignore"), "\n", trim: true)
+    end
+
+    test "config/config.exs gives the Oban queue exports one slot" do
+      config = Config.Reader.read!("config/config.exs", env: :prod, target: :host)
+      assert get_in(config, [:espalier, Oban, :queues, :exports]) == 1
     end
   end
 
@@ -327,9 +376,11 @@ defmodule Espalier.RuntimeConfigTest do
   end
 
   test "production needs PUBLIC_URL, and MAIL_FROM together with SMTP_HOST" do
-    assert_raise ArgumentError, ~r/PUBLIC_URL/, fn -> RuntimeConfig.parse!(%{}, :prod) end
+    assert_raise ArgumentError, ~r/PUBLIC_URL/, fn ->
+      RuntimeConfig.parse!(%{"EXPORT_DIR" => "/data/exports"}, :prod)
+    end
 
-    base = %{"PUBLIC_URL" => "https://app.example.org"}
+    base = %{"PUBLIC_URL" => "https://app.example.org", "EXPORT_DIR" => "/data/exports"}
     assert RuntimeConfig.parse!(base, :prod)[:mail_from] == {"Espalier", "noreply@localhost"}
 
     assert_raise ArgumentError, ~r/MAIL_FROM/, fn ->

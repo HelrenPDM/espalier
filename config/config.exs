@@ -43,7 +43,9 @@ config :espalier, Oban,
      crontab: [
        {"0 2 * * *", Espalier.Accounts.PurgeExpiredTokensWorker},
        {"0 3 * * *", Espalier.Credentials.SweepWorker},
-       {"30 3 * * *", Espalier.Insights.RetentionWorker}
+       {"30 3 * * *", Espalier.Insights.RetentionWorker},
+       # Ends the exports of task 0016 whose build was interrupted.
+       {"*/15 * * * *", Espalier.Interop.StaleExportWorker}
      ]}
   ]
 

@@ -3,6 +3,7 @@ import type { Role } from "../api/session";
 /** The key of a section of the admin area (task 0015, step 5). */
 export type AdminSectionKey =
   | "packs"
+  | "exports"
   | "users"
   | "policies"
   | "approvedTools"
@@ -24,12 +25,13 @@ export interface AdminSection {
 
 /**
  * The sections of the admin area in the order of the navigation: author
- * (packs; 0016 adds exports), admin, facilitator, analyst (0014) and
+ * (packs, and the exports of 0016), admin, facilitator, analyst (0014) and
  * registrar. Each section appears only for its role (ASVS 8.3.1: the
  * navigation is convenience; the router pipelines decide).
  */
 export const ADMIN_SECTIONS: readonly AdminSection[] = [
   { key: "packs", path: "packs", role: "author" },
+  { key: "exports", path: "exports", role: "author" },
   { key: "users", path: "users", role: "admin" },
   { key: "policies", path: "policies", role: "admin" },
   { key: "approvedTools", path: "approved-tools", role: "admin" },

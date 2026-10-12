@@ -35,6 +35,7 @@ defmodule Espalier.RuntimeConfig do
   | `RETENTION_AUDIT_DAYS` | `:insights`, `:retention_audit_days` | unset |
   | `RETENTION_ATTEMPTS_DAYS` | `:insights`, `:retention_attempts_days` | unset |
   | `PACK_UPLOAD_MAX_MB` | `:pack_upload_max_mb` | 20 |
+  | `EXPORT_DIR` | `:export_dir` | `tmp/exports` (`tmp/test-exports` in tests), required in production |
 
   `TRACKING_DETAIL` and `INSIGHTS_ORG_UNIT` (README section 10) come back
   under the key `:learning`, so that `config :espalier, :learning` holds
@@ -57,6 +58,11 @@ defmodule Espalier.RuntimeConfig do
   in MB (ASVS 5.2.1); the archive check of
   `Espalier.Catalog.Pack.Archive.extract/2` admits declared sizes of at most
   five times that limit.
+
+  `EXPORT_DIR` (task 0016) is the directory of the SCORM packages that
+  `Espalier.Interop.ExportWorker` writes and the download route reads. The
+  defaults of development and tests lie below `tmp/`, which `.gitignore`
+  covers; in production an unset value stops the boot.
   """
 
   @doc "Returns the settings as a keyword list for `config :espalier`."
@@ -97,6 +103,7 @@ defmodule Espalier.RuntimeConfig do
       registrar_enabled: boolean!(env, "REGISTRAR_ENABLED", false),
       webhook_allowed_hosts: env |> list("WEBHOOK_ALLOWED_HOSTS") |> Enum.map(&webhook_host!/1),
       pack_upload_max_mb: positive!(env, "PACK_UPLOAD_MAX_MB", 20),
+      export_dir: export_dir!(env, config_env),
       learning: [
         tracking_detail:
           enum!(
@@ -266,6 +273,15 @@ defmodule Espalier.RuntimeConfig do
           _ ->
             raise ArgumentError, "PUBLIC_URL must be an http or https URL"
         end
+    end
+  end
+
+  defp export_dir!(env, config_env) do
+    case value(env, "EXPORT_DIR") do
+      nil when config_env == :prod -> raise ArgumentError, "EXPORT_DIR is required"
+      nil when config_env == :test -> "tmp/test-exports"
+      nil -> "tmp/exports"
+      dir -> dir
     end
   end
 

@@ -690,12 +690,32 @@
       "formatVoted": "Stimme für ein Format an Station {{station}}"
     }
   },
+  "scorm": {
+    "loading": "Das Modul wird geladen …",
+    "noLms": {
+      "title": "Lernplattform erforderlich",
+      "text": "Dieses Modul läuft nur in einer Lernplattform (LMS), die SCORM unterstützt. Bitte öffnen Sie es aus Ihrem Kurs in der Lernplattform."
+    },
+    "contentFailed": {
+      "title": "Modul nicht verfügbar",
+      "text": "Der Inhalt dieses Moduls konnte nicht geladen werden. Das Paket ist möglicherweise unvollständig."
+    },
+    "startFailed": {
+      "title": "Modul nicht gestartet",
+      "text": "Die Lernplattform hat dieses Modul nicht gestartet. Bitte schließen Sie es und öffnen Sie es erneut."
+    },
+    "sessionEnded": {
+      "title": "Sitzung beendet",
+      "text": "Diese Seite kann nichts mehr speichern. Bitte öffnen Sie das Modul erneut aus der Lernplattform."
+    }
+  },
   "admin": {
     "title": "Administration",
     "intro": "Wählen Sie einen Bereich. Jeder Bereich erscheint für die Rolle, der er dient.",
     "nav": {
       "label": "Bereiche der Administration",
       "packs": "Inhaltspakete",
+      "exports": "Exporte",
       "users": "Personen",
       "policies": "Richtlinien",
       "approvedTools": "Freigegebene Werkzeuge",
@@ -853,6 +873,59 @@
         "items": "Aufgaben"
       },
       "handbook": "Das Handbuch nennt die Regeln des veröffentlichten Programms und gehört nicht zur Vorschau."
+    },
+    "exports": {
+      "title": "SCORM-Export",
+      "intro": "Exportieren Sie ein Modul eines veröffentlichten Programms als SCORM-Paket. Das Paket führt den Player in einer Lernplattform (LMS) aus und meldet dort Abschluss, Erfolg, Punktzahl und den Status jedes Lernziels.",
+      "notice": {
+        "title": "Lösungen und Ergebnisse je Person",
+        "answerKeys": "Das Paket enthält die Lösungen der Aufgaben des Moduls, weil der Player die Antworten im Browser der lernenden Person auswertet. Wer Zugriff auf das Paket hat, kann sie lesen.",
+        "results": "Die empfangende Lernplattform speichert die Ergebnisse je Person: Kennung der lernenden Person, Status, Punktzahl, Zeit und den Status jedes Lernziels. Diese Daten bleiben in der Lernplattform und erreichen diese Plattform nicht."
+      },
+      "form": {
+        "title": "Export anfordern",
+        "program": "Programm",
+        "programsLoading": "Die Programme werden geladen …",
+        "programsFailed": "Die Programme konnten nicht geladen werden. Bitte versuchen Sie es später erneut.",
+        "noPrograms": "Es ist kein Programm veröffentlicht.",
+        "module": "Modul",
+        "chooseModule": "Modul wählen",
+        "modulesLoading": "Die Module werden geladen …",
+        "modulesFailed": "Die Module konnten nicht geladen werden. Bitte versuchen Sie es später erneut.",
+        "noModules": "Dieses Programm hat kein Modul.",
+        "version": "SCORM-Version",
+        "submit": "Export anfordern",
+        "submitting": "Der Export wird angefordert …"
+      },
+      "versions": {
+        "scorm12": "SCORM 1.2",
+        "scorm2004": "SCORM 2004, 4. Ausgabe"
+      },
+      "errors": {
+        "moduleRequired": "Wählen Sie ein Modul.",
+        "moduleGone": "Das Modul ist nicht mehr veröffentlicht. Wählen Sie ein anderes Modul.",
+        "rejected": "Der Server hat die Anfrage nicht angenommen. Wählen Sie Modul und Version erneut.",
+        "reauthCancelled": "Der Export wurde nicht angefordert, weil die Bestätigung mit einem zweiten Faktor abgebrochen wurde."
+      },
+      "list": {
+        "title": "Angeforderte Exporte",
+        "intro": "Die Liste enthält die Exporte, die auf dieser Seite angefordert wurden. Ihr Status wird alle zwei Sekunden aktualisiert, bis das Paket bereitsteht oder der Export fehlgeschlagen ist.",
+        "empty": "Auf dieser Seite wurde noch kein Export angefordert.",
+        "module": "Modul {{number}}:",
+        "version": "Version",
+        "requestedAt": "Angefordert",
+        "status": "Status",
+        "download": "Paket herunterladen",
+        "error": "Grund:",
+        "loading": "Der Status wird geladen …",
+        "loadFailed": "Der aktuelle Status konnte nicht geladen werden."
+      },
+      "status": {
+        "queued": "In der Warteschlange",
+        "running": "Läuft",
+        "done": "Bereit zum Herunterladen",
+        "failed": "Fehlgeschlagen"
+      }
     },
     "users": {
       "title": "Personen",

@@ -1062,7 +1062,12 @@ repository. This repository ships the neutral demo pack only.
 frontend has a second Vite build (`vite.scorm.config.ts`) that bundles the player
 with the SCORM runtimes into `priv/scorm_player/`. The export worker writes
 `content.json` with answer keys, copies the bundle, writes `imsmanifest.xml` for
-SCORM 1.2 or SCORM 2004 4th edition, and zips the package. One module becomes
+SCORM 1.2 or SCORM 2004 4th edition, and zips the package. The package carries
+the XML schema files of its version at its root. The repository does not hold
+them, because the IMS files and the ADL file of SCORM 1.2 carry no license grant
+that clearly covers redistribution in an open-source repository;
+`mix espalier.scorm_xsd` fetches them at build time from two archives pinned by
+SHA-256 (`priv/scorm/xsd/SOURCE.md`). One module becomes
 one SCO, and its learning objectives become `cmi.objectives` entries with the
 status of their evidence in the package. The resume state uses a compact encoding that fits the 4,096 characters
 of `cmi.suspend_data` in SCORM 1.2.
@@ -1108,14 +1113,15 @@ target with its `##` comment, and `nix-shell --run` around every toolchain call.
 | `make argon2-bench` | runs `Argon2.Stats` to choose the hashing parameters |
 | `make ldap-ca`, `make ldap-secrets`, `make services-seed` | create the LDAPS test CA and the lldap secrets, and seed lldap |
 | `make dev-oidc` | starts the mock OIDC provider on port 4010 (also started by `make run` in dev) |
-| `make setup` | `init`, then `mix ecto.setup`, `mix espalier.import content/demo` and `mix espalier.seed_demo` |
+| `make setup` | `init` and `scorm-xsd`, then `mix ecto.setup`, `mix espalier.import content/demo` and `mix espalier.seed_demo` |
 | `make run` | `iex -S mix phx.server` (starts Vite through the watcher) |
 | `make refresh-db` | `mix do ecto.drop, ecto.create, ecto.migrate`, the demo import and `mix espalier.seed_demo` |
 | `make lint` | `mix format`, `npm --prefix frontend run lint -- --fix`, Prettier write |
-| `make check` | format check, `mix compile --warnings-as-errors`, `mix credo --strict`, `mix sobelow --config --exit`, `mix hex.audit`, `mix deps.audit`, `mix deps.unlock --check-unused`, `mix test`, the `api-types` diff check, `tsc -b`, Oxlint, Prettier check, `vitest run`, `npm run build:scorm`, `npm audit --omit=dev` |
+| `make check` | format check, `mix compile --warnings-as-errors`, `mix credo --strict`, `mix sobelow --config --exit`, `scripts/check-hex-version.sh`, `mix hex.audit`, `mix deps.audit`, `mix deps.unlock --check-unused`, `mix test`, the `api-types` diff check, `tsc -b`, Oxlint, Prettier check, `vitest run`, `npm run build:scorm`, `npm audit --omit=dev` |
 | `make test` | `mix test` with `DATABASE_PORT` from `.env`, and `npm --prefix frontend run test -- --run` |
 | `make test-integration` | `mix test --only ldap --only mail` with `DATABASE_PORT` from `.env`, against the dev services |
-| `make e2e` | Playwright against `make run` |
+| `make e2e` | `scorm-xsd` and `npm --prefix frontend run build:scorm`, then Playwright against `make run` |
+| `make scorm-xsd` | `mix espalier.scorm_xsd`: fetches the SCORM schema files into `priv/scorm/xsd/` and checks them by SHA-256 |
 | `make api-types` | `mix openapi.spec.json --spec EspalierWeb.ApiSpec` into `frontend/openapi.json`, then `openapi-typescript` into `frontend/src/api/schema.d.ts` |
 | `make docs` | PlantUML to `docs/architecture/out/` |
 | `make secrets-scan` | `gitleaks detect` |

@@ -570,6 +570,18 @@ defmodule Espalier.Catalog.PublisherTest do
   end
 
   describe "publish/1 of the demo pack through the importer" do
+    test "gives a later publish of one pack a later published_at, also within one second" do
+      {:ok, first} = Publisher.publish(import!(copy_pack!(demo_path())))
+      {:ok, second} = Publisher.publish(import!(copy_pack!(demo_path())))
+      {:ok, third} = Publisher.publish(import!(copy_pack!(demo_path())))
+
+      assert DateTime.compare(second.published_at, first.published_at) == :gt
+      assert DateTime.compare(third.published_at, second.published_at) == :gt
+      assert %DateTime{microsecond: {0, 0}} = third.published_at
+
+      assert child_timestamps(demo_program!()) == [{third.published_at, third.published_at}]
+    end
+
     # PostgreSQL takes at most 65,535 parameters per statement, and a join
     # table with two columns reaches that at 32,768 rows.
     test "publishes more join rows of one table than one statement can carry" do

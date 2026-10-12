@@ -42,7 +42,11 @@ defmodule Espalier.Catalog.Pack.Publisher do
   that the citations of a block can name it. Its `inserted_at` and
   `updated_at` are the time of the publish, which is also the
   `published_at` of the import, and each statement sends that time once as
-  an `insert_all` placeholder.
+  an `insert_all` placeholder. The time of the publish is the current
+  second, or one second after the last publish of the same pack when that
+  is later, so that `published_at` orders the publishes of one pack also
+  within one second (task 0016: `Espalier.Interop.Payload` reads the fields
+  of `pack.yaml` from the import published last).
 
   Every keyed row of the program whose key the payload no longer holds
   receives `archived_at`, so records that reference it keep their target. A
@@ -176,7 +180,7 @@ defmodule Espalier.Catalog.Pack.Publisher do
   end
 
   defp apply_payload(pack_import, payload) do
-    now = DateTime.utc_now(:second)
+    now = publish_time(pack_import.pack_key)
     program = upsert_program(payload)
     ids = upsert_rows(program.id, payload)
 
@@ -195,6 +199,24 @@ defmodule Espalier.Catalog.Pack.Publisher do
     pack_import
     |> Changeset.change(status: :published, published_at: now)
     |> Repo.update!()
+  end
+
+  # The current second, or one second after the last publish of the same
+  # pack when that is later. Publishes of one pack run one after the other
+  # under the advisory lock, so published_at orders them even when two fall
+  # into one second; Espalier.Interop.Payload reads the fields of pack.yaml
+  # from the import published last.
+  defp publish_time(pack_key) do
+    now = DateTime.utc_now(:second)
+
+    last =
+      Repo.one(
+        from i in PackImport,
+          where: i.pack_key == ^pack_key and i.status == :published,
+          select: max(i.published_at)
+      )
+
+    if last && DateTime.compare(last, now) != :lt, do: DateTime.add(last, 1, :second), else: now
   end
 
   ## Keyed rows

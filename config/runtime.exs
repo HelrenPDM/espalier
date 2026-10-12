@@ -27,7 +27,8 @@ config :espalier, EspalierWeb.Endpoint,
 # 6.11), config :espalier, :learning with TRACKING_DETAIL and
 # INSIGHTS_ORG_UNIT, and config :espalier, :insights with the group
 # threshold, the feedback and test-notes switches and the retention periods
-# (README section 10). An invalid value stops the boot;
+# (README section 10), and the directory of the SCORM packages
+# (EXPORT_DIR, required in production). An invalid value stops the boot;
 # Espalier.RuntimeConfig lists the variables and their defaults.
 settings = Espalier.RuntimeConfig.parse!(System.get_env(), config_env())
 config :espalier, settings

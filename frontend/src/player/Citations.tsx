@@ -1,16 +1,22 @@
 import { useTranslation } from "react-i18next";
 import { FOCUS_RING } from "../app/formStyles";
+import { useExternalLinkTarget } from "./externalLinks";
 import { formatDay, safeSourceUrl } from "./format";
 import type { Citation } from "./runtime";
 
-/** The title of a source, linked when it has a safe URL. */
+/**
+ * The title of a source, linked when it has a safe URL. The link opens in
+ * the target of `ExternalLinkTargetContext`.
+ */
 export function SourceTitle({ citation }: { citation: Citation }) {
+  const target = useExternalLinkTarget();
   const href = safeSourceUrl(citation.source.url);
   const title = <cite className="not-italic">{citation.source.title}</cite>;
   if (href === null) return title;
   return (
     <a
       href={href}
+      target={target}
       rel="noopener noreferrer"
       className={`rounded-sm underline underline-offset-2 hover:text-gray-900 dark:hover:text-gray-100 ${FOCUS_RING}`}
     >

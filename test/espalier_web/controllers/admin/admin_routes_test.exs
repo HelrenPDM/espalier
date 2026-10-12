@@ -77,7 +77,8 @@ defmodule EspalierWeb.Admin.AdminRoutesTest do
     "/api/admin/users/:id/reset-factors" => %{identity_verified: true},
     "/api/admin/users/:id/reset-failure-counters" => %{},
     "/api/admin/credentials/:id/revoke" => %{},
-    "/api/admin/packs/:id/publish" => %{}
+    "/api/admin/packs/:id/publish" => %{},
+    "/api/admin/exports" => %{module_id: @uuid, scorm_version: "scorm12"}
   }
 
   # Every route under /api/admin with its method, a path with a valid UUID

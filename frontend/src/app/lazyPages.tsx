@@ -42,6 +42,9 @@ const PackPreviewPageChunk = lazy(() =>
     default: m.PackPreviewPage,
   })),
 );
+const ExportsPageChunk = lazy(() =>
+  import("../admin/ExportsPage").then((m) => ({ default: m.ExportsPage })),
+);
 const UsersPageChunk = lazy(() =>
   import("../admin/users/UsersPage").then((m) => ({ default: m.UsersPage })),
 );
@@ -162,6 +165,14 @@ export function PackPreviewPage() {
   return (
     <Chunk>
       <PackPreviewPageChunk />
+    </Chunk>
+  );
+}
+
+export function ExportsPage() {
+  return (
+    <Chunk>
+      <ExportsPageChunk />
     </Chunk>
   );
 }

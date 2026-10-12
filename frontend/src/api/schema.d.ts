@@ -21,6 +21,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/exports/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read an export
+         * @description `download_path` is set once the status is `done`.
+         */
+        get: operations["EspalierWeb.Admin.ExportController.show"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/programs/{slug}": {
         parameters: {
             query?: never;
@@ -338,6 +358,26 @@ export interface paths {
          * @description A directory bind is a first factor only: an enrolled user enters the pending second-factor state, a user without a local factor an enrollment session. Every authentication failure answers 401 `invalid_credentials`.
          */
         post: operations["EspalierWeb.Auth.LdapController.create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/exports/{id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download the package of an export
+         * @description Sends the zip with the file name `<program slug>-module-<number>-<scorm_version>.zip`.
+         */
+        get: operations["EspalierWeb.Admin.ExportController.download"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -799,6 +839,26 @@ export interface paths {
          * @description Only `mfa` sessions. `link` needs a second factor within the last 10 minutes; `step_up` needs an identity of the provider and `idp_trusted` mode.
          */
         post: operations["EspalierWeb.OidcIntentController.create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request the SCORM export of a module
+         * @description Queues the export in the Oban queue `exports` and answers 202. The package contains the answer keys of the module.
+         */
+        post: operations["EspalierWeb.Admin.ExportController.create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1757,6 +1817,34 @@ export interface components {
             org_unit: string | null;
         };
         /**
+         * AdminExport
+         * @description A SCORM export of one module.
+         */
+        AdminExport: {
+            /** @description The path of the download while the status is `done`. */
+            download_path: string | null;
+            /** @description A short text for a failed export. */
+            error: string | null;
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            inserted_at: string;
+            module: {
+                /** Format: uuid */
+                id: string;
+                number: number;
+                program: {
+                    slug: string;
+                    title: string;
+                };
+                title: string;
+            };
+            /** @enum {string} */
+            scorm_version: "scorm12" | "scorm2004";
+            /** @enum {string} */
+            status: "queued" | "running" | "done" | "failed";
+        };
+        /**
          * Handbook
          * @description Every rule with its statement and action.
          */
@@ -2192,6 +2280,22 @@ export interface components {
             fields?: {
                 [key: string]: string[];
             };
+        };
+        /**
+         * AdminExportRequest
+         * @description The export of one module as a SCORM package.
+         */
+        AdminExportRequest: {
+            /**
+             * Format: uuid
+             * @description A live module of a published program.
+             */
+            module_id: string;
+            /**
+             * @description SCORM 1.2 or SCORM 2004 4th edition.
+             * @enum {string}
+             */
+            scorm_version: "scorm12" | "scorm2004";
         };
         /**
          * OidcIntentRequest
@@ -4025,6 +4129,65 @@ export interface operations {
             };
         };
     };
+    "EspalierWeb.Admin.ExportController.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The export id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The export */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminExport"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     "EspalierWeb.ProgramController.show": {
         parameters: {
             query?: never;
@@ -5322,6 +5485,74 @@ export interface operations {
                 headers: {
                     /** @description Seconds until the bucket admits the next request. */
                     "retry-after"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.ExportController.download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The export id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The SCORM package */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": string;
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `export_not_ready` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
                     [name: string]: unknown;
                 };
                 content: {
@@ -7266,6 +7497,67 @@ export interface operations {
                 headers: {
                     /** @description Seconds until the bucket admits the next request. */
                     "retry-after"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.ExportController.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The export */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminExportRequest"];
+            };
+        };
+        responses: {
+            /** @description The queued export */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminExport"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
                     [name: string]: unknown;
                 };
                 content: {

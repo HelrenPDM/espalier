@@ -24,19 +24,23 @@ ARG DEBIAN_VERSION=trixie-20261005-slim
 ARG BUILDER_IMAGE="docker.io/hexpm/elixir:${ELIXIR_VERSION}-erlang-${OTP_VERSION}-debian-${DEBIAN_VERSION}"
 ARG RUNNER_IMAGE="docker.io/debian:${DEBIAN_VERSION}"
 
-# build the SPA with Vite (base /spa/)
+# build the SPA with Vite (base /spa/) and the player of the SCORM packages
 FROM node:24-trixie-slim AS frontend
 WORKDIR /frontend
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 COPY frontend/ ./
 RUN npm run build -- --outDir /out/spa
+# The SCORM build reads LICENSE and NOTICE from the parent directory of
+# /frontend, as it does in the repository, and fails without them.
+COPY LICENSE NOTICE /
+RUN npm run build:scorm -- --outDir /out/scorm_player
 
 FROM ${BUILDER_IMAGE} AS builder
 
 # install build dependencies
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends build-essential git \
+  && apt-get install -y --no-install-recommends build-essential git ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 
 # prepare build dir
@@ -62,11 +66,16 @@ RUN mix deps.compile
 
 COPY priv priv
 COPY --from=frontend /out/spa priv/static/spa
+COPY --from=frontend /out/scorm_player priv/scorm_player
 
 COPY lib lib
 
 # Compile the release
 RUN mix compile
+
+# Fetch the schema files of the SCORM packages, which the repository does
+# not hold (priv/scorm/xsd/SOURCE.md), and check them against their SHA-256.
+RUN mix espalier.scorm_xsd
 
 # Changes to config/runtime.exs don't require recompiling the code
 COPY config/runtime.exs config/

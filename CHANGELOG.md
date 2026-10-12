@@ -298,8 +298,55 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The preview of a pack in the player with `StandaloneRuntime`, the
   TypeScript port of the evaluator in `src/player/evaluate.ts` and the
   shared fixture `test/fixtures/evaluator_cases.json` (task 0015).
+- The SCORM export (task 0016): an author exports a module of a published
+  program as a SCORM 1.2 or SCORM 2004 4th edition package on
+  `/admin/exports` (`POST /api/admin/exports`, which needs a second factor
+  from the last 10 minutes, `GET /api/admin/exports/:id` and its download).
+  The Oban queue `exports` builds one package at a time with the player,
+  `LICENSE` and `NOTICE`, `content.json` with the content and the answer keys
+  of the module, `imsmanifest.xml` and the schema files of the version, and
+  the request writes the audit event `export.requested`. The job reads the
+  content under a shared advisory lock of the pack, so a running publish of
+  the pack ends first, and `Espalier.Interop.StaleExportWorker` sets an
+  export that stays `queued` or `running` for more than one hour to
+  `failed` every 15 minutes and removes its files.
+- The SCORM player (task 0016): a second Vite build
+  (`npm --prefix frontend run build:scorm`) bundles the module station and the
+  glossary with `Scorm12Runtime` and `Scorm2004Runtime` into
+  `priv/scorm_player`. The package finds the LMS API, reports completion,
+  success, score and session time, writes one `cmi.objectives` entry per
+  learning objective of the module with the state `passed`, `failed` or
+  `incomplete`, derived from the evidence items in the package, and resumes
+  from `cmi.suspend_data` in at most 4,096 characters, bound to the layout
+  of the module by a fingerprint. SCORM 1.2 reports `completed` for a
+  completed module without exam outcome and the score in percent for an exam
+  of more than 100 items. Links that leave the page open in a new tab, and
+  the package shows a notice when the LMS refuses the initialization and
+  when the browser restores the page from its back/forward cache.
+- `EXPORT_DIR`, the directory of the SCORM packages, with the defaults
+  `tmp/exports` in development and `tmp/test-exports` in tests; production
+  requires it (task 0016).
+- `mix espalier.scorm_xsd` and `make scorm-xsd`, which fetch the XML schema
+  files of both SCORM versions from two archives pinned by SHA-256 into
+  `priv/scorm/xsd/`, because the repository does not hold them; `make setup`,
+  `make e2e` and the builder stage of the Dockerfile run the task (task 0016).
+- `mix espalier.export SLUG PATH`, which writes a published program back to
+  disk as a content pack with `objectives.yaml`, the objectives of items and
+  formats, `areas_elsewhere` and the `alignment` setting, with `ymlr` 5.1 as
+  the YAML encoder; it reads the program under the same lock as the export
+  job (task 0016).
+- `docs/guides/scorm-export.md` with the package contents, the data model of
+  both versions, the objective states, the suspend data and the procedure of
+  the LMS test (task 0016).
 
 ### Changed
+
+- The publisher gives a later publish of one pack a later `published_at`,
+  also within one second, so that the fields of `pack.yaml` that no table
+  holds come from the import published last (task 0016).
+- `make check` ends with the build of the SCORM player, and `make e2e`
+  fetches the schema files and builds the player before Playwright
+  (task 0016).
 
 - The endpoint parses no multipart body; only the pack upload reads one,
   behind the role and recent-auth checks (task 0015).
