@@ -8,7 +8,9 @@ defmodule EspalierWeb.Admin.PackControllerTest do
   import Espalier.PackFixtures,
     only: [copy_pack!: 1, demo_path: 0, line_of!: 3, read!: 2, read_yaml!: 2, write!: 3]
 
+  alias Espalier.Accounts.Scope
   alias Espalier.Audit.AuditEvent
+  alias Espalier.Catalog
   alias Espalier.Catalog.{Alignment, PackImport, Program}
   alias Espalier.Catalog.Pack.Importer
   alias Espalier.{Repo, ZipFixtures}
@@ -364,6 +366,33 @@ defmodule EspalierWeb.Admin.PackControllerTest do
     end
   end
 
+  describe "audit events in the transaction of the change" do
+    # The trigger lives in the sandbox transaction of the test; the module
+    # runs alone (async: false), so it blocks no other test.
+    test "an import whose audit event fails leaves no import row", %{author: author} do
+      fail_on!("audit_events", "INSERT", "NEW.action = 'pack.imported'")
+
+      assert_raise Postgrex.Error, ~r/forced failure/, fn ->
+        Catalog.import_pack(author_scope(author), demo_path())
+      end
+
+      assert Repo.aggregate(PackImport, :count) == 0
+    end
+
+    test "a publish whose audit event fails leaves the import validated and the catalog empty",
+         %{author: author} do
+      {:ok, %PackImport{status: :validated} = pack_import} = Importer.import(demo_path(), nil)
+      fail_on!("audit_events", "INSERT", "NEW.action = 'pack.published'")
+
+      assert_raise Postgrex.Error, ~r/forced failure/, fn ->
+        Catalog.publish_pack(author_scope(author), pack_import)
+      end
+
+      assert Repo.get!(PackImport, pack_import.id).status == :validated
+      assert Repo.aggregate(Program, :count) == 0
+    end
+  end
+
   describe "GET /api/admin/packs/:id" do
     test "returns the payload for a validated import only", %{conn: conn} do
       {conn, validated} = upload!(conn, copy_pack!(demo_path()))
@@ -551,6 +580,25 @@ defmodule EspalierWeb.Admin.PackControllerTest do
 
   defp without_objectives(%{"key" => key} = item, key), do: Map.put(item, "objectives", [])
   defp without_objectives(item, _key), do: item
+
+  defp author_scope(author), do: %{Scope.for_user(author) | roles: [:learner, :author]}
+
+  # Makes every row operation `event` on `table` that matches `condition`
+  # fail. The rollback of the sandbox transaction removes the trigger.
+  defp fail_on!(table, event, condition) do
+    Repo.query!("""
+    CREATE FUNCTION espalier_test_fail() RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN
+      RAISE EXCEPTION 'forced failure on %', TG_TABLE_NAME;
+    END
+    $$
+    """)
+
+    Repo.query!("""
+    CREATE TRIGGER espalier_test_fail BEFORE #{event} ON #{table}
+    FOR EACH ROW WHEN (#{condition}) EXECUTE FUNCTION espalier_test_fail()
+    """)
+  end
 
   defp events(action) do
     Repo.all(from e in AuditEvent, where: e.action == ^action, order_by: e.inserted_at)

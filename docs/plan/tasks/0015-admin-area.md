@@ -260,7 +260,10 @@ tasks rely on the implemented form.
 - Pack functions (step 7): `Espalier.Catalog` gains `import_pack/2`,
   `get_pack_import/2`, `pack_diff/2` and `publish_pack/2`, each with the
   scope first and `{:error, :forbidden}` without the role `author`. The upload
-  writes the audit event `pack.imported` and the publish `pack.published`.
+  writes the audit event `pack.imported` and the publish `pack.published`,
+  each in the transaction of its change: `Importer.prepare/2` loads and
+  validates the pack outside a transaction, and the publish transaction takes
+  the timeout of the publisher.
   `publish_pack/2` answers `{:error, :not_publishable}` for any status other
   than `validated` before it runs `Alignment.check/1`.
 - Pack diff (step 7): `Espalier.Catalog.Pack.Diff.compute/1` names a module
