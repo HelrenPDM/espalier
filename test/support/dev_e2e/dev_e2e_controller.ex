@@ -49,7 +49,7 @@ defmodule EspalierWeb.DevE2EController do
   """
   def reset_demo(conn, %{"slots" => slots}) when is_list(slots) and slots != [] do
     if Enum.all?(slots, &(is_integer(&1) and &1 in Demo.slots())) do
-      user_ids = for slot <- slots, user = Demo.get_user(slot), do: user.id
+      user_ids = for slot <- slots, %User{id: id} <- [Demo.get_user(slot)], do: id
       Repo.delete_all(from u in User, where: u.id in ^user_ids)
       send_resp(conn, :no_content, "")
     else
