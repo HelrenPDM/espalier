@@ -42,3 +42,9 @@ description = "Objective keys of the fixture program in the progress answers of 
 condition = "AND"
 paths = ['''^frontend/src/runtimes/platform\.test\.ts$''']
 regexes = ['''^(m1-subject-evidenced|m1-subject-exam)$''']
+
+[[allowlists]]
+description = "Objective key of the hand-written payloads in the preview and runtime tests of task 0015; the rule generic-api-key reads `key:` as an API key, no secret"
+condition = "AND"
+paths = ['''^frontend/src/(admin/packs/PackPreviewPage\.test\.tsx|runtimes/standalone\.test\.ts)$''']
+regexes = ['''^m1-subject-know$''']
