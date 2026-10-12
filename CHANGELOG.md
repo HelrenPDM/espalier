@@ -218,6 +218,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- The `localStorage` entry `espalier.player.<program slug>` carries the
+  owner tag `o`, a SHA-256 digest prefix of the enrollment id, in entry
+  version 2. The player reads the entry only for the person it belongs to, so
+  people who sign in one after the other in the same browser no longer see
+  each other's visited stations, opened explanations and, with
+  `TRACKING_DETAIL=minimal`, answered items; entries of version 1 are
+  dropped (task 0012).
 - The `placeholders` of `GET /api/programs/:slug/handbook` are a list of
   objects with `key` and `policy` (the current version of the policy, or
   `null`) in place of a list of keys (task 0013).

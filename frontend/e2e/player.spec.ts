@@ -225,14 +225,22 @@ test("a learner goes through module 1 on the short path", async ({ page }) => {
   const entryValue = JSON.parse(raw!) as Record<string, unknown>;
   if ("answered_item_ids" in progress) {
     expect(Object.keys(entryValue).sort()).toEqual(
-      ["openedExplanations", "v", "visitedStations"].sort(),
+      ["o", "openedExplanations", "v", "visitedStations"].sort(),
     );
   } else {
     expect(Object.keys(entryValue).sort()).toEqual(
-      ["answeredItems", "openedExplanations", "v", "visitedStations"].sort(),
+      [
+        "answeredItems",
+        "o",
+        "openedExplanations",
+        "v",
+        "visitedStations",
+      ].sort(),
     );
     expect(entryValue.answeredItems).not.toEqual([]);
   }
+  // The owner tag is a digest prefix and holds no id.
+  expect(entryValue.o).toMatch(/^[0-9a-f]{16}$/);
   for (const objectiveKey of OBJECTIVE_KEYS)
     expect(raw, objectiveKey).not.toContain(objectiveKey);
   expect(

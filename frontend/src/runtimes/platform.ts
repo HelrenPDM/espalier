@@ -28,7 +28,9 @@ interface Entry {
   answeredItems: string[];
 }
 
-const ENTRY_VERSION = 1;
+// Version 2 adds the owner tag `o`. An entry of version 1 carries no owner,
+// so it is read as empty and replaced on the next save.
+const ENTRY_VERSION = 2;
 
 /** The `localStorage` key of the resume entry of a program. */
 export const playerStorageKey = (slug: string) => `espalier.player.${slug}`;
@@ -44,16 +46,38 @@ const positions = (value: unknown): number[] =>
     : [];
 
 /**
- * Reads an entry. A missing, unreadable or malformed entry, or one of
- * another version, yields empty lists.
+ * The owner tag of the entry of an enrollment: the first 16 hexadecimal
+ * digits of the SHA-256 digest of the enrollment id. An enrollment belongs
+ * to one person and one program, so the tag tells whose entry it is, and it
+ * reveals neither the enrollment nor the person. It is `null` where the
+ * browser offers no digest: `crypto.subtle` needs a secure context.
  */
-function parseEntry(raw: string | null): Entry {
+export async function entryOwner(enrollmentId: string): Promise<string | null> {
+  try {
+    const digest = await crypto.subtle.digest(
+      "SHA-256",
+      new TextEncoder().encode(`espalier.player:${enrollmentId}`),
+    );
+    return Array.from(new Uint8Array(digest).slice(0, 8), (byte) =>
+      byte.toString(16).padStart(2, "0"),
+    ).join("");
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Reads the entry of `owner`. A missing, unreadable or malformed entry, one
+ * of another version, and one of another owner yield empty lists, and so
+ * does every entry while the owner is unknown.
+ */
+function parseEntry(raw: string | null, owner: string | null): Entry {
   const empty = {
     openedExplanations: [],
     visitedStations: [],
     answeredItems: [],
   };
-  if (raw === null) return empty;
+  if (raw === null || owner === null) return empty;
   let value: unknown;
   try {
     value = JSON.parse(raw);
@@ -63,7 +87,7 @@ function parseEntry(raw: string | null): Entry {
   if (typeof value !== "object" || value === null || Array.isArray(value))
     return empty;
   const entry = value as Record<string, unknown>;
-  if (entry.v !== ENTRY_VERSION) return empty;
+  if (entry.v !== ENTRY_VERSION || entry.o !== owner) return empty;
   return {
     openedExplanations: strings(entry.openedExplanations),
     visitedStations: positions(entry.visitedStations),
@@ -106,18 +130,24 @@ function openAssessments(entries: unknown[]): OpenAssessment[] {
  * (README section 10). This module is the only one of the SPA that reads or
  * writes that key.
  *
- * The entry holds `v`, `openedExplanations` (block ids), `visitedStations`
- * (station positions) and, while the progress answer holds no ids of
- * answered items (`TRACKING_DETAIL=minimal`), `answeredItems` (item ids). It
- * never holds an answer, a correctness, an exam result, an objective key or
- * status, a person's data or a timestamp, and the runtime sends none of it
- * to the server (ASVS 14.3.3).
+ * The entry holds `v`, the owner tag `o` (`entryOwner`), `openedExplanations`
+ * (block ids), `visitedStations` (station positions) and, while the progress
+ * answer holds no ids of answered items (`TRACKING_DETAIL=minimal`),
+ * `answeredItems` (item ids). The key names the program only, so the people
+ * who sign in on one browser share it: the runtime reads an entry only when
+ * its owner tag belongs to the enrollment of the signed-in person, and the
+ * next save replaces the entry of another person. The entry never holds an
+ * answer, a correctness, an exam result, an objective key or status, a
+ * person's data or a timestamp, and the runtime sends none of it to the
+ * server (ASVS 14.3.3).
  */
 export class PlatformRuntime implements Runtime {
   readonly #slug: string;
   readonly #client: ApiClient;
   readonly #storage: PlayerStorage | undefined;
   #enrollment: { id: string; path: Path } | null = null;
+  /** The owner tag of the enrollment; `null` before `loadState` or without a digest. */
+  #owner: string | null = null;
   /**
    * Whether the last progress answer held the ids of answered items
    * (`TRACKING_DETAIL=standard`); `null` before the first answer.
@@ -215,8 +245,9 @@ export class PlatformRuntime implements Runtime {
     }
     if (enrollment === null) throw new Error("No enrollment");
     this.#enrollment = { id: enrollment.id, path: enrollment.path };
+    this.#owner = await entryOwner(enrollment.id);
 
-    const entry = parseEntry(this.#read());
+    const entry = parseEntry(this.#read(), this.#owner);
     const answeredItems = progress.answered_item_ids;
     return {
       path: enrollment.path,
@@ -241,7 +272,8 @@ export class PlatformRuntime implements Runtime {
    * Writes the entry and, when the path differs from the path of the
    * enrollment, sends `PATCH /api/enrollments/:id`, which marks the choice
    * as manual. `completedModules`, `examOutcomes` and `evidencedObjectives`
-   * stay out of the entry.
+   * stay out of the entry. Without an owner tag, nothing is written, and the
+   * browser part of the state lasts for this visit only.
    */
   saveState(state: ResumeState): Promise<void> {
     const save = this.#saving.then(() => this.#save(state));
@@ -250,14 +282,18 @@ export class PlatformRuntime implements Runtime {
   }
 
   async #save(state: ResumeState): Promise<void> {
-    const entry: Record<string, unknown> = {
-      v: ENTRY_VERSION,
-      openedExplanations: unique(state.openedExplanations),
-      visitedStations: unique(state.visitedStations),
-    };
-    if (this.#serverTracksAnswers === false)
-      entry.answeredItems = unique(state.answeredItems);
-    this.#write(JSON.stringify(entry));
+    const owner = this.#owner;
+    if (owner !== null) {
+      const entry: Record<string, unknown> = {
+        v: ENTRY_VERSION,
+        o: owner,
+        openedExplanations: unique(state.openedExplanations),
+        visitedStations: unique(state.visitedStations),
+      };
+      if (this.#serverTracksAnswers === false)
+        entry.answeredItems = unique(state.answeredItems);
+      this.#write(JSON.stringify(entry));
+    }
 
     const enrollment = this.#enrollment;
     if (enrollment === null || state.path === enrollment.path) return;

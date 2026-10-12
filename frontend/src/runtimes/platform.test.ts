@@ -12,6 +12,7 @@ import { id, IDS, module1, module2, programFixture } from "../test/player";
 import { requestsTo, stubFetch, type StubResponses } from "../test/render";
 import { signedInPayload } from "../test/session";
 import {
+  entryOwner,
   PlatformRuntime,
   playerStorageKey,
   type PlayerStorage,
@@ -23,6 +24,10 @@ type EnrollmentView = components["schemas"]["EnrollmentView"];
 const SLUG = "demo";
 const KEY = "espalier.player.demo";
 const ENROLLMENT_ID = id(500);
+// The owner tag of the entry of ENROLLMENT_ID and of another person's
+// enrollment in the same program.
+const OWNER = (await entryOwner(ENROLLMENT_ID)) as string;
+const OTHER_OWNER = (await entryOwner(id(501))) as string;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 /** A progress answer with an enrollment on the full path and no records. */
@@ -205,7 +210,8 @@ describe("loadState", () => {
   test("reads the entry under espalier.player.<slug>", async () => {
     const storage = memoryStorage({
       "espalier.player.ai-basics": JSON.stringify({
-        v: 1,
+        v: 2,
+        o: OWNER,
         openedExplanations: [IDS.explanationShort],
         visitedStations: [2],
       }),
@@ -231,7 +237,36 @@ describe("loadState", () => {
     [
       "another version",
       JSON.stringify({
+        v: 3,
+        o: OWNER,
+        openedExplanations: [IDS.explanationShort],
+        visitedStations: [2],
+        answeredItems: [IDS.singleChoice],
+      }),
+    ],
+    [
+      "an entry of version 1, which has no owner",
+      JSON.stringify({
+        v: 1,
+        openedExplanations: [IDS.explanationShort],
+        visitedStations: [2],
+        answeredItems: [IDS.singleChoice],
+      }),
+    ],
+    [
+      "an entry without an owner",
+      JSON.stringify({
         v: 2,
+        openedExplanations: [IDS.explanationShort],
+        visitedStations: [2],
+        answeredItems: [IDS.singleChoice],
+      }),
+    ],
+    [
+      "an entry of another person",
+      JSON.stringify({
+        v: 2,
+        o: OTHER_OWNER,
         openedExplanations: [IDS.explanationShort],
         visitedStations: [2],
         answeredItems: [IDS.singleChoice],
@@ -248,7 +283,8 @@ describe("loadState", () => {
     [
       "members of the wrong type",
       JSON.stringify({
-        v: 1,
+        v: 2,
+        o: OWNER,
         openedExplanations: IDS.explanationShort,
         visitedStations: { 2: true },
         answeredItems: 5,
@@ -257,7 +293,8 @@ describe("loadState", () => {
     [
       "list entries of the wrong type",
       JSON.stringify({
-        v: 1,
+        v: 2,
+        o: OWNER,
         openedExplanations: [1, null, { id: IDS.explanationShort }],
         visitedStations: ["2", 1.5, null],
         answeredItems: [false, [IDS.singleChoice]],
@@ -426,10 +463,11 @@ describe("the browser entry", () => {
     "passed",
   ];
 
-  test("standard: answeredItems come from the server, and the entry holds v, openedExplanations and visitedStations only", async () => {
+  test("standard: answeredItems come from the server, and the entry holds v, o, openedExplanations and visitedStations only", async () => {
     const storage = memoryStorage({
       [KEY]: JSON.stringify({
-        v: 1,
+        v: 2,
+        o: OWNER,
         openedExplanations: [IDS.explanationShort],
         visitedStations: [2],
         answeredItems: [IDS.poll],
@@ -456,10 +494,11 @@ describe("the browser entry", () => {
 
     const entry = writtenEntry(storage);
     expect(Object.keys(entry).sort()).toEqual(
-      ["openedExplanations", "v", "visitedStations"].sort(),
+      ["o", "openedExplanations", "v", "visitedStations"].sort(),
     );
     expect(entry).toEqual({
-      v: 1,
+      v: 2,
+      o: OWNER,
       openedExplanations: [IDS.explanationShort],
       visitedStations: [1, 2],
     });
@@ -476,7 +515,8 @@ describe("the browser entry", () => {
   test("minimal: answeredItems come from the entry, and the entry adds answeredItems with item ids only", async () => {
     const storage = memoryStorage({
       [KEY]: JSON.stringify({
-        v: 1,
+        v: 2,
+        o: OWNER,
         openedExplanations: [],
         visitedStations: [2],
         answeredItems: [IDS.multipleChoice],
@@ -494,10 +534,17 @@ describe("the browser entry", () => {
 
     const entry = writtenEntry(storage);
     expect(Object.keys(entry).sort()).toEqual(
-      ["answeredItems", "openedExplanations", "v", "visitedStations"].sort(),
+      [
+        "answeredItems",
+        "o",
+        "openedExplanations",
+        "v",
+        "visitedStations",
+      ].sort(),
     );
     expect(entry).toEqual({
-      v: 1,
+      v: 2,
+      o: OWNER,
       openedExplanations: [IDS.explanationShort],
       visitedStations: [1, 2],
       answeredItems: [IDS.multipleChoice, IDS.singleChoice],
@@ -513,6 +560,110 @@ describe("the browser entry", () => {
       expect(JSON.stringify(request.body ?? null)).not.toContain(
         "answeredItems",
       );
+  });
+});
+
+describe("the owner of the entry", () => {
+  test("entryOwner gives 16 hexadecimal digits that hold no part of the enrollment id", async () => {
+    expect(OWNER).toMatch(/^[0-9a-f]{16}$/);
+    expect(await entryOwner(ENROLLMENT_ID)).toBe(OWNER);
+    expect(OTHER_OWNER).not.toBe(OWNER);
+    for (const part of ENROLLMENT_ID.split("-"))
+      if (part.length >= 4) expect(OWNER).not.toContain(part);
+  });
+
+  test("a second person on the same browser starts with empty lists and replaces the entry", async () => {
+    // The first person visited stations 1 and 2 in this browser.
+    const storage = memoryStorage({
+      [KEY]: JSON.stringify({
+        v: 2,
+        o: OTHER_OWNER,
+        openedExplanations: [IDS.explanationShort],
+        visitedStations: [1, 2],
+        answeredItems: [IDS.singleChoice],
+      }),
+    });
+    const { runtime } = setup(
+      { "GET /api/me/progress": { status: 200, body: progress() } },
+      { storage },
+    );
+
+    const state = await runtime.loadState();
+    expect(state.openedExplanations).toEqual([]);
+    expect(state.visitedStations).toEqual([]);
+    expect(state.answeredItems).toEqual([]);
+
+    await runtime.saveState({ ...state, visitedStations: [3] });
+    expect(writtenEntry(storage)).toEqual({
+      v: 2,
+      o: OWNER,
+      openedExplanations: [],
+      visitedStations: [3],
+      answeredItems: [],
+    });
+  });
+
+  test("the same person finds the entry again in a later visit", async () => {
+    const storage = memoryStorage();
+    const first = setup(
+      { "GET /api/me/progress": { status: 200, body: progress() } },
+      { storage },
+    );
+    const state = await first.runtime.loadState();
+    await first.runtime.saveState({
+      ...state,
+      openedExplanations: [IDS.explanationShort],
+      visitedStations: [1, 2],
+      answeredItems: [IDS.singleChoice],
+    });
+
+    const later = setup(
+      { "GET /api/me/progress": { status: 200, body: progress() } },
+      { storage },
+    );
+    const restored = await later.runtime.loadState();
+
+    expect(restored.openedExplanations).toEqual([IDS.explanationShort]);
+    expect(restored.visitedStations).toEqual([1, 2]);
+    expect(restored.answeredItems).toEqual([IDS.singleChoice]);
+  });
+
+  test("without a digest the runtime reads and writes no entry and still saves the path", async () => {
+    const digest = vi
+      .spyOn(crypto.subtle, "digest")
+      .mockRejectedValue(new DOMException("Insecure", "NotSupportedError"));
+    try {
+      const storage = memoryStorage({
+        [KEY]: JSON.stringify({
+          v: 2,
+          o: OWNER,
+          openedExplanations: [IDS.explanationShort],
+          visitedStations: [2],
+        }),
+      });
+      const { runtime, requests } = setup(
+        {
+          "GET /api/me/progress": { status: 200, body: progress() },
+          [`PATCH /api/enrollments/${ENROLLMENT_ID}`]: {
+            status: 200,
+            body: enrollmentView("short", { path_chosen_manually: true }),
+          },
+        },
+        { storage },
+      );
+
+      const state = await runtime.loadState();
+      expect(state.openedExplanations).toEqual([]);
+      expect(state.visitedStations).toEqual([]);
+
+      await runtime.saveState({ ...state, path: "short" });
+      expect(storage.setItem).not.toHaveBeenCalled();
+      expect(
+        requestsTo(requests, "PATCH", `/api/enrollments/${ENROLLMENT_ID}`),
+      ).toHaveLength(1);
+    } finally {
+      digest.mockRestore();
+    }
   });
 });
 
