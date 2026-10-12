@@ -657,6 +657,7 @@ describe("the owner of the entry", () => {
       expect(state.visitedStations).toEqual([]);
 
       await runtime.saveState({ ...state, path: "short" });
+      expect(storage.getItem).not.toHaveBeenCalled();
       expect(storage.setItem).not.toHaveBeenCalled();
       expect(
         requestsTo(requests, "PATCH", `/api/enrollments/${ENROLLMENT_ID}`),

@@ -247,7 +247,11 @@ export class PlatformRuntime implements Runtime {
     this.#enrollment = { id: enrollment.id, path: enrollment.path };
     this.#owner = await entryOwner(enrollment.id);
 
-    const entry = parseEntry(this.#read(), this.#owner);
+    // Without an owner tag, the runtime does not touch the entry at all.
+    const entry = parseEntry(
+      this.#owner === null ? null : this.#read(),
+      this.#owner,
+    );
     const answeredItems = progress.answered_item_ids;
     return {
       path: enrollment.path,
