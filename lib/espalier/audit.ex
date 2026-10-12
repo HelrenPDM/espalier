@@ -28,10 +28,21 @@ defmodule Espalier.Audit do
     |> Repo.insert()
   end
 
+  @per_page 50
+
+  @doc "The number of events per page of `list_events/2` with `:page`."
+  def per_page, do: @per_page
+
   @doc """
   Lists audit events, newest first. Requires the role `admin`.
 
-  Filters: `:action`, `:subject_id`, `:limit` (default 100).
+  Filters: `:action`, `:subject_id`, `:actor_id`, `:limit` (default 100) and
+  `:page` (from 1), which returns #{@per_page} events per page with the
+  offset `(page - 1) * #{@per_page}` and overrides `:limit`. `at` and
+  `inserted_at` have second precision, so `desc: :id` is the last ordering
+  key: events within one second keep one order across pages. The ids are
+  random UUIDs, so that order does not reflect the sequence in which those
+  events were written.
   """
   def list_events(%Scope{} = scope, filters \\ %{}) do
     if Scope.admin?(scope) do
@@ -41,8 +52,9 @@ defmodule Espalier.Audit do
         AuditEvent
         |> filter(:action, filters[:action])
         |> filter(:subject_id, filters[:subject_id])
-        |> order_by(desc: :at, desc: :inserted_at)
-        |> limit(^Map.get(filters, :limit, 100))
+        |> filter(:actor_id, filters[:actor_id])
+        |> order_by(desc: :at, desc: :inserted_at, desc: :id)
+        |> page(filters)
         |> Repo.all()
 
       {:ok, events}
@@ -50,6 +62,12 @@ defmodule Espalier.Audit do
       {:error, :forbidden}
     end
   end
+
+  defp page(query, %{page: page}) when is_integer(page) and page >= 1 do
+    query |> limit(^@per_page) |> offset(^((page - 1) * @per_page))
+  end
+
+  defp page(query, filters), do: limit(query, ^Map.get(filters, :limit, 100))
 
   defp filter(query, _field, nil), do: query
   defp filter(query, field, value), do: where(query, [e], field(e, ^field) == ^value)

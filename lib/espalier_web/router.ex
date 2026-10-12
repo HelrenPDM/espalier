@@ -2,6 +2,7 @@ defmodule EspalierWeb.Router do
   use EspalierWeb, :router
 
   import EspalierWeb.UserAuth
+  import EspalierWeb.PackMultipart, only: [require_multipart: 2]
 
   @api_session EspalierWeb.TransactionCookie.main_session_options()
   @transaction_session EspalierWeb.TransactionCookie.session_options()
@@ -50,9 +51,34 @@ defmodule EspalierWeb.Router do
     plug :require_role, :analyst
   end
 
+  # Task 0015: the passkey gate runs after the role check (README section
+  # 6.11), and the write pipelines also require a second factor from the
+  # last 10 minutes (README section 6.4, ASVS 7.5.1).
   pipeline :admin do
     plug :require_authenticated_user
     plug :require_role, :admin
+    plug EspalierWeb.Plugs.RequireAdminPasskey
+  end
+
+  pipeline :admin_write do
+    plug :require_authenticated_user
+    plug :require_role, :admin
+    plug EspalierWeb.Plugs.RequireAdminPasskey
+    plug :require_recent_auth
+  end
+
+  pipeline :author_write do
+    plug :require_authenticated_user
+    plug :require_role, :author
+    plug :require_recent_auth
+  end
+
+  # The pack upload (task 0015, step 7). The endpoint parses no multipart
+  # body, so the server reads an upload only here, behind :author_write and
+  # up to PACK_UPLOAD_MAX_MB (ASVS 5.2.1).
+  pipeline :pack_upload do
+    plug :require_multipart
+    plug Plug.Parsers, parsers: [EspalierWeb.PackMultipart], pass: []
   end
 
   # REGISTRAR_ENABLED (task 0013): runs before the role check of :registrar,
@@ -272,6 +298,65 @@ defmodule EspalierWeb.Router do
     post "/identities/ldap/:provider", LdapIdentityController, :create
   end
 
+  # The admin area (task 0015, README section 8). Every GET route runs
+  # :admin or :author; every POST, PUT, PATCH and DELETE route runs
+  # :admin_write or :author_write, apart from the user lookup, which changes
+  # no state and carries the address in its body (ASVS 14.2.1).
+  scope "/api/admin", EspalierWeb.Admin do
+    pipe_through [:api, :admin]
+
+    resources "/policies", PolicyController, only: [:index, :show]
+    resources "/approved-tools", ApprovedToolController, only: [:index, :show]
+    resources "/webhooks", WebhookController, only: [:index, :show]
+    resources "/policy-versions", PolicyVersionController, only: [:index, :show]
+    get "/role-grants", RoleGrantController, :index
+    get "/api-clients", ApiClientController, :index
+    get "/users", UserAdminController, :index
+    post "/user-lookups", UserAdminController, :lookup
+    get "/audit", AuditController, :index
+  end
+
+  scope "/api/admin", EspalierWeb.Admin do
+    pipe_through [:api, :admin_write]
+
+    resources "/policies", PolicyController, only: [:create, :update, :delete]
+    resources "/approved-tools", ApprovedToolController, only: [:create, :update, :delete]
+    resources "/webhooks", WebhookController, only: [:create, :update, :delete]
+    resources "/policy-versions", PolicyVersionController, only: [:create, :update]
+    post "/policy-versions/:id/publish", PolicyVersionController, :publish
+    post "/role-grants", RoleGrantController, :create
+    delete "/role-grants/:id", RoleGrantController, :delete
+    post "/api-clients", ApiClientController, :create
+    delete "/api-clients/:id", ApiClientController, :delete
+    post "/users", UserAdminController, :create
+    post "/users/:id/invitation", UserAdminController, :resend_invitation
+    post "/users/:id/disable", UserAdminController, :disable
+    delete "/users/:id/sessions", UserAdminController, :end_sessions
+    delete "/sessions", UserAdminController, :end_all_sessions
+    post "/users/:id/reset-factors", UserAdminController, :reset_factors
+    post "/users/:id/reset-failure-counters", UserAdminController, :reset_failure_counters
+    post "/credentials/:id/revoke", CredentialAdminController, :revoke
+  end
+
+  scope "/api/admin", EspalierWeb.Admin do
+    pipe_through [:api, :author]
+
+    get "/packs/:id", PackController, :show
+    get "/packs/:id/diff", PackController, :diff
+  end
+
+  scope "/api/admin", EspalierWeb.Admin do
+    pipe_through [:api, :author_write]
+
+    post "/packs/:id/publish", PackController, :publish
+  end
+
+  scope "/api/admin", EspalierWeb.Admin do
+    pipe_through [:api, :author_write, :pack_upload]
+
+    post "/packs", PackController, :create
+  end
+
   # Seeding routes of the end-to-end tests (task 0011). Only config/dev.exs
   # sets dev_routes, and only dev and test compile the controller.
   if Application.compile_env(:espalier, :dev_routes) do
@@ -282,6 +367,8 @@ defmodule EspalierWeb.Router do
       post "/reset", DevE2EController, :reset
       post "/reset-demo", DevE2EController, :reset_demo
       post "/age-recent-auth", DevE2EController, :age_recent_auth
+      post "/role-grants", DevE2EController, :role_grants
+      get "/demo-pack.zip", DevE2EController, :demo_pack
     end
   end
 

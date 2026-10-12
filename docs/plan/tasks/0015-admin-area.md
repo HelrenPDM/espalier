@@ -217,3 +217,111 @@ This list holds exactly the rows whose `Task` column names this task, as the own
 - The registrar page serves the registrar route of README section 8, `GET /api/registrar/credentials` of 0013. While `REGISTRAR_ENABLED` keeps its default `false` (README sections 2 and 10), the route answers 404 and the page shows its notice.
 - The `recovery_unavailable` mail of 0005 points users without unused recovery codes to the reset of decision D11, which step 4 implements.
 - Keep the TypeScript evaluator free of UI code, so that the SCORM build in 0016 can reuse it.
+
+## Addendum: implementation
+The implementation departs from the steps above in the points below, and later
+tasks rely on the implemented form.
+
+- Archive extraction (step 7): `Espalier.Catalog.Pack.Archive` does not call
+  `:zip.extract/2`. `get_z_data_loop/8` in `src/zip.erl` of stdlib 7.3.0.3
+  inflates an entry without a bound on its output, so a deflated entry whose
+  declared size understates its content would reach the disk in full before
+  the size comparison of the step could run (ASVS 5.2.3 and 15.2.2). The
+  module reads the upload of at most `max_bytes` into memory, checks the
+  central directory as the step describes, and then writes every entry
+  itself: a deflated entry is inflated in chunks with `:zlib.safeInflate/2`,
+  and the extraction stops at the first chunk beyond the declared size; a
+  stored entry must equal its declared size; the CRC-32 of every entry must
+  match. Beyond the step, the checks also reject an empty name, a name that
+  is no UTF-8 or holds a NUL character, two names that write the same path
+  once empty and `.` components are dropped, an encrypted entry and a
+  compression method other than stored and deflated. A name that the file
+  system cannot hold (a file below a file of the archive, a component beyond
+  the length limit) rejects the archive with a report entry during the
+  extraction.
+  `extract(upload_path, max_bytes)` returns `{:ok, dir}` or `{:error,
+  entries}` and removes the directory itself on every rejection;
+  `with_extracted(upload_path, max_bytes, fun)` runs `fun` on the directory
+  and removes it in an `after` block. An archive finding is a report entry
+  with `file` (the entry name, or `.` for the archive), `line` `nil` and
+  `message`, and a rejected archive answers 422 `{"error":
+  "archive_rejected", "report": {"errors": [...], "warnings": []}}`. The pack
+  may sit at the root of the archive or in its one top-level directory.
+- Upload route (step 7): the function plug
+  `EspalierWeb.PackMultipart.require_multipart/2` runs before the parser of
+  `:pack_upload` and answers 415 `unsupported_media_type` for any content type
+  other than `multipart/form-data`, also for a JSON body that the endpoint
+  parsed already. `EspalierWeb.ErrorJSON` renders 413 as
+  `request_too_large`. A text part named `file` instead of a file answers 422
+  `validation_failed`, because the request schema admits a string for a
+  binary field. `EspalierWeb.ConnCase.upload_request/4` sends a real
+  multipart body, because `Phoenix.ConnTest` sends a map as
+  `multipart/mixed` with its parameters set.
+- Pack functions (step 7): `Espalier.Catalog` gains `import_pack/2`,
+  `get_pack_import/2`, `pack_diff/2` and `publish_pack/2`, each with the
+  scope first and `{:error, :forbidden}` without the role `author`. The upload
+  writes the audit event `pack.imported` and the publish `pack.published`.
+  `publish_pack/2` answers `{:error, :not_publishable}` for any status other
+  than `validated` before it runs `Alignment.check/1`.
+- Pack diff (step 7): `Espalier.Catalog.Pack.Diff.compute/1` names a module
+  by its number, a lesson as `<module number>/<lesson key>` and a rule as
+  `<module number>/<rule number>`, because both are keyed per module. Both
+  sides pass through the Ecto type of each field, the cast of the publisher.
+  Beyond the step, a key is also compared by the values that the payload
+  nests below it and that the publisher writes into rows of their own, so
+  that a changed lesson text or answer key appears in the diff: a lesson by
+  its blocks with their citations, an item by its options, rules, reveals
+  and citations, a rule by its citations, an assessment by its items in
+  order and a qualification by its requirements. An item is also compared
+  by the number of its module and the key of its lesson. The diff route
+  answers 409 `not_publishable` for an import without a payload.
+- Generated controllers (step 2): the three controllers keep the nested
+  request body of `mix phx.gen.json` (`{"policy": {...}}`,
+  `{"approved_tool": {...}}`, `{"webhook": {...}}`) and the answer
+  `{"data": ...}`. A policy with a published version keeps its key: a change
+  of `key` answers 409 `policy_in_use`, because qualification requirements
+  name the policy by key; `update_policy/3` locks the policy row before that
+  check, so that a running publication cannot slip past it. The webhook
+  controller checks `secret_env` on create, and on update a new value, or the
+  stored one while the webhook stays or becomes active, so that a webhook
+  whose variable is gone can still be switched off.
+  `delete_approved_tool/2` answers `{:error, :not_found}` for a row that is
+  gone.
+- User administration (step 4): `Espalier.Accounts` gains `list_users/2`
+  (with the total), `lookup_user/2`, `admin_entry/2`,
+  `list_grant_holders/1`, `get_role_grant/2`, `get_api_client/2` and
+  `display_names/2`, each with the scope first and `{:error, :forbidden}`
+  without `admin`. Every user entry of the list and of the lookup carries the
+  grants with id, user id, role, source and provider key. `identity_verified` is an
+  optional member of the reset body, so that a body without it reaches the
+  controller and answers 422 `identity_verification_required`. `disable`
+  answers 200 with the user entry, both session routes and the counter reset
+  answer 204, and both invitation routes answer 202 `{"status": "accepted"}`.
+  `resend_invitation/2` of 0004 also logs `user_updated` with `change:
+  "invitation_resent"`.
+- Audit page (step 8): every event of `GET /api/admin/audit` also names the
+  display name of its actor (`actor_display_name`).
+- Admin shell (step 5): `/admin` renders the start page and the navigation of
+  the session's roles; an unknown path below `/admin` renders the not-found
+  page. The session flag `admin_passkey_required` closes the admin sections
+  before any request, and a 403 `passkey_required` of any query or mutation
+  closes them as well.
+- Preview (steps 9 and 11): the pages of the player build every link to a
+  program page from `ProgramBaseContext` of `src/player/programBase.ts`
+  (`/programs` by default); the preview sets it to
+  `/admin/packs/:id/preview/programs`, so that its links and the back button
+  stay in the preview. The player of the preview has a query cache of its
+  own and an API client that answers every request with 404 without sending
+  it: the stations that read or record platform data (self-assessment,
+  credential, companion formats, feedback) show their notices, the handbook
+  route shows a notice, and the preview writes no record. Only a `validated`
+  import can be previewed, because only its view carries the payload.
+  `StandaloneRuntime` derives its ids from the keys of the payload, and its
+  `completeModule` rejects with `AssessmentsOpenError` like the platform.
+- Evaluator (step 9): `src/player/evaluate.ts` also exports `gradeAttempt`,
+  the grading of an exam attempt, and `test/fixtures/evaluator_cases.json`
+  holds item cases and attempt cases, which both test suites read.
+- End-to-end tests (step 20): `createStaffUser(browser, role)` returns the
+  browser context, the page and the virtual authenticator of the staff
+  member. The specs find a person through the lookup by exact address, so
+  that they do not depend on the paging of the user list.

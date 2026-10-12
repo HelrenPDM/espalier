@@ -6,6 +6,7 @@ import { useContentLang } from "../player/contentLang";
 import { sortedStations } from "../player/program";
 import { useCurrentPlayer } from "../player/usePlayer";
 import { StationList } from "./StationList";
+import { useProgramBase } from "../player/programBase";
 
 /**
  * `/programs/:slug`: the program title, the path switch, the step list and
@@ -13,6 +14,7 @@ import { StationList } from "./StationList";
  */
 export function ProgramPage() {
   const { t } = useTranslation();
+  const programBase = useProgramBase();
   const { program, state } = useCurrentPlayer();
   const lang = useContentLang();
   const stations = sortedStations(program);
@@ -30,7 +32,7 @@ export function ProgramPage() {
         {next && (
           <p className="mt-4">
             <Link
-              to={`/programs/${program.slug}/stations/${next.position}`}
+              to={`${programBase}/${program.slug}/stations/${next.position}`}
               className={buttonClasses("primary")}
             >
               {state.visitedStations.length === 0 ? (
@@ -60,7 +62,7 @@ export function ProgramPage() {
         <ul className="flex flex-wrap gap-x-6 gap-y-2">
           <li>
             <Link
-              to={`/programs/${program.slug}/glossary`}
+              to={`${programBase}/${program.slug}/glossary`}
               className={linkClasses}
             >
               {t("glossary.title")}
@@ -68,7 +70,7 @@ export function ProgramPage() {
           </li>
           <li>
             <Link
-              to={`/programs/${program.slug}/handbook`}
+              to={`${programBase}/${program.slug}/handbook`}
               className={linkClasses}
             >
               {t("handbook.title")}

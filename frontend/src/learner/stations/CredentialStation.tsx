@@ -13,6 +13,7 @@ import { useContentLang } from "../../player/contentLang";
 import { formatDay } from "../../player/format";
 import { Markdown } from "../../player/Markdown";
 import type { ProgramView, Station } from "../../player/runtime";
+import { useProgramBase } from "../../player/programBase";
 import { useCurrentPlayer } from "../../player/usePlayer";
 import { CredentialStatus } from "../CredentialStatus";
 
@@ -67,10 +68,14 @@ function targetOf(
  * The page that satisfies an open requirement: `/policies` for a policy,
  * the station of its position for the others, or none.
  */
-function linkOf(requirement: Requirement, slug: string): string | null {
+function linkOf(
+  requirement: Requirement,
+  base: string,
+  slug: string,
+): string | null {
   if (requirement.kind === "policy_acknowledged") return "/policies";
   if (requirement.station_position === null) return null;
-  return `/programs/${slug}/stations/${requirement.station_position}`;
+  return `${base}/${slug}/stations/${requirement.station_position}`;
 }
 
 function RequirementEntry({
@@ -84,6 +89,7 @@ function RequirementEntry({
 }) {
   const { t } = useTranslation();
   const { program } = useCurrentPlayer();
+  const programBase = useProgramBase();
   const lang = useContentLang();
   const label = (
     <>
@@ -93,7 +99,7 @@ function RequirementEntry({
       <span lang={target.fromPack ? lang : undefined}>{target.text}</span>
     </>
   );
-  const to = open ? linkOf(requirement, program.slug) : null;
+  const to = open ? linkOf(requirement, programBase, program.slug) : null;
   return (
     <li
       data-requirement-kind={requirement.kind}

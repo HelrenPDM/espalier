@@ -21,11 +21,14 @@ defmodule Espalier.Accounts do
     FailureCounters,
     MailWorker,
     PasswordPolicy,
+    RecoveryCode,
     RoleGrant,
     Scope,
     Totp,
+    TotpFactor,
     User,
-    UserToken
+    UserToken,
+    WebauthnCredential
   }
 
   alias Espalier.{Audit, RateLimit, Repo, SecurityLog}
@@ -518,7 +521,8 @@ defmodule Espalier.Accounts do
 
   @doc """
   Sends a new invitation to an invitable user (`invitable?/1`). Requires the
-  role `admin`.
+  role `admin`, writes the audit event `user.invitation_resent` and, since
+  task 0015, logs `user_updated` with `change: "invitation_resent"`.
   """
   def resend_invitation(%Scope{} = scope, %User{} = user) do
     cond do
@@ -528,6 +532,7 @@ defmodule Espalier.Accounts do
       invitable?(user) ->
         Oban.insert!(MailWorker.job("invitation", %{user_id: user.id}))
         {:ok, _event} = Audit.record(scope, "user.invitation_resent", user)
+        SecurityLog.event(:user_updated, %{user_id: user.id, change: "invitation_resent"})
         :ok
 
       true ->
@@ -1498,6 +1503,265 @@ defmodule Espalier.Accounts do
         {:ok, client}
       end)
     end
+  end
+
+  ## Admin area (task 0015)
+
+  @users_per_page 50
+
+  @doc "The number of users per page of `list_users/2`."
+  def users_per_page, do: @users_per_page
+
+  @doc """
+  Lists the users of `page` (from 1), #{@users_per_page} per page, ordered by
+  `inserted_at` and id, because the encrypted `display_name` cannot be
+  sorted in SQL. Requires the role `admin`. Returns `{:ok, %{entries:
+  entries, total: count}}`; each entry holds `user`, `grants`, `roles`,
+  `enrolled` (`enrolled?/1`) and `provider_keys`, the sorted provider keys
+  of the user's external identities. No entry carries a subject (ASVS
+  15.3.1).
+  """
+  def list_users(%Scope{} = scope, page) when is_integer(page) and page >= 1 do
+    with :ok <- require_admin(scope) do
+      users =
+        Repo.all(
+          from u in User,
+            order_by: [asc: u.inserted_at, asc: u.id],
+            limit: ^@users_per_page,
+            offset: ^((page - 1) * @users_per_page)
+        )
+
+      {:ok, %{entries: admin_entries(users), total: Repo.aggregate(User, :count)}}
+    end
+  end
+
+  @doc """
+  Returns the entry of `list_users/2` for the user with the exact address
+  `email` (trimmed and lower-cased, through `email_hash`), or `{:error,
+  :not_found}`. Requires the role `admin`.
+  """
+  def lookup_user(%Scope{} = scope, email) when is_binary(email) do
+    with :ok <- require_admin(scope) do
+      case get_user_by_email(email) do
+        %User{} = user -> {:ok, hd(admin_entries([user]))}
+        nil -> {:error, :not_found}
+      end
+    end
+  end
+
+  @doc """
+  Returns the entry of `list_users/2` of `user`. Requires the role `admin`.
+  """
+  def admin_entry(%Scope{} = scope, %User{} = user) do
+    with :ok <- require_admin(scope), do: {:ok, hd(admin_entries([user]))}
+  end
+
+  @doc """
+  Lists the users who hold a grant beyond `learner`, as entries of
+  `list_users/2`, ordered by `inserted_at`. Requires the role `admin`.
+  """
+  def list_grant_holders(%Scope{} = scope) do
+    with :ok <- require_admin(scope) do
+      holders =
+        from g in RoleGrant, where: g.role != :learner, distinct: true, select: g.user_id
+
+      users =
+        Repo.all(
+          from u in User,
+            where: u.id in subquery(holders),
+            order_by: [asc: u.inserted_at, asc: u.id]
+        )
+
+      {:ok, admin_entries(users)}
+    end
+  end
+
+  @doc """
+  Returns `{:ok, {grant, user}}` for the role grant `id`, or `{:error,
+  :not_found}` for an unknown or malformed id. Requires the role `admin`.
+  """
+  def get_role_grant(%Scope{} = scope, id) do
+    with :ok <- require_admin(scope),
+         {:ok, uuid} <- cast_id(id),
+         %RoleGrant{} = grant <- Repo.get(RoleGrant, uuid) do
+      {:ok, {grant, get_user!(grant.user_id)}}
+    else
+      {:error, :forbidden} -> {:error, :forbidden}
+      _other -> {:error, :not_found}
+    end
+  end
+
+  @doc """
+  Returns `{:ok, client}` for the machine client `id`, or `{:error,
+  :not_found}` for an unknown or malformed id. Requires the role `admin`.
+  """
+  def get_api_client(%Scope{} = scope, id) do
+    with :ok <- require_admin(scope),
+         {:ok, uuid} <- cast_id(id),
+         %ApiClient{} = client <- Repo.get(ApiClient, uuid) do
+      {:ok, client}
+    else
+      {:error, :forbidden} -> {:error, :forbidden}
+      _other -> {:error, :not_found}
+    end
+  end
+
+  @doc """
+  Returns a map of user id to display name for the users among `ids`, for
+  the actors of the audit page. Requires the role `admin`.
+  """
+  def display_names(%Scope{} = scope, ids) when is_list(ids) do
+    with :ok <- require_admin(scope) do
+      ids = ids |> Enum.reject(&is_nil/1) |> Enum.uniq()
+
+      {:ok,
+       Repo.all(from u in User, where: u.id in ^ids, select: {u.id, u.display_name})
+       |> Map.new()}
+    end
+  end
+
+  defp cast_id(id) do
+    case Ecto.UUID.cast(id) do
+      {:ok, uuid} -> {:ok, uuid}
+      :error -> {:error, :not_found}
+    end
+  end
+
+  # Four queries for any number of users: grants, passkeys, confirmed TOTP
+  # factors and external identities.
+  defp admin_entries([]), do: []
+
+  defp admin_entries(users) do
+    ids = Enum.map(users, & &1.id)
+
+    grants =
+      Repo.all(
+        from g in RoleGrant,
+          where: g.user_id in ^ids,
+          order_by: [g.role, g.source, g.provider_key]
+      )
+      |> Enum.group_by(& &1.user_id)
+
+    passkeys =
+      Repo.all(from c in WebauthnCredential, where: c.user_id in ^ids, select: c.user_id)
+
+    totp =
+      Repo.all(
+        from f in TotpFactor,
+          where: f.user_id in ^ids and not is_nil(f.enabled_at),
+          select: f.user_id
+      )
+
+    enrolled = MapSet.new(passkeys ++ totp)
+
+    providers =
+      Repo.all(
+        from i in ExternalIdentity,
+          where: i.user_id in ^ids,
+          order_by: i.provider_key,
+          select: {i.user_id, i.provider_key}
+      )
+      |> Enum.group_by(&elem(&1, 0), &elem(&1, 1))
+
+    for user <- users do
+      user_grants = Map.get(grants, user.id, [])
+
+      %{
+        user: user,
+        grants: user_grants,
+        roles: Enum.uniq([:learner | Enum.map(user_grants, & &1.role)]),
+        enrolled: MapSet.member?(enrolled, user.id),
+        provider_keys: providers |> Map.get(user.id, []) |> Enum.uniq()
+      }
+    end
+  end
+
+  @doc """
+  Resets every second factor of `user` after the organization verified the
+  person's identity (README section 15, decision D11). Requires the role
+  `admin`.
+
+  In one `Repo.transact/1` (ASVS 2.3.3), the function deletes the user's
+  passkeys, TOTP factor and recovery codes, sets `hashed_password` to nil
+  for a local user, so that the enrollment after the invitation sets a new
+  password or a passkey, clears the counters with the user's `user_id`
+  (`FailureCounters.clear_all/1`), deletes the directory counters of the
+  user's LDAP identities (`FailureCounters.reset_directory_for_user/2`,
+  whose error rolls the transaction back), and deletes every token row of
+  the user, which ends every session (ASVS 7.4.2). An active local user then
+  receives a new invitation through `resend_invitation/2`; a federated user
+  enrolls a new local factor at the next sign-in through the provider. The
+  function does not call `Factors.removable?/2`, so it also removes the last
+  passkey of an admin.
+
+  It enqueues the mail `factors_reset`, writes the audit event
+  `user.factors_reset` with `%{identity_verified: true}`, logs
+  `user_updated` with `change: "factors_reset"`, and returns `{:ok,
+  %{invitation_sent: boolean}}`.
+  """
+  def reset_factors(%Scope{} = scope, %User{} = user) do
+    with :ok <- require_admin(scope) do
+      Repo.transact(fn -> reset_factors_in(scope, user) end)
+    end
+  end
+
+  defp reset_factors_in(scope, user) do
+    lock_user!(user)
+    user = get_user!(user.id)
+    local? = not external_identity?(user)
+
+    Repo.delete_all(from c in WebauthnCredential, where: c.user_id == ^user.id)
+    Repo.delete_all(from f in TotpFactor, where: f.user_id == ^user.id)
+    Repo.delete_all(from r in RecoveryCode, where: r.user_id == ^user.id)
+
+    user =
+      if local? and is_binary(user.hashed_password),
+        do: user |> Ecto.Changeset.change(hashed_password: nil) |> Repo.update!(),
+        else: user
+
+    with {:ok, _deleted} <- clear_counters(scope, user) do
+      Repo.delete_all(from t in UserToken, where: t.user_id == ^user.id)
+
+      invitation_sent = local? and resend_invitation(scope, user) == :ok
+
+      Oban.insert!(MailWorker.job("factors_reset", %{user_id: user.id}))
+      {:ok, _event} = Audit.record(scope, "user.factors_reset", user, %{identity_verified: true})
+      SecurityLog.event(:user_updated, %{user_id: user.id, change: "factors_reset"})
+      {:ok, %{invitation_sent: invitation_sent}}
+    end
+  end
+
+  @doc """
+  Clears the failure counters of `user` (task 0015, step 4). Requires the
+  role `admin`.
+
+  In one `Repo.transact/1`, `FailureCounters.clear_all/1` sets
+  `consecutive_failures` to 0 and clears `locked_until` and `disabled_at` on
+  every counter row with the user's `user_id`, and
+  `FailureCounters.reset_directory_for_user/2` deletes the directory
+  counter of every LDAP identity of the user, which carries no `user_id`,
+  and writes its own audit event `failure_counter.reset`. An error of the
+  second call rolls the transaction back. The function writes the audit
+  event `user.failure_counters_reset`, logs `user_updated` with `change:
+  "failure_counters_reset"` and returns `{:ok, user}`.
+  """
+  def reset_failure_counters(%Scope{} = scope, %User{} = user) do
+    with :ok <- require_admin(scope) do
+      Repo.transact(fn -> reset_failure_counters_in(scope, user) end)
+    end
+  end
+
+  defp reset_failure_counters_in(scope, user) do
+    with {:ok, _deleted} <- clear_counters(scope, user) do
+      {:ok, _event} = Audit.record(scope, "user.failure_counters_reset", user)
+      SecurityLog.event(:user_updated, %{user_id: user.id, change: "failure_counters_reset"})
+      {:ok, user}
+    end
+  end
+
+  defp clear_counters(scope, user) do
+    _count = FailureCounters.clear_all(user)
+    FailureCounters.reset_directory_for_user(scope, user)
   end
 
   defp require_admin(scope) do

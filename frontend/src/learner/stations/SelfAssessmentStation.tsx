@@ -12,6 +12,7 @@ import { sortedStations } from "../../player/program";
 import type { Segment, Station } from "../../player/runtime";
 import { useCurrentPlayer } from "../../player/usePlayer";
 import { useSaveErrorText } from "./saveError";
+import { useProgramBase } from "../../player/programBase";
 
 /**
  * One segment as a button: its label names the button, and its
@@ -93,6 +94,7 @@ const OUTCOME_TEXT = {
  */
 export function SelfAssessmentStation({ station }: { station: Station }) {
   const { t } = useTranslation();
+  const programBase = useProgramBase();
   const { program, refreshPath } = useCurrentPlayer();
   const lang = useContentLang();
   const participation = useParticipation(program.slug);
@@ -108,8 +110,8 @@ export function SelfAssessmentStation({ station }: { station: Station }) {
     (entry) => entry.position > station.position,
   );
   const skipTo = next
-    ? `/programs/${program.slug}/stations/${next.position}`
-    : `/programs/${program.slug}`;
+    ? `${programBase}/${program.slug}/stations/${next.position}`
+    : `${programBase}/${program.slug}`;
 
   const choose = async (segment: Segment) => {
     if (choosing) return;

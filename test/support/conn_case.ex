@@ -162,6 +162,43 @@ defmodule EspalierWeb.ConnCase do
   end
 
   @doc """
+  Sends `POST path` of the same client with a real `multipart/form-data`
+  body whose field `file` holds `content` (task 0015, the pack upload).
+  `Phoenix.ConnTest` would send a map as `multipart/mixed` with the params
+  set already, so the request would never reach the parser of the route.
+  Options: `:field` (default `"file"`), `:filename` (default `"pack.zip"`),
+  `:content_type` of the request (default `multipart/form-data` with the
+  boundary).
+  """
+  def upload_request(conn, path, content, opts \\ []) when is_binary(content) do
+    conn = if conn.state == :unset, do: conn, else: next_request(conn)
+    conn = with_csrf_token(conn)
+    boundary = "espalier-test-#{System.unique_integer([:positive])}"
+    field = Keyword.get(opts, :field, "file")
+    filename = Keyword.get(opts, :filename, "pack.zip")
+
+    body =
+      IO.iodata_to_binary([
+        "--",
+        boundary,
+        "\r\n",
+        ~s(Content-Disposition: form-data; name="#{field}"; filename="#{filename}"\r\n),
+        "Content-Type: application/zip\r\n\r\n",
+        content,
+        "\r\n--",
+        boundary,
+        "--\r\n"
+      ])
+
+    content_type =
+      Keyword.get(opts, :content_type, "multipart/form-data; boundary=" <> boundary)
+
+    conn
+    |> Plug.Conn.put_req_header("content-type", content_type)
+    |> Phoenix.ConnTest.dispatch(EspalierWeb.Endpoint, :post, path, body)
+  end
+
+  @doc """
   Puts the pending second-factor state of a first factor of `user` into a
   fresh test session, as `UserAuth.put_pending_second_factor/3` writes it.
   `attrs` carries `:auth_methods` (default `[:password]`), `:provider_key`

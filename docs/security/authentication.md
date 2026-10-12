@@ -2,8 +2,9 @@
 
 This document describes the sign-in pathways, the second factors, the
 sessions, the abuse protection and the password rules of tasks 0004 to 0007
-(ASVS 6.1.1 to 6.1.3, 7.1.1 to 7.1.3, 7.6.1 and 8.1.1), and the fields that
-learners read and write on the learner routes of task 0009 (ASVS 8.1.2). The
+(ASVS 6.1.1 to 6.1.3, 7.1.1 to 7.1.3, 7.6.1 and 8.1.1), the fields that
+learners read and write on the learner routes of task 0009 (ASVS 8.1.2), and
+the admin resets and the checks of the admin routes of task 0015. The
 verification matrix is [`asvs-l2.md`](asvs-l2.md), the log inventory is
 [`logging.md`](logging.md), the operator guide for identity providers is
 [`../guides/identity-providers.md`](../guides/identity-providers.md), and
@@ -68,9 +69,11 @@ answers 403 `forbidden` for `demo`. `require_recent_auth/2` answers 403
 within the last 10 minutes, or the session has the strength `enrollment` or
 `recovery`, which reaches only the routes of the `:enrollment` pipeline. It
 guards the password change, the e-mail change, the ending of a session and
-every factor change (ASVS 7.5.1). A route with both pipelines names
-`:enrollment` first, so a request without a session and a demo session halt
-before the recent-auth check.
+every factor change (ASVS 7.5.1), and, through the pipelines `:admin_write`
+and `:author_write` of task 0015, every POST, PUT, PATCH and DELETE route
+under `/api/admin` apart from the user lookup (section "Roles and checks").
+A route with both pipelines names `:enrollment` first, so a request without
+a session and a demo session halt before the recent-auth check.
 
 | Pipelines | Routes |
 |---|---|
@@ -364,9 +367,10 @@ succeeds.
 | Inactivity or absolute limit | the row is deleted at its next use, or by the daily purge |
 | Password change | every token row of the user is deleted; the calling client receives a copy of its row with a new token and a new CSRF token (ASVS 7.4.3) |
 | Role change (`grant_role/3`, `revoke_role/3`, `replace_idp_role_grants/3` with a changed set) | every session row of the user is deleted, so the next sign-in issues a new token |
-| User disabled (`disable_user/2`) | every token row of the user is deleted (ASVS 7.4.2) |
+| User disabled (`disable_user/2`, `POST /api/admin/users/:id/disable`) | every token row of the user is deleted (ASVS 7.4.2) |
+| Second factors reset by an admin (`reset_factors/2`, `POST /api/admin/users/:id/reset-factors`, decision D11) | every token row of the user is deleted in the transaction that deletes the factors (section "Admin resets", ASVS 7.4.2) |
 | User ends a session (`DELETE /api/me/sessions/:id`, recent second factor) | that row is deleted (ASVS 7.5.2) |
-| Admin ends sessions (`end_user_sessions/2`, `end_all_sessions/1`, `Espalier.Release.end_all_sessions/0`) | the rows of one user or of all users are deleted (ASVS 7.4.5) |
+| Admin ends sessions (`end_user_sessions/2` through `DELETE /api/admin/users/:id/sessions`, `end_all_sessions/1` through `DELETE /api/admin/sessions`, `Espalier.Release.end_all_sessions/0`) | the rows of one user or of all users are deleted; `DELETE /api/admin/sessions` also ends the session of the acting admin (ASVS 7.4.5) |
 | Invitation accepted | every token row of the user is deleted, which makes the link single-use |
 | Second factor, passkey sign-in, recovery verification, completed enrollment or recovery | `log_in_user/3` creates a new row with a new token and deletes the row the cookie held (ASVS 7.2.4) |
 | Step-up (`POST /api/me/reauth`) | `EspalierWeb.UserAuth.step_up/2` reissues the row with `mfa_at` now (ASVS 7.2.4) |
@@ -478,8 +482,9 @@ the second factors `:totp`, `:passkey` and `:recovery_code`
 - The fiftieth failure disables the authenticator and logs `authn_login_lock`;
   for a second factor it also sends the mail `authenticator_disabled`. The
   limit stays below the NIST limit of 100. Only a completed recovery
-  (`FailureCounters.clear_all/1`) or an admin (task 0015) clears
-  `disabled_at`. The confirmation of a new TOTP factor in a recovery session
+  (`FailureCounters.clear_all/1`) or an admin, through the reset of failure
+  counters or the reset of second factors of task 0015 (section "Admin
+  resets"), clears `disabled_at`. The confirmation of a new TOTP factor in a recovery session
   passes a disabled `:totp` counter, so a recovery can replace that factor.
 - An attempt against a locked or disabled authenticator is rejected without
   verification and without counting, with the same answer as a wrong password.
@@ -540,8 +545,10 @@ the count exists before the platform account does.
   stays disabled until recovery, but the recovery pathway serves only local
   accounts without an external identity, and `FailureCounters.clear_all/1`
   never sees directory rows. A locked or disabled directory counter is
-  therefore cleared by an admin with `reset_directory_for_user/2` (the admin
-  action "reset failure counters" of task 0015) or by the operator with
+  therefore cleared by an admin with `reset_directory_for_user/2`, which
+  both admin resets of task 0015, the reset of failure counters and the
+  reset of second factors, call next to `clear_all/1` (section "Admin
+  resets"), or by the operator with
   `Espalier.Release.reset_directory_lock/2`, which also covers a person
   without a platform account. Both write the audit event
   `failure_counter.reset` and log `user_updated`.
@@ -604,8 +611,106 @@ factor together with a password or an external identity. The last remaining
 second factor cannot be removed (409 `last_factor`). With
 `ADMIN_REQUIRE_PASSKEY=true` (default) the last passkey of an admin cannot be
 removed (409 `admin_passkey_required`), and `flags.admin_passkey_required` of
-`GET /api/session` marks an admin without a passkey; task 0015 adds the
-passkey gate on the admin routes. The value `false` logs a warning at boot.
+`GET /api/session` marks an admin without a passkey, whom the passkey gate
+of task 0015 keeps out of the admin routes (section "Roles and checks").
+The value `false` logs a warning at boot. The admin reset of decision D11
+does not apply these rules and removes every factor (section "Admin
+resets").
+
+## Admin resets
+
+Task 0015 adds two resets to the user administration of the admin area
+(`EspalierWeb.Admin.UserAdminController`, README section 8). Both routes run
+in the pipeline `:admin_write`, so the acting admin holds the role `admin`,
+passes the passkey gate and holds a second factor from the last 10 minutes
+(section "Roles and checks"). Both functions take the admin scope as first
+argument and return `{:error, :forbidden}` for a scope without the role
+`admin`.
+
+### Reset of second factors (decision D11)
+
+A person who has lost every second factor and holds no unused recovery code
+has no self-service pathway: the recovery of task 0005 needs a saved
+recovery code, and the mail `recovery_unavailable` points to this reset.
+README section 15, decision D11, lets an admin reset the factors after the
+organization has verified the person's identity.
+
+- `POST /api/admin/users/:id/reset-factors` takes the body
+  `{"identity_verified": true}`. A body without `identity_verified: true`
+  answers 422 `identity_verification_required`, so every reset records the
+  identity check by the organization, and the audit event
+  `user.factors_reset` carries the details `{"identity_verified": true}`.
+  The acting admin's own account answers 409 `own_account`, as
+  `POST /api/admin/users/:id/disable` does, so that no admin locks
+  themselves out through the admin area; operators keep the release
+  functions of task 0004 (section "Bootstrap admin and release functions").
+  The answer is 200 with `{"invitation_sent": true}` or
+  `{"invitation_sent": false}`.
+- `Espalier.Accounts.reset_factors/2` runs in one `Repo.transact/1` and
+  locks the user row first. It deletes the user's rows in
+  `webauthn_credentials`, `totp_factors` and `recovery_codes`, sets
+  `hashed_password` to nil for a local account (an account without an
+  external identity), clears the failure counters (section "Reset of
+  failure counters"), and deletes every token row of the user. This ends
+  every session of the user, enrollment and recovery sessions included, and
+  invalidates every outstanding e-mail link (ASVS 7.4.2). The function does
+  not call `Factors.removable?/2`, so it also removes the last passkey of an
+  admin, who passes the passkey gate again only after enrolling a new one.
+- An active local account then receives a new invitation through
+  `resend_invitation/2`, which writes the audit event
+  `user.invitation_resent` and logs `user_updated` with
+  `change: "invitation_resent"`. Its single-use link `/invite#token=` lives 10
+  minutes and opens an enrollment session, in which the person enrolls a
+  passkey, or sets a new password and confirms a TOTP factor (section
+  "Pathways and session strength", ASVS 6.4.1). A disabled account receives
+  no invitation.
+- A federated account receives no invitation. It keeps its
+  `hashed_password`, which serves no sign-in once the account holds an
+  external identity (section "Identity and linking"). Its next sign-in
+  through the provider or the directory opens an enrollment session,
+  because the account holds no local factor, and the person enrolls a new
+  passkey or TOTP factor there (README section 6.2). An OIDC provider in
+  `idp_trusted` mode whose sign-in reports multi-factor authentication opens
+  a full session without a local factor, as before the reset.
+- The function enqueues the mail `factors_reset`, writes the audit event
+  `user.factors_reset` and logs `user_updated` with
+  `change: "factors_reset"`. The plain-text mail states that an
+  administrator removed every second factor of the account after the
+  organization verified the person's identity and that every session has
+  ended, names the next step for a local and for a federated account, and
+  asks the person to contact an administrator at once when they did not ask
+  for the reset. It carries no link (section "Notifications").
+- The reset changes no role grant and no account status.
+
+### Reset of failure counters
+
+`POST /api/admin/users/:id/reset-failure-counters` calls
+`Espalier.Accounts.reset_failure_counters/2` and answers 204. Both resets
+clear the counters of the user with the same two calls, the reset of second
+factors inside its own transaction:
+
+- `FailureCounters.clear_all/1` of task 0005 sets `consecutive_failures` to
+  0 and clears `locked_until` and `disabled_at` on every counter row that
+  carries the user's `user_id`: the password and the second factors.
+- Directory counter rows carry no `user_id`, so `clear_all/1` never reaches
+  them (section "Directory failure counters").
+  `FailureCounters.reset_directory_for_user/2` of task 0007, called with the
+  admin scope, therefore deletes the directory counter of every identity of
+  the user whose issuer names an LDAP provider (`"ldap:" <> provider_key`).
+  For each identity whose counter it deletes, it writes the audit event
+  `failure_counter.reset` and logs `user_updated` with the reason
+  `directory_counter_reset`. A directory account whose counter was locked
+  or disabled reaches the directory bind again at its next sign-in. An
+  error tuple from this call rolls the transaction back.
+
+`reset_failure_counters/2` runs both calls in one `Repo.transact/1`, writes
+the audit event `user.failure_counters_reset` and logs `user_updated` with
+`change: "failure_counters_reset"`. Tasks 0004 and 0005 leave the disable
+mark of a counter to a completed recovery and to an admin, and these two
+resets are the admin path. A directory account never reaches the recovery
+pathway, so for a directory account both resets are the admin reset that
+the section "Directory failure counters" records as a deviation from README
+section 6.10; the operator also has `Espalier.Release.reset_directory_lock/2`.
 
 ## Passwords
 
@@ -680,7 +785,7 @@ status and timing for known and unknown accounts (ASVS 6.3.8):
 
 | Mail | Trigger | Recipient |
 |---|---|---|
-| `invitation` | invitation by an admin, a release function or the bootstrap; a request with `SIGNUP=invite` or `domain` | the invited address; the link `/invite#token=` lives 10 minutes |
+| `invitation` | invitation by an admin, a release function or the bootstrap; a request with `SIGNUP=invite` or `domain`; the reset of second factors of an active local account (decision D11, task 0015) | the invited address; the link `/invite#token=` lives 10 minutes |
 | `change_email` | `PUT /api/me/email` | the new address; the link `/account/email/confirm#token=` lives 10 minutes |
 | `email_changed` | confirmed e-mail change; a new verified address from an identity provider at sign-in (task 0006) | the old address (ASVS 6.3.7) |
 | `password_changed` | password change | the account (ASVS 6.3.7) |
@@ -693,6 +798,7 @@ status and timing for known and unknown accounts (ASVS 6.3.8):
 | `recovery_instructions` | `POST /api/auth/recovery/start` for an active local user with unused recovery codes | the account; the link `/recover#token=` lives 10 minutes, only the link of the latest request works, also when its mail jobs run out of order, and the link opens one recovery session |
 | `recovery_unavailable` | the same request for an active local user without unused recovery codes | the account; the mail explains the admin-assisted reset (decision D11) and carries no link |
 | `identity_linked` | a link of an identity provider at `POST /api/auth/finish` (task 0006) or of a directory account at `POST /api/me/identities/ldap/:provider` (task 0007) | the account; the mail names the provider and the time |
+| `factors_reset` | the reset of second factors by an admin, `POST /api/admin/users/:id/reset-factors` (decision D11, task 0015) | the account; the mail states that an administrator removed every second factor after an identity check by the organization and that every session has ended, and asks the person to contact an administrator when they did not ask for the reset; it carries no link (ASVS 6.3.7) |
 
 No mail contains a code, a TOTP secret, a credential id or a session token.
 
@@ -746,10 +852,46 @@ such a request logs no `authz_fail`. The administrative context functions
 (`invite_user/2`, `resend_invitation/2`, `grant_role/3`, `revoke_role/3`,
 `disable_user/2`, `end_user_sessions/2`, `end_all_sessions/1`, the API client
 functions and `Espalier.Audit.list_events/2`) return `{:error, :forbidden}`
-without the role `admin`. `Espalier.Accounts.Scope.system/0` holds `admin` for release
+without the role `admin`, and so do the admin functions of task 0015 in
+`Espalier.Accounts` (among them `list_users/2`, `lookup_user/2`,
+`reset_factors/2` and `reset_failure_counters/2`), `Espalier.Policies` and
+`Espalier.Credentials`; the pack functions of `Espalier.Catalog` return it
+without the role `author`. `Espalier.Accounts.Scope.system/0` holds `admin` for release
 functions and the boot task; no request reaches it. Demo users hold only
 `learner`. A change of the role grants of a user ends every session of that
 user.
+
+The admin area of task 0015 serves its routes under `/api/admin` (README
+section 8) through four pipelines, each after `:api`:
+
+| Pipeline | Plugs | Routes |
+|---|---|---|
+| `:admin` | `require_authenticated_user/2`, `require_role/2` with `admin`, `EspalierWeb.Plugs.RequireAdminPasskey` | the GET routes of users, role grants, API clients, policies, policy versions, approved tools, webhooks and the audit log, and the user lookup `POST /api/admin/user-lookups` |
+| `:admin_write` | the plugs of `:admin`, then `require_recent_auth/2` | every POST, PUT, PATCH and DELETE route of the same resources apart from the user lookup, the user administration (invitation, disabling, ending sessions and the resets of section "Admin resets") and the credential revocation |
+| `:author` | `require_authenticated_user/2`, `require_role/2` with `author` | `GET /api/admin/packs/:id` and `GET /api/admin/packs/:id/diff` |
+| `:author_write` | the plugs of `:author`, then `require_recent_auth/2` | `POST /api/admin/packs/:id/publish`, and `POST /api/admin/packs` with the pipeline `:pack_upload` after it |
+
+`RequireAdminPasskey` reads `ADMIN_REQUIRE_PASSKEY` (default `true`, README
+section 6.11). While it is `true`, an admin without a passkey
+(`Espalier.Accounts.Factors.holds_passkey?/1`) receives 403
+`passkey_required` on every route of `:admin` and `:admin_write`, and the
+plug logs `authz_fail` with the reason `passkey_required` (ASVS 16.3.2).
+The gate runs after the role check, so a user without the role `admin`
+receives 403 `forbidden` instead. The account routes under `/api/me` have no
+gate, so the admin enrolls a passkey on the security page
+`/account/security`, to which the admin area links in its notice. With
+`false`, admins without a passkey reach the admin routes. The author routes
+have no passkey gate.
+
+The user lookup changes no state and takes the address in its JSON body, so
+no URL carries it (ASVS 14.2.1), and it runs in `:admin` like the GET
+routes. Every other mutating route under `/api/admin` answers 403
+`reauth_required` without a second factor from the last 10 minutes
+(ASVS 7.5.1), and the SPA opens the step-up dialog of task 0011 on that
+answer. Every response under `/api/admin` carries `cache-control: no-store`
+(ASVS 14.2.2, 14.3.2). The navigation by role and the `RequireRole` guards
+of the admin area serve convenience only; the pipelines and the context
+functions decide (ASVS 8.3.1).
 
 ## Learner data access
 

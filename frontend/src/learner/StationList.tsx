@@ -5,6 +5,7 @@ import { FOCUS_RING } from "../app/formStyles";
 import { useContentLang } from "../player/contentLang";
 import { sortedStations } from "../player/program";
 import type { ProgramView, ResumeState } from "../player/runtime";
+import { useProgramBase } from "../player/programBase";
 
 /**
  * The step list of a program: every station with its position, a mark for
@@ -20,6 +21,7 @@ export function StationList({
   current?: number | null;
 }) {
   const { t } = useTranslation();
+  const programBase = useProgramBase();
   const lang = useContentLang();
   const stations = sortedStations(program);
   return (
@@ -31,7 +33,7 @@ export function StationList({
           return (
             <li key={station.position}>
               <Link
-                to={`/programs/${program.slug}/stations/${station.position}`}
+                to={`${programBase}/${program.slug}/stations/${station.position}`}
                 aria-current={isCurrent ? "step" : undefined}
                 className={`flex min-h-6 items-start gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-800 ${
                   isCurrent

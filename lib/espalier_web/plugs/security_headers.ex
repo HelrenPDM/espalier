@@ -7,7 +7,10 @@ defmodule EspalierWeb.Plugs.SecurityHeaders do
   `/api/registrar/*`, `/api/integration/*`, the attendance route
   `/api/formats/:id/attendance` and `GET /api/policies`, which carries the
   user's own acknowledgements, because they return personal data (ASVS
-  14.2.2 and 14.3.2). Task 0014 adds the analyst reports `/api/insights/*`. HSTS comes from the reverse proxy (task 0017).
+  14.2.2 and 14.3.2). Task 0014 adds the analyst reports `/api/insights/*`.
+  Task 0015 adds the admin area `/api/admin/*`, whose answers carry API
+  tokens once and pack payloads with answer keys. HSTS comes from the
+  reverse proxy (task 0017).
   """
   @behaviour Plug
 
@@ -67,6 +70,7 @@ defmodule EspalierWeb.Plugs.SecurityHeaders do
   defp put_no_store(%Plug.Conn{path_info: ["api", "integration" | _]} = conn), do: no_store(conn)
   defp put_no_store(%Plug.Conn{path_info: ["api", "policies"]} = conn), do: no_store(conn)
   defp put_no_store(%Plug.Conn{path_info: ["api", "insights" | _]} = conn), do: no_store(conn)
+  defp put_no_store(%Plug.Conn{path_info: ["api", "admin" | _]} = conn), do: no_store(conn)
 
   defp put_no_store(%Plug.Conn{path_info: ["api", "formats", _id, "attendance"]} = conn),
     do: no_store(conn)

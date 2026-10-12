@@ -946,6 +946,112 @@ defmodule Espalier.Credentials do
     :ok
   end
 
+  @doc """
+  Lists the webhooks, ordered by URL. A webhook names a receiver and a
+  secret variable, so its readers require the role `admin` (task 0015).
+  """
+  def list_webhooks(%Scope{} = scope) do
+    with :ok <- require_admin(scope) do
+      {:ok, Repo.all(from w in Webhook, order_by: [w.url, w.id])}
+    end
+  end
+
+  @doc """
+  Returns `{:ok, webhook}`, or `{:error, :not_found}` for an unknown or
+  malformed id. Requires the role `admin`.
+  """
+  def get_webhook(%Scope{} = scope, id) do
+    with :ok <- require_admin(scope) do
+      with {:ok, uuid} <- Ecto.UUID.cast(id),
+           %Webhook{} = webhook <- Repo.get(Webhook, uuid) do
+        {:ok, webhook}
+      else
+        _other -> {:error, :not_found}
+      end
+    end
+  end
+
+  @doc """
+  Creates a webhook through the `Webhook` changeset (an admitted URL of
+  `WEBHOOK_ALLOWED_HOSTS`, a non-empty list of credential events and a
+  `secret_env` with the prefix `WEBHOOK_SECRET_`). Requires the role
+  `admin` and writes the audit event `webhook.created`.
+  """
+  def create_webhook(%Scope{} = scope, attrs) do
+    audited_webhook(scope, "webhook.created", fn ->
+      %Webhook{} |> Webhook.changeset(attrs) |> Repo.insert()
+    end)
+  end
+
+  @doc """
+  Updates a webhook. Requires the role `admin` and writes the audit event
+  `webhook.updated`.
+  """
+  def update_webhook(%Scope{} = scope, %Webhook{} = webhook, attrs) do
+    audited_webhook(scope, "webhook.updated", fn ->
+      webhook |> Webhook.changeset(attrs) |> Repo.update()
+    end)
+  end
+
+  @doc """
+  Deletes a webhook. Requires the role `admin` and writes the audit event
+  `webhook.deleted`. Jobs of the webhook that are still queued find no row
+  and end without a request.
+  """
+  def delete_webhook(%Scope{} = scope, %Webhook{} = webhook) do
+    audited_webhook(scope, "webhook.deleted", fn ->
+      case Repo.delete_all(from w in Webhook, where: w.id == ^webhook.id) do
+        {0, _} -> {:error, :not_found}
+        {_count, _} -> {:ok, webhook}
+      end
+    end)
+  end
+
+  # Runs `write` in one transaction for an admin scope and records `action`
+  # on the webhook it returns. The audit trail names the events and the
+  # secret variable, never a URL path or a secret.
+  defp audited_webhook(scope, action, write) do
+    with :ok <- require_admin(scope) do
+      Repo.transact(fn -> write_audited_webhook(scope, action, write) end)
+    end
+  end
+
+  defp write_audited_webhook(scope, action, write) do
+    with {:ok, webhook} <- write.() do
+      {:ok, _event} =
+        Audit.record(scope, action, webhook, %{
+          events: webhook.events,
+          secret_env: webhook.secret_env
+        })
+
+      {:ok, webhook}
+    end
+  end
+
+  ## Admin revocation (task 0015)
+
+  @doc """
+  Returns `{:ok, credential}` with its qualification for any credential
+  `id`, or `{:error, :not_found}` for an unknown or malformed id. Requires
+  the role `admin`; the admin route revokes credentials and lists none
+  (README section 10).
+  """
+  def get_any_credential(%Scope{} = scope, id) do
+    with :ok <- require_admin(scope) do
+      with {:ok, uuid} <- Ecto.UUID.cast(id),
+           %Credential{} = credential <-
+             Repo.one(from c in Credential, where: c.id == ^uuid, preload: :qualification) do
+        {:ok, credential}
+      else
+        _other -> {:error, :not_found}
+      end
+    end
+  end
+
+  defp require_admin(scope) do
+    if Scope.admin?(scope), do: :ok, else: {:error, :forbidden}
+  end
+
   ## Settings
 
   defp notice_days, do: Application.get_env(:espalier, :credential_notice_days, 30)

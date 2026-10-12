@@ -10,6 +10,7 @@ import { useCurrentPlayer } from "../player/usePlayer";
 import { STATION_COMPONENTS } from "./stations";
 import { BackToProgram } from "./BackToProgram";
 import { StationList } from "./StationList";
+import { useProgramBase } from "../player/programBase";
 
 /**
  * `/programs/:slug/stations/:position`: the station by its kind, the
@@ -21,6 +22,7 @@ import { StationList } from "./StationList";
  */
 export function StationPage() {
   const { t } = useTranslation();
+  const programBase = useProgramBase();
   const { position } = useParams();
   const { hash } = useLocation();
   const { program, state, update } = useCurrentPlayer();
@@ -113,7 +115,7 @@ export function StationPage() {
         >
           {previous ? (
             <Link
-              to={`/programs/${program.slug}/stations/${previous.position}`}
+              to={`${programBase}/${program.slug}/stations/${previous.position}`}
               className={buttonClasses("secondary")}
             >
               {t("station.previous")} <span lang={lang}>{previous.title}</span>
@@ -123,7 +125,7 @@ export function StationPage() {
           )}
           {next && (
             <Link
-              to={`/programs/${program.slug}/stations/${next.position}`}
+              to={`${programBase}/${program.slug}/stations/${next.position}`}
               className={buttonClasses("primary")}
             >
               {t("station.next")} <span lang={lang}>{next.title}</span>

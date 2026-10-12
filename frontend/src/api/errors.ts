@@ -7,6 +7,12 @@ export const CSRF_ERROR_CODE = "csrf";
  */
 export const RECENT_AUTH_ERROR_CODE = "reauth_required";
 
+/**
+ * The code of `EspalierWeb.Plugs.RequireAdminPasskey` (README section 6.11,
+ * task 0015): an admin without a passkey on an admin route.
+ */
+export const PASSKEY_REQUIRED_ERROR_CODE = "passkey_required";
+
 /** The code of an enrollment or recovery session on a route of a full session. */
 export const ENROLLMENT_ERROR_CODE = "enrollment_required";
 

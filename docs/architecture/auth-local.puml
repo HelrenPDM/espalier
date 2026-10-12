@@ -10,6 +10,14 @@ participant "Accounts\n(wax_, nimble_totp, argon2)" as Acc
 database "PostgreSQL" as DB
 
 == Invitation (onboarding) ==
+note over User, Acc
+  The link comes from an invitation by an admin, a release function or the
+  bootstrap, from a request with SIGNUP=invite or domain, or from the reset of
+  second factors by an admin after an identity check (decision D11). For an
+  active local account, the reset deletes the passkeys, the TOTP factor, the
+  recovery codes, the password and every session and then sends a new
+  invitation.
+end note
 User -> SPA : open invitation link /invite#token=<token>\n(token in the URL fragment)
 SPA -> Auth : POST /api/auth/invitations/accept {token}
 Auth -> Acc : consume hashed invite token (10 min, single use)

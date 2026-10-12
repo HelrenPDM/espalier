@@ -116,12 +116,6 @@
       "text": "Die Seite konnte nicht angezeigt werden. Bitte versuchen Sie es später erneut."
     }
   },
-  "placeholders": {
-    "admin": {
-      "title": "Verwaltung",
-      "text": "Hier erscheinen die Verwaltungsseiten."
-    }
-  },
   "reports": {
     "title": "Berichte",
     "intro": "Die Berichte zählen die anonymen Antworten und die Nachweise eines Programms. Eine Zelle mit weniger Einträgen als die Mindestgruppengröße zeigt keine Zahl.",
@@ -694,6 +688,648 @@
       "examFailedCore": "Prüfung {{assessment}} nicht bestanden: eine Kernaufgabe war falsch",
       "examFailedErrors": "Prüfung {{assessment}} nicht bestanden: zu viele falsche Antworten",
       "formatVoted": "Stimme für ein Format an Station {{station}}"
+    }
+  },
+  "admin": {
+    "title": "Administration",
+    "intro": "Wählen Sie einen Bereich. Jeder Bereich erscheint für die Rolle, der er dient.",
+    "nav": {
+      "label": "Bereiche der Administration",
+      "packs": "Inhaltspakete",
+      "users": "Personen",
+      "policies": "Richtlinien",
+      "approvedTools": "Freigegebene Werkzeuge",
+      "roles": "Rollen",
+      "apiClients": "API-Clients",
+      "webhooks": "Webhooks",
+      "audit": "Protokoll",
+      "attendance": "Teilnahme",
+      "insights": "Auswertungen",
+      "registrar": "Nachweise"
+    },
+    "passkeyRequired": {
+      "title": "Ein Passkey ist erforderlich",
+      "text": "Administratorinnen und Administratoren erreichen die Bereiche der Administration nur mit einem Passkey. Fügen Sie in Ihren Sicherheitseinstellungen einen Passkey hinzu.",
+      "link": "Sicherheitseinstellungen öffnen"
+    },
+    "common": {
+      "loadFailed": "Die Daten konnten nicht geladen werden. Bitte versuchen Sie es später erneut.",
+      "previousPage": "Vorherige Seite",
+      "nextPage": "Nächste Seite",
+      "pageOf": "Seite {{page}} von {{pages}}",
+      "page": "Seite {{page}}",
+      "none": "Keine",
+      "never": "Nie",
+      "noName": "Ohne Namen",
+      "copy": "Kopieren",
+      "copied": "In die Zwischenablage kopiert.",
+      "copyFailed": "Das Kopieren ist fehlgeschlagen. Markieren Sie den Text und kopieren Sie ihn von Hand.",
+      "idFormat": "Geben Sie die ID in der Form 01234567-89ab-cdef-0123-456789abcdef ein.",
+      "errors": {
+        "reauthCancelled": "Die Änderung wurde nicht ausgeführt, weil die Bestätigung mit einem zweiten Faktor abgebrochen wurde.",
+        "forbidden": "Ihr Konto darf diese Änderung nicht vornehmen.",
+        "notFound": "Der Eintrag existiert nicht mehr. Laden Sie die Seite neu.",
+        "validation": "Der Server hat die Eingabe nicht angenommen. Prüfen Sie die Felder und versuchen Sie es erneut.",
+        "ownAccount": "Diese Aktion ist für Ihr eigenes Konto nicht möglich.",
+        "userExists": "Zu dieser E-Mail-Adresse gibt es bereits ein Konto.",
+        "notInvitable": "Diese Person kann keine Einladung erhalten: Das Konto ist eingerichtet, deaktiviert oder meldet sich über einen Anbieter an.",
+        "idpClaim": "Diese Rolle stammt vom Identitätsanbieter und lässt sich nur dort ändern.",
+        "demoUser": "Demo-Konten erhalten keine Rollen.",
+        "alreadyRevoked": "Dieser Nachweis ist bereits widerrufen.",
+        "identityVerificationRequired": "Bestätigen Sie, dass die Organisation die Identität der Person geprüft hat."
+      }
+    },
+    "packs": {
+      "title": "Inhaltspakete",
+      "intro": "Laden Sie ein Inhaltspaket als ZIP-Archiv hoch. Der Server prüft das Archiv und validiert das Paket. Die Seite des Imports zeigt danach den Validierungsbericht, die Ausrichtung des Pakets, eine Vorschau und die Veröffentlichung.",
+      "file": "Paketarchiv (ZIP)",
+      "fileHint": "Das Archiv enthält pack.yaml auf der obersten Ebene oder in einem einzigen Ordner.",
+      "upload": "Hochladen",
+      "uploading": "Das Paket wird hochgeladen und validiert …",
+      "errors": {
+        "noFile": "Wählen Sie ein ZIP-Archiv aus.",
+        "tooLarge": "Das Archiv überschreitet die Upload-Grenze dieser Instanz.",
+        "unsupported": "Der Server nimmt das Paket nur als ZIP-Archiv in einem Formular-Upload an.",
+        "rejected": "Das Archiv wurde vor dem Entpacken abgelehnt:",
+        "invalid": "Der Upload enthielt kein Archiv. Wählen Sie das ZIP-Archiv erneut aus."
+      }
+    },
+    "pack": {
+      "title": "Inhaltspaket",
+      "heading": "Inhaltspaket {{key}}, Version {{version}}",
+      "back": "Zurück zum Upload",
+      "loading": "Der Import wird geladen …",
+      "loadFailed": "Der Import konnte nicht geladen werden.",
+      "notFound": "Diesen Import gibt es nicht.",
+      "statusLabel": "Status",
+      "status": {
+        "validated": "Validiert",
+        "failed": "Fehlgeschlagen",
+        "published": "Veröffentlicht"
+      },
+      "uploadedAt": "Hochgeladen",
+      "publishedAt": "Veröffentlicht",
+      "preview": "Vorschau",
+      "entry": {
+        "line": "Zeile {{line}}",
+        "noLine": "ohne Zeile",
+        "check": "Prüfung {{check}}",
+        "module": "Modul {{module}}"
+      },
+      "report": {
+        "title": "Validierungsbericht",
+        "empty": "Die Validierung meldet außerhalb der Ausrichtungsprüfungen keinen Befund.",
+        "errors": "Fehler ({{count}})",
+        "warnings": "Warnungen ({{count}})"
+      },
+      "alignment": {
+        "title": "Ausrichtung",
+        "description": "Die Ausrichtungsmatrix nennt je Modul, Kompetenzbereich und Tiefe die Lernziele, die Lektionen, die sie vermitteln, ihre Belege und den Ort, den areas_elsewhere nennt.",
+        "caption": "Modul {{module}}, Modus {{mode}}",
+        "modes": {
+          "strict": "strikt",
+          "warn": "Warnung"
+        },
+        "area": "Bereich",
+        "depth": "Tiefe",
+        "objectives": "Lernziele",
+        "lessons": "Lektionen",
+        "evidence": "Belege",
+        "elsewhere": "Anderswo",
+        "noMatrix": "Dieser Import enthält keine Ausrichtungsmatrix, weil er keine Nutzdaten gespeichert hat. Es folgen die Befunde der Ausrichtungsprüfungen.",
+        "errors": "Ausrichtungsfehler ({{count}})",
+        "warnings": "Ausrichtungswarnungen ({{count}})",
+        "none": "Keine."
+      },
+      "publish": {
+        "button": "Veröffentlichen",
+        "reason": {
+          "published": "Dieser Import ist bereits veröffentlicht.",
+          "failed": "Der Import hat die Validierung nicht bestanden und kann nicht veröffentlicht werden.",
+          "alignment": "Die Ausrichtungsprüfungen melden Fehler. Korrigieren Sie das Paket und laden Sie es erneut hoch."
+        },
+        "dialogTitle": "{{key}} veröffentlichen?",
+        "intro": "Die Veröffentlichung ändert das laufende Programm wie folgt.",
+        "diffLoading": "Die Änderungen gegenüber dem laufenden Programm werden geladen …",
+        "diffFailed": "Die Änderungen gegenüber dem laufenden Programm konnten nicht geladen werden.",
+        "noChanges": "Die Veröffentlichung ändert keinen Schlüssel des laufenden Programms.",
+        "added": "Hinzugefügt ({{count}})",
+        "changed": "Geändert ({{count}})",
+        "archived": "Archiviert ({{count}})",
+        "fields": "Felder: {{fields}}",
+        "kinds": {
+          "modules": "Module",
+          "lessons": "Lektionen",
+          "learning_objectives": "Lernziele",
+          "items": "Aufgaben",
+          "rules": "Regeln",
+          "assessments": "Prüfungen",
+          "qualifications": "Qualifikationen",
+          "formats": "Begleitformate",
+          "sources": "Quellen",
+          "segments": "Segmente",
+          "glossary_terms": "Glossarbegriffe"
+        },
+        "warnings": "Ausrichtungswarnungen: {{count}}.",
+        "confirm": "Veröffentlichen",
+        "publishing": "Wird veröffentlicht …",
+        "done": "Das Paket ist veröffentlicht.",
+        "refused": "Die Veröffentlichung wurde abgelehnt, weil die Ausrichtungsprüfungen Fehler im gespeicherten Paket melden. Der Import bleibt unveröffentlicht.",
+        "notPublishable": "Der Import kann in seinem aktuellen Status nicht veröffentlicht werden.",
+        "failed": "Die Veröffentlichung ist fehlgeschlagen. Versuchen Sie es erneut."
+      }
+    },
+    "preview": {
+      "title": "Vorschau",
+      "label": "Vorschau von {{title}}, Version {{version}}",
+      "text": "Der Player läuft in Ihrem Browser auf dem hochgeladenen Paket. Antworten, Prüfungsversuche und Abschlüsse bleiben auf dieser Seite und erzeugen keinen Datensatz. Stationen, die Daten der Plattform lesen oder speichern, etwa die Selbsteinschätzung, der Nachweis, die Begleitformate und das Feedback, zeigen in der Vorschau keine Daten.",
+      "back": "Zurück zum Import",
+      "noPayload": "Dieser Import enthält kein Paket für eine Vorschau. Nur ein validierter Import lässt sich in der Vorschau öffnen.",
+      "provenance": {
+        "title": "Herkunftsübersicht",
+        "description": "Die Zahl der Blöcke und Aufgaben des Pakets je Herkunftsangabe.",
+        "value": "Herkunft",
+        "blocks": "Blöcke",
+        "items": "Aufgaben"
+      },
+      "handbook": "Das Handbuch nennt die Regeln des veröffentlichten Programms und gehört nicht zur Vorschau."
+    },
+    "users": {
+      "title": "Personen",
+      "intro": "Laden Sie Personen ein, finden Sie ein Konto über seine E-Mail-Adresse, und beenden Sie Sitzungen oder setzen Sie die Anmeldung einer Person zurück, die Hilfe braucht.",
+      "invite": {
+        "title": "Person einladen",
+        "email": "E-Mail-Adresse",
+        "displayName": "Anzeigename",
+        "displayNameHint": "Optional. Ohne Namen zeigt das Konto den Teil der Adresse vor dem @.",
+        "submit": "Einladung senden",
+        "sent": "Die Einladung ist unterwegs. Ihr Link gilt 10 Minuten.",
+        "emailInvalid": "Geben Sie eine gültige E-Mail-Adresse ein.",
+        "nameInvalid": "Geben Sie einen Namen mit höchstens 160 Zeichen ein.",
+        "localAccountsOff": "Lokale Konten sind auf dieser Instanz ausgeschaltet. Personen erhalten ihr Konto bei der ersten Anmeldung über den Identitätsanbieter."
+      },
+      "lookup": {
+        "title": "Person finden",
+        "email": "E-Mail-Adresse",
+        "hint": "Geben Sie die genaue Adresse ein. Groß- und Kleinschreibung spielen keine Rolle.",
+        "submit": "Finden",
+        "loading": "Die Suche läuft …",
+        "notFound": "Zu dieser Adresse gibt es kein Konto.",
+        "result": "Suchergebnis"
+      },
+      "list": {
+        "title": "Alle Personen",
+        "description": "50 Personen je Seite, in der Reihenfolge, in der ihre Konten angelegt wurden.",
+        "loading": "Die Personen werden geladen …",
+        "empty": "Es gibt noch keine Personen.",
+        "name": "Name",
+        "status": "Status",
+        "roles": "Rollen",
+        "providers": "Verknüpfte Anbieter",
+        "lastSignIn": "Letzte Anmeldung",
+        "actions": "Aktionen",
+        "you": "Sie",
+        "notEnrolled": "Noch kein zweiter Faktor",
+        "pagination": "Seiten der Personenliste"
+      },
+      "status": {
+        "active": "Aktiv",
+        "disabled": "Deaktiviert"
+      },
+      "actions": {
+        "resendInvitation": "Einladung erneut senden",
+        "disable": "Deaktivieren",
+        "endSessions": "Sitzungen beenden",
+        "resetFactors": "Zweite Faktoren zurücksetzen",
+        "resetCounters": "Fehlversuche zurücksetzen"
+      },
+      "done": {
+        "invitationResent": "Eine neue Einladung an {{name}} ist unterwegs.",
+        "disabled": "{{name}} ist deaktiviert, und jede Sitzung der Person ist beendet.",
+        "sessionsEnded": "Jede Sitzung von {{name}} ist beendet.",
+        "factorsResetInvited": "Die zweiten Faktoren von {{name}} sind zurückgesetzt. Eine neue Einladung ist unterwegs.",
+        "factorsReset": "Die zweiten Faktoren von {{name}} sind zurückgesetzt. Die Person richtet bei der nächsten Anmeldung über den Identitätsanbieter einen neuen zweiten Faktor ein.",
+        "countersReset": "Die Fehlversuche von {{name}} sind zurückgesetzt."
+      },
+      "disableDialog": {
+        "title": "Dieses Konto deaktivieren?",
+        "text": "{{name}} kann sich nicht mehr anmelden, und jede Sitzung der Person endet sofort."
+      },
+      "endSessionsDialog": {
+        "title": "Sitzungen beenden?",
+        "text": "Jede Sitzung von {{name}} endet sofort. Die Person meldet sich auf jedem Gerät neu an.",
+        "own": "Dies ist Ihr eigenes Konto: Auch Ihre aktuelle Sitzung endet, und Sie melden sich neu an."
+      },
+      "resetDialog": {
+        "title": "Zweite Faktoren zurücksetzen?",
+        "text": "Jeder Passkey, jede Authenticator-App und jeder Wiederherstellungscode von {{name}} wird entfernt, und jede Sitzung der Person endet.",
+        "invitation": "Ein lokales Konto erhält eine neue Einladung, mit der die Person eine neue Anmeldung einrichtet. Eine Person, die sich über einen Identitätsanbieter anmeldet, richtet bei der nächsten Anmeldung einen neuen zweiten Faktor ein.",
+        "verified": "Die Organisation hat die Identität dieser Person geprüft",
+        "confirm": "Zweite Faktoren zurücksetzen"
+      },
+      "endAll": {
+        "title": "Alle Sitzungen",
+        "text": "Beendet die Sitzung jeder Person sofort, zum Beispiel nach einem Sicherheitsvorfall.",
+        "button": "Alle Sitzungen beenden",
+        "dialogTitle": "Jede Sitzung beenden?",
+        "dialogText": "Jede Person wird sofort abgemeldet. Auch Ihre eigene Sitzung endet, und Sie melden sich danach neu an.",
+        "confirm": "Alle Sitzungen beenden"
+      },
+      "revoke": {
+        "title": "Nachweis widerrufen",
+        "text": "Die Inhaberin oder der Inhaber findet die ID eines Nachweises in der Adresse seiner Nachweisseite, und ein Webhook-Ereignis überträgt sie als credential_id.",
+        "id": "ID des Nachweises",
+        "submit": "Widerrufen",
+        "dialogTitle": "Diesen Nachweis widerrufen?",
+        "dialogText": "Der Nachweis {{id}} erhält sofort den Status widerrufen.",
+        "confirm": "Nachweis widerrufen",
+        "done": "Der Nachweis der Qualifikation {{code}} ist widerrufen.",
+        "notFound": "Zu dieser ID gibt es keinen Nachweis."
+      }
+    },
+    "policies": {
+      "title": "Richtlinien",
+      "intro": "Die Richtlinien der Organisation mit ihren nummerierten Fassungen. Ein Entwurf lässt sich bis zur Veröffentlichung ändern. Die veröffentlichte Fassung mit der höchsten Nummer ist die aktuelle Fassung, die jede angemeldete Person liest und zur Kenntnis nimmt.",
+      "list": {
+        "title": "Alle Richtlinien",
+        "loading": "Die Richtlinien werden geladen …",
+        "loadFailed": "Die Richtlinien konnten nicht geladen werden. Bitte versuchen Sie es später erneut.",
+        "empty": "Es gibt noch keine Richtlinie. Legen Sie unten die erste an.",
+        "columns": {
+          "title": "Titel",
+          "key": "Schlüssel",
+          "actions": "Aktionen"
+        },
+        "open": "Öffnen"
+      },
+      "fields": {
+        "title": "Titel",
+        "key": "Schlüssel",
+        "keyHint": "Kleinbuchstaben, Ziffern und Bindestriche. Voraussetzungen von Qualifikationen nennen die Richtlinie über ihren Schlüssel."
+      },
+      "create": {
+        "title": "Neue Richtlinie",
+        "submit": "Richtlinie anlegen",
+        "created": "Die Richtlinie {{title}} ist angelegt."
+      },
+      "edit": {
+        "title": "Schlüssel und Titel",
+        "submit": "Schlüssel und Titel speichern",
+        "saved": "Schlüssel und Titel sind gespeichert."
+      },
+      "delete": {
+        "button": "Richtlinie löschen",
+        "title": "Richtlinie löschen?",
+        "text": "{{title}} wird mit allen Entwürfen gelöscht. Eine Richtlinie mit einer veröffentlichten Fassung lässt sich nicht löschen.",
+        "deleted": "Die Richtlinie {{title}} ist gelöscht."
+      },
+      "versions": {
+        "title": "Fassungen",
+        "loading": "Die Fassungen werden geladen …",
+        "loadFailed": "Die Fassungen konnten nicht geladen werden. Bitte versuchen Sie es später erneut.",
+        "empty": "Diese Richtlinie hat noch keine Fassung.",
+        "columns": {
+          "number": "Fassung",
+          "state": "Stand",
+          "effectiveFrom": "Gültig ab",
+          "refresher": "Auffrischung",
+          "actions": "Aktionen"
+        },
+        "number": "Fassung {{number}}",
+        "published": "Veröffentlicht am {{date}}",
+        "draft": "Entwurf",
+        "superseded": "Überholter Entwurf",
+        "supersededHint": "Eine Fassung mit höherer Nummer ist veröffentlicht, daher lässt sich dieser Entwurf nicht veröffentlichen.",
+        "refresherRequired": "Erforderlich",
+        "refresherNotRequired": "Nicht erforderlich",
+        "edit": "Bearbeiten",
+        "publish": "Veröffentlichen",
+        "newDraft": "Neuer Entwurf"
+      },
+      "editor": {
+        "newTitle": "Neuer Entwurf",
+        "editTitle": "Entwurf der Fassung {{number}}",
+        "effectiveFrom": "Gültig ab",
+        "body": "Text (Markdown)",
+        "bodyHint": "Überschriften beginnen mit #, Listenpunkte mit - oder 1., und **zwei Sternchen** markieren fetten Text. Die Vorschau zeigt den Text so, wie Personen ihn lesen.",
+        "preview": "Vorschau",
+        "previewEmpty": "Die Vorschau erscheint hier, sobald Sie schreiben.",
+        "save": "Entwurf speichern",
+        "saving": "Wird gespeichert …",
+        "cancel": "Abbrechen",
+        "saved": "Der Entwurf der Fassung {{number}} ist gespeichert."
+      },
+      "publish": {
+        "title": "Fassung {{number}} von {{policy}} veröffentlichen",
+        "text": "Fassung {{number}} wird zur aktuellen Fassung der Richtlinie, gültig ab {{date}}. Eine veröffentlichte Fassung lässt sich nicht mehr ändern.",
+        "requiresRefresher": "Erfordert eine Auffrischung",
+        "requiresRefresherHint": "Setzt die Nachweise, deren Qualifikation diese Richtlinie voraussetzt, auf den Status Auffrischung fällig.",
+        "refreshDue_one": "Mit dieser Option wechselt jetzt {{count}} Nachweis auf Auffrischung fällig.",
+        "refreshDue_other": "Mit dieser Option wechseln jetzt {{count}} Nachweise auf Auffrischung fällig.",
+        "countLoading": "Die betroffenen Nachweise werden gezählt …",
+        "countFailed": "Die betroffenen Nachweise konnten nicht gezählt werden.",
+        "confirm": "Veröffentlichen",
+        "publishing": "Wird veröffentlicht …",
+        "cancel": "Abbrechen",
+        "close": "Schließen",
+        "superseded": "Dieser Entwurf lässt sich nicht veröffentlichen. Die Richtlinie hat eine veröffentlichte Fassung mit höherer Nummer, daher würde dieser Entwurf nie zur aktuellen Fassung.",
+        "published": "Diese Fassung ist bereits veröffentlicht und lässt sich nicht mehr ändern.",
+        "done": "Fassung {{number}} ist veröffentlicht."
+      },
+      "errors": {
+        "required": "Geben Sie einen Wert ein.",
+        "tooLong": "Verwenden Sie höchstens {{max}} Zeichen.",
+        "keyFormat": "Verwenden Sie Kleinbuchstaben, Ziffern und Bindestriche, beginnend mit einem Buchstaben oder einer Ziffer.",
+        "keyTaken": "Eine andere Richtlinie hat diesen Schlüssel.",
+        "keyInUse": "Der Schlüssel einer Richtlinie mit veröffentlichter Fassung lässt sich nicht ändern.",
+        "policyInUse": "Diese Richtlinie hat eine veröffentlichte Fassung und lässt sich nicht löschen.",
+        "draftPublished": "Diese Fassung ist veröffentlicht und lässt sich nicht mehr ändern.",
+        "dateRequired": "Geben Sie den Tag ein, ab dem die Fassung gilt.",
+        "bodyRequired": "Geben Sie den Text der Fassung ein.",
+        "rejected": "Die Werte wurden nicht angenommen. Prüfen Sie die Felder und versuchen Sie es erneut."
+      }
+    },
+    "approvedTools": {
+      "title": "Freigegebene Werkzeuge",
+      "intro": "Die Liste, die jede angemeldete Person auf der Seite der Richtlinien sieht. Sortieren Sie die Tabelle nach einer Spalte, bearbeiten Sie eine Zeile direkt, fügen Sie unter der Tabelle ein Werkzeug hinzu oder löschen Sie eines.",
+      "tableTitle": "Werkzeugliste",
+      "loading": "Die freigegebenen Werkzeuge werden geladen …",
+      "loadFailed": "Die freigegebenen Werkzeuge konnten nicht geladen werden. Bitte versuchen Sie es später erneut.",
+      "empty": "Die Liste der freigegebenen Werkzeuge ist leer. Fügen Sie unten das erste Werkzeug hinzu.",
+      "columns": {
+        "position": "Position",
+        "name": "Name",
+        "vendor": "Anbieter",
+        "status": "Status",
+        "conditions": "Bedingungen",
+        "reviewed_on": "Geprüft am",
+        "actions": "Aktionen"
+      },
+      "edit": "Bearbeiten",
+      "save": "Speichern",
+      "saving": "Wird gespeichert …",
+      "cancel": "Abbrechen",
+      "delete": "Löschen",
+      "saved": "Die Änderungen an {{name}} sind gespeichert.",
+      "deleteTitle": "Werkzeug löschen?",
+      "deleteText": "{{name}} verlässt die Liste der freigegebenen Werkzeuge, und die Seite der Richtlinien zeigt es nicht mehr.",
+      "deleted": "{{name}} ist gelöscht.",
+      "add": {
+        "title": "Werkzeug hinzufügen",
+        "submit": "Werkzeug hinzufügen",
+        "added": "{{name}} ist hinzugefügt."
+      },
+      "errors": {
+        "required": "Geben Sie einen Wert ein.",
+        "tooLong": "Verwenden Sie höchstens {{max}} Zeichen.",
+        "nameTaken": "Ein anderes Werkzeug trägt diesen Namen.",
+        "position": "Geben Sie eine ganze Zahl ab 0 ein.",
+        "invalid": "Dieser Wert wurde nicht angenommen.",
+        "rejected": "Die Werte wurden nicht angenommen. Prüfen Sie die Felder und versuchen Sie es erneut."
+      }
+    },
+    "roles": {
+      "title": "Rollen",
+      "intro": "Vergeben und entfernen Sie Rollen. Eine Rolle, die ein Identitätsanbieter zuweist, ändert sich nur bei diesem Anbieter.",
+      "names": {
+        "learner": "Lernende Person",
+        "facilitator": "Moderation",
+        "author": "Autorin oder Autor",
+        "registrar": "Nachweisstelle",
+        "analyst": "Auswertung",
+        "admin": "Administration"
+      },
+      "holders": {
+        "title": "Personen mit Rollen",
+        "description": "Alle, die eine Rolle über die lernende Person hinaus haben.",
+        "loading": "Die Personen mit Rollen werden geladen …",
+        "empty": "Noch hat niemand eine Rolle über die lernende Person hinaus.",
+        "person": "Person",
+        "grants": "Rollen",
+        "add": "Rolle hinzufügen"
+      },
+      "source": {
+        "manual": "hier vergeben",
+        "idpClaim": "von {{provider}}",
+        "idpClaimUnknown": "vom Identitätsanbieter"
+      },
+      "role": "Rolle für {{name}}",
+      "grant": "Vergeben",
+      "remove": "Entfernen",
+      "grantLabel": "Gewählte Rolle an {{name}} vergeben",
+      "removeLabel": "Rolle {{role}} von {{name}} entfernen",
+      "allGranted": "Hat jede Rolle, die sich hier vergeben lässt.",
+      "grantDialog": {
+        "title": "Diese Rolle vergeben?",
+        "text": "{{name}} erhält die Rolle {{role}}."
+      },
+      "removeDialog": {
+        "title": "Diese Rolle entfernen?",
+        "text": "{{name}} verliert die Rolle {{role}}."
+      },
+      "endsSessions": "Die Änderung beendet jede Sitzung der Person, damit die Rollen ab der nächsten Anmeldung gelten.",
+      "own": "Dies ist Ihr eigenes Konto: Sie melden sich danach neu an.",
+      "granted": "{{name}} hat die Rolle {{role}}.",
+      "removed": "{{name}} hat die Rolle {{role}} nicht mehr."
+    },
+    "apiClients": {
+      "title": "API-Clients",
+      "intro": "Maschinelle Clients lesen Nachweise über die Integrations-API mit einem Bearer-Token.",
+      "create": {
+        "title": "API-Client anlegen",
+        "name": "Name",
+        "nameHint": "Zum Beispiel der Name des Systems, das die Nachweise liest.",
+        "nameInvalid": "Geben Sie einen Namen mit 1 bis 100 Zeichen ein.",
+        "scopes": "Berechtigungen",
+        "scopeRequired": "Wählen Sie mindestens eine Berechtigung.",
+        "submit": "Client anlegen"
+      },
+      "scopeNames": {
+        "credentialsRead": "credentials:read, Nachweise lesen"
+      },
+      "token": {
+        "title": "Das Token von {{name}}",
+        "text": "Kopieren Sie das Token jetzt. Es erscheint nur dieses eine Mal, weil der Server nur einen Hashwert davon speichert.",
+        "label": "Token",
+        "copy": "Token kopieren",
+        "done": "Fertig"
+      },
+      "list": {
+        "title": "Clients",
+        "loading": "Die API-Clients werden geladen …",
+        "empty": "Es gibt noch keine API-Clients.",
+        "name": "Name",
+        "scopes": "Berechtigungen",
+        "created": "Angelegt",
+        "lastUsed": "Zuletzt verwendet",
+        "actions": "Aktionen"
+      },
+      "delete": "Löschen",
+      "deleteDialog": {
+        "title": "Diesen API-Client löschen?",
+        "text": "Das Token von {{name}} funktioniert sofort nicht mehr."
+      },
+      "deleted": "Der API-Client {{name}} ist gelöscht."
+    },
+    "webhooks": {
+      "title": "Webhooks",
+      "intro": "Ein Webhook sendet Ereignisse zu Nachweisen an einen Empfänger. Der Server signiert jede Anfrage mit dem Geheimnis aus der genannten Umgebungsvariable.",
+      "create": {
+        "title": "Webhook hinzufügen",
+        "url": "URL des Empfängers",
+        "urlHint": "Eine https-Adresse eines Hosts, den der Betrieb in WEBHOOK_ALLOWED_HOSTS zulässt.",
+        "events": "Ereignisse",
+        "secretEnv": "Variable des Geheimnisses",
+        "secretEnvHint": "Der Name der Umgebungsvariable auf dem Server, die das Signaturgeheimnis enthält, zum Beispiel WEBHOOK_SECRET_RECEIVER.",
+        "active": "Aktiv",
+        "submit": "Webhook hinzufügen"
+      },
+      "events": {
+        "issued": "Nachweis ausgestellt",
+        "refreshDue": "Auffrischung fällig",
+        "expired": "Nachweis abgelaufen",
+        "revoked": "Nachweis widerrufen"
+      },
+      "errors": {
+        "urlInvalid": "Geben Sie eine vollständige Adresse ohne Benutzername und Passwort ein, zum Beispiel https://hooks.example.org/credentials.",
+        "urlHttps": "Die Adresse muss mit https:// beginnen.",
+        "urlTooLong": "Die Adresse darf höchstens 255 Zeichen haben.",
+        "hostNotAllowed": "Der Server lässt diesen Host nicht zu. Der Betrieb führt die zugelassenen Hosts in WEBHOOK_ALLOWED_HOSTS.",
+        "eventsRequired": "Wählen Sie mindestens ein Ereignis.",
+        "secretPrefix": "Der Name beginnt mit WEBHOOK_SECRET_ und setzt sich mit Großbuchstaben, Ziffern oder Unterstrichen fort.",
+        "secretUnset": "Der Server hat für diese Variable keinen Wert. Setzen Sie sie zuerst in der Umgebung des Servers."
+      },
+      "created": "Der Webhook ist hinzugefügt.",
+      "list": {
+        "title": "Empfänger",
+        "loading": "Die Webhooks werden geladen …",
+        "empty": "Es gibt noch keine Webhooks.",
+        "url": "URL",
+        "events": "Ereignisse",
+        "secretEnv": "Variable des Geheimnisses",
+        "status": "Status",
+        "actions": "Aktionen"
+      },
+      "state": {
+        "active": "Aktiv",
+        "inactive": "Inaktiv"
+      },
+      "delete": "Löschen",
+      "deleteDialog": {
+        "title": "Diesen Webhook löschen?",
+        "text": "{{url}} erhält keine Ereignisse mehr."
+      },
+      "deleted": "Der Webhook ist gelöscht."
+    },
+    "audit": {
+      "title": "Protokoll",
+      "intro": "Jede Änderung in der Administration, die neueste zuerst, 50 Ereignisse je Seite.",
+      "filters": {
+        "title": "Filter",
+        "action": "Aktion",
+        "actionHint": "Die genaue Aktion, zum Beispiel user.disabled.",
+        "actor": "ID der handelnden Person",
+        "actorHint": "Die ID einer Person. Wählen Sie einen Namen in der Tabelle, um sie einzutragen.",
+        "apply": "Filter anwenden",
+        "clear": "Filter zurücksetzen"
+      },
+      "table": {
+        "title": "Ereignisse",
+        "loading": "Die Ereignisse werden geladen …",
+        "empty": "Kein Ereignis passt zu den Filtern.",
+        "time": "Zeit",
+        "actor": "Handelnde Person",
+        "action": "Aktion",
+        "subject": "Gegenstand"
+      },
+      "system": "System",
+      "unknownActor": "Unbekannte Person",
+      "filterActor": "Nur die Ereignisse von {{name}} zeigen",
+      "pagination": "Seiten des Protokolls"
+    },
+    "attendance": {
+      "title": "Teilnahme",
+      "intro": "Erfassen Sie, wer an einem Termin eines Begleitformats außerhalb der Plattform teilgenommen hat. Jede Person erhält eine Teilnahmebescheinigung, die als Beleg für die Lernziele zählt, die das Format nennen.",
+      "session": {
+        "title": "Termin",
+        "program": "Programm",
+        "programsLoading": "Die Programme werden geladen …",
+        "programsFailed": "Die Programme konnten nicht geladen werden. Bitte versuchen Sie es später erneut.",
+        "noPrograms": "Es ist kein Programm veröffentlicht.",
+        "format": "Format",
+        "chooseFormat": "Format wählen",
+        "formatsLoading": "Die Formate werden geladen …",
+        "formatsFailed": "Die Formate konnten nicht geladen werden. Bitte versuchen Sie es später erneut.",
+        "noFormats": "Dieses Programm hat kein Format, dessen Teilnahme als Beleg zählt.",
+        "date": "Tag des Termins",
+        "dateHint": "Ein Tag vom {{earliest}} bis heute."
+      },
+      "people": {
+        "title": "Personen",
+        "email": "E-Mail-Adresse",
+        "emailHint": "Die genaue Adresse des Kontos der Person. Jede Adresse fügt der Liste eine Person hinzu.",
+        "add": "Person hinzufügen",
+        "adding": "Wird gesucht …",
+        "added": "{{name}} ist der Liste hinzugefügt.",
+        "removed": "{{name}} ist von der Liste entfernt.",
+        "remove": "Entfernen",
+        "emailRequired": "Geben Sie eine E-Mail-Adresse ein.",
+        "invalidEmail": "Geben Sie eine gültige E-Mail-Adresse ein.",
+        "notFound": "Kein aktives Konto hat diese Adresse.",
+        "duplicate": "{{name}} steht bereits auf der Liste.",
+        "full": "Eine Erfassung umfasst höchstens {{max}} Personen. Erfassen Sie zuerst diese Liste.",
+        "listTitle_one": "{{count}} Person auf der Liste",
+        "listTitle_other": "{{count}} Personen auf der Liste",
+        "empty": "Es steht noch keine Person auf der Liste."
+      },
+      "submit": "Teilnahme erfassen",
+      "submitting": "Wird erfasst …",
+      "errors": {
+        "check": "Prüfen Sie die markierten Felder.",
+        "formatRequired": "Wählen Sie ein Format.",
+        "dateRequired": "Geben Sie den Tag des Termins ein.",
+        "future": "Der Tag des Termins darf nicht nach heute liegen.",
+        "past": "Die Teilnahme wird ab dem {{earliest}} erfasst. Geben Sie einen späteren Tag ein.",
+        "peopleRequired": "Fügen Sie mindestens eine Person hinzu.",
+        "formatGone": "Das Format ist nicht mehr verfügbar. Wählen Sie ein anderes Format.",
+        "rejected": "Die Teilnahme wurde nicht angenommen. Prüfen Sie die Felder und versuchen Sie es erneut."
+      },
+      "results": {
+        "title": "Ergebnis",
+        "recorded_one": "Die Teilnahme von {{count}} Person ist verarbeitet.",
+        "recorded_other": "Die Teilnahme von {{count}} Personen ist verarbeitet.",
+        "person": "Person",
+        "result": "Ergebnis",
+        "outcomes": {
+          "issued": "Bescheinigung ausgestellt",
+          "exists": "Für dieses Format und diesen Tag bereits erfasst",
+          "not_found": "Kein aktives Konto, nichts erfasst"
+        }
+      }
+    },
+    "registrar": {
+      "title": "Nachweise einer Qualifikation",
+      "intro": "Geben Sie den Code einer Qualifikation ein, um jeden ihrer Nachweise mit Person, Organisationseinheit, Status und Daten aufzulisten. Wer den Code in zwei Programmen hält, erscheint einmal je Nachweis.",
+      "codeLabel": "Code der Qualifikation",
+      "codeHint": "Kleinbuchstaben, Ziffern und Bindestriche, so wie das Inhaltspaket die Qualifikation benennt.",
+      "codeInvalid": "Geben Sie den Code in Kleinbuchstaben, Ziffern und Bindestrichen ein.",
+      "show": "Nachweise anzeigen",
+      "loading": "Die Nachweise werden geladen …",
+      "loadFailed": "Die Nachweise konnten nicht geladen werden. Bitte versuchen Sie es später erneut.",
+      "disabledTitle": "Die Nachweisliste ist ausgeschaltet",
+      "disabled": "Die Nachweisliste ist auf dieser Instanz ausgeschaltet.",
+      "tableTitle": "Nachweise von {{code}}",
+      "count_one": "{{count}} Nachweis",
+      "count_other": "{{count}} Nachweise",
+      "empty": "Zur Qualifikation {{code}} gibt es keinen Nachweis.",
+      "name": "Person",
+      "orgUnit": "Organisationseinheit",
+      "status": "Status",
+      "issuedAt": "Ausgestellt am",
+      "validUntil": "Gültig bis",
+      "noDisplayName": "Kein Anzeigename hinterlegt",
+      "noOrgUnit": "Keine Organisationseinheit hinterlegt",
+      "noExpiry": "Ohne Ablaufdatum"
     }
   }
 }

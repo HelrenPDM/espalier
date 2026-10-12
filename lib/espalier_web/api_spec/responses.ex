@@ -32,6 +32,62 @@ defmodule EspalierWeb.ApiSpec.Responses do
 
   defp description(codes), do: "Error codes: " <> Enum.map_join(codes, ", ", &"`#{&1}`")
 
+  @doc """
+  The 401 and 403 codes of a route in the pipeline `:admin` (task 0015),
+  followed by `extra`.
+  """
+  def admin_read(extra \\ []) do
+    [
+      {401, ["unauthenticated"]},
+      {403, ["forbidden", "enrollment_required", "passkey_required", "cross_site_request"]}
+      | extra
+    ]
+  end
+
+  @doc """
+  The 401 and 403 codes of a route in the pipeline `:admin_write` (task
+  0015), followed by `extra`.
+  """
+  def admin_write(extra \\ []) do
+    [
+      {401, ["unauthenticated"]},
+      {403,
+       [
+         "forbidden",
+         "enrollment_required",
+         "passkey_required",
+         "reauth_required",
+         "csrf",
+         "cross_site_request"
+       ]}
+      | extra
+    ]
+  end
+
+  @doc """
+  The 401 and 403 codes of a route in the pipeline `:author` (task 0015),
+  followed by `extra`.
+  """
+  def author_read(extra \\ []) do
+    [
+      {401, ["unauthenticated"]},
+      {403, ["forbidden", "enrollment_required", "cross_site_request"]}
+      | extra
+    ]
+  end
+
+  @doc """
+  The 401 and 403 codes of a route in the pipeline `:author_write` (task
+  0015), followed by `extra`.
+  """
+  def author_write(extra \\ []) do
+    [
+      {401, ["unauthenticated"]},
+      {403, ["forbidden", "enrollment_required", "reauth_required", "csrf", "cross_site_request"]}
+      | extra
+    ]
+  end
+
   @doc "The requirement of a route behind the session cookie."
   def session, do: [%{"session_cookie" => []}]
 

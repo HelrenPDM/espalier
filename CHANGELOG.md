@@ -278,8 +278,39 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   session payload carries both settings in `flags` (task 0014).
 - The per-user rate limit bucket `insights_write` for the three POST routes
   of the anonymous insights (task 0014).
+- The admin area under `/api/admin` and `/admin` (task 0015): content pack
+  upload with archive checks before any extraction, the alignment matrix and
+  findings of a pack, the pack diff with the changed fields of learning
+  objectives, and the publication, refused while the alignment checks report
+  an error; user administration with invitation, disabling, ending the
+  sessions of one user or of all users, the reset of second factors after an
+  identity check by the organization (decision D11) with the mail
+  `factors_reset`, and the reset of failure counters; policies, policy
+  versions, the approved tool list, role grants, API clients, webhooks,
+  credential revocation and the audit log; the attendance page for
+  facilitators and the credential list for registrars. Every change under
+  `/api/admin` needs a second factor from the last 10 minutes, and with
+  `ADMIN_REQUIRE_PASSKEY=true` an admin reaches the admin routes only with a
+  passkey.
+- `PACK_UPLOAD_MAX_MB` (default 20), the upload limit of a content pack; an
+  archive may hold at most 2,000 entries and declare at most five times that
+  size (task 0015).
+- The preview of a pack in the player with `StandaloneRuntime`, the
+  TypeScript port of the evaluator in `src/player/evaluate.ts` and the
+  shared fixture `test/fixtures/evaluator_cases.json` (task 0015).
 
 ### Changed
+
+- The endpoint parses no multipart body; only the pack upload reads one,
+  behind the role and recent-auth checks (task 0015).
+- Every answer under `/api/admin` carries `cache-control: no-store`, and
+  `Audit.list_events/2` filters by actor and pages by 50 events with the id
+  as the last ordering key (task 0015).
+- `Accounts.resend_invitation/2` logs `user_updated` with
+  `change: "invitation_resent"` (task 0015).
+- The pages of the player build their program links from
+  `ProgramBaseContext`, so that the preview of task 0015 keeps them below its
+  route.
 
 - The `localStorage` entry `espalier.player.<program slug>` carries the
   owner tag `o`, a SHA-256 digest prefix of the enrollment id, in entry

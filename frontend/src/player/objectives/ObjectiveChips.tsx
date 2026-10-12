@@ -8,6 +8,7 @@ import { moduleStation } from "../program";
 import type { ObjectiveView, ProgramView } from "../runtime";
 import { Tooltip } from "../Tooltip";
 import { areaKey, depthKey } from "./labels";
+import { useProgramBase } from "../programBase";
 
 interface ChipTarget {
   objective: ObjectiveView;
@@ -34,6 +35,7 @@ export function ObjectiveChips({
   moduleId: string;
 }) {
   const { t } = useTranslation();
+  const programBase = useProgramBase();
   const lang = useContentLang();
   const targets = objectiveKeys.flatMap((key): ChipTarget[] => {
     for (const module of program.modules) {
@@ -79,7 +81,7 @@ export function ObjectiveChips({
             );
           return (
             <Link
-              to={`/programs/${program.slug}/stations/${station.position}#objective-${objective.key}`}
+              to={`${programBase}/${program.slug}/stations/${station.position}#objective-${objective.key}`}
               aria-describedby={describedBy}
               className={CHIP_CLASSES}
             >

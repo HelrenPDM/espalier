@@ -316,4 +316,246 @@ defmodule Espalier.Policies do
   def list_approved_tools do
     Repo.all(from t in ApprovedTool, order_by: [t.position, t.name])
   end
+
+  @doc """
+  Gets a single approved tool. Every signed-in user reads the list, so the
+  function takes no scope, like `get_policy!/1`.
+
+  Raises `Ecto.NoResultsError` if the ApprovedTool does not exist.
+  """
+  def get_approved_tool!(id), do: Repo.get!(ApprovedTool, id)
+
+  ## Administration (task 0015)
+
+  @doc """
+  Creates a policy. Requires the role `admin` and writes the audit event
+  `policy.created`.
+  """
+  def create_policy(%Scope{} = scope, attrs) do
+    audited(scope, "policy.created", &%{key: &1.key}, fn ->
+      %Policy{} |> Policy.changeset(attrs) |> Repo.insert()
+    end)
+  end
+
+  @doc """
+  Updates a policy. Requires the role `admin` and writes the audit event
+  `policy.updated`. A policy with a published version keeps its key, because
+  the requirements of qualifications name the policy by key: a change of the
+  key answers `{:error, :policy_in_use}`.
+  """
+  def update_policy(%Scope{} = scope, %Policy{} = policy, attrs) do
+    audited(scope, "policy.updated", &%{key: &1.key}, fn ->
+      # The row lock waits for a running publish_version/2, which holds it
+      # too, so the check below sees its published version.
+      case Repo.one(from p in Policy, where: p.id == ^policy.id, lock: "FOR UPDATE") do
+        nil -> {:error, :not_found}
+        locked -> update_locked_policy(locked, attrs)
+      end
+    end)
+  end
+
+  defp update_locked_policy(policy, attrs) do
+    changeset = Policy.changeset(policy, attrs)
+
+    if Changeset.changed?(changeset, :key) and published_version?(policy.id),
+      do: {:error, :policy_in_use},
+      else: Repo.update(changeset)
+  end
+
+  @doc """
+  Deletes a policy. Requires the role `admin`. A policy with a published
+  version answers `{:error, :policy_in_use}`; a policy whose versions are
+  drafts is deleted together with its drafts in one transaction, because
+  `policy_versions.policy_id` references `policies` with `on_delete:
+  :nothing`. Writes the audit event `policy.deleted`.
+  """
+  def delete_policy(%Scope{} = scope, %Policy{} = policy) do
+    with :ok <- require_admin(scope) do
+      Repo.transact(fn -> delete_policy_in(scope, policy) end)
+    end
+  end
+
+  # The versions are locked before the policy, in the order of
+  # publish_version/2, so that a concurrent publication cannot deadlock with
+  # the deletion.
+  defp delete_policy_in(scope, policy) do
+    Repo.all(
+      from v in PolicyVersion,
+        where: v.policy_id == ^policy.id,
+        order_by: v.id,
+        lock: "FOR UPDATE",
+        select: v.id
+    )
+
+    locked = Repo.one(from p in Policy, where: p.id == ^policy.id, lock: "FOR UPDATE")
+
+    cond do
+      is_nil(locked) ->
+        {:error, :not_found}
+
+      published_version?(policy.id) ->
+        {:error, :policy_in_use}
+
+      true ->
+        {drafts, _} = Repo.delete_all(from v in PolicyVersion, where: v.policy_id == ^policy.id)
+        deleted = Repo.delete!(locked)
+
+        {:ok, _event} =
+          Audit.record(scope, "policy.deleted", deleted, %{key: deleted.key, drafts: drafts})
+
+        {:ok, deleted}
+    end
+  end
+
+  defp published_version?(policy_id) do
+    Repo.exists?(
+      from v in PolicyVersion, where: v.policy_id == ^policy_id and not is_nil(v.published_at)
+    )
+  end
+
+  @doc """
+  Creates an entry of the approved tool list. Requires the role `admin` and
+  writes the audit event `approved_tool.created`.
+  """
+  def create_approved_tool(%Scope{} = scope, attrs) do
+    audited(scope, "approved_tool.created", &%{name: &1.name}, fn ->
+      %ApprovedTool{} |> ApprovedTool.changeset(attrs) |> Repo.insert()
+    end)
+  end
+
+  @doc """
+  Updates an entry of the approved tool list. Requires the role `admin` and
+  writes the audit event `approved_tool.updated`.
+  """
+  def update_approved_tool(%Scope{} = scope, %ApprovedTool{} = tool, attrs) do
+    audited(scope, "approved_tool.updated", &%{name: &1.name}, fn ->
+      tool |> ApprovedTool.changeset(attrs) |> Repo.update()
+    end)
+  end
+
+  @doc """
+  Deletes an entry of the approved tool list. Requires the role `admin` and
+  writes the audit event `approved_tool.deleted`.
+  """
+  def delete_approved_tool(%Scope{} = scope, %ApprovedTool{} = tool) do
+    audited(scope, "approved_tool.deleted", &%{name: &1.name}, fn ->
+      case Repo.delete_all(from t in ApprovedTool, where: t.id == ^tool.id) do
+        {0, _} -> {:error, :not_found}
+        {_count, _} -> {:ok, tool}
+      end
+    end)
+  end
+
+  @doc """
+  Lists the versions of `policy`, the highest number first. Requires the
+  role `admin`.
+  """
+  def list_versions(%Scope{} = scope, %Policy{} = policy) do
+    with :ok <- require_admin(scope) do
+      {:ok,
+       Repo.all(
+         from v in PolicyVersion,
+           where: v.policy_id == ^policy.id,
+           order_by: [desc: v.number],
+           preload: :policy
+       )}
+    end
+  end
+
+  @doc """
+  Returns `{:ok, version}` with its policy, or `{:error, :not_found}` for an
+  unknown or malformed id. Requires the role `admin`.
+  """
+  def get_version(%Scope{} = scope, id) do
+    with :ok <- require_admin(scope) do
+      with {:ok, uuid} <- Ecto.UUID.cast(id),
+           %PolicyVersion{} = version <- Repo.get(PolicyVersion, uuid) do
+        {:ok, Repo.preload(version, :policy)}
+      else
+        _other -> {:error, :not_found}
+      end
+    end
+  end
+
+  @doc """
+  Changes `body`, `effective_from` and `requires_refresher` of a draft.
+  Requires the role `admin`. The function locks the version row; a published
+  version answers `{:error, :published}` and a deleted one `{:error,
+  :not_found}`. Writes the audit event `policy_version.updated`.
+  """
+  def update_version(%Scope{} = scope, %PolicyVersion{} = version, attrs) do
+    with :ok <- require_admin(scope) do
+      Repo.transact(fn -> update_version_in(scope, version.id, attrs) end)
+    end
+  end
+
+  defp update_version_in(scope, version_id, attrs) do
+    case Repo.one(
+           from v in PolicyVersion,
+             where: v.id == ^version_id,
+             lock: "FOR UPDATE",
+             preload: :policy
+         ) do
+      nil ->
+        {:error, :not_found}
+
+      %PolicyVersion{published_at: %DateTime{}} ->
+        {:error, :published}
+
+      locked ->
+        with {:ok, updated} <-
+               locked
+               |> Changeset.cast(Map.new(attrs), [:body, :effective_from, :requires_refresher])
+               |> Changeset.validate_required([:body, :effective_from, :requires_refresher])
+               |> Repo.update() do
+          {:ok, _event} =
+            Audit.record(scope, "policy_version.updated", updated, %{
+              policy_key: updated.policy.key,
+              number: updated.number
+            })
+
+          {:ok, updated}
+        end
+    end
+  end
+
+  @doc """
+  Stores `requires_refresher` on a draft through `update_version/3` and
+  publishes it through `publish_version/2` in one `Repo.transact/1` (ASVS
+  2.3.3), so that an error of either call leaves the draft unchanged.
+  Requires the role `admin`; returns the errors of both functions, among them
+  `{:error, :published}` and `{:error, :superseded}`.
+  """
+  def publish_draft(%Scope{} = scope, %PolicyVersion{} = version, requires_refresher)
+      when is_boolean(requires_refresher) do
+    with :ok <- require_admin(scope) do
+      Repo.transact(fn -> publish_draft_in(scope, version, requires_refresher) end)
+    end
+  end
+
+  defp publish_draft_in(scope, version, requires_refresher) do
+    with {:ok, draft} <-
+           update_version(scope, version, %{requires_refresher: requires_refresher}) do
+      publish_version(scope, draft)
+    end
+  end
+
+  # Runs `write` in one transaction for an admin scope and records `action`
+  # on the row it returns, with the details of `details`.
+  defp audited(scope, action, details, write) do
+    with :ok <- require_admin(scope) do
+      Repo.transact(fn -> write_audited(scope, action, details, write) end)
+    end
+  end
+
+  defp write_audited(scope, action, details, write) do
+    with {:ok, row} <- write.() do
+      {:ok, _event} = Audit.record(scope, action, row, details.(row))
+      {:ok, row}
+    end
+  end
+
+  defp require_admin(scope) do
+    if Scope.admin?(scope), do: :ok, else: {:error, :forbidden}
+  end
 end
