@@ -30,7 +30,7 @@ the order of the tasks.
 | 0012 | [Player and learner UI](0012-player-learner-ui.md) | M3 Learning | 0009, 0010 | [#12](https://github.com/HelrenPDM/espalier/issues/12) (closed) | Done |
 | 0013 | [Policies, credentials, attendance, refresher and integration API](0013-policies-credentials.md) | M4 Records | 0009, 0010, 0012 | [#13](https://github.com/HelrenPDM/espalier/issues/13) (closed) | Done |
 | 0014 | [Anonymous insights, reports and retention](0014-insights.md) | M4 Records | 0012, 0013 | [#14](https://github.com/HelrenPDM/espalier/issues/14) (closed) | Done |
-| 0015 | [Admin area](0015-admin-area.md) | M5 Administration | 0011, 0012, 0013, 0014 | [#15](https://github.com/HelrenPDM/espalier/issues/15) | To do |
+| 0015 | [Admin area](0015-admin-area.md) | M5 Administration | 0011, 0012, 0013, 0014 | [#15](https://github.com/HelrenPDM/espalier/issues/15) (closed) | Done |
 | 0016 | [SCORM 1.2 and 2004 export, and pack export](0016-scorm-export.md) | M6 Interop and operations | 0012, 0015 | [#16](https://github.com/HelrenPDM/espalier/issues/16) | To do |
 | 0017 | [Production image, guides and hardening](0017-production-hardening.md) | M6 Interop and operations | 0002, 0015, 0016 | [#17](https://github.com/HelrenPDM/espalier/issues/17) | To do |
 
