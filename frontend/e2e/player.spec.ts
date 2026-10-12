@@ -250,6 +250,36 @@ test("a learner goes through module 1 on the short path", async ({ page }) => {
   ).toEqual([]);
 });
 
+test("a second person in the same browser sees none of the visited stations of the first", async ({
+  page,
+}) => {
+  const visited = page
+    .getByRole("navigation", { name: "Stations" })
+    .getByText("Visited");
+
+  await signInAsDemo(page, 5);
+  await page.goto(`/programs/${SLUG}/stations/2`);
+  await expect(
+    page.getByRole("heading", { level: 1, name: STATIONS[1].title }),
+  ).toBeVisible();
+  await expect(visited).toHaveCount(1);
+
+  // The next person signs in on the same browser and opens station 1: only
+  // that station counts as visited, because the entry of the first person
+  // carries another owner tag.
+  await signInAsDemo(page, 6);
+  await page.goto(`/programs/${SLUG}/stations/1`);
+  await expect(
+    page.getByRole("heading", { level: 1, name: STATIONS[0].title }),
+  ).toBeVisible();
+  await expect(visited).toHaveCount(1);
+  await expect(
+    page
+      .getByRole("navigation", { name: "Stations" })
+      .getByRole("link", { name: STATIONS[1].title }),
+  ).not.toContainText("Visited");
+});
+
 test("every station renders without console errors and fits 360 pixels", async ({
   page,
 }) => {
