@@ -294,3 +294,19 @@ tasks rely on the implemented form.
   task, which have all added their code and tests, so it takes the status
   `verified` together with 1.3.5. The rows 1.1.2 and 1.2.1 stay `open` for
   0016, and 14.3.3 for 0014.
+- Owner of the browser entry (step 2): the key names the program only, so
+  every person who signed in on one browser read the same entry and saw the
+  visited stations, the opened explanations and, with
+  `TRACKING_DETAIL=minimal`, the answered items of the person before. The
+  entry therefore carries the owner tag `o`, the first 16 hexadecimal digits
+  of the SHA-256 digest of the enrollment id (`entryOwner` in
+  `src/runtimes/platform.ts`), and its version is 2:
+  `{"v":2,"o":"...","openedExplanations":[...],"visitedStations":[...]}`,
+  with `"answeredItems":[...]` under `minimal`. An enrollment belongs to one
+  person and one program, so `loadState` reads an entry only when its tag
+  belongs to the enrollment of the signed-in person, and an entry of another
+  person, without a tag or of version 1 yields empty lists, which the next
+  save replaces. The tag reveals neither the enrollment nor the person, and
+  the entry still holds no user id. Without `crypto.subtle`, which needs a
+  secure context, the runtime reads and writes no entry and keeps the
+  browser part of the state for the visit only.
