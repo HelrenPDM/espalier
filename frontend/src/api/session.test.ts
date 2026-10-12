@@ -48,6 +48,8 @@ const hostilePayload = () =>
       "local_accounts": true,
       "signup": "closed",
       "admin_passkey_required": false,
+      "test_notes": true,
+      "feedback_free_text": false,
       "__proto__": {"polluted": true}
     }
   }`);
@@ -81,6 +83,8 @@ test("toSession copies only the members it knows and pollutes no prototype", () 
       localAccounts: true,
       signup: "closed",
       adminPasskeyRequired: false,
+      testNotes: true,
+      feedbackFreeText: false,
     },
   });
   expect(Object.keys(session)).toEqual([
@@ -111,6 +115,8 @@ test("toSession copies only the members it knows and pollutes no prototype", () 
     "localAccounts",
     "signup",
     "adminPasskeyRequired",
+    "testNotes",
+    "feedbackFreeText",
   ]);
 
   for (const value of [
@@ -157,6 +163,8 @@ test("toSession maps the pending state, the provider key and every flag", () => 
     local_accounts: false,
     signup: "domain",
     admin_passkey_required: true,
+    test_notes: false,
+    feedback_free_text: true,
   };
 
   const session = toSession(payload);
@@ -172,6 +180,8 @@ test("toSession maps the pending state, the provider key and every flag", () => 
     localAccounts: false,
     signup: "domain",
     adminPasskeyRequired: true,
+    testNotes: false,
+    feedbackFreeText: true,
   });
 });
 

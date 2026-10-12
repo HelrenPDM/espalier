@@ -30,6 +30,8 @@ export function sessionValue(overrides: Overrides = {}): SessionContextValue {
       localAccounts: true,
       signup: "closed",
       adminPasskeyRequired: false,
+      testNotes: false,
+      feedbackFreeText: false,
       ...flags,
     },
   };
@@ -83,6 +85,8 @@ export function sessionPayload(
       local_accounts: true,
       signup: "closed",
       admin_passkey_required: false,
+      test_notes: false,
+      feedback_free_text: false,
       ...flags,
     },
   };

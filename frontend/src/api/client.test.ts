@@ -27,6 +27,8 @@ const session: Session = {
     localAccounts: true,
     signup: "closed",
     adminPasskeyRequired: false,
+    testNotes: false,
+    feedbackFreeText: false,
   },
 };
 
@@ -42,6 +44,8 @@ const sessionPayload = (csrfToken: string) => ({
     local_accounts: true,
     signup: "closed",
     admin_passkey_required: false,
+    test_notes: false,
+    feedback_free_text: false,
   },
 });
 

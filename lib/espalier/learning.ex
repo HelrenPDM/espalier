@@ -99,6 +99,54 @@ defmodule Espalier.Learning do
   defp tag({:error, _changeset} = error, _status), do: error
 
   @doc """
+  Applies the default path of a self-assessment segment to the enrollment
+  of the scope user in `program` (README section 7, domain rule 1, task
+  0014) and returns `{:ok, enrollment}`.
+
+  Without an enrollment, the function creates one on `path` with
+  `started_at` set to now. An existing enrollment takes `path` only while
+  `path_chosen_manually` is false, so that a manual choice keeps priority
+  over a later self-assessment. The insert ignores a conflict and the
+  function then reads the enrollment under a row lock, so an enrollment
+  created at the same time by `enroll/3` receives the path as well.
+  """
+  def apply_default_path(%Scope{} = scope, %Program{} = program, path)
+      when path in [:short, :full] do
+    Repo.transact(fn ->
+      changeset =
+        %Enrollment{}
+        |> Enrollment.changeset(%{path: path}, scope)
+        |> Changeset.put_change(:program_id, program.id)
+        |> Changeset.put_change(:started_at, DateTime.utc_now(:second))
+
+      with {:ok, _maybe_inserted} <-
+             Repo.insert(changeset,
+               on_conflict: :nothing,
+               conflict_target: [:user_id, :program_id]
+             ) do
+        scope |> lock_enrollment_in!(program) |> take_default_path(path, scope)
+      end
+    end)
+  end
+
+  defp lock_enrollment_in!(scope, program) do
+    Repo.one!(
+      from e in Enrollment,
+        where: e.user_id == ^scope.user.id and e.program_id == ^program.id,
+        lock: "FOR UPDATE"
+    )
+  end
+
+  defp take_default_path(%Enrollment{path_chosen_manually: true} = enrollment, _path, _scope),
+    do: {:ok, enrollment}
+
+  defp take_default_path(%Enrollment{path: path} = enrollment, path, _scope),
+    do: {:ok, enrollment}
+
+  defp take_default_path(enrollment, path, scope),
+    do: enrollment |> Enrollment.changeset(%{path: path}, scope) |> Repo.update()
+
+  @doc """
   Sets the path of an enrollment of the scope user and marks it as chosen
   by hand. An enrollment of another user, or of a program that is not
   published, answers `{:error, :not_found}`.

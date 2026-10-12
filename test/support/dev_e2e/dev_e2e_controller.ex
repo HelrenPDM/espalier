@@ -15,7 +15,7 @@ defmodule EspalierWeb.DevE2EController do
   import Ecto.Query
 
   alias Espalier.Accounts
-  alias Espalier.Accounts.{ExternalIdentity, Scope, User, UserToken}
+  alias Espalier.Accounts.{Demo, ExternalIdentity, Scope, User, UserToken}
   alias Espalier.Repo
 
   @doc "Invites `email` as `Accounts.invite_user/2` does for an admin: 202, or 409 for a known address."
@@ -42,6 +42,22 @@ defmodule EspalierWeb.DevE2EController do
   end
 
   def reset(conn, _params), do: bad_request(conn)
+
+  @doc """
+  Deletes the demo users of `slots` (task 0014), so that a spec starts them
+  without records while the specs that run beside it keep their own slots.
+  """
+  def reset_demo(conn, %{"slots" => slots}) when is_list(slots) and slots != [] do
+    if Enum.all?(slots, &(is_integer(&1) and &1 in Demo.slots())) do
+      user_ids = for slot <- slots, %User{id: id} <- [Demo.get_user(slot)], do: id
+      Repo.delete_all(from u in User, where: u.id in ^user_ids)
+      send_resp(conn, :no_content, "")
+    else
+      bad_request(conn)
+    end
+  end
+
+  def reset_demo(conn, _params), do: bad_request(conn)
 
   @doc """
   Moves `mfa_at` of the current session row 11 minutes into the past, so

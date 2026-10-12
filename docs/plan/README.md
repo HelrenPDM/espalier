@@ -877,10 +877,11 @@ export interface Runtime {
 The legal assessment under the GDPR follows in a separate workstream after the
 first version. It covers the records of processing, the data protection impact
 assessment, the retention periods, the note on the breached-password range
-query, the org unit in anonymous rows and the data protection guide for
-operators. Until then the mechanisms below exist with data-sparing defaults,
-and the retention variables are unset, which disables automatic deletion of
-learning records.
+query, the org unit in anonymous rows, the vote that a format-vote
+participation marker states, and the data protection guide for operators.
+Until then the mechanisms below exist with data-sparing defaults, and the
+retention variables are unset, which disables automatic deletion of learning
+records.
 
 
 | Variable | Default | Effect |
@@ -914,16 +915,34 @@ count credentials per qualification and status, and every cell below
 completions, exam attempts, acknowledgements or attendance certificates.
 
 Anonymous rows carry a date with day precision, a random primary key and no
-user key. A `ParticipationMarker` records that a person has answered, without the
-answer and without a timestamp. The nightly retention job reorders the anonymous
-tables by their random primary key (`CLUSTER`), so that the physical insertion
-order cannot be matched with the order of the markers.
+user key. A `ParticipationMarker` records with the user id that a person has
+answered, without a timestamp. A self-assessment marker and a feedback marker
+hold no answer. A format vote has the single choice `would_use`, so a
+format-vote marker (user id, `format_vote`, format id) states with the person's
+id what the anonymous `interest_votes` row states without it. For each of
+`self_assessment_responses`, `interest_votes`, `feedback_responses` and
+`participation_markers`, the nightly retention job first rewrites every row
+with one `UPDATE`, so that all rows of the table carry the transaction id of
+that `UPDATE`, and then reorders the table by its random primary key
+(`CLUSTER`), so that neither the physical insertion order nor the transaction
+ids can be matched with the markers.
 
-The anonymity holds against every role of the application. A database
-administrator who reads the tables between two reorder runs, the write-ahead log
-or a backup can still correlate insertion order. Operators who need protection
-against that restrict database access accordingly; the GDPR workstream documents
-this limit for operators.
+The anonymity holds against every role of the application: no role reads the
+markers of another person, and `GET /api/me/participation` returns only the
+user's own. A database administrator who reads the tables between two reorder
+runs, the earlier row versions that `CLUSTER` keeps for a snapshot older than
+the rewrite until a later vacuum, the write-ahead log or a backup can still
+match an anonymous row with its participation marker, by the transaction id
+that both carry or by insertion order.
+Operators who need protection against that restrict database access
+accordingly; the GDPR workstream documents this limit for operators.
+
+The format-vote markers set a second limit. A reader of `participation_markers`
+in the database, the write-ahead log or a backup learns directly, without
+correlating any order, which person would use which companion format, and a
+data-subject export that includes the markers includes these votes as the
+person's data. The GDPR workstream documents this limit for the records of
+processing and for data-subject requests.
 
 ## 11 Interoperability
 

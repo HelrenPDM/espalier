@@ -195,7 +195,7 @@ package "Anonymous insights (no user key)" {
   }
 
   class InterestVote {
-    choice : string
+    choice : string (only would_use)
     recorded_on : date
   }
 
@@ -213,7 +213,7 @@ package "Anonymous insights (no user key)" {
 }
 
 class ParticipationMarker {
-  subject_type : string
+  subject_type : string (self_assessment, format_vote or feedback)
   subject_id : uuid
 }
 
@@ -275,13 +275,21 @@ note bottom of ParticipationMarker
   Records that a person has answered a
   self-assessment, vote or feedback form,
   so that each person counts once.
-  It stores no answer and no timestamp.
+  It stores no timestamp. A self-assessment
+  or feedback marker stores no answer. A
+  format vote has the single choice
+  would_use, so a format_vote marker states
+  the vote with the user id; no role of the
+  application reads another person's
+  markers (README section 10).
 end note
 
 note top of SelfAssessmentResponse
   Rows in this package carry no user key, a random
   primary key and only a date with day precision.
-  A nightly job reorders them by primary key.
+  A nightly job reorders SelfAssessmentResponse,
+  InterestVote, FeedbackResponse and
+  ParticipationMarker by primary key.
   Reports suppress every group below
   INSIGHTS_MIN_GROUP_SIZE.
 end note

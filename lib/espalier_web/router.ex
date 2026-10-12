@@ -184,6 +184,29 @@ defmodule EspalierWeb.Router do
     get "/me/credentials/:id", Me.CredentialController, :show
   end
 
+  # Anonymous insights of learners (task 0014): the answer is stored without
+  # the person, and a participation marker lets each person count once.
+  scope "/api", EspalierWeb do
+    pipe_through [:api, :authenticated]
+
+    post "/self-assessments", SelfAssessmentController, :create
+    post "/formats/:id/votes", FormatVoteController, :create
+    post "/feedback", FeedbackController, :create
+    get "/me/participation", Me.ParticipationController, :show
+  end
+
+  # Reports for analysts (task 0014, README section 10).
+  scope "/api/insights", EspalierWeb do
+    pipe_through [:api, :analyst]
+
+    get "/self-assessment", ReportController, :self_assessment
+    get "/items", ReportController, :items
+    get "/competence", ReportController, :competence
+    get "/formats", ReportController, :formats
+    get "/feedback", ReportController, :feedback
+    get "/credentials", ReportController, :credentials
+  end
+
   # Attendance and the user lookup of facilitators (task 0013). The lookup
   # takes the address in the JSON body (ASVS 14.2.1).
   scope "/api", EspalierWeb do
@@ -257,6 +280,7 @@ defmodule EspalierWeb.Router do
 
       post "/invitations", DevE2EController, :invitations
       post "/reset", DevE2EController, :reset
+      post "/reset-demo", DevE2EController, :reset_demo
       post "/age-recent-auth", DevE2EController, :age_recent_auth
     end
   end

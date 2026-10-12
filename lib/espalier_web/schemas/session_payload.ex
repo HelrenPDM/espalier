@@ -46,7 +46,15 @@ defmodule EspalierWeb.Schemas.SessionPayload do
            admin_passkey_required: Fields.boolean(),
            demo: Fields.boolean("Mirrors `AUTH_DEMO`."),
            local_accounts: Fields.boolean(),
-           signup: Fields.enum(~w(closed invite domain))
+           signup: Fields.enum(~w(closed invite domain)),
+           test_notes:
+             Fields.boolean(
+               "Mirrors `TEST_NOTES`: the SPA records the test session notes in the browser."
+             ),
+           feedback_free_text:
+             Fields.boolean(
+               "Mirrors `FEEDBACK_FREE_TEXT`: the feedback station shows free-text questions."
+             )
          })
 
   OpenApiSpex.schema(

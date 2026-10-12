@@ -2,6 +2,7 @@ import { Description, Label, Radio, RadioGroup } from "@headlessui/react";
 import { useTranslation } from "react-i18next";
 import { FOCUS_RING } from "../app/formStyles";
 import type { Path } from "./runtime";
+import { useTestNote } from "./testNotes";
 import { useCurrentPlayer } from "./usePlayer";
 
 const PATHS: Path[] = ["short", "full"];
@@ -11,10 +12,12 @@ const PATHS: Path[] = ["short", "full"];
  * explanation of the difference (README section 7, rules 1 and 2).
  * Switching passes the new path through `saveState`, so the switch works
  * with every runtime; `PlatformRuntime` then marks the choice as manual.
+ * Each switch adds `path_switched` to the test session notes.
  */
 export function PathSwitch() {
   const { t } = useTranslation();
   const { state, update } = useCurrentPlayer();
+  const note = useTestNote();
 
   return (
     <div className="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
@@ -22,11 +25,13 @@ export function PathSwitch() {
           Label and Description and drops given ARIA ids. */}
       <RadioGroup
         value={state.path}
-        onChange={(path: Path) =>
+        onChange={(path: Path) => {
+          if (path === state.path) return;
           update((current) =>
             current.path === path ? current : { ...current, path },
-          )
-        }
+          );
+          note({ event: "path_switched", path });
+        }}
       >
         <div className="flex flex-wrap items-center gap-2">
           <Label className="mr-2 font-semibold">{t("path.label")}</Label>

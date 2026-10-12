@@ -122,6 +122,67 @@
       "text": "The administration pages appear here."
     }
   },
+  "reports": {
+    "title": "Reports",
+    "intro": "The reports count the anonymous answers and the credentials of a program. A cell with fewer entries than the minimum group size shows no number.",
+    "program": "Program",
+    "programsLoading": "Loading the programs…",
+    "programsFailed": "The programs could not be loaded. Please try again later.",
+    "noPrograms": "No program is published yet.",
+    "loading": "Loading the report…",
+    "loadFailed": "The report could not be loaded. Please try again later.",
+    "notFound": "No program exists with this address.",
+    "suppressed": "fewer than {{size}}",
+    "attempts_one": "{{count}} attempt",
+    "attempts_other": "{{count}} attempts",
+    "orgUnit": "Org unit",
+    "noOrgUnit": "No org unit",
+    "selfAssessment": {
+      "title": "Self-assessment",
+      "description": "The number of answers per segment and month.",
+      "segment": "Segment",
+      "empty": "No self-assessment has been recorded yet."
+    },
+    "items": {
+      "title": "Practice items",
+      "description": "The share correct and the number of attempts per practice item and month.",
+      "module": "Module",
+      "item": "Item",
+      "empty": "No practice item has been answered yet."
+    },
+    "competence": {
+      "title": "Competence areas",
+      "description": "The share correct and the number of attempts of the practice items per competence area and depth of the learning objectives they name, and month.",
+      "area": "Competence area",
+      "depth": "Depth",
+      "empty": "No practice item with a learning objective has been answered yet."
+    },
+    "formats": {
+      "title": "Companion formats",
+      "description": "The number of people per format who would use it.",
+      "format": "Format",
+      "votes": "Would use",
+      "empty": "The program offers no companion format."
+    },
+    "feedback": {
+      "title": "Feedback",
+      "description": "The number of answers per question and option of the feedback station.",
+      "question": "Question",
+      "answer": "Answer",
+      "count": "Answers",
+      "freeText": "Free-text answers",
+      "freeTextTitle": "Free-text answers",
+      "freeTextOrder": "The answers appear in random order.",
+      "empty": "The program has no feedback station."
+    },
+    "credentials": {
+      "title": "Credentials",
+      "description": "The number of credentials per qualification and status.",
+      "qualification": "Qualification",
+      "archived": "Archived",
+      "empty": "The program offers no qualification."
+    }
+  },
   "account": {
     "menu": "Security",
     "title": "Security settings",
@@ -324,7 +385,6 @@
     "previous": "Previous:",
     "next": "Next:",
     "visited": "Visited",
-    "pending": "This station is not available in this version yet.",
     "notFound": {
       "title": "Station not found"
     },
@@ -565,6 +625,75 @@
       "policy_acknowledged": "Policy acknowledged:",
       "attendance": "Format attended:",
       "qualification_held": "Credential held:"
+    }
+  },
+  "selfAssessment": {
+    "loading": "Loading your answer…",
+    "loadFailed": "Whether you have answered before could not be loaded. You can still answer.",
+    "privacy": "Your answer is stored without your name. It only preselects your path, and you can switch the path at any time.",
+    "segments": "Choices",
+    "suggestedPath": "Suggested: {{path}}",
+    "noSegments": "This program offers no choices here.",
+    "saving": "Saving your answer…",
+    "saveFailed": "Your answer could not be saved. Please try again.",
+    "recorded": "Your answer is recorded. It preselected the path below, and you can switch it.",
+    "recordedKept": "Your answer is recorded. You chose your path yourself before, so the path below stays as it was, and you can switch it.",
+    "recordedReload": "Your answer is recorded. The path that applies now appears below after you reload the page.",
+    "alreadyRecorded": "Your answer was already recorded. The path below is your current path, and you can switch it.",
+    "skip": "Skip this question"
+  },
+  "formatsStation": {
+    "anonymous": "Your choice is anonymous: it is stored without your name and cannot be changed afterwards.",
+    "loading": "Loading your choices…",
+    "loadFailed": "Your earlier choices could not be loaded.",
+    "none": "This program has no companion formats.",
+    "phases": "Phases: {{phases}}",
+    "phase": {
+      "orient": "Orient",
+      "understand": "Understand",
+      "apply": "Apply",
+      "anchor": "Anchor",
+      "update": "Update"
+    },
+    "wouldUse": "Would use",
+    "voted": "Your vote is recorded.",
+    "voteFailed": "Your vote could not be saved. Please try again."
+  },
+  "feedbackStation": {
+    "anonymous": "Your feedback is stored without your name. You can send it once.",
+    "loading": "Loading…",
+    "loadFailed": "Whether you have sent feedback before could not be loaded. You can still send it.",
+    "none": "This station has no questions.",
+    "scaleHint": "From 1 (not at all) to 5 (completely).",
+    "freeTextHint": "At most 2,000 characters. Please leave out names and other personal details.",
+    "optional": "Every question is optional. Answer at least one to send your feedback.",
+    "submit": "Send feedback",
+    "submitting": "Sending…",
+    "submitFailed": "Your feedback could not be sent. Please try again.",
+    "thanks": "Thank you. Your feedback is recorded.",
+    "alreadySent": "You have already sent your feedback. Thank you."
+  },
+  "testNotes": {
+    "title": "Test notes",
+    "intro": "This log supports a usability test. It stays in this browser tab until the next sign-out or sign-in, holds no personal data and is never sent to the server.",
+    "logLabel": "Recorded events",
+    "empty": "No events recorded yet.",
+    "copy": "Copy",
+    "clear": "Clear",
+    "copied": "The notes were copied.",
+    "copyFailed": "The notes could not be copied. Select the text and copy it by hand.",
+    "cleared": "The notes were cleared.",
+    "events": {
+      "stationOpened": "Station {{station}} opened",
+      "pathSwitched": "Path switched: {{path}}",
+      "itemCorrect": "Item {{item}} answered correctly",
+      "itemWrong": "Item {{item}} answered wrongly",
+      "itemPoll": "Poll {{item}} answered",
+      "explanationRevealed": "Explanations opened after the answer to item {{item}}",
+      "examPassed": "Exam {{assessment}} passed",
+      "examFailedCore": "Exam {{assessment}} failed: a core item was wrong",
+      "examFailedErrors": "Exam {{assessment}} failed: too many wrong answers",
+      "formatVoted": "Vote for a format at station {{station}}"
     }
   }
 }

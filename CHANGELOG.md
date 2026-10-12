@@ -215,6 +215,69 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   the credential station with the met and open requirements per
   qualification; `/me/credentials`; and `/me/credentials/:id`, which prints
   on A4.
+- Anonymous insights (task 0014): the self-assessment
+  (`POST /api/self-assessments`), the "would use" votes for companion
+  formats (`POST /api/formats/:id/votes`) and the feedback
+  (`POST /api/feedback`) are stored in `self_assessment_responses`,
+  `interest_votes` and `feedback_responses` without a user key, with a
+  random primary key and only the date. A participation marker per person
+  and subject lets each person count once, and
+  `GET /api/me/participation` returns from the markers alone what the user
+  has answered. A format vote has the single choice `would_use`, so its
+  marker states the vote with the user id; no role of the application reads
+  another person's markers, and README section 10 names this limit for the
+  GDPR workstream. A new self-assessment applies the segment's default path
+  to the enrollment unless the learner chose the path by hand, and the
+  feedback answers are checked against the questions of the feedback
+  station.
+- The reports for the role `analyst` under `/api/insights` (task 0014): the
+  self-assessment segments by month, the attempts and the share correct per
+  practice item and month, the competence report with the share correct per
+  CORE competence area and depth of the learning objectives that the items
+  name, the "would use" votes per format, the choice and scale distributions
+  of the feedback with free text only from the threshold on, and the
+  credentials per qualification and status. Every cell with a count below
+  `INSIGHTS_MIN_GROUP_SIZE` (default 5) is suppressed, the reports break
+  down by org unit only with `INSIGHTS_ORG_UNIT=true`, no report returns a
+  person or a column total, and every answer carries
+  `cache-control: no-store`. Every report names the threshold as
+  `min_group_size` and the content language of the program as `locale`.
+  Once the program has a self-assessment answer, the self-assessment report
+  lists every live segment, per org unit with answers when the breakdown is
+  on, so a missing row reveals nothing. An archived segment, a key that
+  names no segment of the program and an archived qualification appear
+  only with at least one shown cell. An item with fewer attempts than the
+  threshold in one org unit of a month suppresses every cell of each area
+  and depth it names in that month, in every org unit, and with the org-unit
+  breakdown the competence report gives every area and depth a row for
+  every org unit that has a shown cell, so that neither a difference with
+  the item report, nor the bounds of a suppressed cell, nor the pattern of
+  suppressed cells or listed org units reveals a count below the threshold.
+- The learner stations for the self-assessment, the companion formats and
+  the feedback, and the reports page `/admin/insights` for analysts, which
+  renders a suppressed cell as "fewer than N" (task 0014).
+- The nightly retention job `Espalier.Insights.RetentionWorker` at 03:30 UTC
+  (task 0014): `RETENTION_ITEM_RESPONSES_DAYS`, `RETENTION_ANONYMOUS_DAYS`,
+  `RETENTION_AUDIT_DAYS` and `RETENTION_ATTEMPTS_DAYS` delete the item
+  responses, the anonymous rows, the audit events and the exam attempts
+  older than their number of days, and the attempts keep the newest passed
+  attempt per user and assessment that a credential in force depends on. The job deletes the attempts of
+  each user after taking the evaluation lock of that user, so a credential
+  that a running evaluation issues keeps its attempt. Every period is unset
+  by default, so the job deletes nothing until an operator sets one. On
+  every run, the job rewrites every row of the three anonymous tables and
+  of the participation markers with one `UPDATE` per table, so that all
+  rows of a table carry the transaction id of its `UPDATE`, and then
+  reorders each table by its random primary key with `CLUSTER`, a separate
+  statement that runs after the `UPDATE` has committed.
+- `FEEDBACK_FREE_TEXT` (default `false`), which adds the free-text
+  questions of the feedback station, and `TEST_NOTES` (default `false`),
+  which records the events of a usability test in the `sessionStorage` key
+  `espalier.test_notes` and shows them in a "Test notes" panel; the log
+  never reaches the server, and sign-out and a new sign-in clear it. The
+  session payload carries both settings in `flags` (task 0014).
+- The per-user rate limit bucket `insights_write` for the three POST routes
+  of the anonymous insights (task 0014).
 
 ### Changed
 

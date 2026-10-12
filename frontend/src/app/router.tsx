@@ -21,6 +21,7 @@ import { Layout } from "./Layout";
 import {
   GlossaryPage,
   HandbookPage,
+  InsightsPage,
   PoliciesPage,
   ProgramPage,
   ProgramRoute,
@@ -75,12 +76,27 @@ export const appRoutes: RouteObject[] = [
       { path: "me/credentials", element: <CredentialListPage /> },
       { path: "me/credentials/:id", element: <CredentialPage /> },
       {
-        path: "admin/*",
+        // The guard of the admin area admits every role beyond `learner`;
+        // each page below it checks its own role. Every admin path without
+        // a page of its own keeps the placeholder until 0015.
+        path: "admin",
         element: (
           <RequireRole anyOf={ADMIN_ROLES}>
-            <PlaceholderPage page="admin" />
+            <Outlet />
           </RequireRole>
         ),
+        children: [
+          {
+            path: "insights",
+            element: (
+              <RequireRole anyOf={["analyst"]}>
+                <InsightsPage />
+              </RequireRole>
+            ),
+          },
+          { index: true, element: <PlaceholderPage page="admin" /> },
+          { path: "*", element: <PlaceholderPage page="admin" /> },
+        ],
       },
     ],
   },

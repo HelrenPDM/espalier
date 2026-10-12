@@ -20,7 +20,9 @@ defmodule EspalierWeb.SessionJSON do
         admin_passkey_required: admin_passkey_required?(scope),
         demo: Application.get_env(:espalier, :auth_demo, false),
         local_accounts: Application.get_env(:espalier, :local_accounts, true),
-        signup: Atom.to_string(Application.get_env(:espalier, :signup, :closed))
+        signup: Atom.to_string(Application.get_env(:espalier, :signup, :closed)),
+        test_notes: Espalier.Insights.test_notes?(),
+        feedback_free_text: Espalier.Insights.feedback_free_text?()
       }
     }
   end

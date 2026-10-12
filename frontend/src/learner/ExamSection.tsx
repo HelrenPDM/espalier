@@ -4,6 +4,7 @@ import { buttonClasses } from "../app/formStyles";
 import { answerComplete } from "../player/items/answers";
 import { useContentLang } from "../player/contentLang";
 import { ItemByKind } from "../player/items/ItemByKind";
+import { useTestNote } from "../player/testNotes";
 import type {
   Answer,
   AttemptResult,
@@ -19,7 +20,7 @@ import { useCurrentPlayer } from "../player/usePlayer";
  * result names the outcome with its reason and shows the feedback per
  * item, never a percentage, a rank or a comparison with other people. "New
  * attempt" clears the answers. The outcome goes to `examOutcomes`, which
- * keeps `passed` once an attempt has passed.
+ * keeps `passed` once an attempt has passed, and to the test session notes.
  */
 export function ExamSection({
   exam,
@@ -30,6 +31,7 @@ export function ExamSection({
 }) {
   const { t } = useTranslation();
   const { runtime, state, update } = useCurrentPlayer();
+  const note = useTestNote();
   const headingId = useId();
   const lang = useContentLang();
   const resultRef = useRef<HTMLDivElement>(null);
@@ -56,6 +58,11 @@ export function ExamSection({
     try {
       const attempt = await runtime.submitAssessment(exam.id, answers);
       setResult(attempt);
+      note({
+        event: "exam_submitted",
+        assessment: exam.id,
+        outcome: attempt.outcome,
+      });
       update((current) => {
         const kept =
           current.examOutcomes[exam.id] === "passed"

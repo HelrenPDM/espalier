@@ -8,7 +8,7 @@ defmodule EspalierWeb.DevE2EControllerTest do
   use EspalierWeb.ConnCase, async: true
 
   alias Espalier.Accounts
-  alias Espalier.Accounts.{MailWorker, Scope, UserToken}
+  alias Espalier.Accounts.{Demo, MailWorker, Scope, User, UserToken}
   alias Espalier.Repo
   alias EspalierWeb.DevE2EController
 
@@ -43,6 +43,34 @@ defmodule EspalierWeb.DevE2EControllerTest do
     assert Accounts.get_user(linked.id) == nil
     assert Accounts.get_user(other.id)
     assert Accounts.get_user(local.id)
+  end
+
+  test "reset-demo deletes the demo users of the listed slots only" do
+    {:ok, first} = Demo.get_or_create_user(11)
+    {:ok, second} = Demo.get_or_create_user(12)
+    {:ok, kept} = Demo.get_or_create_user(13)
+    local = user_fixture()
+
+    # Slot 14 has no user yet, which the route accepts.
+    assert call(:reset_demo, %{"slots" => [11, 12, 14]}).status == 204
+
+    refute Repo.get(User, first.id)
+    refute Repo.get(User, second.id)
+    assert Repo.get(User, kept.id)
+    assert Repo.get(User, local.id)
+    assert Demo.get_user(11) == nil
+  end
+
+  test "reset-demo answers 400 without a list of valid slots" do
+    for params <- [
+          %{},
+          %{"slots" => []},
+          %{"slots" => [0]},
+          %{"slots" => [21]},
+          %{"slots" => ["1"]}
+        ] do
+      assert call(:reset_demo, params).status == 400, inspect(params)
+    end
   end
 
   test "reset answers 400 without a list of keys" do

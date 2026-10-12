@@ -4,6 +4,10 @@ defmodule EspalierWeb.CsrfCoverageTest do
   Sobelow's `Config.CSRF` check compares plug names only, so these tests
   carry the proof that every mutating route checks the token. Every
   exemption needs a row in `docs/security/asvs-l2.md`.
+
+  Task 0014 step 4 places its three POST routes under `[:api,
+  :authenticated]`; the tests below show that the router-wide check covers
+  them and that a request without `x-csrf-token` stores no anonymous row.
   """
   use EspalierWeb.ConnCase, async: true
 
@@ -12,6 +16,14 @@ defmodule EspalierWeb.CsrfCoverageTest do
   # of docs/security/asvs-l2.md records the reason.
   @exemptions [{:post, "/api/integration/credential-lookups"}]
   @mutating ~w(POST PUT PATCH DELETE)
+
+  # Task 0014 step 4: the three POST routes of the anonymous insights sit
+  # under [:api, :authenticated], so the router-wide check covers them.
+  @posts_0014 [
+    {:post, "/api/self-assessments"},
+    {:post, "/api/formats/:id/votes"},
+    {:post, "/api/feedback"}
+  ]
 
   defp routes, do: Phoenix.Router.routes(EspalierWeb.Router)
 
@@ -97,6 +109,60 @@ defmodule EspalierWeb.CsrfCoverageTest do
 
       assert json_response(response, 403) == %{"error" => "csrf"}, path
       assert_received {^ref, %{name: :malicious_csrf}}
+    end
+  end
+
+  test "the covered routes include the POST routes of task 0014" do
+    mutating =
+      for %{verb: verb, path: path} <- routes(),
+          String.upcase(to_string(verb)) in @mutating,
+          do: {verb, path}
+
+    for {verb, path} = route <- @posts_0014 do
+      assert route in (mutating -- @exemptions), inspect(route)
+
+      info =
+        Phoenix.Router.route_info(
+          EspalierWeb.Router,
+          verb |> to_string() |> String.upcase(),
+          concrete_path(path),
+          "localhost"
+        )
+
+      assert info.pipe_through == [:api, :authenticated], inspect(route)
+    end
+  end
+
+  test "the POST routes of task 0014 answer 403 csrf without x-csrf-token and store nothing",
+       %{conn: conn} do
+    program = Espalier.LearningFixtures.publish_demo!()
+    format = Espalier.LearningFixtures.format!(program, "workshop")
+    user = user_fixture()
+    ref = attach_security_events()
+
+    for {path, body} <- [
+          {"/api/self-assessments", %{program_slug: program.slug, segment_key: "daily-users"}},
+          {"/api/formats/#{format.id}/votes", %{choice: "would_use"}},
+          {"/api/feedback", %{program_slug: program.slug, answers: %{usefulness: "very-useful"}}}
+        ] do
+      response =
+        conn
+        |> log_in_user(user)
+        |> put_req_header("content-type", "application/json")
+        |> post(path, JSON.encode!(body))
+
+      assert json_response(response, 403) == %{"error" => "csrf"}, path
+      assert_received {^ref, %{name: :malicious_csrf}}
+    end
+
+    for schema <- [
+          Espalier.Insights.SelfAssessmentResponse,
+          Espalier.Insights.InterestVote,
+          Espalier.Insights.FeedbackResponse,
+          Espalier.Insights.ParticipationMarker,
+          Espalier.Learning.Enrollment
+        ] do
+      assert Espalier.Repo.aggregate(schema, :count) == 0, inspect(schema)
     end
   end
 

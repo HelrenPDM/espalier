@@ -398,6 +398,35 @@
         "title": "Handbook",
         "type": "object"
       },
+      "Participation": {
+        "additionalProperties": false,
+        "description": "What the signed-in user has answered in a program, from the participation markers; it holds no segment and no feedback answer, and the format ids are the user's own votes.",
+        "properties": {
+          "feedback": {
+            "description": "True after the feedback of the program.",
+            "type": "boolean"
+          },
+          "format_votes": {
+            "description": "The ids of the live companion formats of the program that the user voted for.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "self_assessment": {
+            "description": "True after the self-assessment of the program.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "feedback",
+          "format_votes",
+          "self_assessment"
+        ],
+        "title": "Participation",
+        "type": "object"
+      },
       "CredentialLookupResult": {
         "additionalProperties": false,
         "description": "The credentials in force of a person.",
@@ -445,6 +474,126 @@
           "credentials"
         ],
         "title": "CredentialLookupResult",
+        "type": "object"
+      },
+      "FeedbackReport": {
+        "additionalProperties": false,
+        "description": "The distributions of the feedback answers per question.",
+        "properties": {
+          "locale": {
+            "description": "The content language of the program, which the pack text of the report carries.",
+            "type": "string"
+          },
+          "min_group_size": {
+            "description": "`INSIGHTS_MIN_GROUP_SIZE`: a cell whose count lies below it is suppressed.",
+            "type": "integer"
+          },
+          "questions": {
+            "description": "The questions of the feedback station, in their order.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "choices": {
+                  "description": "The number of answers per option or scale value; empty for `free_text`.",
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "cell": {
+                        "$ref": "#/components/schemas/ReportCell"
+                      },
+                      "key": {
+                        "description": "The option key of a `single_choice` question, or the value `1` to `5` of a `scale` question.",
+                        "type": "string"
+                      },
+                      "label": {
+                        "description": "The option label; `null` for a scale value.",
+                        "nullable": true,
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "cell",
+                      "key",
+                      "label"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "free_text": {
+                  "description": "For a `free_text` question, the answers in random order once their number reaches `INSIGHTS_MIN_GROUP_SIZE`, and a suppressed entry before; `null` for the other kinds.",
+                  "nullable": true,
+                  "oneOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "answers": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "count": {
+                          "minimum": 1,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "answers",
+                        "count"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "suppressed": {
+                          "enum": [
+                            true
+                          ],
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "suppressed"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                },
+                "key": {
+                  "type": "string"
+                },
+                "kind": {
+                  "enum": [
+                    "single_choice",
+                    "scale",
+                    "free_text"
+                  ],
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "choices",
+                "free_text",
+                "key",
+                "kind",
+                "label"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "locale",
+          "min_group_size",
+          "questions"
+        ],
+        "title": "FeedbackReport",
         "type": "object"
       },
       "NextStep": {
@@ -661,6 +810,86 @@
         "title": "PasskeyRegistrationRequest",
         "type": "object"
       },
+      "ItemReport": {
+        "additionalProperties": false,
+        "description": "The attempts and the share correct per practice item and month.",
+        "properties": {
+          "locale": {
+            "description": "The content language of the program, which the pack text of the report carries.",
+            "type": "string"
+          },
+          "min_group_size": {
+            "description": "`INSIGHTS_MIN_GROUP_SIZE`: a cell whose count lies below it is suppressed.",
+            "type": "integer"
+          },
+          "months": {
+            "description": "Every month with statistics, in ascending order.",
+            "items": {
+              "description": "The first day of a month.",
+              "format": "date",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "rows": {
+            "description": "One row per live item with statistics, by module number and item position; polls stay out.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "cells": {
+                  "description": "One cell per entry of `months`: the attempts as count and the share correct as value.",
+                  "items": {
+                    "$ref": "#/components/schemas/ReportCell"
+                  },
+                  "type": "array"
+                },
+                "item_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "key": {
+                  "type": "string"
+                },
+                "kind": {
+                  "enum": [
+                    "single_choice",
+                    "multiple_choice",
+                    "slot_builder",
+                    "classification",
+                    "checklist_drill"
+                  ],
+                  "type": "string"
+                },
+                "module_number": {
+                  "type": "integer"
+                },
+                "stem": {
+                  "description": "The question of the item, Markdown from the pack.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "cells",
+                "item_id",
+                "key",
+                "kind",
+                "module_number",
+                "stem"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "locale",
+          "min_group_size",
+          "months",
+          "rows"
+        ],
+        "title": "ItemReport",
+        "type": "object"
+      },
       "InvitationAcceptRequest": {
         "additionalProperties": false,
         "description": "Accepts an invitation and opens an enrollment session.",
@@ -847,6 +1076,31 @@
           "purpose"
         ],
         "title": "OidcIntentRequest",
+        "type": "object"
+      },
+      "SelfAssessmentResult": {
+        "additionalProperties": false,
+        "description": "The path after a self-assessment, stored without the person.",
+        "properties": {
+          "already_recorded": {
+            "description": "True when the user had answered before; the answer and the enrollment stay unchanged.",
+            "type": "boolean"
+          },
+          "path": {
+            "description": "The path of the enrollment afterwards. A new answer applies the segment's default path unless the learner chose the path by hand; `null` only for an answer recorded earlier when the user has no enrollment.",
+            "enum": [
+              "short",
+              "full"
+            ],
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "already_recorded",
+          "path"
+        ],
+        "title": "SelfAssessmentResult",
         "type": "object"
       },
       "AttendanceRequest": {
@@ -1706,6 +1960,10 @@
                 "description": "Mirrors `AUTH_DEMO`.",
                 "type": "boolean"
               },
+              "feedback_free_text": {
+                "description": "Mirrors `FEEDBACK_FREE_TEXT`: the feedback station shows free-text questions.",
+                "type": "boolean"
+              },
               "local_accounts": {
                 "type": "boolean"
               },
@@ -1716,13 +1974,19 @@
                   "domain"
                 ],
                 "type": "string"
+              },
+              "test_notes": {
+                "description": "Mirrors `TEST_NOTES`: the SPA records the test session notes in the browser.",
+                "type": "boolean"
               }
             },
             "required": [
               "admin_passkey_required",
               "demo",
+              "feedback_free_text",
               "local_accounts",
-              "signup"
+              "signup",
+              "test_notes"
             ],
             "type": "object"
           },
@@ -1907,6 +2171,47 @@
         "title": "SessionPayload",
         "type": "object"
       },
+      "FeedbackRequest": {
+        "additionalProperties": false,
+        "description": "The answers to the feedback station, stored without the person.",
+        "properties": {
+          "answers": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "description": "The option key of a `single_choice` question, or the text of a `free_text` question (only with `FEEDBACK_FREE_TEXT=true`).",
+                  "maxLength": 2000,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "description": "The value of a `scale` question.",
+                  "maximum": 5,
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              ]
+            },
+            "description": "The answers by question key of the feedback station. Every key names a question of the station, and at least one question is answered; an answer that does not fit its question answers 422 with the member `answers`.",
+            "maxProperties": 100,
+            "minProperties": 1,
+            "type": "object"
+          },
+          "program_slug": {
+            "description": "The slug of a published program.",
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "^[a-z0-9][a-z0-9-]*$(?!\\n)",
+            "type": "string"
+          }
+        },
+        "required": [
+          "answers",
+          "program_slug"
+        ],
+        "title": "FeedbackRequest",
+        "type": "object"
+      },
       "ApprovedToolList": {
         "additionalProperties": false,
         "description": "The approved tool list.",
@@ -1965,6 +2270,88 @@
           "tools"
         ],
         "title": "ApprovedToolList",
+        "type": "object"
+      },
+      "CompetenceReport": {
+        "additionalProperties": false,
+        "description": "The share correct of the practice items per competence area and depth of the learning objectives they name, and month.",
+        "properties": {
+          "by_org_unit": {
+            "description": "Mirrors `INSIGHTS_ORG_UNIT`.",
+            "type": "boolean"
+          },
+          "locale": {
+            "description": "The content language of the program, which the pack text of the report carries.",
+            "type": "string"
+          },
+          "min_group_size": {
+            "description": "`INSIGHTS_MIN_GROUP_SIZE`: a cell whose count lies below it is suppressed.",
+            "type": "integer"
+          },
+          "months": {
+            "description": "Every month with statistics, in ascending order.",
+            "items": {
+              "description": "The first day of a month.",
+              "format": "date",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "rows": {
+            "description": "One row per competence area and depth (and org unit) with statistics, by area, depth and org unit.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "area": {
+                  "description": "The CORE competence area.",
+                  "enum": [
+                    "subject",
+                    "method",
+                    "self",
+                    "social"
+                  ],
+                  "type": "string"
+                },
+                "cells": {
+                  "description": "One cell per entry of `months`: the attempts as count and the share correct as value.",
+                  "items": {
+                    "$ref": "#/components/schemas/ReportCell"
+                  },
+                  "type": "array"
+                },
+                "depth": {
+                  "enum": [
+                    "know",
+                    "apply",
+                    "judge"
+                  ],
+                  "type": "string"
+                },
+                "org_unit": {
+                  "description": "`null` when `by_org_unit` is false, and in the row of the answers without an org unit.",
+                  "nullable": true,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "area",
+                "cells",
+                "depth",
+                "org_unit"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "by_org_unit",
+          "locale",
+          "min_group_size",
+          "months",
+          "rows"
+        ],
+        "title": "CompetenceReport",
         "type": "object"
       },
       "AcknowledgementView": {
@@ -2052,6 +2439,10 @@
                 "description": "Mirrors `AUTH_DEMO`.",
                 "type": "boolean"
               },
+              "feedback_free_text": {
+                "description": "Mirrors `FEEDBACK_FREE_TEXT`: the feedback station shows free-text questions.",
+                "type": "boolean"
+              },
               "local_accounts": {
                 "type": "boolean"
               },
@@ -2062,13 +2453,19 @@
                   "domain"
                 ],
                 "type": "string"
+              },
+              "test_notes": {
+                "description": "Mirrors `TEST_NOTES`: the SPA records the test session notes in the browser.",
+                "type": "boolean"
               }
             },
             "required": [
               "admin_passkey_required",
               "demo",
+              "feedback_free_text",
               "local_accounts",
-              "signup"
+              "signup",
+              "test_notes"
             ],
             "type": "object"
           },
@@ -2274,6 +2671,24 @@
         "title": "ItemResponseRequest",
         "type": "object"
       },
+      "FormatVoteRequest": {
+        "additionalProperties": false,
+        "description": "An anonymous vote for a companion format; it cannot be changed afterwards.",
+        "properties": {
+          "choice": {
+            "description": "The only choice of a vote.",
+            "enum": [
+              "would_use"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "choice"
+        ],
+        "title": "FormatVoteRequest",
+        "type": "object"
+      },
       "SecondFactorSession": {
         "additionalProperties": false,
         "description": "The full session after the second factor.",
@@ -2292,6 +2707,10 @@
                 "description": "Mirrors `AUTH_DEMO`.",
                 "type": "boolean"
               },
+              "feedback_free_text": {
+                "description": "Mirrors `FEEDBACK_FREE_TEXT`: the feedback station shows free-text questions.",
+                "type": "boolean"
+              },
               "local_accounts": {
                 "type": "boolean"
               },
@@ -2302,13 +2721,19 @@
                   "domain"
                 ],
                 "type": "string"
+              },
+              "test_notes": {
+                "description": "Mirrors `TEST_NOTES`: the SPA records the test session notes in the browser.",
+                "type": "boolean"
               }
             },
             "required": [
               "admin_passkey_required",
               "demo",
+              "feedback_free_text",
               "local_accounts",
-              "signup"
+              "signup",
+              "test_notes"
             ],
             "type": "object"
           },
@@ -2927,6 +3352,32 @@
         "title": "TotpConfirmRequest",
         "type": "object"
       },
+      "SelfAssessmentRequest": {
+        "additionalProperties": false,
+        "description": "The segment that the learner chose in the self-assessment station.",
+        "properties": {
+          "program_slug": {
+            "description": "The slug of a published program.",
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "^[a-z0-9][a-z0-9-]*$(?!\\n)",
+            "type": "string"
+          },
+          "segment_key": {
+            "description": "The key of a live segment of the program.",
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "^[a-z0-9][a-z0-9-]*$(?!\\n)",
+            "type": "string"
+          }
+        },
+        "required": [
+          "program_slug",
+          "segment_key"
+        ],
+        "title": "SelfAssessmentRequest",
+        "type": "object"
+      },
       "EnrollmentPathRequest": {
         "additionalProperties": false,
         "description": "Sets the path by the learner's choice.",
@@ -3117,6 +3568,56 @@
         "title": "PasskeyCreationOptions",
         "type": "object"
       },
+      "FormatReport": {
+        "additionalProperties": false,
+        "description": "The number of \"would use\" votes per companion format.",
+        "properties": {
+          "formats": {
+            "description": "One entry per live companion format, in format order.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "cell": {
+                  "$ref": "#/components/schemas/ReportCell"
+                },
+                "id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "key": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "cell",
+                "id",
+                "key",
+                "title"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "locale": {
+            "description": "The content language of the program, which the pack text of the report carries.",
+            "type": "string"
+          },
+          "min_group_size": {
+            "description": "`INSIGHTS_MIN_GROUP_SIZE`: a cell whose count lies below it is suppressed.",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "formats",
+          "locale",
+          "min_group_size"
+        ],
+        "title": "FormatReport",
+        "type": "object"
+      },
       "ReauthSession": {
         "additionalProperties": false,
         "description": "The reissued session after a re-authentication.",
@@ -3135,6 +3636,10 @@
                 "description": "Mirrors `AUTH_DEMO`.",
                 "type": "boolean"
               },
+              "feedback_free_text": {
+                "description": "Mirrors `FEEDBACK_FREE_TEXT`: the feedback station shows free-text questions.",
+                "type": "boolean"
+              },
               "local_accounts": {
                 "type": "boolean"
               },
@@ -3145,13 +3650,19 @@
                   "domain"
                 ],
                 "type": "string"
+              },
+              "test_notes": {
+                "description": "Mirrors `TEST_NOTES`: the SPA records the test session notes in the browser.",
+                "type": "boolean"
               }
             },
             "required": [
               "admin_passkey_required",
               "demo",
+              "feedback_free_text",
               "local_accounts",
-              "signup"
+              "signup",
+              "test_notes"
             ],
             "type": "object"
           },
@@ -3412,6 +3923,21 @@
           "recovery_codes"
         ],
         "title": "RecoveryCodeList",
+        "type": "object"
+      },
+      "InsightRecorded": {
+        "additionalProperties": false,
+        "description": "Whether an anonymous answer was stored now or before.",
+        "properties": {
+          "already_recorded": {
+            "description": "True when the user had answered before; nothing new was stored.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "already_recorded"
+        ],
+        "title": "InsightRecorded",
         "type": "object"
       },
       "ProviderList": {
@@ -3709,6 +4235,79 @@
         "title": "Glossary",
         "type": "object"
       },
+      "CredentialReport": {
+        "additionalProperties": false,
+        "description": "The number of credentials per qualification and status.",
+        "properties": {
+          "locale": {
+            "description": "The content language of the program, which the pack text of the report carries.",
+            "type": "string"
+          },
+          "min_group_size": {
+            "description": "`INSIGHTS_MIN_GROUP_SIZE`: a cell whose count lies below it is suppressed.",
+            "type": "integer"
+          },
+          "qualifications": {
+            "description": "The live qualifications, then archived ones with credentials.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "archived": {
+                  "description": "True for an archived qualification that still has credentials.",
+                  "type": "boolean"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "statuses": {
+                  "description": "One entry per status, in the order active, refresh_due, expired, revoked.",
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "cell": {
+                        "$ref": "#/components/schemas/ReportCell"
+                      },
+                      "status": {
+                        "enum": [
+                          "active",
+                          "refresh_due",
+                          "expired",
+                          "revoked"
+                        ],
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "cell",
+                      "status"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "title": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "archived",
+                "code",
+                "statuses",
+                "title"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "locale",
+          "min_group_size",
+          "qualifications"
+        ],
+        "title": "CredentialReport",
+        "type": "object"
+      },
       "EmailLookupRequest": {
         "additionalProperties": false,
         "description": "A lookup by e-mail address.",
@@ -3852,6 +4451,118 @@
         ],
         "title": "PasswordSignInRequest",
         "type": "object"
+      },
+      "SelfAssessmentReport": {
+        "additionalProperties": false,
+        "description": "The number of self-assessment answers per segment and month.",
+        "properties": {
+          "by_org_unit": {
+            "description": "Mirrors `INSIGHTS_ORG_UNIT`.",
+            "type": "boolean"
+          },
+          "locale": {
+            "description": "The content language of the program, which the pack text of the report carries.",
+            "type": "string"
+          },
+          "min_group_size": {
+            "description": "`INSIGHTS_MIN_GROUP_SIZE`: a cell whose count lies below it is suppressed.",
+            "type": "integer"
+          },
+          "months": {
+            "description": "Every month with answers, in ascending order.",
+            "items": {
+              "description": "The first day of a month.",
+              "format": "date",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "rows": {
+            "description": "One row per segment (and org unit) with answers, in segment order.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "cells": {
+                  "description": "One cell per entry of `months`, in that order.",
+                  "items": {
+                    "$ref": "#/components/schemas/ReportCell"
+                  },
+                  "type": "array"
+                },
+                "label": {
+                  "description": "The label of the segment; `null` when the program has no segment with this key.",
+                  "nullable": true,
+                  "type": "string"
+                },
+                "org_unit": {
+                  "description": "`null` when `by_org_unit` is false, and in the row of the answers without an org unit.",
+                  "nullable": true,
+                  "type": "string"
+                },
+                "segment_key": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "cells",
+                "label",
+                "org_unit",
+                "segment_key"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "by_org_unit",
+          "locale",
+          "min_group_size",
+          "months",
+          "rows"
+        ],
+        "title": "SelfAssessmentReport",
+        "type": "object"
+      },
+      "ReportCell": {
+        "description": "A cell with its count and value, or a suppressed cell whose count lies below `INSIGHTS_MIN_GROUP_SIZE`; a suppressed cell carries neither.",
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "count": {
+                "description": "The number counted.",
+                "minimum": 1,
+                "type": "integer"
+              },
+              "value": {
+                "description": "The share correct from 0 to 1 in the item and competence reports; the count in every other report.",
+                "type": "number"
+              }
+            },
+            "required": [
+              "count",
+              "value"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "suppressed": {
+                "enum": [
+                  true
+                ],
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "suppressed"
+            ],
+            "type": "object"
+          }
+        ],
+        "title": "ReportCell"
       },
       "DemoSignInRequest": {
         "additionalProperties": false,
@@ -4926,6 +5637,88 @@
         "summary": "Choose the path",
         "tags": [
           "Learning"
+        ]
+      }
+    },
+    "/api/me/participation": {
+      "get": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Me.ParticipationController.show",
+        "parameters": [
+          {
+            "description": "The slug of a published program.",
+            "in": "query",
+            "name": "program",
+            "required": true,
+            "schema": {
+              "description": "The slug of a published program.",
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[a-z0-9][a-z0-9-]*$(?!\\n)",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Participation"
+                }
+              }
+            },
+            "description": "The participation"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `enrollment_required`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "Read the own participation in a program",
+        "tags": [
+          "Insights"
         ]
       }
     },
@@ -6193,6 +6986,106 @@
         ]
       }
     },
+    "/api/feedback": {
+      "post": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.FeedbackController.create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackRequest"
+              }
+            }
+          },
+          "description": "The answers",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InsightRecorded"
+                }
+              }
+            },
+            "description": "Whether the feedback is new"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `enrollment_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `rate_limited`",
+            "headers": {
+              "retry-after": {
+                "description": "Seconds until the bucket admits the next request.",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "style": "simple"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Answer the feedback station",
+        "tags": [
+          "Insights"
+        ]
+      }
+    },
     "/api/me/email/confirm": {
       "post": {
         "callbacks": {},
@@ -6260,6 +7153,89 @@
         "summary": "Confirm an e-mail change",
         "tags": [
           "Account"
+        ]
+      }
+    },
+    "/api/insights/formats": {
+      "get": {
+        "callbacks": {},
+        "description": "The number of \"would use\" votes per companion format.",
+        "operationId": "EspalierWeb.ReportController.formats",
+        "parameters": [
+          {
+            "description": "The slug of a program in any status.",
+            "in": "query",
+            "name": "program",
+            "required": true,
+            "schema": {
+              "description": "The slug of a program in any status.",
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[a-z0-9][a-z0-9-]*$(?!\\n)",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FormatReport"
+                }
+              }
+            },
+            "description": "The report"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "Report the companion format votes",
+        "tags": [
+          "Reports"
         ]
       }
     },
@@ -6481,6 +7457,89 @@
         "summary": "Request an invitation",
         "tags": [
           "Session"
+        ]
+      }
+    },
+    "/api/insights/feedback": {
+      "get": {
+        "callbacks": {},
+        "description": "The choice and scale distributions per question, and the free-text answers in random order once their number reaches the threshold.",
+        "operationId": "EspalierWeb.ReportController.feedback",
+        "parameters": [
+          {
+            "description": "The slug of a program in any status.",
+            "in": "query",
+            "name": "program",
+            "required": true,
+            "schema": {
+              "description": "The slug of a program in any status.",
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[a-z0-9][a-z0-9-]*$(?!\\n)",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackReport"
+                }
+              }
+            },
+            "description": "The report"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "Report the feedback",
+        "tags": [
+          "Reports"
         ]
       }
     },
@@ -6805,6 +7864,117 @@
         ]
       }
     },
+    "/api/formats/{id}/votes": {
+      "post": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.FormatVoteController.create",
+        "parameters": [
+          {
+            "description": "The id of a live companion format of a published program.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FormatVoteRequest"
+              }
+            }
+          },
+          "description": "The choice",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InsightRecorded"
+                }
+              }
+            },
+            "description": "Whether the vote is new"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `enrollment_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `rate_limited`",
+            "headers": {
+              "retry-after": {
+                "description": "Seconds until the bucket admits the next request.",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "style": "simple"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Vote for a companion format",
+        "tags": [
+          "Insights"
+        ]
+      }
+    },
     "/api/auth/demo": {
       "post": {
         "callbacks": {},
@@ -6895,6 +8065,89 @@
         ]
       }
     },
+    "/api/insights/self-assessment": {
+      "get": {
+        "callbacks": {},
+        "description": "The number of answers per segment and month, and per org unit when enabled.",
+        "operationId": "EspalierWeb.ReportController.self_assessment",
+        "parameters": [
+          {
+            "description": "The slug of a program in any status.",
+            "in": "query",
+            "name": "program",
+            "required": true,
+            "schema": {
+              "description": "The slug of a program in any status.",
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[a-z0-9][a-z0-9-]*$(?!\\n)",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SelfAssessmentReport"
+                }
+              }
+            },
+            "description": "The report"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "Report the self-assessment segments",
+        "tags": [
+          "Reports"
+        ]
+      }
+    },
     "/api/session": {
       "delete": {
         "callbacks": {},
@@ -6969,6 +8222,89 @@
         "summary": "Read the session payload",
         "tags": [
           "Session"
+        ]
+      }
+    },
+    "/api/insights/competence": {
+      "get": {
+        "callbacks": {},
+        "description": "The share correct of the practice items per competence area and depth of the learning objectives they name, per month, and per org unit when enabled.",
+        "operationId": "EspalierWeb.ReportController.competence",
+        "parameters": [
+          {
+            "description": "The slug of a program in any status.",
+            "in": "query",
+            "name": "program",
+            "required": true,
+            "schema": {
+              "description": "The slug of a program in any status.",
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[a-z0-9][a-z0-9-]*$(?!\\n)",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompetenceReport"
+                }
+              }
+            },
+            "description": "The report"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "Report the competence areas",
+        "tags": [
+          "Reports"
         ]
       }
     },
@@ -7138,6 +8474,89 @@
         "summary": "List the approved tools",
         "tags": [
           "Policies"
+        ]
+      }
+    },
+    "/api/insights/items": {
+      "get": {
+        "callbacks": {},
+        "description": "The attempts and the share correct per practice item and month.",
+        "operationId": "EspalierWeb.ReportController.items",
+        "parameters": [
+          {
+            "description": "The slug of a program in any status.",
+            "in": "query",
+            "name": "program",
+            "required": true,
+            "schema": {
+              "description": "The slug of a program in any status.",
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[a-z0-9][a-z0-9-]*$(?!\\n)",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemReport"
+                }
+              }
+            },
+            "description": "The report"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "Report the practice items",
+        "tags": [
+          "Reports"
         ]
       }
     },
@@ -7438,6 +8857,107 @@
         "summary": "Start the authenticator app setup",
         "tags": [
           "Account"
+        ]
+      }
+    },
+    "/api/self-assessments": {
+      "post": {
+        "callbacks": {},
+        "description": "Stores the segment without the person and applies its default path to the enrollment, which this call creates when none exists. A second answer of the same person stores nothing and changes nothing.",
+        "operationId": "EspalierWeb.SelfAssessmentController.create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SelfAssessmentRequest"
+              }
+            }
+          },
+          "description": "The program and the segment",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SelfAssessmentResult"
+                }
+              }
+            },
+            "description": "The path"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `enrollment_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `rate_limited`",
+            "headers": {
+              "retry-after": {
+                "description": "Seconds until the bucket admits the next request.",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "style": "simple"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Answer the self-assessment",
+        "tags": [
+          "Insights"
         ]
       }
     },
@@ -7848,6 +9368,89 @@
         "summary": "List the own sessions",
         "tags": [
           "Account"
+        ]
+      }
+    },
+    "/api/insights/credentials": {
+      "get": {
+        "callbacks": {},
+        "description": "The number of credentials per qualification and status.",
+        "operationId": "EspalierWeb.ReportController.credentials",
+        "parameters": [
+          {
+            "description": "The slug of a program in any status.",
+            "in": "query",
+            "name": "program",
+            "required": true,
+            "schema": {
+              "description": "The slug of a program in any status.",
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[a-z0-9][a-z0-9-]*$(?!\\n)",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CredentialReport"
+                }
+              }
+            },
+            "description": "The report"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "Report the credentials",
+        "tags": [
+          "Reports"
         ]
       }
     },

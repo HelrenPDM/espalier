@@ -1,7 +1,26 @@
 defmodule Espalier.RuntimeConfigTest do
+  @moduledoc """
+  `Espalier.RuntimeConfig.parse!/2` with the defaults, valid values and
+  invalid values of its variables: the account and session settings of
+  task 0004 (section "Addendum: implementation"), `TRACKING_DETAIL` and
+  `INSIGHTS_ORG_UNIT` of task 0009 (step 9), the credential settings of
+  task 0013 (step 2), and the insights settings of task 0014 (steps 4, 10
+  and 13) together with the crontab entry of the retention job and the
+  bucket `insights_write` in `config/config.exs`.
+  """
   use ExUnit.Case, async: true
 
   alias Espalier.RuntimeConfig
+
+  # The retention variables of task 0014 and their keys under :insights.
+  @retention_keys %{
+    "RETENTION_ITEM_RESPONSES_DAYS" => :retention_item_responses_days,
+    "RETENTION_ANONYMOUS_DAYS" => :retention_anonymous_days,
+    "RETENTION_AUDIT_DAYS" => :retention_audit_days,
+    "RETENTION_ATTEMPTS_DAYS" => :retention_attempts_days
+  }
+
+  defp insights(env), do: RuntimeConfig.parse!(env, :dev)[:insights]
 
   test "defaults without any variable" do
     config = RuntimeConfig.parse!(%{}, :dev)
@@ -193,6 +212,102 @@ defmodule Espalier.RuntimeConfigTest do
           )
         end
       end
+    end
+  end
+
+  describe "the variables of task 0014 (spec step 10)" do
+    test "default to a group size of 5, no free text, no test notes and no retention period" do
+      config = RuntimeConfig.parse!(%{}, :dev)
+
+      assert config[:insights] == [
+               min_group_size: 5,
+               feedback_free_text: false,
+               test_notes: false,
+               retention_item_responses_days: nil,
+               retention_anonymous_days: nil,
+               retention_audit_days: nil,
+               retention_attempts_days: nil
+             ]
+
+      # The settings sit under :insights alone, so that config/runtime.exs
+      # sets config :espalier, :insights.
+      for key <- Keyword.keys(config[:insights]), do: refute(Keyword.has_key?(config, key))
+    end
+
+    test "INSIGHTS_MIN_GROUP_SIZE accepts an integer of at least 1" do
+      assert insights(%{"INSIGHTS_MIN_GROUP_SIZE" => "3"})[:min_group_size] == 3
+      assert insights(%{"INSIGHTS_MIN_GROUP_SIZE" => "1"})[:min_group_size] == 1
+      assert insights(%{"INSIGHTS_MIN_GROUP_SIZE" => ~s("10")})[:min_group_size] == 10
+    end
+
+    test "INSIGHTS_MIN_GROUP_SIZE rejects other values with the variable name" do
+      for value <- ["0", "-1", "x", "1.5"] do
+        assert_raise ArgumentError, ~r/^INSIGHTS_MIN_GROUP_SIZE /, fn ->
+          RuntimeConfig.parse!(%{"INSIGHTS_MIN_GROUP_SIZE" => value}, :dev)
+        end
+      end
+    end
+
+    test "FEEDBACK_FREE_TEXT and TEST_NOTES accept true and false" do
+      assert insights(%{"FEEDBACK_FREE_TEXT" => "true"})[:feedback_free_text] == true
+      assert insights(%{"FEEDBACK_FREE_TEXT" => "false"})[:feedback_free_text] == false
+      assert insights(%{"TEST_NOTES" => "true"})[:test_notes] == true
+      assert insights(%{"TEST_NOTES" => "false"})[:test_notes] == false
+
+      # Each variable sets its own key.
+      assert insights(%{"TEST_NOTES" => "true"})[:feedback_free_text] == false
+      assert insights(%{"FEEDBACK_FREE_TEXT" => "true"})[:test_notes] == false
+    end
+
+    test "FEEDBACK_FREE_TEXT and TEST_NOTES reject other values with the variable name" do
+      for name <- ["FEEDBACK_FREE_TEXT", "TEST_NOTES"], value <- ["yes", "TRUE", "1"] do
+        assert_raise ArgumentError, "#{name} must be true or false", fn ->
+          RuntimeConfig.parse!(%{name => value}, :dev)
+        end
+      end
+    end
+
+    test "each RETENTION_* variable is unset by default and accepts a positive number of days" do
+      for {name, key} <- @retention_keys do
+        assert insights(%{})[key] == nil
+        assert insights(%{name => "30"})[key] == 30
+        assert insights(%{name => ~s("365")})[key] == 365
+
+        # The empty value of .env.example counts as unset.
+        assert insights(%{name => ""})[key] == nil
+
+        # A variable sets its own period and no other.
+        others = Map.values(@retention_keys) -- [key]
+        assert Enum.all?(others, &(insights(%{name => "30"})[&1] == nil)), name
+      end
+    end
+
+    test "each RETENTION_* variable rejects other values with the variable name" do
+      for name <- Map.keys(@retention_keys), value <- ["0", "abc", "-7", "30d"] do
+        assert_raise ArgumentError, ~r/^#{name} /, fn ->
+          RuntimeConfig.parse!(%{name => value}, :dev)
+        end
+      end
+    end
+
+    test "config/config.exs registers the retention job at 03:30 and the bucket insights_write" do
+      config = Config.Reader.read!("config/config.exs", env: :prod, target: :host)
+
+      crontab =
+        config
+        |> get_in([:espalier, Oban, :plugins])
+        |> Enum.find_value(fn
+          {Oban.Plugins.Cron, opts} -> opts[:crontab]
+          _plugin -> nil
+        end)
+
+      assert {"30 3 * * *", Espalier.Insights.RetentionWorker} in crontab
+      assert config[:espalier][:rate_limits][:insights_write] == {:timer.minutes(1), 30}
+
+      # config/test.exs replaces the map of config/config.exs as a whole, so
+      # it names the bucket as well.
+      test_config = Config.Reader.read!("config/config.exs", env: :test, target: :host)
+      assert {_scale, _limit} = test_config[:espalier][:rate_limits][:insights_write]
     end
   end
 

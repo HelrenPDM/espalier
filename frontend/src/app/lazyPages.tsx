@@ -21,6 +21,13 @@ const HandbookPageChunk = lazy(() =>
 const PoliciesPageChunk = lazy(() =>
   import("../learner/PoliciesPage").then((m) => ({ default: m.PoliciesPage })),
 );
+// The reports page of the analysts (0014) loads in a chunk of its own, so
+// learners never load it.
+const InsightsPageChunk = lazy(() =>
+  import("../admin/insights/InsightsPage").then((m) => ({
+    default: m.InsightsPage,
+  })),
+);
 
 function Chunk({ children }: { children: ReactNode }) {
   return <Suspense fallback={<LoadingStatus />}>{children}</Suspense>;
@@ -70,6 +77,14 @@ export function PoliciesPage() {
   return (
     <Chunk>
       <PoliciesPageChunk />
+    </Chunk>
+  );
+}
+
+export function InsightsPage() {
+  return (
+    <Chunk>
+      <InsightsPageChunk />
     </Chunk>
   );
 }

@@ -9,13 +9,16 @@ import {
   type Session,
 } from "../api/session";
 import { listenMessages } from "../app/messages";
+import { resetTestNotes } from "../learner/test-notes/store";
 
 /**
  * Session changes and their synchronization across tabs (task 0011, step 4;
  * ASVS 3.5.1, 3.5.5, 14.3.1). Every response that issues or ends a session
  * token leads to `sessionChanged`, which refetches the session, and with it
  * the new CSRF token, and tells the other tabs through `BroadcastChannel`.
- * A message carries the kind of change only.
+ * A message carries the kind of change only. A sign-out and a sign-in also
+ * end the test session notes of the tab (task 0014, step 11), so the next
+ * person in the same tab does not see the events of the previous one.
  */
 export type SessionChangeKind = "signed-in" | "renewed" | "signed-out";
 
@@ -47,13 +50,15 @@ function post(message: SessionMessage) {
 
 /**
  * Drops every value of the signed-out account (ASVS 14.3.1): every cached
- * query except the session, every mutation, and the data of the session
- * query. The session query stays in the cache and returns to its initial
- * state without a refetch: the observer of `SessionProvider` keeps it (a
- * removed query would leave that observer on the old data), and the guards
- * wait until the caller has navigated and refetches the session.
+ * query except the session, every mutation, the data of the session query
+ * and the test session notes of this tab (`resetTestNotes`). The session
+ * query stays in the cache and returns to its initial state without a
+ * refetch: the observer of `SessionProvider` keeps it (a removed query
+ * would leave that observer on the old data), and the guards wait until
+ * the caller has navigated and refetches the session.
  */
 export function clearAccountData(queryClient: QueryClient): void {
+  resetTestNotes();
   queryClient.removeQueries({
     predicate: (query) => query.queryKey[0] !== sessionQueryKey[0],
   });
@@ -77,8 +82,10 @@ export function refreshSession(
 
 /**
  * Handles a session change of this tab: `signed-out` clears the account
- * data first (`clearAccountData`); then the session is refetched and the other tabs receive
- * `{ kind }`. The promise settles after the refetch, also when it fails.
+ * data first (`clearAccountData`), and `signed-in` ends the test session
+ * notes of the previous session (`resetTestNotes`); then the session is
+ * refetched and the other tabs receive `{ kind }`. The promise settles
+ * after the refetch, also when it fails.
  */
 export async function sessionChanged(
   kind: SessionChangeKind,
@@ -86,6 +93,7 @@ export async function sessionChanged(
   client: ApiClient,
 ): Promise<void> {
   if (kind === "signed-out") clearAccountData(queryClient);
+  else if (kind === "signed-in") resetTestNotes();
   const refreshed = refreshSession(queryClient, client).catch(() => undefined);
   post({ kind });
   await refreshed;
@@ -123,9 +131,10 @@ export function useSessionEvents() {
  * Follows the session changes of other tabs. Mounted once next to
  * `SessionProvider`. Every valid message refetches the session; `signed-out`
  * runs `onSignedOut`, which clears the account data and opens `/sign-in`
- * before the refetch. `listenMessages` drops every message that
- * `parseSessionMessage` rejects, so a malformed message triggers no request
- * (ASVS 3.5.5).
+ * before the refetch, and `signed-in` ends the test session notes of this
+ * tab first, because the tab now belongs to the session of the other tab.
+ * `listenMessages` drops every message that `parseSessionMessage` rejects,
+ * so a malformed message triggers no request (ASVS 3.5.5).
  */
 export function useSessionTabSync(onSignedOut?: () => Promise<void>): void {
   const queryClient = useQueryClient();
@@ -141,6 +150,7 @@ export function useSessionTabSync(onSignedOut?: () => Promise<void>): void {
   const handle = useCallback(
     async (message: SessionMessage) => {
       if (message.kind !== "signed-out") {
+        if (message.kind === "signed-in") resetTestNotes();
         await refreshSession(queryClient, client).catch(() => undefined);
       } else if (signedOut.current) {
         await signedOut.current();
