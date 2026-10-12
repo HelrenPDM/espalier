@@ -13,6 +13,25 @@ defmodule Espalier.Interop do
   and the stored `file_name` only, so that no request parameter names a
   file (ASVS 5.3.2 and 5.4.1).
 
+  The worker changes the status of an export only through
+  `transition_export/3`, one conditional `UPDATE` that names the statuses
+  it starts from, so that the worker and `Espalier.Interop.StaleExportWorker`
+  never both end one export.
+
+  `config :espalier, :export_retention` bounds the exports that the platform
+  keeps (`retention/0`, ASVS 15.2.2):
+
+    * `max_age_days` (default 7): an export with status `done` or `failed`
+      whose `updated_at` lies more days back is deleted with its files;
+    * `max_packages` (default 100): of the exports with status `done`, the
+      newest `max_packages` stay, and every older one is deleted with its
+      package.
+
+  `prune_exports/1` applies both rules and removes the files below
+  `EXPORT_DIR` that belong to no export. The worker applies the count rule
+  after each export that reaches `done`, and the sweep every rule every 15
+  minutes. A deleted export answers 404 on both routes.
+
   The manifests come from the fixed EEx templates
   `priv/scorm/imsmanifest_12.xml.eex` and
   `priv/scorm/imsmanifest_2004.xml.eex`, compiled into this module, and
@@ -21,6 +40,9 @@ defmodule Espalier.Interop do
   """
 
   require EEx
+  require Logger
+
+  import Ecto.Query, only: [from: 2]
 
   alias Ecto.Multi
   alias Espalier.Accounts.Scope
@@ -47,8 +69,17 @@ defmodule Espalier.Interop do
     "'" => "&apos;"
   }
 
+  @retention_defaults [max_age_days: 7, max_packages: 100]
+
+  # The names of the entries that the worker writes below EXPORT_DIR: the
+  # build directory, the partial zip and the zip of an export id.
+  @export_entry ~r/\A([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.(?:build|zip\.part|zip)\z/
+
   @typedoc "A SCORM version of an export."
   @type scorm_version :: :scorm12 | :scorm2004
+
+  @typedoc "The status of an export."
+  @type export_status :: :queued | :running | :done | :failed
 
   ## XML
 
@@ -157,12 +188,80 @@ defmodule Espalier.Interop do
   `{:error, :not_found}`.
   """
   def package_path(%Export{status: :done, file_name: file_name}) do
-    path = plain_basename?(file_name) && Path.join(export_dir(), file_name)
+    path = stored_path(file_name)
 
     if path && File.regular?(path), do: {:ok, path}, else: {:error, :not_found}
   end
 
   def package_path(%Export{}), do: {:error, :export_not_ready}
+
+  @doc """
+  The paths that the worker writes for the export `id` below `export_dir/0`:
+  the build directory `<id>.build`, the partial zip `<id>.zip.part` and the
+  package `<id>.zip`. `id` is the id of an export row, a UUID.
+  """
+  @spec export_paths(Ecto.UUID.t()) :: %{build: String.t(), part: String.t(), zip: String.t()}
+  def export_paths(id) when is_binary(id) do
+    dir = export_dir()
+
+    %{
+      build: Path.join(dir, "#{id}.build"),
+      part: Path.join(dir, "#{id}.zip.part"),
+      zip: Path.join(dir, "#{id}.zip")
+    }
+  end
+
+  @doc """
+  Removes the files of the export `id`: the three paths of
+  `export_paths/1` and, for a plain basename `file_name`, the stored
+  package that `package_path/1` reads. A symbolic link is removed as a
+  link; its target stays. Each failed removal is logged as `export file
+  not removed: <name>, <reason>`, and the function then returns `:error`.
+  """
+  @spec remove_export_files(Ecto.UUID.t(), String.t() | nil) :: :ok | :error
+  def remove_export_files(id, file_name \\ nil) do
+    paths = export_paths(id)
+
+    results =
+      [paths.build, paths.part, paths.zip, stored_path(file_name)]
+      |> Enum.reject(&is_nil/1)
+      |> Enum.uniq()
+      |> Enum.map(&remove_entry/1)
+
+    if Enum.all?(results, &(&1 == :ok)), do: :ok, else: :error
+  end
+
+  @doc """
+  Changes the status of `export` only while its stored status is one of
+  `from`: one `UPDATE exports ... WHERE id = $1 AND status IN (...)
+  RETURNING *`, which also sets `updated_at`. `attrs` holds `status` and
+  optionally `file_name` and `error`, which `Export.status_changeset/2`
+  checks; an invalid value raises `Ecto.InvalidChangesetError`.
+
+  Returns `{:ok, export}` with the stored row, or `{:error, :stale}` when
+  the export has another status or is gone, for example because
+  `Espalier.Interop.StaleExportWorker` set it to `failed` in the meantime.
+  PostgreSQL evaluates the condition on the current row version, so of two
+  concurrent transitions of one export at most one succeeds.
+  """
+  @spec transition_export(Export.t(), [export_status()], map()) ::
+          {:ok, Export.t()} | {:error, :stale}
+  def transition_export(%Export{id: id} = export, from, attrs)
+      when is_list(from) and is_map(attrs) do
+    target = export |> Export.status_changeset(attrs) |> Ecto.Changeset.apply_action!(:update)
+
+    changes =
+      for field <- [:status, :file_name, :error],
+          Map.has_key?(attrs, field),
+          do: {field, Map.fetch!(target, field)}
+
+    query = from(e in Export, where: e.id == ^id and e.status in ^from, select: e)
+
+    case Repo.update_all(query, set: [{:updated_at, DateTime.utc_now(:second)} | changes]) do
+      {1, [updated]} -> {:ok, updated}
+      {0, []} -> {:error, :stale}
+    end
+  end
 
   @doc """
   The file name of a download, `<program slug>-module-<number>-<scorm_version>.zip`,
@@ -179,12 +278,184 @@ defmodule Espalier.Interop do
   @spec export_dir() :: String.t()
   def export_dir, do: :espalier |> Application.fetch_env!(:export_dir) |> Path.expand()
 
+  ## Retention
+
+  @doc """
+  The retention of exports from `config :espalier, :export_retention`:
+  `max_age_days` (default 7) and `max_packages` (default 100), each a
+  positive integer. Another value raises `ArgumentError`.
+  """
+  @spec retention() :: %{max_age_days: pos_integer(), max_packages: pos_integer()}
+  def retention do
+    config = Application.get_env(:espalier, :export_retention, [])
+
+    Map.new(@retention_defaults, fn {key, default} ->
+      case Keyword.get(config, key, default) do
+        value when is_integer(value) and value > 0 ->
+          {key, value}
+
+        value ->
+          raise ArgumentError,
+                "export_retention #{key} must be a positive integer, got: #{inspect(value)}"
+      end
+    end)
+  end
+
+  @doc """
+  Deletes exports by the rules of `retention/0` and removes their files.
+
+    * `:count` deletes every export with status `done` except the newest
+      `max_packages`, ordered by `updated_at`, `inserted_at` and id. The
+      option `keep: id` names an export that counts as the newest: the
+      export worker passes the export it has just finished, which may share
+      its `updated_at` second with an earlier one.
+    * `:all` first deletes every export with status `done` or `failed`
+      whose `updated_at` lies more than `max_age_days` back, then applies
+      `:count`, and finally removes the orphans: the direct entries of
+      `EXPORT_DIR` named `<uuid>.build`, `<uuid>.zip.part` or `<uuid>.zip`
+      whose id has no export row. Other names, deeper entries and the
+      targets of symbolic links stay untouched.
+
+  Each rule deletes its rows with one `DELETE ... RETURNING id, file_name`
+  and removes the files of exactly these rows after the statement has
+  committed, so a download that reads the row afterwards answers 404. A
+  failed removal is logged, and the orphan step of the next sweep removes
+  the file. An export with status `queued` or `running` is never deleted.
+  Call the function outside a transaction.
+
+  Logs `export deleted: export <id>, <rule>` per deleted export and
+  `export file without export removed: <name>` per orphan, and returns the
+  deleted ids and the removed orphan names.
+  """
+  @spec prune_exports(:count | :all, keyword()) :: %{
+          deleted: [Ecto.UUID.t()],
+          orphans: [String.t()]
+        }
+  def prune_exports(mode, opts \\ [])
+
+  def prune_exports(:count, opts),
+    do: %{deleted: delete_over_limit(retention(), opts[:keep]), orphans: []}
+
+  def prune_exports(:all, opts) do
+    retention = retention()
+    expired = delete_expired(retention)
+    over_limit = delete_over_limit(retention, opts[:keep])
+    %{deleted: expired ++ over_limit, orphans: remove_orphans()}
+  end
+
+  defp delete_expired(%{max_age_days: days}) do
+    before = DateTime.add(DateTime.utc_now(:second), -days, :day)
+
+    delete_exports(
+      from(e in Export, where: e.status in [:done, :failed] and e.updated_at < ^before),
+      "older than #{days} days"
+    )
+  end
+
+  # The outer condition on the status holds also for a row that a
+  # concurrent statement changed, because PostgreSQL checks it again on the
+  # current row version.
+  defp delete_over_limit(%{max_packages: max}, keep) do
+    done =
+      case keep do
+        nil ->
+          from(e in Export, where: e.status == :done)
+
+        id ->
+          from(e in Export,
+            where: e.status == :done,
+            order_by: [desc: fragment("? = ?", e.id, type(^id, :binary_id))]
+          )
+      end
+
+    older =
+      from(e in done,
+        order_by: [desc: e.updated_at, desc: e.inserted_at, desc: e.id],
+        offset: ^max,
+        select: e.id
+      )
+
+    delete_exports(
+      from(e in Export, where: e.status == :done and e.id in subquery(older)),
+      "beyond the newest #{max} packages"
+    )
+  end
+
+  defp delete_exports(query, rule) do
+    {_count, rows} = Repo.delete_all(from(e in query, select: {e.id, e.file_name}))
+
+    for {id, file_name} <- rows do
+      Logger.info("export deleted: export #{id}, #{rule}")
+      remove_export_files(id, file_name)
+      id
+    end
+  end
+
+  # The names come from the listing of EXPORT_DIR and match @export_entry,
+  # so every path is a direct entry of EXPORT_DIR.
+  # sobelow_skip ["Traversal.FileModule"]
+  defp remove_orphans do
+    dir = export_dir()
+
+    entries =
+      case File.ls(dir) do
+        {:ok, names} ->
+          for name <- Enum.sort(names),
+              [_name, id] <- [Regex.run(@export_entry, name)],
+              do: {id, name}
+
+        {:error, _reason} ->
+          []
+      end
+
+    known = known_ids(entries |> Enum.map(&elem(&1, 0)) |> Enum.uniq())
+
+    Enum.flat_map(entries, fn {id, name} ->
+      with false <- MapSet.member?(known, id),
+           :ok <- remove_entry(Path.join(dir, name)) do
+        Logger.info("export file without export removed: #{name}")
+        [name]
+      else
+        _kept -> []
+      end
+    end)
+  end
+
+  defp known_ids([]), do: MapSet.new()
+
+  defp known_ids(ids),
+    do: MapSet.new(Repo.all(from(e in Export, where: e.id in ^ids, select: e.id)))
+
+  # File.rm_rf/1 removes a symbolic link without following it, also below a
+  # directory, and treats a missing path as removed.
+  # sobelow_skip ["Traversal.FileModule"]
+  defp remove_entry(path) do
+    case File.rm_rf(path) do
+      {:ok, _removed} ->
+        :ok
+
+      {:error, reason, file} ->
+        Logger.warning(
+          "export file not removed: #{Path.relative_to(file, export_dir())}, " <>
+            "#{:file.format_error(reason)}"
+        )
+
+        :error
+    end
+  end
+
   # A live module of a published program, with its program.
   defp published_module(id) do
     case Ecto.UUID.cast(id) do
       {:ok, uuid} -> Catalog.learner_module(uuid)
       :error -> {:error, :not_found}
     end
+  end
+
+  # The path of a stored file name below EXPORT_DIR, or nil when the name is
+  # no plain basename.
+  defp stored_path(file_name) do
+    if plain_basename?(file_name), do: Path.join(export_dir(), file_name)
   end
 
   defp plain_basename?(name) when is_binary(name) do

@@ -17,7 +17,9 @@ defmodule EspalierWeb.Admin.ExportController do
   the generated name `<program slug>-module-<number>-<scorm_version>.zip`
   for `content-disposition` (ASVS 5.4.2). While the export is `queued`,
   `running` or `failed`, the download answers 409 `export_not_ready`, which
-  this controller renders itself.
+  this controller renders itself. An export that the retention of
+  `Espalier.Interop.prune_exports/1` deleted has no row, so both GET routes
+  answer 404.
   """
   use EspalierWeb, :controller
   use OpenApiSpex.ControllerSpecs

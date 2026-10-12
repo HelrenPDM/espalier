@@ -918,13 +918,15 @@
         "download": "Paket herunterladen",
         "error": "Grund:",
         "loading": "Der Status wird geladen …",
-        "loadFailed": "Der aktuelle Status konnte nicht geladen werden."
+        "loadFailed": "Der aktuelle Status konnte nicht geladen werden.",
+        "removed": "Dieser Export ist nicht mehr verfügbar. Der Server bewahrt Exporte für eine begrenzte Zeit und in begrenzter Zahl auf und hat diesen mit seinem Paket gelöscht. Fordern Sie den Export erneut an, um ein neues Paket zu erhalten."
       },
       "status": {
         "queued": "In der Warteschlange",
         "running": "Läuft",
         "done": "Bereit zum Herunterladen",
-        "failed": "Fehlgeschlagen"
+        "failed": "Fehlgeschlagen",
+        "removed": "Nicht mehr verfügbar"
       }
     },
     "users": {

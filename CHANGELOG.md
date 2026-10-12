@@ -307,9 +307,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   of the module, `imsmanifest.xml` and the schema files of the version, and
   the request writes the audit event `export.requested`. The job reads the
   content under a shared advisory lock of the pack, so a running publish of
-  the pack ends first, and `Espalier.Interop.StaleExportWorker` sets an
-  export that stays `queued` or `running` for more than one hour to
-  `failed` every 15 minutes and removes its files.
+  the pack ends first, and runs at most 30 minutes. Every 15 minutes,
+  `Espalier.Interop.StaleExportWorker` sets an export that stays `queued` or
+  `running` for more than twice that time, at least one hour, to `failed` and
+  removes its files. The worker changes a status only from the statuses it
+  expects, with one conditional `UPDATE`, so a build that ends after the
+  sweep failed its export removes its package and sets no status.
+- The retention of SCORM exports (task 0016): `config :espalier,
+  :export_retention` keeps at most `max_packages` (100) packages of `done`
+  exports and deletes `done` and `failed` exports after `max_age_days` (7)
+  with their files. The worker applies the count limit after each finished
+  export, the sweep applies both limits and removes the files in
+  `EXPORT_DIR` without an export row, and a deleted export answers 404. The
+  admin page shows such an export as no longer available, without its
+  download link.
 - The SCORM player (task 0016): a second Vite build
   (`npm --prefix frontend run build:scorm`) bundles the module station and the
   glossary with `Scorm12Runtime` and `Scorm2004Runtime` into

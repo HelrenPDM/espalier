@@ -32,6 +32,14 @@ export const exportInProgress = (status: ExportStatus): boolean =>
   status === "queued" || status === "running";
 
 /**
+ * True for the answer 404 to the read of an export the page has listed:
+ * the server deleted the export with its package, for example after the
+ * retention period (`config :espalier, :export_retention`).
+ */
+export const exportRemoved = (error: unknown): boolean =>
+  error instanceof ApiError && error.status === 404;
+
+/**
  * The interval of the next read of an export: every two seconds while the
  * last answer is `queued` or `running`, and no further read once it is
  * `done` or `failed`. An `ApiError` below 500, such as 404, ends the reads,
@@ -78,7 +86,9 @@ export function useExportModules(slug: string | null) {
  * `GET /api/admin/exports/:id`. The query reads the export again every two
  * seconds while its status is `queued` or `running` (`exportPollInterval`).
  * The request puts its answer into the cache, so the first read follows one
- * interval after the request.
+ * interval after the request. A finished export is read again when the
+ * window regains focus, so that the page learns of an export that the
+ * server has deleted; after a 404 the export is not read again.
  */
 export function useExport(id: string) {
   const client = useApiClient();
@@ -92,6 +102,7 @@ export function useExport(id: string) {
       ),
     staleTime: EXPORT_POLL_INTERVAL,
     refetchInterval: (query) => exportPollInterval(query.state),
+    refetchOnWindowFocus: (query) => !exportRemoved(query.state.error),
   });
 }
 

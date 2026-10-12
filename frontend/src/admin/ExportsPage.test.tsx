@@ -19,7 +19,8 @@ import { ExportsPage } from "./ExportsPage";
  * `POST /api/admin/exports` with exactly `module_id` and `scorm_version`.
  * The page lists the requested exports in a status region and reads each
  * one every two seconds while it is `queued` or `running`; a `done` export
- * links its download, a `failed` one shows the error text.
+ * links its download, a `failed` one shows the error text, and one whose
+ * read answers 404 was deleted on the server and shows no download link.
  */
 type ProgramView = components["schemas"]["ProgramView"];
 type ProgramModule = ProgramView["modules"][number];
@@ -91,6 +92,9 @@ const exportOf = (overrides: Partial<AdminExport> = {}): AdminExport => ({
 });
 
 const done = exportOf({ status: "done", download_path: DOWNLOAD });
+
+const REMOVED =
+  "This export is no longer available. The server keeps exports for a limited time and in a limited number, and it has deleted this one with its package. Request the export again for a new package.";
 
 function renderPage(responses: StubResponses = {}) {
   return renderWithProviders(<ExportsPage />, {
@@ -413,7 +417,7 @@ describe("the list of exports", () => {
     expect(requestsTo(requests, "GET", SHOW)).toHaveLength(1);
   });
 
-  test("stops reading an export that answers 404 and says so", async () => {
+  test("stops reading an export that answers 404 and says it is no longer available", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const { user, requests } = renderPage({
       [`GET ${SHOW}`]: { status: 404, body: { error: "not_found" } },
@@ -423,14 +427,54 @@ describe("the list of exports", () => {
     const entry = await within(exportList()).findByRole("listitem");
     await advance(2000);
 
-    await waitFor(() =>
-      expect(entry).toHaveTextContent(
-        "The current status could not be loaded.",
-      ),
+    await waitFor(() => expect(entry).toHaveTextContent(REMOVED));
+    expect(entry).toHaveTextContent("StatusNo longer available");
+    expect(entry).toHaveAttribute("data-status", "removed");
+    expect(entry).not.toHaveTextContent(
+      "The current status could not be loaded.",
     );
-    expect(entry).toHaveTextContent("StatusQueued");
     await advance(6000);
     expect(requestsTo(requests, "GET", SHOW)).toHaveLength(1);
+  });
+
+  test("a done export that the server deleted loses its download link", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { user, requests } = renderPage({
+      [`GET ${SHOW}`]: [
+        { status: 200, body: done },
+        { status: 404, body: { error: "not_found" } },
+      ],
+    });
+
+    await requestExport(user);
+    const entry = await within(exportList()).findByRole("listitem");
+    await advance(2000);
+    await within(entry).findByRole("link", { name: /Download the package/ });
+
+    // A finished export is read again when the window regains focus.
+    await advance(2000);
+    await act(async () => {
+      window.dispatchEvent(new Event("visibilitychange"));
+    });
+
+    await waitFor(() => expect(entry).toHaveTextContent(REMOVED));
+    expect(within(entry).queryByRole("link")).not.toBeInTheDocument();
+    expect(entry).toHaveTextContent("StatusNo longer available");
+    expect(
+      within(entry).getByRole("heading", {
+        level: 3,
+        name: "Module 1: What AI assistants do",
+      }),
+    ).toBeInTheDocument();
+    expect(requestsTo(requests, "GET", SHOW)).toHaveLength(2);
+
+    // Neither the interval nor the focus reads a deleted export again.
+    await advance(6000);
+    await act(async () => {
+      window.dispatchEvent(new Event("visibilitychange"));
+    });
+    await advance(2000);
+    expect(requestsTo(requests, "GET", SHOW)).toHaveLength(2);
   });
 
   test("lists the newest export first", async () => {

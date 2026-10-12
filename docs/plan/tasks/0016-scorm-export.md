@@ -204,7 +204,8 @@ tasks rely on the implemented form.
   program of the module besides the fields of step 10. A malformed export id
   answers 422 `validation_failed`, like every other `:id` route with
   `Fields.uuid()`, and an unknown id 404. A `done` export whose zip is gone
-  answers 404 on the download. `ExportController` renders the 409
+  answers 404 on the download, and an export that the retention deleted
+  answers 404 on both routes. `ExportController` renders the 409
   `export_not_ready` itself, as `PackController` renders `alignment_errors`.
   The routes check the role only, so every author reads and downloads every
   export. The audit event `export.requested` carries `program_slug`,
@@ -231,20 +232,59 @@ tasks rely on the implemented form.
   there, in the build or in the change to `done` ends the export as `failed`
   and removes the partial files. When the change to `failed` itself fails,
   the worker logs `export status not set to failed: export <id>` with the
-  cause, and the job still returns `{:error, message}`.
+  cause, and the job still returns `{:error, message}`. Every status change
+  goes through `Interop.transition_export/3`, one `UPDATE ... WHERE id = $1
+  AND status IN (...) RETURNING *` that answers `{:ok, export}` or
+  `{:error, :stale}`; `Export.status_changeset/2` checks the values. A stale
+  change from `queued` to `running` cancels the job without touching a
+  file; a stale change from `running` to `done` removes `<id>.zip`,
+  `<id>.zip.part` and `<id>.build`, logs `export status not set to done:
+  export <id> is no longer running, package removed` and cancels the job;
+  a stale change from `queued` or `running` to `failed` logs `export status
+  not set to failed: export <id> is no longer queued or running`. The
+  worker sets the Oban `timeout/1` to `build_timeout/0`, 30 minutes. Oban
+  2.24 ends a job after its timeout with an exit signal from
+  `:timer.exit_after/2`, which no `rescue` of the worker catches; the export
+  then stays `queued` or `running` with its partial files until the sweep
+  ends it.
 - Interrupted exports (step 9): `Espalier.Interop.StaleExportWorker` (queue
   `default`, `max_attempts: 1`) runs every 15 minutes from the crontab entry
-  `{"*/15 * * * *", Espalier.Interop.StaleExportWorker}`. It sets every export
-  in status `queued` or `running` whose `updated_at` lies more than one hour
-  back to `failed`, with the error "The build was interrupted; request the
-  export again." and `updated_at` set to now, logs the warning
-  `export interrupted: export <id> set to failed` per export and removes
-  `<EXPORT_DIR>/<id>.build`, `<id>.zip.part` and `<id>.zip`. A build that
-  still runs after one hour and an export that waits more than one hour in
-  the queue `exports` count as interrupted; the job of such a queued export
-  is cancelled when it runs, because the export is `failed`. A build that
-  reaches the change to `done` after the sweep removed its zip ends `done`,
-  and its download answers 404.
+  `{"*/15 * * * *", Espalier.Interop.StaleExportWorker}`. With one
+  conditional `UPDATE ... RETURNING id`, it sets every export in status
+  `queued` or `running` whose `updated_at` lies longer than
+  `interrupted_after/0` back to `failed`, with the error "The build was
+  interrupted; request the export again." and `updated_at` set to now, logs
+  the warning `export interrupted: export <id> set to failed` per export and
+  removes `<EXPORT_DIR>/<id>.build`, `<id>.zip.part` and `<id>.zip` of
+  exactly these ids. `interrupted_after/0` is
+  `max(2 * ExportWorker.build_timeout(), one hour)`, one hour with the
+  timeout of 30 minutes, so the export of a job that still runs does not meet
+  it, and the sweep test asserts the relation. An export that waits longer
+  than the limit in the queue `exports` counts as interrupted; the job of
+  such a queued export is cancelled when it runs, because the export is
+  `failed`. A build that should still reach its end after the sweep set its
+  export to `failed` removes its package and sets no status, so no `done`
+  export without a package arises. Afterwards the sweep runs
+  `Interop.prune_exports(:all)`.
+- Retention (step 9, ASVS 15.2.2): `config :espalier, :export_retention,
+  max_age_days: 7, max_packages: 100` in `config/config.exs`, read by
+  `Interop.retention/0`, which raises `ArgumentError` for a value that is no
+  positive integer. `Interop.prune_exports(:count)` deletes the `done`
+  exports beyond the newest `max_packages` (by `updated_at`, `inserted_at`
+  and id; the option `keep: id` ranks one export first), and
+  `prune_exports(:all)` first deletes the `done` and `failed` exports whose
+  `updated_at` lies more than `max_age_days` back, then applies the count
+  rule and removes the orphans, the direct entries of `EXPORT_DIR` named
+  `<uuid>.build`, `<uuid>.zip.part` or `<uuid>.zip` without an export row.
+  Each rule deletes its rows with one `DELETE ... RETURNING id, file_name`
+  and removes their files after the statement, through
+  `Interop.remove_export_files/2` with the paths of `Interop.export_paths/1`
+  and the stored file name; a failed removal is logged, and the next orphan
+  step removes the file. `File.rm_rf/1` removes a symbolic link without
+  following it. The worker runs the count rule with `keep:` its export after
+  each change to `done` and logs `export retention not applied` when that
+  step fails; the export stays `done`. A deleted export answers 404 on
+  `GET /api/admin/exports/:id` and on the download.
 - Pack writer (step 12): a module directory is `modules/<number>-<slug of
   the module title>/` with the number padded to two digits, and a lesson file
   is `lessons/<key>.md`. A list file is written only when its list is not
@@ -363,4 +403,8 @@ tasks rely on the implemented form.
   program and SCORM 1.2. The page holds the exports requested on it in its
   own state, newest first, so a reload starts with an empty list. A 404 on
   the request clears the chosen module and reads the modules of the program
-  again.
+  again. A finished export is read again when the window regains focus. A
+  404 on the read of a listed export (`exportRemoved` in
+  `src/api/exports.ts`) ends its reads, also on focus, removes its download
+  link and shows the status "No longer available" with a text that the
+  server keeps exports for a limited time and in a limited number.

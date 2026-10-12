@@ -918,13 +918,15 @@
         "download": "Download the package",
         "error": "Reason:",
         "loading": "Loading the status…",
-        "loadFailed": "The current status could not be loaded."
+        "loadFailed": "The current status could not be loaded.",
+        "removed": "This export is no longer available. The server keeps exports for a limited time and in a limited number, and it has deleted this one with its package. Request the export again for a new package."
       },
       "status": {
         "queued": "Queued",
         "running": "Running",
         "done": "Ready for download",
-        "failed": "Failed"
+        "failed": "Failed",
+        "removed": "No longer available"
       }
     },
     "users": {

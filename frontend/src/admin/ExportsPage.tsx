@@ -4,6 +4,7 @@ import { isApiError } from "../api/admin/fieldErrors";
 import { RECENT_AUTH_ERROR_CODE } from "../api/errors";
 import {
   SCORM_VERSIONS,
+  exportRemoved,
   useExport,
   useExportModules,
   useRequestExport,
@@ -128,24 +129,27 @@ const ENTRY =
 /**
  * One export of the list: module, program, version, the time of the
  * request and the status. A `done` export links its download, a `failed`
- * one shows the error text of the worker. Module and program titles carry
- * the language of the program, each in an element of its own.
+ * one shows the error text of the worker. An export whose read answers 404
+ * was deleted on the server, for example after the retention period: it
+ * shows a text that says so, and no download link. Module and program
+ * titles carry the language of the program, each in an element of its own.
  */
 function ExportEntry({ id, lang }: RequestedExport) {
   const { t, i18n } = useTranslation();
   const query = useExport(id);
   const exported = query.data;
+  const removed = exportRemoved(query.error);
 
-  if (exported === undefined)
+  if (exported === undefined) {
+    let text = t("admin.exports.list.loading");
+    if (removed) text = t("admin.exports.list.removed");
+    else if (query.isError) text = t("admin.exports.list.loadFailed");
     return (
-      <li className={ENTRY}>
-        <p className={MUTED}>
-          {query.isError
-            ? t("admin.exports.list.loadFailed")
-            : t("admin.exports.list.loading")}
-        </p>
+      <li aria-atomic="true" className={ENTRY}>
+        <p className={MUTED}>{text}</p>
       </li>
     );
+  }
 
   const { module, status } = exported;
   const version = t(`admin.exports.versions.${exported.scorm_version}`);
@@ -157,7 +161,11 @@ function ExportEntry({ id, lang }: RequestedExport) {
   );
 
   return (
-    <li aria-atomic="true" data-status={status} className={ENTRY}>
+    <li
+      aria-atomic="true"
+      data-status={removed ? "removed" : status}
+      className={ENTRY}
+    >
       <h3 className="font-semibold text-gray-900 dark:text-gray-100">
         {moduleLabel}
       </h3>
@@ -170,9 +178,16 @@ function ExportEntry({ id, lang }: RequestedExport) {
         <dt className="font-medium">{t("admin.exports.list.requestedAt")}</dt>
         <dd>{formatDateTime(exported.inserted_at, i18n.language)}</dd>
         <dt className="font-medium">{t("admin.exports.list.status")}</dt>
-        <dd>{t(`admin.exports.status.${status}`)}</dd>
+        <dd>
+          {removed
+            ? t("admin.exports.status.removed")
+            : t(`admin.exports.status.${status}`)}
+        </dd>
       </dl>
-      {status === "done" && exported.download_path !== null && (
+      {removed && (
+        <p className={`mt-2 ${MUTED}`}>{t("admin.exports.list.removed")}</p>
+      )}
+      {!removed && status === "done" && exported.download_path !== null && (
         <p className="mt-2">
           <a href={exported.download_path} download className={linkClasses}>
             {t("admin.exports.list.download")}{" "}
@@ -184,12 +199,12 @@ function ExportEntry({ id, lang }: RequestedExport) {
           </a>
         </p>
       )}
-      {status === "failed" && exported.error !== null && (
+      {!removed && status === "failed" && exported.error !== null && (
         <p className="mt-2 text-red-700 dark:text-red-300">
           {t("admin.exports.list.error")} <span>{exported.error}</span>
         </p>
       )}
-      {query.isError && (
+      {query.isError && !removed && (
         <p className={`mt-2 ${MUTED}`}>{t("admin.exports.list.loadFailed")}</p>
       )}
     </li>

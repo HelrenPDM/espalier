@@ -23,6 +23,12 @@ defmodule Espalier.Interop.ExportWorkerTest do
     with the error and the log names it.
   - An export requested before a second publish of the pack holds the
     content of the version published last.
+  - A build whose export the sweep of interrupted exports has set to
+    `failed` neither sets `done` nor `failed` again and leaves no file; a
+    job whose change to `running` finds the export no longer `queued` is
+    cancelled and writes no file.
+  - After an export reaches `done`, the worker deletes the `done` exports
+    beyond `max_packages` with their packages.
   """
   # The tests set :export_dir and :scorm_player_dir in the application
   # environment.
@@ -170,6 +176,46 @@ defmodule Espalier.Interop.ExportWorkerTest do
     Repo.query!("""
     CREATE TRIGGER espalier_test_fail BEFORE #{event} ON #{table}
     FOR EACH ROW WHEN (#{condition}) EXECUTE FUNCTION espalier_test_fail()
+    """)
+  end
+
+  @interrupted "The build was interrupted; request the export again."
+
+  # Plays the sweep of interrupted exports right after the change to
+  # running: an AFTER trigger sets the row to failed in the transaction of
+  # that change, so the worker builds while its export is already failed.
+  # The rollback of the sandbox transaction removes the trigger.
+  defp sweep_after_running! do
+    Repo.query!("""
+    CREATE FUNCTION espalier_test_sweep() RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN
+      UPDATE exports SET status = 'failed', error = '#{@interrupted}' WHERE id = NEW.id;
+      RETURN NULL;
+    END
+    $$
+    """)
+
+    Repo.query!("""
+    CREATE TRIGGER espalier_test_sweep AFTER UPDATE ON exports
+    FOR EACH ROW WHEN (NEW.status = 'running') EXECUTE FUNCTION espalier_test_sweep()
+    """)
+  end
+
+  # Makes every change of an export row to `status` find no row, as the
+  # conditional UPDATE does when another session has changed the status
+  # first. The rollback of the sandbox transaction removes the trigger.
+  defp skip_change_to!(status) do
+    Repo.query!("""
+    CREATE FUNCTION espalier_test_skip() RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN
+      RETURN NULL;
+    END
+    $$
+    """)
+
+    Repo.query!("""
+    CREATE TRIGGER espalier_test_skip BEFORE UPDATE ON exports
+    FOR EACH ROW WHEN (NEW.status = '#{status}') EXECUTE FUNCTION espalier_test_skip()
     """)
   end
 
@@ -515,6 +561,86 @@ defmodule Espalier.Interop.ExportWorkerTest do
       assert Repo.get!(Export, export.id).status == :running
       assert File.ls!(Interop.export_dir()) == []
     end
+  end
+
+  describe "a race with the sweep of interrupted exports" do
+    setup do
+      %{program: LearningFixtures.publish_demo!()}
+    end
+
+    test "a build whose export was failed meanwhile sets no status and leaves no zip",
+         %{scope: scope, program: program} do
+      export = request!(scope, program, 1, :scorm12)
+      sweep_after_running!()
+
+      log =
+        capture_log(fn ->
+          assert {:cancel, reason} = perform_job(ExportWorker, %{export_id: export.id})
+          assert reason =~ "no longer running"
+        end)
+
+      assert log =~
+               "export status not set to done: export #{export.id} is no longer running, " <>
+                 "package removed"
+
+      failed = Repo.get!(Export, export.id)
+      assert failed.status == :failed
+      assert failed.error == @interrupted
+      assert failed.file_name == nil
+      assert File.ls!(Interop.export_dir()) == []
+    end
+
+    test "a failing build whose export was failed meanwhile keeps the text of the sweep",
+         %{scope: scope, program: program} do
+      player = tmp_dir!("player")
+      File.cp_r!(@player, player)
+      File.rm!(Path.join(player, "NOTICE"))
+      put_env(:scorm_player_dir, player)
+      export = request!(scope, program, 1, :scorm12)
+      sweep_after_running!()
+
+      log =
+        capture_log(fn ->
+          assert {:error, message} = perform_job(ExportWorker, %{export_id: export.id})
+          assert message =~ "NOTICE"
+        end)
+
+      assert log =~
+               "export status not set to failed: export #{export.id} is no longer queued or running"
+
+      assert %Export{status: :failed, error: @interrupted} = Repo.get!(Export, export.id)
+      assert File.ls!(Interop.export_dir()) == []
+    end
+
+    test "a job whose change to running finds the export no longer queued is cancelled",
+         %{scope: scope, program: program} do
+      export = request!(scope, program, 1, :scorm12)
+      # Another file of the export, which the cancelled job must not touch.
+      zip = Path.join(Interop.export_dir(), "#{export.id}.zip")
+      File.write!(zip, "zip")
+      skip_change_to!("running")
+
+      assert {:cancel, reason} = perform_job(ExportWorker, %{export_id: export.id})
+      assert reason =~ "no longer queued"
+
+      assert Repo.get!(Export, export.id).status == :queued
+      assert File.ls!(Interop.export_dir()) == ["#{export.id}.zip"]
+      assert File.read!(zip) == "zip"
+    end
+  end
+
+  test "deletes the done exports beyond max_packages after an export is done",
+       %{scope: scope} do
+    put_env(:export_retention, max_age_days: 7, max_packages: 1)
+    program = LearningFixtures.publish_demo!()
+    first = export!(scope, program, 1, :scorm12)
+    assert File.exists?(zip_path(first))
+
+    second = export!(scope, program, 2, :scorm12)
+
+    assert Repo.get(Export, first.id) == nil
+    assert Repo.get!(Export, second.id).status == :done
+    assert File.ls!(Interop.export_dir()) == ["#{second.id}.zip"]
   end
 
   test "runs an export once", %{scope: scope} do

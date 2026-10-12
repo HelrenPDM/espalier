@@ -247,3 +247,97 @@ defmodule EspalierWeb.Admin.ExportControllerTest do
     end
   end
 end
+
+defmodule EspalierWeb.Admin.ExportRetentionControllerTest do
+  @moduledoc """
+  Task 0016: the routes of an export that the retention deleted
+  (`Espalier.Interop.prune_exports/1`) answer 404, the download included.
+  The worker deletes the older `done` export when the newer one exceeds
+  `max_packages`, and the sweep deletes an export older than
+  `max_age_days`.
+  """
+  # The tests set :export_dir and :export_retention in the application
+  # environment.
+  use EspalierWeb.ConnCase, async: false
+
+  import Ecto.Query
+  import Espalier.CredentialsFixtures, only: [user_with_role_fixture: 1]
+
+  alias Espalier.{Interop, LearningFixtures, Repo}
+  alias Espalier.Interop.{Export, ExportWorker, StaleExportWorker}
+
+  setup %{conn: conn} do
+    dir =
+      Path.join(
+        System.tmp_dir!(),
+        "espalier-export-retention-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
+
+    File.mkdir_p!(dir)
+    on_exit(fn -> File.rm_rf!(dir) end)
+    put_env(:export_dir, dir)
+
+    program = LearningFixtures.publish_demo!()
+    conn = log_in_user(conn, user_with_role_fixture(:author))
+    %{conn: conn, program: program}
+  end
+
+  defp put_env(key, value) do
+    previous = Application.fetch_env(:espalier, key)
+    Application.put_env(:espalier, key, value)
+
+    on_exit(fn ->
+      case previous do
+        {:ok, value} -> Application.put_env(:espalier, key, value)
+        :error -> Application.delete_env(:espalier, key)
+      end
+    end)
+  end
+
+  # Requests the export of module `number` and runs its job.
+  defp export!(conn, program, number) do
+    module = LearningFixtures.module!(program, number)
+
+    %{"id" => id} =
+      conn
+      |> json_request(:post, ~p"/api/admin/exports", %{
+        module_id: module.id,
+        scorm_version: "scorm12"
+      })
+      |> json_response(202)
+
+    assert perform_job(ExportWorker, %{export_id: id}) == :ok
+    id
+  end
+
+  defp assert_gone(conn, id) do
+    for path <- [~p"/api/admin/exports/#{id}", ~p"/api/admin/exports/#{id}/download"] do
+      assert json_response(json_request(conn, :get, path), 404) == %{"error" => "not_found"}
+    end
+  end
+
+  test "an export beyond max_packages answers 404 on both routes",
+       %{conn: conn, program: program} do
+    put_env(:export_retention, max_age_days: 7, max_packages: 1)
+    first = export!(conn, program, 1)
+    assert json_request(conn, :get, ~p"/api/admin/exports/#{first}/download").status == 200
+
+    second = export!(conn, program, 2)
+
+    assert_gone(conn, first)
+    refute File.exists?(Path.join(Interop.export_dir(), "#{first}.zip"))
+    assert json_request(conn, :get, ~p"/api/admin/exports/#{second}/download").status == 200
+  end
+
+  test "an export older than max_age_days answers 404 on both routes after the sweep",
+       %{conn: conn, program: program} do
+    id = export!(conn, program, 1)
+    eight_days_ago = DateTime.add(DateTime.utc_now(:second), -8, :day)
+    Repo.update_all(from(e in Export, where: e.id == ^id), set: [updated_at: eight_days_ago])
+
+    ExUnit.CaptureLog.capture_log(fn -> assert perform_job(StaleExportWorker, %{}) == :ok end)
+
+    assert_gone(conn, id)
+    assert File.ls!(Interop.export_dir()) == []
+  end
+end

@@ -45,6 +45,39 @@ defmodule Espalier.Interop.ExportWorker do
   export later. A player directory without `scorm.html`, `LICENSE` or
   `NOTICE` fails the export with a text that names the missing files and
   the build command, so that no package leaves without the license files.
+
+  Every status change goes through `Espalier.Interop.transition_export/3`,
+  which changes the row only while it has one of the named statuses:
+
+    * `queued` to `running`: when the sweep has set the export to `failed`
+      in the meantime, the job is cancelled and touches no file;
+    * `running` to `done`: when the export is no longer `running`, the
+      worker removes the zip and its partial files, logs `export status not
+      set to done: export <id> is no longer running, package removed` and
+      cancels the job without a status change;
+    * `queued` or `running` to `failed`: when the export has another status,
+      the worker logs `export status not set to failed: export <id> is no
+      longer queued or running`.
+
+  After the change to `done`, the worker applies the count rule of
+  `Espalier.Interop.prune_exports/1`, so that `EXPORT_DIR` holds at most
+  `max_packages` packages plus the one of a build that runs. A failure of
+  that step leaves the export `done` and logs `export retention not
+  applied` with the cause; the sweep applies the rule again.
+
+  The job runs at most `build_timeout/0` (30 minutes), the `timeout/1` of
+  `Oban.Worker`. Oban 2.24 starts `:timer.exit_after/2` with
+  `Oban.TimeoutError` for the job process, which ends the process from
+  outside: no `rescue` and no `catch` of the worker runs, the open read
+  transaction rolls back with the end of its connection owner, and Oban
+  records the job as failed and, with one attempt, discards it. The
+  export then stays `queued` or `running` with its partial files, and the
+  sweep sets it to `failed` and removes the files once its `updated_at`
+  lies `Espalier.Interop.StaleExportWorker.interrupted_after/0` back,
+  which is always longer than the timeout. The sweep therefore finds no
+  export interrupted whose job still runs. Should a job outlast both, for
+  example after a pause of the node, the conditional status changes above
+  keep the row and the files consistent.
   """
   use Oban.Worker, queue: :exports, max_attempts: 1
 
@@ -72,6 +105,10 @@ defmodule Espalier.Interop.ExportWorker do
   @xsd_dirs %{scorm12: "12", scorm2004: "2004"}
   @version_labels %{scorm12: "SCORM 1.2", scorm2004: "SCORM 2004 4th edition"}
 
+  # The longest run of one job; the sweep of interrupted exports derives its
+  # limit from it.
+  @build_timeout :timer.minutes(30)
+
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"export_id" => id}}) do
     case Repo.get(Export, id) do
@@ -81,15 +118,29 @@ defmodule Espalier.Interop.ExportWorker do
     end
   end
 
+  @impl Oban.Worker
+  def timeout(%Oban.Job{}), do: @build_timeout
+
+  @doc """
+  The longest run of an export job in milliseconds, 30 minutes: the
+  `timeout/1` of the worker, after which Oban ends the job.
+  """
+  @spec build_timeout() :: pos_integer()
+  def build_timeout, do: @build_timeout
+
   defp run(export) do
-    paths = paths(export.id)
+    paths = Interop.export_paths(export.id)
 
     case build_and_finish(export, paths) do
       :ok ->
+        apply_retention(export)
         :ok
 
+      {:cancel, _reason} = cancel ->
+        cancel
+
       {:error, message} ->
-        remove_partial(paths)
+        remove_partial(export)
         mark_failed(export, message)
         {:error, message}
     end
@@ -99,11 +150,12 @@ defmodule Espalier.Interop.ExportWorker do
   # and of the build ends as the short text of a failed export; the log
   # names the cause.
   defp build_and_finish(export, paths) do
-    export = update_status!(export, %{status: :running})
+    case Interop.transition_export(export, [:queued], %{status: :running}) do
+      {:ok, running} ->
+        with :ok <- build(running, paths), do: finish(running, paths)
 
-    with :ok <- build(export, paths) do
-      update_status!(export, %{status: :done, file_name: Path.basename(paths.zip)})
-      :ok
+      {:error, :stale} ->
+        {:cancel, "export #{export.id} is no longer queued"}
     end
   rescue
     exception ->
@@ -115,11 +167,41 @@ defmodule Espalier.Interop.ExportWorker do
       {:error, @failed}
   end
 
+  # The sweep may have set the export to `failed` while the build ran; the
+  # package of a build that lost that race leaves with the job.
+  defp finish(export, paths) do
+    attrs = %{status: :done, file_name: Path.basename(paths.zip)}
+
+    case Interop.transition_export(export, [:running], attrs) do
+      {:ok, _done} ->
+        :ok
+
+      {:error, :stale} ->
+        remove_partial(export)
+
+        Logger.warning(
+          "export status not set to done: export #{export.id} is no longer running, " <>
+            "package removed"
+        )
+
+        {:cancel, "export #{export.id} is no longer running"}
+    end
+  end
+
   # The job ends with the error in any case. When the status change to
   # `failed` fails as well, the log names the cause, and
-  # `Espalier.Interop.StaleExportWorker` ends the export later.
+  # `Espalier.Interop.StaleExportWorker` ends the export later. An export
+  # that the sweep has already ended keeps its status.
   defp mark_failed(export, message) do
-    update_status!(export, %{status: :failed, error: message})
+    case Interop.transition_export(export, [:queued, :running], %{status: :failed, error: message}) do
+      {:ok, _failed} ->
+        :ok
+
+      {:error, :stale} ->
+        Logger.warning(
+          "export status not set to failed: export #{export.id} is no longer queued or running"
+        )
+    end
   rescue
     exception ->
       log_exception(export, "export status not set to failed", :error, exception, __STACKTRACE__)
@@ -317,22 +399,30 @@ defmodule Espalier.Interop.ExportWorker do
     |> Enum.sort()
   end
 
-  defp paths(id) do
-    dir = Interop.export_dir()
-
-    %{
-      build: Path.join(dir, "#{id}.build"),
-      part: Path.join(dir, "#{id}.zip.part"),
-      zip: Path.join(dir, "#{id}.zip")
-    }
+  # Best effort: the build directory, the partial zip and the zip of the
+  # export. Interop.remove_export_files/1 builds the paths from EXPORT_DIR
+  # and the export id only and logs a failed removal.
+  defp remove_partial(export) do
+    _result = Interop.remove_export_files(export.id)
+    :ok
   end
 
-  # Best effort after a failure: the status change to `failed` follows in
-  # any case. The paths come from EXPORT_DIR and the export id only.
-  # sobelow_skip ["Traversal.FileModule"]
-  defp remove_partial(paths) do
-    for path <- [paths.build, paths.part, paths.zip], do: File.rm_rf(path)
+  # The count rule of the retention after an export reached `done`, which
+  # keeps that export. A failure leaves the export `done`; the sweep
+  # applies the rule again.
+  defp apply_retention(export) do
+    _pruned = Interop.prune_exports(:count, keep: export.id)
     :ok
+  rescue
+    exception ->
+      Logger.error(
+        "export retention not applied\n" <> Exception.format(:error, exception, __STACKTRACE__)
+      )
+  catch
+    kind, reason ->
+      Logger.error(
+        "export retention not applied\n" <> Exception.format(kind, reason, __STACKTRACE__)
+      )
   end
 
   defp player_dir do
@@ -345,10 +435,6 @@ defmodule Espalier.Interop.ExportWorker do
     :espalier
     |> Application.get_env(:scorm_xsd_dir, Application.app_dir(:espalier, "priv/scorm/xsd"))
     |> Path.expand()
-  end
-
-  defp update_status!(export, attrs) do
-    export |> Export.status_changeset(attrs) |> Repo.update!()
   end
 
   defp log_exception(export, prefix, kind, reason, stacktrace) do

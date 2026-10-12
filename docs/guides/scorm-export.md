@@ -29,8 +29,13 @@ opens, and the page repeats the request once after a successful step-up.
 The page lists the exports requested on it, newest first, and asks for their
 status every two seconds while an export is `queued` or `running`. It shows the
 download link for an export that is `done` and the error text for one that
-`failed`. No route lists exports, so the page holds this list itself, and a
-reload of the page starts with an empty list. A notice on the page states that
+`failed`. A finished export is read again when the browser window regains
+focus. When that read answers 404, because the retention below has deleted the
+export, the entry shows the status "No longer available" with a text that the
+server keeps exports for a limited time and in a limited number, the download
+link disappears, and the page reads the export no more. No route lists
+exports, so the page holds this list itself, and a reload of the page starts
+with an empty list. A notice on the page states that
 the package contains the answer keys and that the receiving LMS records
 results per person, including the status of each learning objective.
 
@@ -44,8 +49,8 @@ answers 401 `unauthenticated`, and a person without the role `author` gets 403
 | Route | Pipelines | Answers |
 |---|---|---|
 | `POST /api/admin/exports` with `{"module_id", "scorm_version"}` | `[:api, :author_write]` | 202 with the export in status `queued` and a `location` header; 403 `reauth_required` without a second factor from the last 10 minutes; 404 `not_found` for a module that is unknown, archived or part of a program that is not published; 422 `validation_failed` for a `scorm_version` other than `scorm12` and `scorm2004`, a `module_id` that is no UUID, a missing member and an extra member |
-| `GET /api/admin/exports/:id` | `[:api, :author]` | 200 with `id`, `module` (`id`, `number`, `title` and the `slug` and `title` of its program), `scorm_version`, `status`, `error`, `inserted_at` and `download_path`, which is set while the status is `done`; 404 for an unknown id; 422 `validation_failed` for an id that is no UUID |
-| `GET /api/admin/exports/:id/download` | `[:api, :author]` | 200 with the zip as `application/zip` and the file name `<program slug>-module-<number>-<scorm_version>.zip`; 409 `export_not_ready` while the status is `queued`, `running` or `failed`; 404 for an unknown id and for a `done` export whose zip is gone; 422 for an id that is no UUID |
+| `GET /api/admin/exports/:id` | `[:api, :author]` | 200 with `id`, `module` (`id`, `number`, `title` and the `slug` and `title` of its program), `scorm_version`, `status`, `error`, `inserted_at` and `download_path`, which is set while the status is `done`; 404 for an unknown id and for an export that the retention deleted; 422 `validation_failed` for an id that is no UUID |
+| `GET /api/admin/exports/:id/download` | `[:api, :author]` | 200 with the zip as `application/zip` and the file name `<program slug>-module-<number>-<scorm_version>.zip`; 409 `export_not_ready` while the status is `queued`, `running` or `failed`; 404 for an unknown id, for an export that the retention deleted and for a `done` export whose zip is gone; 422 for an id that is no UUID |
 
 The routes check the role and do not compare the requesting author: every
 author can read and download every export. The export row names the requesting
@@ -82,6 +87,34 @@ removes the build directory and the partial files. When the change to
 export <id>` with the cause, and the job still ends with the error. The export
 then stays `queued` or `running` until the sweep below ends it.
 
+Every status change of the worker goes through
+`Espalier.Interop.transition_export/3`: one `UPDATE exports ... WHERE id = $1
+AND status IN (...) RETURNING *`, which changes the row only while it has one
+of the statuses that the worker expects and answers `{:error, :stale}`
+otherwise. PostgreSQL checks the condition on the current row version, so of
+the worker and the sweep below at most one ends an export.
+
+| Change | When the export has another status |
+|---|---|
+| `queued` to `running` at the start of the job | The job is cancelled and touches no file. |
+| `running` to `done` after the rename to `<id>.zip` | The worker removes `<id>.zip`, `<id>.zip.part` and `<id>.build`, logs `export status not set to done: export <id> is no longer running, package removed` and cancels the job; the export keeps its status. |
+| `queued` or `running` to `failed` after an error | The worker logs `export status not set to failed: export <id> is no longer queued or running`; the export keeps its status and its error text. |
+
+After the change to `done`, the worker applies the count rule of the
+retention below, with the export it has just finished counted as the newest.
+A failure of that step leaves the export `done`, logs `export retention not
+applied` with the cause, and the sweep applies the rule again.
+
+The job runs at most 30 minutes (`ExportWorker.build_timeout/0`, the
+`timeout/1` callback of `Oban.Worker`). Oban 2.24 starts
+`:timer.exit_after/2` with an `Oban.TimeoutError` for the job process when the
+job starts. When the time runs out, the exit signal ends the process from
+outside: no `rescue` or `catch` of the worker runs, an open read transaction
+rolls back with the end of the process that holds its connection, and Oban
+records the job as failed and, with one attempt, discards it. The export
+keeps the status `queued` or `running` and its partial files until the sweep
+below sets it to `failed` and removes them.
+
 | Error text | Cause |
 |---|---|
 | "The SCORM player build lacks ... Run `npm --prefix frontend run build:scorm` and request the export again." | `scorm.html`, `LICENSE` or `NOTICE` is missing in the player directory; the text names every missing file. |
@@ -89,37 +122,77 @@ then stays `queued` or `running` until the sweep below ends it.
 | "The module is no longer published." | The program left the status `published`, or the module was archived, between the request and the job. |
 | "Two files of the package would share the path ..." | Two files of the player and schema directories, or one of them and `imsmanifest.xml` or `content.json`, map to the same path in the package. |
 | "The package could not be built; the server log names the cause." | Any other error. The server log holds the exception with the export id. |
-| "The build was interrupted; request the export again." | The sweep of interrupted exports found the export `queued` or `running` more than one hour after its last change. |
+| "The build was interrupted; request the export again." | The sweep of interrupted exports found the export `queued` or `running` longer than its limit, one hour, after its last change. |
 
 #### Interrupted exports
 
 `Espalier.Interop.StaleExportWorker` ends the exports whose build was
-interrupted, for example because the node stopped during a build or because
-the change to `failed` failed. The Oban crontab in `config/config.exs` runs it
-every 15 minutes in the queue `default`, with one attempt. It sets every
-export in status `queued` or `running` whose `updated_at` lies more than one
-hour back to `failed`, with the error text above and `updated_at` set to the
-current time. For each of these exports, it logs the warning
-`export interrupted: export <id> set to failed` and removes
-`<EXPORT_DIR>/<id>.build`, `<id>.zip.part` and `<id>.zip`.
+interrupted, for example because the node stopped during a build, because Oban
+ended the job after its timeout, or because the change to `failed` failed. The
+Oban crontab in `config/config.exs` runs it every 15 minutes in the queue
+`default`, with one attempt. With one conditional `UPDATE ... RETURNING id`, it
+sets every export in status `queued` or `running` whose `updated_at` lies
+longer than `StaleExportWorker.interrupted_after/0` back to `failed`, with the
+error text above and `updated_at` set to the current time. For each of exactly
+these ids, it logs the warning `export interrupted: export <id> set to failed`
+and removes `<EXPORT_DIR>/<id>.build`, `<id>.zip.part` and `<id>.zip`.
+Afterwards it applies every rule of the retention below.
 
-The hour is the limit of this rule. A build that still runs one hour after it
-set `running` counts as interrupted, and the sweep removes its files. When
-the sweep runs between the rename to `<id>.zip` and the change to `done` of
-such a build, the worker still sets `done`, and the download answers 404
-because the zip is gone. An export that waits more than one hour in the queue
-behind other exports counts as interrupted as well, and its job, when it
-runs, finds the export `failed` and is cancelled. With one slot and builds
-that end within minutes, neither case occurs in normal operation. The sweep
-changes no job row. `config/config.exs` configures no
-`Oban.Plugins.Lifeline`, so the job row of a build that a node stop
-interrupted keeps the state `executing` in `oban_jobs`.
+The limit is twice the job timeout of the worker and at least one hour, so one
+hour with the timeout of 30 minutes; one function derives it from the
+timeout, and a test checks that it is longer. The worker sets `running` and
+thereby `updated_at` when the build starts, and Oban ends the job after the
+timeout, so the export of a job that still runs does not meet the limit, and
+the sweep removes no file of a running build. Should a build outlast both,
+for example after a pause of the node, the conditional changes above apply:
+the build that reaches its end finds its export `failed`, removes its own
+package and sets no status. An export that waits longer than the limit in the
+queue behind other exports counts as interrupted as well, and its job, when
+it runs, finds the export `failed` and is cancelled. The sweep changes no job
+row. `config/config.exs` configures no `Oban.Plugins.Lifeline`, so the job row
+of a build that a node stop interrupted keeps the state `executing` in
+`oban_jobs`.
+
+#### Retention
+
+`config :espalier, :export_retention` in `config/config.exs` bounds the
+exports and the packages that the server keeps (`Espalier.Interop.retention/0`,
+`Espalier.Interop.prune_exports/1`):
+
+| Setting | Default | Rule |
+|---|---|---|
+| `max_age_days` | 7 | An export with status `done` or `failed` whose `updated_at` lies more days back is deleted with its files. |
+| `max_packages` | 100 | Of the exports with status `done`, the newest `max_packages` by `updated_at`, `inserted_at` and id stay; every older one is deleted with its package. |
+
+An export with status `queued` or `running` is never deleted by these rules.
+The worker applies the count rule after each export that reaches `done`, so
+`EXPORT_DIR` holds at most `max_packages` packages plus the one of the build
+that runs. The sweep applies the age rule, the count rule and the orphan
+step every 15 minutes. The orphan step removes the direct entries of
+`EXPORT_DIR` named `<uuid>.build`, `<uuid>.zip.part` or `<uuid>.zip` whose id
+has no export row. It leaves every other name and every deeper entry in
+place, and it removes a symbolic link of such a name as a link, without
+following it.
+
+Each rule deletes its rows with one `DELETE ... RETURNING id, file_name` and
+removes the files of exactly these rows after the statement has committed:
+`<id>.build`, `<id>.zip.part`, `<id>.zip` and the stored file name. A failed
+removal logs `export file not removed: <name>, <reason>`, and the orphan step
+of the next sweep removes the file, because its row is gone. The deletion
+logs `export deleted: export <id>, older than <n> days` or `export deleted:
+export <id>, beyond the newest <n> packages`, and the orphan step logs
+`export file without export removed: <name>`, each at `info`. A deleted
+export answers 404 on `GET /api/admin/exports/:id` and on its download, and
+the admin page shows it as no longer available. The count rule applies to
+the exports of every author, so a new export can delete the oldest package
+that another author requested.
 
 ### Prerequisites on the server
 
 | Setting | Default | Content |
 |---|---|---|
-| `EXPORT_DIR` | `tmp/exports` in development, `tmp/test-exports` in tests | The directory of the packages. A production boot stops while it is unset; `.env.example` names `/data/exports` as an example. The platform deletes no package of a `done` export from it; the sweep of interrupted exports removes the files of the exports that it sets to `failed`. |
+| `EXPORT_DIR` | `tmp/exports` in development, `tmp/test-exports` in tests | The directory of the packages. A production boot stops while it is unset; `.env.example` names `/data/exports` as an example. The sweep of interrupted exports removes the files of the exports that it sets to `failed`, and the retention deletes the packages of `done` exports beyond `max_packages` or older than `max_age_days` and the files without an export row. The platform writes and deletes only entries named `<id>.build`, `<id>.zip.part` and `<id>.zip` there. |
+| `config :espalier, :export_retention` | `max_age_days: 7, max_packages: 100` | The retention of exports, set in `config/config.exs` (section "Retention" above). |
 | `config :espalier, :scorm_player_dir` | `priv/scorm_player` of the application | The output of `npm --prefix frontend run build:scorm`. |
 | `config :espalier, :scorm_xsd_dir` | `priv/scorm/xsd` of the application | The schema files below `12/` and `2004/`, written by `mix espalier.scorm_xsd`. |
 
@@ -547,7 +620,13 @@ imports the output of the pack writer again. `Espalier.Interop.PublishLockTest`
 in the worker test file holds the lock of a publish on its own connection and
 checks that an export and a pack write wait for it and hold the version that
 it commits, and `test/espalier/interop/stale_export_worker_test.exs` covers
-the sweep of interrupted exports. The Vitest tests in
+the sweep of interrupted exports and the relation of its limit to the job
+timeout. The worker test also plays the sweep during a build with a database
+trigger and checks that the build sets no status and leaves no file.
+`test/espalier/interop/retention_test.exs` covers the age rule, the count
+rule, the orphan step and the conditional status changes, and
+`EspalierWeb.Admin.ExportRetentionControllerTest` checks the 404 of both
+routes for a deleted export. The Vitest tests in
 `frontend/src/runtimes/` run both runtimes against a fake LMS object that
 records every call.
 
