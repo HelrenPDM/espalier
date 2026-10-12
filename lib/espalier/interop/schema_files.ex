@@ -206,28 +206,36 @@ defmodule Espalier.Interop.SchemaFiles do
   end
 
   @doc """
-  Fetches `url` over HTTPS with `:httpc`, checking the server certificate
-  against the CA certificates of the operating system.
+  Fetches `url` with `Req`, the HTTP client of the application, and returns
+  the body as the server sent it: without a redirect, a decompression or a
+  decoding, so that the SHA-256 of the archive applies to its bytes. Req
+  checks the server certificate against the CA certificates of the
+  operating system and repeats a request after a transient error twice.
+  `config :espalier, Espalier.Interop.SchemaFiles, req_options: [...]`
+  adds options; the tests stub the server with `Req.Test` that way.
   """
   @spec fetch_https(String.t()) :: {:ok, binary()} | {:error, term()}
   def fetch_https(url) do
-    {:ok, _apps} = Application.ensure_all_started([:inets, :ssl])
+    {:ok, _apps} = Application.ensure_all_started(:req)
 
-    ssl = [
-      verify: :verify_peer,
-      cacerts: :public_key.cacerts_get(),
-      depth: 4,
-      customize_hostname_check: [
-        match_fun: :public_key.pkix_verify_hostname_match_fun(:https)
-      ]
-    ]
+    options =
+      Keyword.merge(
+        [
+          headers: [{"user-agent", "Espalier"}],
+          receive_timeout: 60_000,
+          redirect: false,
+          compressed: false,
+          decode_body: false,
+          retry: :transient,
+          max_retries: 2
+        ],
+        Application.get_env(:espalier, __MODULE__, [])[:req_options] || []
+      )
 
-    request = {String.to_charlist(url), [{~c"user-agent", ~c"espalier"}]}
-
-    case :httpc.request(:get, request, [ssl: ssl, timeout: 60_000], body_format: :binary) do
-      {:ok, {{_version, 200, _reason}, _headers, body}} -> {:ok, body}
-      {:ok, {{_version, status, _reason}, _headers, _body}} -> {:error, {:http_status, status}}
-      {:error, reason} -> {:error, reason}
+    case Req.get(url, options) do
+      {:ok, %Req.Response{status: 200, body: body}} when is_binary(body) -> {:ok, body}
+      {:ok, %Req.Response{status: status}} -> {:error, {:http_status, status}}
+      {:error, exception} -> {:error, exception}
     end
   end
 

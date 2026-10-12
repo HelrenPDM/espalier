@@ -95,6 +95,10 @@ config :espalier, :webauthn, rp_id: "localhost", origins: ["http://localhost:517
 config :espalier, Espalier.Accounts.BreachedPasswords,
   req_options: [plug: {Req.Test, Espalier.Accounts.BreachedPasswords}, retry: false]
 
+# The download of the SCORM schema files goes to a Req.Test stub (task 0016).
+config :espalier, Espalier.Interop.SchemaFiles,
+  req_options: [plug: {Req.Test, Espalier.Interop.SchemaFiles}, retry: false]
+
 # Webhook deliveries go to a Req.Test stub (task 0013), and the tests may
 # use http URLs.
 config :espalier, :webhook_req_options,

@@ -57,6 +57,40 @@ defmodule Espalier.Interop.SchemaFilesTest do
     end
   end
 
+  describe "fetch_https/1" do
+    test "returns the body as sent, with the user agent of the application" do
+      zip = archive(@files)
+      parent = self()
+
+      Req.Test.stub(SchemaFiles, fn conn ->
+        send(
+          parent,
+          {:request, conn.method, conn.request_path, Plug.Conn.get_req_header(conn, "user-agent")}
+        )
+
+        conn
+        |> Plug.Conn.put_resp_content_type("application/zip")
+        |> Plug.Conn.send_resp(200, zip)
+      end)
+
+      assert SchemaFiles.fetch_https("https://example.org/zips/schemas.zip") == {:ok, zip}
+      assert_received {:request, "GET", "/zips/schemas.zip", ["Espalier"]}
+    end
+
+    test "answers an error for a status other than 200, also for a redirect" do
+      Req.Test.stub(SchemaFiles, &Plug.Conn.send_resp(&1, 404, "missing"))
+      assert SchemaFiles.fetch_https("https://example.org/a.zip") == {:error, {:http_status, 404}}
+
+      Req.Test.stub(SchemaFiles, fn conn ->
+        conn
+        |> Plug.Conn.put_resp_header("location", "https://example.net/b.zip")
+        |> Plug.Conn.send_resp(302, "")
+      end)
+
+      assert SchemaFiles.fetch_https("https://example.org/a.zip") == {:error, {:http_status, 302}}
+    end
+  end
+
   describe "install/3" do
     @tag :tmp_dir
     test "writes the pinned files and fetches nothing once they verify", %{tmp_dir: dir} do
@@ -120,6 +154,18 @@ defmodule Espalier.Interop.SchemaFilesTest do
 
       assert {:error, ^source, reason} = SchemaFiles.install(dir, fetch_once(changed), [source])
       assert reason =~ "a.xsd differs"
+    end
+
+    @tag :tmp_dir
+    test "fetches the archive with Req by default", %{tmp_dir: dir} do
+      zip = archive(@files)
+      source = source(zip)
+      Req.Test.stub(SchemaFiles, &Plug.Conn.send_resp(&1, 200, zip))
+
+      assert {:ok, [{^source, :installed}]} =
+               SchemaFiles.install(dir, &SchemaFiles.fetch_https/1, [source])
+
+      assert SchemaFiles.verify(dir, source) == :ok
     end
 
     @tag :tmp_dir
