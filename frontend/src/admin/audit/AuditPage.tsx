@@ -44,6 +44,7 @@ const KNOWN_ACTIONS = [
   "attendance.issued",
   "pack.imported",
   "pack.published",
+  "export.requested",
 ] as const;
 
 interface Filters {

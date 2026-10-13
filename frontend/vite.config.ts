@@ -1,5 +1,5 @@
 /// <reference types="vitest/config" />
-import { defineConfig, type Plugin } from "vite";
+import { defineConfig, searchForWorkspaceRoot, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
@@ -33,6 +33,11 @@ export default defineConfig(({ command }) => ({
       "/api": "http://localhost:4000",
       "^/auth/(?!finish)": "http://localhost:4000",
       "/health": "http://localhost:4000",
+    },
+    // The suspend-data test of task 0016 reads the demo pack with
+    // `import.meta.glob`; the pack holds only public demo content.
+    fs: {
+      allow: [searchForWorkspaceRoot(process.cwd()), "../content/demo"],
     },
   },
   build: { outDir: "../priv/static/spa", emptyOutDir: true },

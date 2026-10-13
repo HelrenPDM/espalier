@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, test } from "vitest";
+import { ExternalLinkTargetContext } from "./externalLinks";
 import { Markdown } from "./Markdown";
 
 /** Every `href` and `src` in `container`. */
@@ -127,6 +128,75 @@ describe("Markdown link targets (ASVS 1.2.2)", () => {
       "href",
       "/programs/demo",
     );
+  });
+});
+
+describe("Markdown links that leave the page (ExternalLinkTargetContext)", () => {
+  const body = [
+    "[guide](https://example.org/guide), [page](/programs/demo),",
+    "https://example.org/plain, [section](#lesson-intro) and",
+    "[mail](mailto:a@example.org).",
+  ].join("\n");
+
+  test("without a provider, no link gets a target or a rel", () => {
+    const { container } = render(<Markdown>{body}</Markdown>);
+
+    expect(container.querySelectorAll("a")).toHaveLength(5);
+    expect(container.querySelector("[target], [rel]")).toBeNull();
+  });
+
+  test('with "_blank", a link that leaves the page opens in a new tab', () => {
+    render(
+      <ExternalLinkTargetContext.Provider value="_blank">
+        <Markdown>{body}</Markdown>
+      </ExternalLinkTargetContext.Provider>,
+    );
+
+    for (const name of ["guide", "page", "https://example.org/plain"]) {
+      const link = screen.getByRole("link", { name });
+      expect(link).toHaveAttribute("target", "_blank");
+      expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    }
+    expect(screen.getByRole("link", { name: "guide" })).toHaveAttribute(
+      "href",
+      "https://example.org/guide",
+    );
+    for (const name of ["section", "mail"]) {
+      const link = screen.getByRole("link", { name });
+      expect(link).not.toHaveAttribute("target");
+      expect(link).not.toHaveAttribute("rel");
+    }
+  });
+
+  // react-markdown empties a target with an unknown or unsafe scheme, and
+  // href="" would reload the SCO document and end the LMS session.
+  const emptied = "[empty]() [phone](tel:+49301234) [script](javascript:x)";
+
+  test('with "_blank", a link whose target was emptied renders without href', () => {
+    const { container } = render(
+      <ExternalLinkTargetContext.Provider value="_blank">
+        <Markdown>{emptied}</Markdown>
+      </ExternalLinkTargetContext.Provider>,
+    );
+
+    const anchors = [...container.querySelectorAll("a")];
+    expect(anchors.map((anchor) => anchor.textContent)).toEqual([
+      "empty",
+      "phone",
+      "script",
+    ]);
+    for (const anchor of anchors) {
+      expect(anchor).not.toHaveAttribute("href");
+      expect(anchor).not.toHaveAttribute("target");
+    }
+  });
+
+  test('without a provider, a link whose target was emptied keeps href=""', () => {
+    const { container } = render(<Markdown>{emptied}</Markdown>);
+
+    const anchors = [...container.querySelectorAll("a")];
+    expect(anchors).toHaveLength(3);
+    for (const anchor of anchors) expect(anchor).toHaveAttribute("href", "");
   });
 });
 

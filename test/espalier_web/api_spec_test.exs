@@ -20,6 +20,11 @@ defmodule EspalierWeb.ApiSpecTest do
   schema of the pack upload included, sets `additionalProperties: false`
   (ASVS 2.1.1 and 15.3.3). The seeding routes under `/api/dev` have no
   operation.
+
+  Task 0016 step 10 adds the operations of the three export routes: the
+  request schema of `POST /api/admin/exports` sets `additionalProperties:
+  false` (ASVS 2.1.1 and 15.3.3), and the download answers the zip as
+  `application/zip`.
   """
   use EspalierWeb.ConnCase, async: true
 
@@ -149,8 +154,15 @@ defmodule EspalierWeb.ApiSpecTest do
     {:post, "/api/admin/packs"},
     {:get, "/api/admin/packs/{id}"},
     {:get, "/api/admin/packs/{id}/diff"},
-    {:post, "/api/admin/packs/{id}/publish"}
+    {:post, "/api/admin/packs/{id}/publish"},
+    # Task 0016 step 10: the SCORM export.
+    {:post, "/api/admin/exports"},
+    {:get, "/api/admin/exports/{id}"},
+    {:get, "/api/admin/exports/{id}/download"}
   ]
+
+  # The 2xx answers that carry a file instead of JSON (task 0016).
+  @binary_answers %{{:get, "/api/admin/exports/{id}/download"} => "application/zip"}
 
   # The POST routes of task 0013 and the schema of their request body.
   @posts_0013 %{
@@ -188,6 +200,9 @@ defmodule EspalierWeb.ApiSpecTest do
     "/api/admin/packs/{id}/publish" => "EmptyRequest"
   }
 
+  # The POST route of task 0016 and the schema of its request body.
+  @posts_0016 %{"/api/admin/exports" => "AdminExportRequest"}
+
   defp operations do
     for {path, item} <- ApiSpec.spec().paths,
         {verb, %Operation{} = operation} <- Map.from_struct(item),
@@ -202,11 +217,19 @@ defmodule EspalierWeb.ApiSpecTest do
     for {{verb, path}, operation} <- operations(),
         {status, response} <- operation.responses,
         status in 200..299 and status != 204 do
-      assert %Response{content: %{"application/json" => %MediaType{schema: schema}}} = response
+      case Map.fetch(@binary_answers, {verb, path}) do
+        {:ok, media_type} ->
+          assert %Response{content: %{^media_type => %MediaType{schema: schema}}} = response
+          assert %Schema{type: :string, format: :binary} = schema, "#{verb} #{path} #{status}"
 
-      assert match?(%Reference{}, schema) or
-               match?(%Schema{title: title} when is_binary(title), schema),
-             "#{verb} #{path} #{status}"
+        :error ->
+          assert %Response{content: %{"application/json" => %MediaType{schema: schema}}} =
+                   response
+
+          assert match?(%Reference{}, schema) or
+                   match?(%Schema{title: title} when is_binary(title), schema),
+                 "#{verb} #{path} #{status}"
+      end
     end
   end
 
@@ -342,7 +365,7 @@ defmodule EspalierWeb.ApiSpecTest do
     admin_posts =
       for {{:post, "/api/admin/" <> _rest = path}, _operation} <- operations(), do: path
 
-    assert Enum.sort(admin_posts) == Enum.sort(Map.keys(@posts_0015))
+    assert Enum.sort(admin_posts) == Enum.sort(Map.keys(@posts_0015) ++ Map.keys(@posts_0016))
 
     for {path, title} <- @posts_0015 do
       assert %Operation{requestBody: %RequestBody{content: content}} = spec.paths[path].post
@@ -363,6 +386,25 @@ defmodule EspalierWeb.ApiSpecTest do
     upload = spec.paths["/api/admin/packs"].post.requestBody.content["multipart/form-data"]
     assert %Schema{type: :string, format: :binary} = upload.schema.properties.file
     assert upload.schema.required == [:file]
+  end
+
+  # Task 0016 step 10, Security requirements 2.1.1 and 15.3.3.
+  test "the request schema of the POST route of task 0016 sets additionalProperties false" do
+    spec = ApiSpec.spec()
+
+    for {path, title} <- @posts_0016 do
+      assert %Operation{requestBody: %RequestBody{content: content, required: true}} =
+               spec.paths[path].post
+
+      assert [{"application/json", %MediaType{schema: schema}}] = Map.to_list(content), path
+      schema = resolve(spec, schema)
+      assert %Schema{title: ^title, type: :object, additionalProperties: false} = schema, path
+      assert schema.properties.scorm_version.enum == ["scorm12", "scorm2004"]
+
+      for object <- objects(schema, spec) do
+        assert object.additionalProperties == false, "#{path} #{title}"
+      end
+    end
   end
 
   test "the integration operation names the bearer token, which the document declares" do

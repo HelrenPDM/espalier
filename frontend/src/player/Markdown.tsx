@@ -5,6 +5,7 @@ import ReactMarkdown, {
 } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useContentLang } from "./contentLang";
+import { leavesPage, useExternalLinkTarget } from "./externalLinks";
 import { GlossaryTerm } from "./GlossaryTerm";
 import { remarkCaseColumns } from "./remarkCaseColumns";
 import {
@@ -25,7 +26,27 @@ function Span({ node, ...props }: ComponentProps<"span"> & ExtraProps) {
   );
 }
 
-const components: Components = { span: Span };
+/**
+ * A link of the text. A link that leaves the page opens in the target of
+ * `ExternalLinkTargetContext`, when one is set, without access to the page
+ * (`noopener noreferrer`); a fragment of the page keeps its default. With a
+ * target set, a link without a target URL renders without `href`: the
+ * default `urlTransform` empties an unsafe or unknown scheme (`tel:`,
+ * `javascript:`), and `href=""` would reload the document, which fires
+ * `pagehide` and ends the LMS session of a SCORM package.
+ */
+function Anchor({ node: _node, ...props }: ComponentProps<"a"> & ExtraProps) {
+  const target = useExternalLinkTarget();
+  if (target === undefined) return <a {...props} />;
+  if (props.href === undefined || props.href === "") {
+    const { href: _href, ...rest } = props;
+    return <a {...rest} />;
+  }
+  if (!leavesPage(props.href)) return <a {...props} />;
+  return <a {...props} target={target} rel="noopener noreferrer" />;
+}
+
+const components: Components = { a: Anchor, span: Span };
 const remarkPlugins = [remarkGfm, remarkGlossary];
 const caseRemarkPlugins = [...remarkPlugins, remarkCaseColumns];
 
@@ -37,7 +58,9 @@ const caseRemarkPlugins = [...remarkPlugins, remarkCaseColumns];
  * transform of `react-markdown` replaces a link target with an unsafe
  * protocol, such as `javascript:`, by an empty string (ASVS 1.2.2).
  * `[[term:slug]]` and `[[term:slug|label]]` render as `GlossaryTerm`.
- * `caseColumns` lays the cases of a case comparison out in two columns.
+ * `caseColumns` lays the cases of a case comparison out in two columns. A
+ * link that leaves the page opens in the target of
+ * `ExternalLinkTargetContext`, which the SCORM package sets to `"_blank"`.
  *
  * Without `lang`, the text carries the language of the program inside a
  * player, because pack text is written in the language of the pack. A

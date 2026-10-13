@@ -1,0 +1,111 @@
+<!doctype html>
+<!--
+  A stand-in LMS for e2e/scorm/scorm.spec.ts (task 0016, step 14). It is a
+  test harness and is not shipped.
+
+  The spec serves this page from a temporary directory next to
+  `scorm-again.js`, a copy of `dist/scorm-again.js` of the npm package
+  scorm-again, the browser bundle that defines `window.Scorm12API` and
+  `window.Scorm2004API`. Each extracted package lies in a subdirectory.
+
+  Query parameters:
+    version  `1.2` creates `window.API` (Scorm12API), `2004` creates
+             `window.API_1484_11` (Scorm2004API).
+    package  the subdirectory of the package; the frame loads its index.html.
+
+  Saved CMI data travels in the URL hash: the URI-encoded JSON of an object
+  that `lms.state()` returned in an earlier session. The page passes it to
+  `loadFromJSON` before the package starts, as an LMS restores the data of a
+  learner. Without a hash, the session starts empty.
+
+  Globals for `page.evaluate`:
+    lms.calls     every Initialize, SetValue, Commit and Terminate call
+                  (LMSInitialize, LMSSetValue, LMSCommit and LMSFinish in
+                  SCORM 1.2) in order, as {name, element, value, result,
+                  error}; `element` and `value` only for SetValue, `error`
+                  is the error code after the call.
+    lms.state()   the CMI data model as a JSON object, the shape that
+                  `loadFromJSON` takes.
+    lms.unload()  navigates the frame of the package to about:blank, which
+                  fires its `pagehide`, as leaving the package in an LMS does.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Test LMS</title>
+    <script src="scorm-again.js"></script>
+  </head>
+  <body>
+    <iframe
+      id="package"
+      title="SCORM package"
+      style="width: 100%; height: 95vh; border: 0"
+    ></iframe>
+    <script>
+      "use strict";
+
+      const query = new URLSearchParams(location.search);
+      const version = query.get("version");
+      const packageDir = query.get("package") ?? "";
+      if (!/^[a-z0-9-]+$/.test(packageDir))
+        throw new Error(`Invalid package directory: ${packageDir}`);
+
+      // `lmsCommitUrl: false`, the default, keeps every commit in the browser:
+      // the API sends no HTTP request and keeps the values in `api.cmi`.
+      const settings = { lmsCommitUrl: false };
+      const dialects = {
+        1.2: {
+          create: () => new Scorm12API(settings),
+          global: "API",
+          recorded: ["LMSInitialize", "LMSSetValue", "LMSCommit", "LMSFinish"],
+          lastError: "LMSGetLastError",
+        },
+        2004: {
+          create: () => new Scorm2004API(settings),
+          global: "API_1484_11",
+          recorded: ["Initialize", "SetValue", "Commit", "Terminate"],
+          lastError: "GetLastError",
+        },
+      };
+      const dialect = dialects[version];
+      if (dialect === undefined)
+        throw new Error(`Unknown SCORM version: ${version}`);
+      const api = dialect.create();
+
+      // The saved CMI data of an earlier session, before the package starts.
+      if (location.hash.length > 1)
+        api.loadFromJSON(
+          JSON.parse(decodeURIComponent(location.hash.slice(1))),
+        );
+
+      // A wrapper records each call with its result. The listeners of
+      // scorm-again also fire for values that the API rejects.
+      const calls = [];
+      for (const name of dialect.recorded) {
+        const original = api[name].bind(api);
+        api[name] = (...args) => {
+          const result = original(...args);
+          const call = { name, result: String(result) };
+          if (name.endsWith("SetValue")) {
+            call.element = args[0];
+            call.value = args[1];
+          }
+          call.error = String(api[dialect.lastError]());
+          calls.push(call);
+          return result;
+        };
+      }
+
+      window[dialect.global] = api;
+      const frame = document.getElementById("package");
+      window.lms = {
+        calls,
+        state: () => api.renderCMIToJSONObject().cmi,
+        unload: () => {
+          frame.src = "about:blank";
+        },
+      };
+      frame.src = `${packageDir}/index.html`;
+    </script>
+  </body>
+</html>

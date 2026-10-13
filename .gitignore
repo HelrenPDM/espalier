@@ -32,6 +32,11 @@ espalier-*.tar
 # Build output of the frontend and the SCORM player.
 /priv/static/spa/
 /priv/scorm_player/
+
+# The SCORM schema files, fetched by mix espalier.scorm_xsd (priv/scorm/xsd/SOURCE.md).
+/priv/scorm/xsd/12/
+/priv/scorm/xsd/2004/
+/priv/scorm/xsd/*.part/
 /frontend/node_modules/
 
 # Rendered diagrams (make docs).

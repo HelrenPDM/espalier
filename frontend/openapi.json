@@ -325,6 +325,95 @@
         "title": "UserLookupResult",
         "type": "object"
       },
+      "AdminExport": {
+        "additionalProperties": false,
+        "description": "A SCORM export of one module.",
+        "properties": {
+          "download_path": {
+            "description": "The path of the download while the status is `done`.",
+            "nullable": true,
+            "type": "string"
+          },
+          "error": {
+            "description": "A short text for a failed export.",
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "inserted_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "module": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "number": {
+                "type": "integer"
+              },
+              "program": {
+                "additionalProperties": false,
+                "properties": {
+                  "slug": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "slug",
+                  "title"
+                ],
+                "type": "object"
+              },
+              "title": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "number",
+              "program",
+              "title"
+            ],
+            "type": "object"
+          },
+          "scorm_version": {
+            "enum": [
+              "scorm12",
+              "scorm2004"
+            ],
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "done",
+              "failed"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "download_path",
+          "error",
+          "id",
+          "inserted_at",
+          "module",
+          "scorm_version",
+          "status"
+        ],
+        "title": "AdminExport",
+        "type": "object"
+      },
       "Handbook": {
         "additionalProperties": false,
         "description": "Every rule with its statement and action.",
@@ -1664,6 +1753,31 @@
           "error"
         ],
         "title": "Error",
+        "type": "object"
+      },
+      "AdminExportRequest": {
+        "additionalProperties": false,
+        "description": "The export of one module as a SCORM package.",
+        "properties": {
+          "module_id": {
+            "description": "A live module of a published program.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "scorm_version": {
+            "description": "SCORM 1.2 or SCORM 2004 4th edition.",
+            "enum": [
+              "scorm12",
+              "scorm2004"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "module_id",
+          "scorm_version"
+        ],
+        "title": "AdminExportRequest",
         "type": "object"
       },
       "OidcIntentRequest": {
@@ -7079,6 +7193,86 @@
         ]
       }
     },
+    "/api/admin/exports/{id}": {
+      "get": {
+        "callbacks": {},
+        "description": "`download_path` is set once the status is `done`.",
+        "operationId": "EspalierWeb.Admin.ExportController.show",
+        "parameters": [
+          {
+            "description": "The export id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminExport"
+                }
+              }
+            },
+            "description": "The export"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "Read an export",
+        "tags": [
+          "Admin: exports"
+        ]
+      }
+    },
     "/api/programs/{slug}": {
       "get": {
         "callbacks": {},
@@ -8873,6 +9067,97 @@
         "summary": "Sign in with a directory account",
         "tags": [
           "Session"
+        ]
+      }
+    },
+    "/api/admin/exports/{id}/download": {
+      "get": {
+        "callbacks": {},
+        "description": "Sends the zip with the file name `<program slug>-module-<number>-<scorm_version>.zip`.",
+        "operationId": "EspalierWeb.Admin.ExportController.download",
+        "parameters": [
+          {
+            "description": "The export id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/zip": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The SCORM package"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `export_not_ready`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "Download the package of an export",
+        "tags": [
+          "Admin: exports"
         ]
       }
     },
@@ -11525,6 +11810,87 @@
         "summary": "Create an OIDC intent",
         "tags": [
           "Session"
+        ]
+      }
+    },
+    "/api/admin/exports": {
+      "post": {
+        "callbacks": {},
+        "description": "Queues the export in the Oban queue `exports` and answers 202. The package contains the answer keys of the module.",
+        "operationId": "EspalierWeb.Admin.ExportController.create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminExportRequest"
+              }
+            }
+          },
+          "description": "The export",
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminExport"
+                }
+              }
+            },
+            "description": "The queued export"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Request the SCORM export of a module",
+        "tags": [
+          "Admin: exports"
         ]
       }
     },

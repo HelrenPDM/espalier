@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<%!-- The SCORM 1.2 manifest of one module (task 0016, step 8): one
+    organization, one item and one SCO resource, no objectives and no
+    sequencing. Espalier.Interop.manifest/2 renders it; every value enters
+    through Espalier.Interop.xml_escape/1. The schema files named in
+    xsi:schemaLocation lie at the package root. --%>
+<manifest identifier="<%= xml_escape(@identifier) %>"
+          xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2"
+          xmlns:adlcp="http://www.adlnet.org/xsd/adlcp_rootv1p2"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://www.imsproject.org/xsd/imscp_rootv1p1p2 imscp_rootv1p1p2.xsd
+                              http://www.imsglobal.org/xsd/imsmd_rootv1p2p1 imsmd_rootv1p2p1.xsd
+                              http://www.adlnet.org/xsd/adlcp_rootv1p2 adlcp_rootv1p2.xsd">
+  <metadata>
+    <schema>ADL SCORM</schema>
+    <schemaversion>1.2</schemaversion>
+  </metadata>
+  <organizations default="<%= xml_escape(@identifier) %>-organization">
+    <organization identifier="<%= xml_escape(@identifier) %>-organization">
+      <title><%= xml_escape(@title) %></title>
+      <item identifier="<%= xml_escape(@identifier) %>-item" identifierref="<%= xml_escape(@identifier) %>-sco">
+        <title><%= xml_escape(@title) %></title>
+      </item>
+    </organization>
+  </organizations>
+  <resources>
+    <resource identifier="<%= xml_escape(@identifier) %>-sco" type="webcontent" adlcp:scormtype="sco" href="index.html">
+<%= for file <- @files do %>      <file href="<%= xml_escape(file) %>"/>
+<% end %>    </resource>
+  </resources>
+</manifest>

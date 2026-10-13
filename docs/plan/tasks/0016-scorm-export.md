@@ -145,3 +145,269 @@ The export routes also rely on the controls that the rows 7.5.1 and 8.2.1 record
 - The package derives objective states from the evidence items it contains. Attendance certificates and the items of other modules lie outside the package, so an objective whose evidence is a companion format, such as `m1-self-own-responsibility` with the workshop, stays `incomplete` in the LMS while the platform can mark it `evidenced`.
 - The platform stores no status per objective and person (README domain rule 15). In a package, the state lives in `cmi.suspend_data` and `cmi.objectives` of the receiving LMS.
 - The manifest declares no objectives. The SCO creates its `cmi.objectives` entries at run time, which both versions allow for a package without sequencing rules.
+
+## Addendum: implementation
+The implementation departs from the steps above in the points below, and later
+tasks rely on the implemented form.
+
+- Schema files (step 8): the IMS files and `adlcp_rootv1p2.xsd` carry no
+  license grant that clearly covers redistribution in an open-source
+  repository. The maintainer decided that the repository holds only
+  `priv/scorm/xsd/SOURCE.md`, which names the sources, the retrieval date and
+  the terms of every file. `Espalier.Interop.SchemaFiles` and
+  `mix espalier.scorm_xsd` fetch two pinned archives, the schema definition
+  files that Rustici Software publishes on scorm.com, check each archive and
+  every file taken from it by SHA-256, and write them into the git-ignored
+  directories `priv/scorm/xsd/12/` (4 files) and `priv/scorm/xsd/2004/` (17
+  files: the set without metadata, with `xml.xsd`, the `XMLSchema.dtd` that
+  `xml.xsd` names and the `datatypes.dtd` that `XMLSchema.dtd` includes,
+  because the `imscp_v1p1.xsd` of that set imports `xml.xsd` from the
+  package root). `make scorm-xsd`, `make setup`, `make e2e` and the
+  builder stage of the Dockerfile run the task, and the builder stage
+  installs `ca-certificates` for the download. `config :espalier,
+  :scorm_xsd_dir` names the directory. The worker fails the export of a
+  version without its schema files with a text that names
+  `mix espalier.scorm_xsd`, and the worker tests use the stand-ins in
+  `test/fixtures/scorm_xsd/`.
+- Publisher (0008 step 10): the time of a publish is the current second, or
+  one second after the last publish of the same pack when that is later, so
+  that `published_at` orders the publishes of one pack also within one second
+  and `Payload.build/1` reads `schema`, `license` and `alignment` from the
+  import published last.
+- Payload (step 1): `Payload.build/1` also skips a join row or a citation that
+  points to a row of another program, and `Payload.module/2` raises
+  `ArgumentError` for a module number that the payload lacks.
+- Manifests (step 8): both templates carry `<schema>ADL SCORM</schema>`. The
+  manifest identifier is `espalier-<program slug>-module-<number>`; the
+  organization, the item and the resource append `-organization`, `-item` and
+  `-sco` to it. The resource has the type `webcontent`, and its `file`
+  elements follow the path order. Neither manifest declares objectives or
+  sequencing. `Espalier.Interop` compiles both templates with
+  `EEx.function_from_file/4` and renders them with `manifest/2`, and
+  `xml_escape/1` also replaces a code point that XML 1.0 does not admit and
+  an invalid UTF-8 sequence with U+FFFD.
+- Export schema (step 6): the functions of `Espalier.Interop` replace the
+  output of `phx.gen.context`, whose functions, test and fixture are gone.
+  `Export` belongs to its program and its module, keeps `requested_by_id` as
+  a plain field and has `request_changeset/2`, which casts only
+  `scorm_version`, and `status_changeset/2`. The migration sets
+  `null: false` on `scorm_version`, `status`, `program_id` and `module_id`
+  and keeps `on_delete: :nothing` on the references to the catalog.
+- Directories (step 7): `Interop.export_dir/0` expands `EXPORT_DIR` to an
+  absolute path, and the worker creates the directory when it is missing.
+  The worker applies the defaults of `:scorm_player_dir` and
+  `:scorm_xsd_dir` (`priv/scorm_player` and `priv/scorm/xsd` of the
+  application), and `config/test.exs` points both to the fixtures in
+  `test/fixtures/scorm_player/` and `test/fixtures/scorm_xsd/`.
+- Routes (step 10): `POST /api/admin/exports` answers 202 with a `location`
+  header, and the export view carries `inserted_at` and the number, title and
+  program of the module besides the fields of step 10. A malformed export id
+  answers 422 `validation_failed`, like every other `:id` route with
+  `Fields.uuid()`, and an unknown id 404. A `done` export whose zip is gone
+  answers 404 on the download, and an export that the retention deleted
+  answers 404 on both routes. `ExportController` renders the 409
+  `export_not_ready` itself, as `PackController` renders `alignment_errors`.
+  The routes check the role only, so every author reads and downloads every
+  export. The audit event `export.requested` carries `program_slug`,
+  `module_number` and `scorm_version`, and the action list of the audit page
+  and `docs/security/logging.md` name it.
+- Worker (step 9): the worker also fails an export when the program or the
+  module is no longer published when the job runs and when two files of the
+  package would share one path, and its text names every missing player
+  file. Any other error leaves the text "The package could not be built; the
+  server log names the cause." A job for an export that is not `queued`, or
+  that is gone, is cancelled, so an export runs once. The worker builds
+  `policies` itself with the four keys of the `policy` field, `effective_from`
+  as an ISO 8601 date, so that `Espalier.Interop` does not depend on
+  `EspalierWeb`. It reads the published check of the program and the module
+  and the content (`Payload.build/1`, `Payload.module/2` and the current
+  policy versions) in one `Repo.transact`, which first reads the program slug
+  and takes `pg_advisory_xact_lock_shared(hashtext(<program slug>))`. That
+  lock conflicts with the exclusive `pg_advisory_xact_lock(hashtext(pack_key))`
+  of the publisher, so a running publish of the same pack ends before the read
+  and one that starts waits for it. The transaction timeout is
+  `Publisher.transaction_timeout/0` plus one minute (`:infinity` stays
+  `:infinity`), and the package files are written after the transaction. The
+  status change to `running` lies inside the rescued part, so an exception
+  there, in the build or in the change to `done` ends the export as `failed`
+  and then removes the partial files. The status changes first, so an
+  export whose change to `done` committed although its answer was lost
+  stays `done` with its package, and the job ends with `:ok`. When the
+  change to `failed` itself fails, the worker logs `export status not set to
+  failed: export <id>` with the cause, keeps the files for the sweep, and
+  the job still returns `{:error, message}`. Every status change
+  goes through `Interop.transition_export/3`, one `UPDATE ... WHERE id = $1
+  AND status IN (...) RETURNING *` that answers `{:ok, export}` or
+  `{:error, :stale}`; `Export.status_changeset/2` checks the values. A stale
+  change from `queued` to `running` cancels the job without touching a
+  file; a stale change from `running` to `done` removes `<id>.zip`,
+  `<id>.zip.part` and `<id>.build`, logs `export status not set to done:
+  export <id> is no longer running, package removed` and cancels the job;
+  a stale change from `queued` or `running` to `failed` logs `export status
+  not set to failed: export <id> is no longer queued or running`. The
+  worker sets the Oban `timeout/1` to `build_timeout/0`, 30 minutes. Oban
+  2.24 ends a job after its timeout with an exit signal from
+  `:timer.exit_after/2`, which no `rescue` of the worker catches; the export
+  then stays `queued` or `running` with its partial files until the sweep
+  ends it.
+- Interrupted exports (step 9): `Espalier.Interop.StaleExportWorker` (queue
+  `default`, `max_attempts: 1`) runs every 15 minutes from the crontab entry
+  `{"*/15 * * * *", Espalier.Interop.StaleExportWorker}`. With one
+  conditional `UPDATE ... RETURNING id`, it sets every export in status
+  `queued` or `running` whose `updated_at` lies longer than
+  `interrupted_after/0` back to `failed`, with the error "The build was
+  interrupted; request the export again." and `updated_at` set to now, logs
+  the warning `export interrupted: export <id> set to failed` per export and
+  removes `<EXPORT_DIR>/<id>.build`, `<id>.zip.part` and `<id>.zip` of
+  exactly these ids. `interrupted_after/0` is
+  `max(2 * ExportWorker.build_timeout(), one hour)`, one hour with the
+  timeout of 30 minutes, so the export of a job that still runs does not meet
+  it, and the sweep test asserts the relation. An export that waits longer
+  than the limit in the queue `exports` counts as interrupted; the job of
+  such a queued export is cancelled when it runs, because the export is
+  `failed`. A build that should still reach its end after the sweep set its
+  export to `failed` removes its package and sets no status, so no `done`
+  export without a package arises. Afterwards the sweep runs
+  `Interop.prune_exports(:all)`.
+- Retention (step 9, ASVS 15.2.2): `config :espalier, :export_retention,
+  max_age_days: 7, max_packages: 100` in `config/config.exs`, read by
+  `Interop.retention/0`, which raises `ArgumentError` for a value that is no
+  positive integer. `Interop.prune_exports(:count)` deletes the `done`
+  exports beyond the newest `max_packages` (by `updated_at`, `inserted_at`
+  and id; the option `keep: id` ranks one export first), and
+  `prune_exports(:all)` first deletes the `done` and `failed` exports whose
+  `updated_at` lies more than `max_age_days` back, then applies the count
+  rule and removes the orphans, the direct entries of `EXPORT_DIR` named
+  `<uuid>.build`, `<uuid>.zip.part` or `<uuid>.zip` without an export row.
+  Each rule deletes its rows with one `DELETE ... RETURNING id, file_name`
+  and removes their files after the statement, through
+  `Interop.remove_export_files/2` with the paths of `Interop.export_paths/1`
+  and the stored file name; a failed removal is logged, and the next orphan
+  step removes the file. `File.rm_rf/1` removes a symbolic link without
+  following it. The worker runs the count rule with `keep:` its export after
+  each change to `done` and logs `export retention not applied` when that
+  step fails; the export stays `done`. A deleted export answers 404 on
+  `GET /api/admin/exports/:id` and on the download.
+- Pack writer (step 12): a module directory is `modules/<number>-<slug of
+  the module title>/` with the number padded to two digits, and a lesson file
+  is `lessons/<key>.md`. A list file is written only when its list is not
+  empty, so module 2 gets no `assessment.yaml`, as in `content/demo`. A
+  field without value, the empty `areas_elsewhere`, `objectives` and `cite`,
+  and the empty `options` or `config` of an item are left out, because the
+  normalizer fills in the same values. `ymlr ~> 5.1` encodes the strings, and
+  an emitter in `PackWriter` keeps the key order of 0008 step 5 and
+  double-quotes a string that a YAML reader could take for another type.
+  `write/2` returns `{:ok, version}` with the version of the pack it wrote
+  and error tuples (`:not_published`, `:not_empty`, `:not_directory` and
+  `{:file, path, reason}`), and `mix espalier.export` prints the written
+  version, or each error through `Mix.shell()` with exit status 1; the task creates
+  a missing target directory and starts the application without Oban queues.
+  `write_payload/2` writes any payload in the shape of the normalized map.
+  The writer raises `ArgumentError` for a block body with a line that starts
+  with `:::` and for a `cite` entry with a comma or a double quote, which the
+  validator of 0008 admits in no pack. A pack with a draft import only has no
+  program row, so the task reports an unknown program. `write/2` reads the
+  program again and builds its payload from the stored row in one
+  `Repo.transact` under the same shared lock and timeout as the worker, reads
+  the payload before it checks the target directory, and writes the files
+  after the transaction. A program struct read before a second publish
+  therefore gives the version published last, and a program whose stored
+  status is no longer `published` answers `{:error, :not_published}` without
+  touching the path. The emitter also double-quotes the spellings of NaN and
+  infinity of YAML 1.2 (`.nan`, `.NaN`, `.NAN`, `.inf`, `.Inf`, `.INF`, each
+  also after `-` or `+`).
+- SCORM entry (step 2): the memory router holds the route
+  `/programs/:slug` with three children: an index route that redirects to
+  `stations/1`, because the back link of the glossary names the program page,
+  the module station and the glossary. The LMS discovery looks for
+  `API_1484_11` first (500 parent steps, then the chain of `window.opener`)
+  and then for `API` (7 steps), starts at the window of the SCO itself,
+  counts each walk separately and accepts an object only when it has
+  `Initialize` or `LMSInitialize`. An LMS that offers both APIs therefore
+  runs the package with `Scorm2004Runtime`. `startRuntime` in
+  `src/scorm/boot.ts` finds the API, creates the runtime of its version and
+  starts it. Besides the notice without an LMS, the page shows a notice for a
+  missing or invalid `content.json`, one for a runtime whose start failed,
+  which includes an LMS that refuses `Initialize` or `LMSInitialize`, and one
+  for a page that the browser restores from the back/forward cache after the
+  runtime ended the LMS session on `pagehide` (`sessionEnded`, through the
+  `pageshow` listener `onRestoredFromCache` in `boot.ts`, registered after a
+  successful start). A link that leaves the page, the title link of a source
+  with an http(s) URL or a Markdown link whose `href` is no fragment and
+  resolves to `http` or `https`, opens in a new tab with
+  `rel="noopener noreferrer"`, because a navigation of the SCO document fires
+  `pagehide` and ends the LMS session. The React context
+  `ExternalLinkTargetContext` in `src/player/externalLinks.ts` carries the
+  target, `ScormPlayer` sets it to `"_blank"`, and the platform and the admin
+  preview set none, so their links behave as in 0012. The new file in
+  `src/player/` imports no API client, so the boundary check of 0012 step 15
+  holds. An LMS that sandboxes the SCO iframe without `allow-popups` blocks
+  these links. `scorm.html` carries the title
+  "Learning module" without a favicon, and `main.tsx` sets the document title
+  to the module title. The UI language is the primary subtag of the pack
+  locale when the i18n files hold it, and English otherwise.
+- Build (step 3): Vite 8 bundles with Rolldown, so `vite.scorm.config.ts`
+  sets the input and the fixed file names in `build.rolldownOptions`
+  (`output.codeSplitting: false`) and sets `build.cssCodeSplit: false`; it
+  raises `chunkSizeWarningLimit` to 1,024 kB for the one chunk, and
+  `tsconfig.node.json` includes the file. The `frontend` stage of the
+  Dockerfile builds the player to `/out/scorm_player`, the builder stage
+  copies it to `priv/scorm_player`, and `.dockerignore` leaves out the local
+  player build and the schema files. `make check` runs `build:scorm` as its
+  last step, because the Makefile has no `npm audit` step yet to place it
+  before; 0017 appends that step.
+- Runtimes (step 4): `Scorm12Runtime` and `Scorm2004Runtime` extend
+  `ScormRuntime` in `src/runtimes/scorm.ts`, which composes
+  `StandaloneRuntime` on `contentPayload` of `src/runtimes/content.ts` and
+  takes the calls and data model elements of each version as a dialect.
+  `start()` restores the suspend data and then writes the restored objective
+  states, and `loadState` returns the state that the runtime holds. Each item
+  answer, exam attempt and module completion writes the values that changed,
+  `cmi.suspend_data` included, and commits once; an exam attempt therefore
+  also writes `cmi.suspend_data`. `finish()` writes the session time
+  (`cmi.core.session_time` or `cmi.session_time`). Attempt numbers continue
+  across sessions. With several exams, the status is `passed` when every exam
+  has a passed attempt and `failed` when any exam has a failed outcome.
+  SCORM 1.2 sets `cmi.core.lesson_status` to `completed` on the module
+  completion whenever no exam outcome exists (the module has no exam, or no
+  exam has a failed outcome and not every exam has passed), so also for a
+  module whose exam has no attempt; an exam outcome takes precedence, also
+  for an attempt after the completion. For an exam of more than 100 items, SCORM 1.2 writes the
+  percentage of correct answers, rounded to two decimal places, as
+  `cmi.core.score.raw` with `cmi.core.score.max` 100, because its score
+  elements hold 0 to 100. `cmi.score.scaled` is not written for an exam
+  without items. The suspend data holds a module-completed flag, because a
+  SCORM 1.2 module with an exam outcome reports `passed` or `failed` in
+  `cmi.core.lesson_status`, so its completion cannot be read back from the
+  LMS. A practice item counts as correct once any of its answers was correct.
+  `start()` throws when `Initialize("")` or `LMSInitialize("")` does not
+  answer `"true"` or throws; SCORM 2004 counts the error code 103 of
+  `GetLastError()` as a started session. After a failed start the runtime
+  makes no further LMS call. A failing LMS call changes nothing in the
+  player; only `saveState` rejects, also for an encoding above 4,096
+  characters, which the runtime then leaves out of its writes. `saveState`
+  resolves without an LMS call before `start()` and rejects without one after
+  `finish()` and after a failed start.
+- Resume (step 4): the suspend data starts with the version `2` and a layout
+  fingerprint of six base64url characters, followed by the path letter, the
+  completed flag, the three bitsets and one field per assessment. The
+  fingerprint is the 32-bit FNV-1a hash of the UTF-8 bytes of the item keys,
+  the explanation block ids of `explanationBlockIds` and the assessment keys,
+  each list in order with its members joined by `,` and the lists joined by
+  `;`. A string with another fingerprint or of version `1` decodes to `null`
+  and restores nothing, so progress that an LMS holds as suspend data of
+  version `1` is not restored after an update of the package. The LMS keeps
+  the status of the module, and the runtime writes the objective entries
+  again from the empty progress.
+- Suspend-data test (step 5): the test reads the demo pack through
+  `import.meta.glob`, for which `frontend/vite.config.ts` allows
+  `../content/demo` in `server.fs.allow`.
+- Admin page (step 11): `/admin/exports` preselects the first published
+  program and SCORM 1.2. The page holds the exports requested on it in its
+  own state, newest first, so a reload starts with an empty list. A 404 on
+  the request clears the chosen module and reads the modules of the program
+  again. A finished export is read again when the window regains focus. A
+  404 on the read of a listed export (`exportRemoved` in
+  `src/api/exports.ts`) ends its reads, also on focus, removes its download
+  link and shows the status "No longer available" with a text that the
+  server keeps exports for a limited time and in a limited number.

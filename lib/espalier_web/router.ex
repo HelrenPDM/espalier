@@ -343,12 +343,15 @@ defmodule EspalierWeb.Router do
 
     get "/packs/:id", PackController, :show
     get "/packs/:id/diff", PackController, :diff
+    get "/exports/:id", ExportController, :show
+    get "/exports/:id/download", ExportController, :download
   end
 
   scope "/api/admin", EspalierWeb.Admin do
     pipe_through [:api, :author_write]
 
     post "/packs/:id/publish", PackController, :publish
+    post "/exports", ExportController, :create
   end
 
   scope "/api/admin", EspalierWeb.Admin do

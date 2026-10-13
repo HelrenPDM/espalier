@@ -27,6 +27,7 @@ import {
   ApprovedToolsPage,
   AttendancePage,
   AuditPage,
+  ExportsPage,
   GlossaryPage,
   HandbookPage,
   InsightsPage,
@@ -126,6 +127,14 @@ export const appRoutes: RouteObject[] = [
               { path: ":id", element: <PackPage /> },
               { path: ":id/preview/*", element: <PackPreviewPage /> },
             ],
+          },
+          {
+            path: "exports",
+            element: (
+              <RequireRole anyOf={["author"]}>
+                <ExportsPage />
+              </RequireRole>
+            ),
           },
           adminSection("users", <UsersPage />),
           adminSection("policies", <AdminPoliciesPage />),

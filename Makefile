@@ -46,7 +46,7 @@ services-down: ## stop the development services
 	docker compose -f compose.dev.yaml down
 
 .PHONY: setup
-setup: init ## install, compile, set up the database, import the demo pack and seed the demo policies
+setup: init scorm-xsd ## install, compile, fetch the SCORM schema files, set up the database, import the demo pack and seed the demo policies
 	$(NIX) '$(DOTENV) mix ecto.setup'
 	$(NIX) '$(DOTENV) mix espalier.import content/demo'
 	$(NIX) '$(DOTENV) mix espalier.seed_demo'
@@ -90,6 +90,7 @@ check: ## run every static check, dependency audit and test of both projects
 	$(NIX) 'npm --prefix frontend run lint'
 	$(NIX) 'npm --prefix frontend run format:check'
 	$(NIX) 'npm --prefix frontend run test -- --run'
+	$(NIX) 'npm --prefix frontend run build:scorm'
 
 # --start-app=false needs neither database nor keys. --vendor-extensions=false
 # leaves out the x-struct and x-validate members, which GET /api/openapi does
@@ -114,9 +115,17 @@ auth-reference: ## Regenerate the phx.gen.auth reference project in tmp/auth-ref
 	$(NIX) "cd tmp/auth-reference/espalier && mix deps.get && printf 'Y\n' | mix phx.gen.auth Accounts User users --no-live --hashing-lib argon2"
 	test -f tmp/auth-reference/espalier/lib/espalier_web/user_auth.ex
 
+# The SCORM tests export packages, and the export worker copies the built
+# player from priv/scorm_player and the schema files from priv/scorm/xsd.
 .PHONY: e2e
-e2e: ## Run the Playwright tests against make run
+e2e: scorm-xsd ## Fetch the SCORM schema files, build the SCORM player and run the Playwright tests against make run
+	$(NIX) 'npm --prefix frontend run build:scorm'
 	$(NIX) "cd frontend && npx playwright test"
+
+# The schema files stay out of the repository (priv/scorm/xsd/SOURCE.md).
+.PHONY: scorm-xsd
+scorm-xsd: ## Fetch and check the XML schema files of the SCORM packages into priv/scorm/xsd
+	$(NIX) 'mix espalier.scorm_xsd'
 
 .PHONY: test-integration
 test-integration: ## Run the LDAP and mail tests against the dev services

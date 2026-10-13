@@ -46,6 +46,11 @@ config :argon2_elixir, t_cost: 1, m_cost: 8, parallelism: 1
 # Jobs run only through Oban.Testing (perform_job/3, drain_queue/2).
 config :espalier, Oban, testing: :manual
 
+# The SCORM export (task 0016) copies stand-ins of the player build and of
+# the schema files; the packages go to EXPORT_DIR (tmp/test-exports).
+config :espalier, :scorm_player_dir, Path.expand("../test/fixtures/scorm_player", __DIR__)
+config :espalier, :scorm_xsd_dir, Path.expand("../test/fixtures/scorm_xsd", __DIR__)
+
 config :espalier, :bootstrap_on_boot, false
 
 # Every ConnTest request comes from 127.0.0.1 and the ETS table is global to
@@ -89,6 +94,10 @@ config :espalier, :webauthn, rp_id: "localhost", origins: ["http://localhost:517
 # Requests from the tests stub the Pwned Passwords API.
 config :espalier, Espalier.Accounts.BreachedPasswords,
   req_options: [plug: {Req.Test, Espalier.Accounts.BreachedPasswords}, retry: false]
+
+# The download of the SCORM schema files goes to a Req.Test stub (task 0016).
+config :espalier, Espalier.Interop.SchemaFiles,
+  req_options: [plug: {Req.Test, Espalier.Interop.SchemaFiles}, retry: false]
 
 # Webhook deliveries go to a Req.Test stub (task 0013), and the tests may
 # use http URLs.

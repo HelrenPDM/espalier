@@ -146,6 +146,33 @@ describe("RequireRole", () => {
     ).toEqual(["Credentials"]);
   });
 
+  test("the admin navigation lists packs and exports for an author", () => {
+    renderAt("/admin", sessionValue({ roles: ["learner", "author"] }));
+
+    const navigation = screen.getByRole("navigation", {
+      name: "Administration sections",
+    });
+    expect(
+      within(navigation)
+        .getAllByRole("link")
+        .map((link) => [link.textContent, link.getAttribute("href")]),
+    ).toEqual([
+      ["Packs", "/admin/packs"],
+      ["Exports", "/admin/exports"],
+    ]);
+  });
+
+  test("renders the 403 page for an admin on /admin/exports", () => {
+    renderAt("/admin/exports", sessionValue({ roles: ["learner", "admin"] }));
+
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Access denied" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "SCORM export" }),
+    ).not.toBeInTheDocument();
+  });
+
   // The reports page of 0014 sits under the admin guard and admits only
   // analysts; `src/admin/insights/InsightsPage.test.tsx` renders it for one.
   test.each([

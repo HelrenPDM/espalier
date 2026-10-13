@@ -43,9 +43,18 @@ config :espalier, Oban,
      crontab: [
        {"0 2 * * *", Espalier.Accounts.PurgeExpiredTokensWorker},
        {"0 3 * * *", Espalier.Credentials.SweepWorker},
-       {"30 3 * * *", Espalier.Insights.RetentionWorker}
+       {"30 3 * * *", Espalier.Insights.RetentionWorker},
+       # Ends the exports of task 0016 whose build was interrupted and
+       # applies their retention.
+       {"*/15 * * * *", Espalier.Interop.StaleExportWorker}
      ]}
   ]
+
+# The retention of SCORM exports (task 0016, Espalier.Interop.retention/0):
+# an export with status done or failed is deleted with its files
+# max_age_days after its last change, and of the done exports only the
+# newest max_packages keep their package.
+config :espalier, :export_retention, max_age_days: 7, max_packages: 100
 
 # Rate limit buckets as {scale_ms, limit} (docs/security/authentication.md).
 config :espalier, :rate_limits, %{

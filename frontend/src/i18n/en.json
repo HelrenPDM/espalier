@@ -690,12 +690,32 @@
       "formatVoted": "Vote for a format at station {{station}}"
     }
   },
+  "scorm": {
+    "loading": "Loading the module…",
+    "noLms": {
+      "title": "Learning management system required",
+      "text": "This module runs only inside a learning management system (LMS) that supports SCORM. Please open it from your course in the LMS."
+    },
+    "contentFailed": {
+      "title": "Module not available",
+      "text": "The content of this module could not be loaded. The package may be incomplete."
+    },
+    "startFailed": {
+      "title": "Module not started",
+      "text": "The learning management system did not start this module. Please close it and open it again."
+    },
+    "sessionEnded": {
+      "title": "Session ended",
+      "text": "This page can no longer save anything. Please open the module again from the learning management system."
+    }
+  },
   "admin": {
     "title": "Administration",
     "intro": "Choose a section. Each section appears for the role that it serves.",
     "nav": {
       "label": "Administration sections",
       "packs": "Packs",
+      "exports": "Exports",
       "users": "Users",
       "policies": "Policies",
       "approvedTools": "Approved tools",
@@ -853,6 +873,61 @@
         "items": "Items"
       },
       "handbook": "The handbook lists the rules of the published program and is not part of the preview."
+    },
+    "exports": {
+      "title": "SCORM export",
+      "intro": "Export a module of a published program as a SCORM package. The package runs the player in a learning management system (LMS) and reports completion, success, score and the status of each learning objective there.",
+      "notice": {
+        "title": "Answer keys and results per person",
+        "answerKeys": "The package contains the answer keys of the module, because the player evaluates the answers in the browser of the learner. Anyone with access to the package can read them.",
+        "results": "The receiving LMS records the results per person: learner id, status, score, time and the status of each learning objective. These records stay in the LMS and do not reach this platform."
+      },
+      "form": {
+        "title": "Request an export",
+        "program": "Program",
+        "programsLoading": "Loading the programs…",
+        "programsFailed": "The programs could not be loaded. Please try again later.",
+        "noPrograms": "No program is published.",
+        "module": "Module",
+        "chooseModule": "Choose a module",
+        "modulesLoading": "Loading the modules…",
+        "modulesFailed": "The modules could not be loaded. Please try again later.",
+        "noModules": "This program has no module.",
+        "version": "SCORM version",
+        "submit": "Request the export",
+        "submitting": "Requesting the export…"
+      },
+      "versions": {
+        "scorm12": "SCORM 1.2",
+        "scorm2004": "SCORM 2004 4th edition"
+      },
+      "errors": {
+        "moduleRequired": "Choose a module.",
+        "moduleGone": "The module is no longer published. Choose another module.",
+        "rejected": "The server did not accept the request. Choose the module and the version again.",
+        "reauthCancelled": "The export was not requested, because the confirmation with a second factor was cancelled."
+      },
+      "list": {
+        "title": "Requested exports",
+        "intro": "The list holds the exports requested on this page. Their status updates every two seconds until the package is ready or the export has failed.",
+        "empty": "No export has been requested on this page.",
+        "module": "Module {{number}}:",
+        "version": "Version",
+        "requestedAt": "Requested",
+        "status": "Status",
+        "download": "Download the package",
+        "error": "Reason:",
+        "loading": "Loading the status…",
+        "loadFailed": "The current status could not be loaded.",
+        "removed": "This export is no longer available. The server keeps exports for a limited time and in a limited number, and it has deleted this one with its package. Request the export again for a new package."
+      },
+      "status": {
+        "queued": "Queued",
+        "running": "Running",
+        "done": "Ready for download",
+        "failed": "Failed",
+        "removed": "No longer available"
+      }
     },
     "users": {
       "title": "Users",
