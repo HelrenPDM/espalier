@@ -52,7 +52,10 @@ says, run its acceptance checks, stop.
 WYSIWYG authoring, SAML, SCIM provisioning, OIDC back-channel logout, xAPI and
 cmi5, multi-tenancy, native mobile apps, and any gamification that ranks people. Each of these has an
 extension point in the architecture (provider behaviour, runtime adapter,
-webhooks), and none of them is built now.
+webhooks), and none of them is built now. The pack workbench of task 0016a
+lets authors edit the YAML and Markdown files of a content pack in the
+browser, and content packs stay the only import and export format (decision
+D18).
 
 ## 2 Principles
 
@@ -172,7 +175,7 @@ plan keeps the template version until the toolchain around it (Oxlint,
     ├── architecture/      PlantUML sources
     ├── plan/              this plan and the task specs
     ├── security/          asvs-l2.md, crypto-inventory.md, key-management.md, authentication.md, logging.md, wax-spike.md
-    └── guides/            self-hosting.md, identity-providers.md, content-packs.md, scorm-export.md, security.md, operations.md
+    └── guides/            self-hosting.md, identity-providers.md, content-packs.md, pack-workbench.md, scorm-export.md, security.md, operations.md
 ```
 
 The Phoenix project sits at the repository root, as in `sl_vanilla`. The
@@ -198,6 +201,7 @@ the business logic. Oban runs scheduled and long-running work.
 | `Espalier.Credentials` | Requirement evaluation, issue, validity, refresher, attendance, webhooks | `Credential`, `AttendanceCertificate`, `Webhook` |
 | `Espalier.Insights` | Anonymous responses, item statistics, reports with group threshold, retention | `SelfAssessmentResponse`, `InterestVote`, `FeedbackResponse`, `ItemStat`, `ParticipationMarker` |
 | `Espalier.Interop` | Content pack export, SCORM export | `Export` |
+| `Espalier.Workbench` | Drafts of content packs that authors edit in the browser; check and import through the pack importer (task 0016a) | `PackDraft`, `PackDraftFile` |
 | `Espalier.Audit` | Trail of administrative actions | `AuditEvent` |
 
 ### Request flow
@@ -690,7 +694,7 @@ that each task can rely on the others.
 | Mail link formats: `/invite#token=`, `/recover#token=`, `/account/email/confirm#token=`; post-logout page `/signed-out` | 0004, 0005, 0006 | 0011 |
 | OpenAPI operations: routes of 0004 and the learner routes of 0009 | 0009 | 0010, 0011 |
 | OpenAPI operations: routes of 0005, 0006 and 0007 | 0011 | 0015 |
-| OpenAPI operations: routes of 0013, 0014, 0015 and 0016 | each of these tasks for its own routes | the SPA |
+| OpenAPI operations: routes of 0013, 0014, 0015, 0016 and 0016a | each of these tasks for its own routes | the SPA |
 
 ## 7 Domain rules
 
@@ -805,6 +809,7 @@ at `/api/openapi`. The frontend generates its types from that document.
 | Registrar | `GET /api/registrar/credentials` (only with `REGISTRAR_ENABLED=true`) | registrar |
 | Reports | `GET /api/insights/self-assessment`, `GET /api/insights/items`, `GET /api/insights/competence`, `GET /api/insights/formats`, `GET /api/insights/feedback`, `GET /api/insights/credentials` | analyst |
 | Administration | `POST /api/admin/packs`, `GET /api/admin/packs/:id`, `GET /api/admin/packs/:id/diff`, `POST /api/admin/packs/:id/publish`, CRUD on `/api/admin/policies`, `/api/admin/policy-versions`, `/api/admin/approved-tools`, `/api/admin/role-grants`, `/api/admin/api-clients`, `/api/admin/webhooks`, `/api/admin/users` (invite, resend invitation, disable, end sessions, reset factors, reset failure counters), `POST /api/admin/user-lookups` (address in the body), `DELETE /api/admin/sessions` (all users), `POST /api/admin/credentials/:id/revoke`, `GET /api/admin/audit` | author / admin (changes need a recent second factor) |
+| Pack workbench | `GET /api/admin/pack-drafts`, `POST /api/admin/pack-drafts` (from an empty skeleton, a published program or an import), `POST /api/admin/pack-draft-uploads` (from a zip archive), `GET /api/admin/pack-drafts/:id`, `DELETE /api/admin/pack-drafts/:id`, `POST /api/admin/pack-drafts/:id/files`, `GET`, `PUT` (content), `PATCH` (rename) and `DELETE /api/admin/pack-drafts/:id/files/:file_id`, `POST /api/admin/pack-drafts/:id/check`, `POST /api/admin/pack-drafts/:id/imports`, `GET /api/admin/pack-drafts/:id/download` | author (changes need a recent second factor; the check changes no state) |
 | Exports | `POST /api/admin/exports`, `GET /api/admin/exports/:id`, `GET /api/admin/exports/:id/download` | author |
 | Integration | `POST /api/integration/credential-lookups` (machine token, scope `credentials:read`, address in the body) | machine client |
 | Health | `GET /health` | public |
@@ -821,7 +826,7 @@ frontend/src/
 ├── auth/         session hook, sign-in (passkey with conditional UI, password and second factor, providers, LDAP, demo), invitation, recovery
 ├── account/      security settings: passkeys, TOTP, recovery codes, password, e-mail, sessions, step-up dialog
 ├── learner/      program overview, stations, module view, exam, credential, handbook, formats, feedback
-├── admin/        packs, preview, exports, users, policies, approved tools, roles, API clients, webhooks, audit, attendance, reports, registrar list
+├── admin/        packs, preview, pack workbench, exports, users, policies, approved tools, roles, API clients, webhooks, audit, attendance, reports, registrar list
 ├── player/       content renderer: blocks, items, glossary terms, provenance badges, path logic
 ├── runtimes/     platform.ts, scorm12.ts, scorm2004.ts, standalone.ts
 ├── i18n/         en.json, de.json
@@ -832,9 +837,12 @@ frontend/src/
 
 The admin area under `/admin` serves every role beyond `learner`. Its guard
 admits `author`, `admin`, `facilitator`, `analyst` and `registrar` (task 0010),
-and each section appears only for its role (task 0015). Authors see packs and
-exports. Admins see users, policies, approved tools, roles, API clients,
-webhooks and the audit log. Facilitators see the attendance page, analysts see
+and each section appears only for its role (task 0015). Authors see packs,
+the pack workbench and exports. The pack workbench (task 0016a) holds drafts
+of content packs: a file tree, an editor for the YAML and Markdown files, a
+check with the report and the alignment matrix of the pack page, and an
+import that hands the draft over to the pack page. Admins see users,
+policies, approved tools, roles, API clients, webhooks and the audit log. Facilitators see the attendance page, analysts see
 the reports of task 0014, and registrars see the credential list at
 `/admin/registrar`. While `REGISTRAR_ENABLED=false`, the registrar route answers
 404 (task 0013), and the registrar page states that the list is switched off.
@@ -1186,12 +1194,15 @@ no copy of that list.
 | 0014 | [Anonymous insights, reports and retention](tasks/0014-insights.md) | M4 Records | 0012, 0013 |
 | 0015 | [Admin area](tasks/0015-admin-area.md) | M5 Administration | 0011, 0012, 0013, 0014 |
 | 0016 | [SCORM 1.2 and 2004 export, and pack export](tasks/0016-scorm-export.md) | M6 Interop and operations | 0012, 0015 |
-| 0017 | [Production image, guides and hardening](tasks/0017-production-hardening.md) | M6 Interop and operations | 0002, 0015, 0016 |
+| 0016a | [Pack workbench](tasks/0016a-pack-workbench.md) | M5 Administration | 0015, 0016 |
+| 0017 | [Production image, guides and hardening](tasks/0017-production-hardening.md) | M6 Interop and operations | 0002, 0015, 0016, 0016a |
 
 0007 follows 0006, because it reuses the external-identity functions of 0006.
 0004a carries the implemented interfaces of 0004, the ASVS scan rows and the
 decisions D13 to D17 into the specs of the later tasks. 0008 and 0010 can
-start as soon as 0004a is done.
+start as soon as 0004a is done. 0016a follows 0016, because it renders
+drafts with the pack writer of 0016 under its shared advisory lock, and it
+comes before 0017, whose content pack guide links the guide of 0016a.
 
 Each task has a GitHub issue under its milestone, and
 [`tasks/EPIC.md`](tasks/EPIC.md) records the issue and status of every task.
@@ -1217,6 +1228,7 @@ Each task has a GitHub issue under its milestone, and
 | D15 | Announced deviations | Decided: the ownership table marks the deviations that the task specs announce, as it marks 6.2.8: the previous TOTP step under ASVS 6.5.5 (task 0005), the password bind of the directory service account under ASVS 13.2.1 (task 0007), and `code`, `state` and the OIDC intent in a query string under ASVS 14.2.1 (task 0011, with the measures of task 0006). The section "Deviations" of the matrix holds each entry with rule and reason. |
 | D16 | ASVS scan rows | Decided: every row of the matrix appears in the ownership table of task 0004 (step 42), and the section "Security requirements" of each task spec lists exactly the rows whose `Task` column names that task. `test/docs/asvs_matrix_test.exs` checks both rules in `make check`. |
 | D17 | Proxy hop | Decided: the hop from the reverse proxy to the application stays HTTP on the compose network of one host, which `self-hosting.md` requires (task 0017), and the matrix records it as a deviation from ASVS 12.3.1 and 12.3.3. A proxy on another host needs TLS on that hop. |
+| D18 | Course editor | Decided after task 0016: a pack workbench in the admin area (task 0016a) edits the YAML and Markdown files of a content pack with a file tree, an editor, the check of the pack validator with file and line, the alignment matrix and the import into the existing pack page. WYSIWYG authoring stays out of scope (section 1), and content packs stay the only import and export format, so Git workflows, `mix espalier.import`, `mix espalier.validate` and `mix espalier.export` keep working. The CSP of section 6.5 stays unchanged; the editor is CodeMirror 6 when the spike of 0016a shows that it runs under that CSP, and a textarea with line numbers otherwise. |
 
 ## 16 Risks
 
