@@ -436,8 +436,7 @@ defmodule Espalier.Interop do
 
       {:error, reason, file} ->
         Logger.warning(
-          "export file not removed: #{Path.relative_to(file, export_dir())}, " <>
-            "#{:file.format_error(reason)}"
+          "export file not removed: #{Path.relative_to(file, export_dir())}, #{inspect(reason)}"
         )
 
         :error

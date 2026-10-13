@@ -16,8 +16,8 @@ defmodule Mix.Tasks.Espalier.ScormXsd do
   exits with status 1; the export worker fails every export of a version
   without its schema files.
 
-  The task needs network access to the URL of each archive and starts no
-  application.
+  The task needs network access to the URL of each archive. It starts the
+  HTTP client Req and no Espalier application.
   """
   use Mix.Task
 

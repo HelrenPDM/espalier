@@ -39,10 +39,13 @@ defmodule Espalier.Interop.ExportWorker do
   that file to `<id>.zip`, removes the build directory and sets the status
   `done` with `file_name`. On any error, the status changes to `running`
   and `done` included, it sets `failed` with a short text in `error`, logs
-  the cause and removes the build directory and the partial files. When
-  that status change fails as well, the worker logs its cause and the job
-  ends with the error; `Espalier.Interop.StaleExportWorker` ends such an
-  export later. A player directory without `scorm.html`, `LICENSE` or
+  the cause and then removes the build directory and the partial files.
+  The status changes first: when the change to `done` committed but its
+  answer was lost, the export is `done`, keeps its package and the job
+  ends without an error. When the change to `failed` fails as well, the
+  worker logs its cause, keeps the files and the job ends with the error;
+  `Espalier.Interop.StaleExportWorker` ends such an export later and
+  removes its files. A player directory without `scorm.html`, `LICENSE` or
   `NOTICE` fails the export with a text that names the missing files and
   the build command, so that no package leaves without the license files.
 
@@ -140,9 +143,17 @@ defmodule Espalier.Interop.ExportWorker do
         cancel
 
       {:error, message} ->
-        remove_partial(export)
-        mark_failed(export, message)
-        {:error, message}
+        case mark_failed(export, message) do
+          :done ->
+            :ok
+
+          :not_done ->
+            remove_partial(export)
+            {:error, message}
+
+          :unknown ->
+            {:error, message}
+        end
     end
   end
 
@@ -188,26 +199,46 @@ defmodule Espalier.Interop.ExportWorker do
     end
   end
 
-  # The job ends with the error in any case. When the status change to
-  # `failed` fails as well, the log names the cause, and
-  # `Espalier.Interop.StaleExportWorker` ends the export later. An export
-  # that the sweep has already ended keeps its status.
+  # Sets `failed` and tells the caller whether the files of the export may
+  # go: `:not_done` after the change, and when the sweep has already ended
+  # the export; `:done` when the export is done after all, because the
+  # change to `done` committed although its answer was lost; `:unknown`
+  # when the change fails, so that the files stay until
+  # `Espalier.Interop.StaleExportWorker` ends the export.
   defp mark_failed(export, message) do
     case Interop.transition_export(export, [:queued, :running], %{status: :failed, error: message}) do
       {:ok, _failed} ->
-        :ok
+        :not_done
 
       {:error, :stale} ->
-        Logger.warning(
-          "export status not set to failed: export #{export.id} is no longer queued or running"
-        )
+        stale_outcome(export)
     end
   rescue
     exception ->
       log_exception(export, "export status not set to failed", :error, exception, __STACKTRACE__)
+      :unknown
   catch
     kind, reason ->
       log_exception(export, "export status not set to failed", kind, reason, __STACKTRACE__)
+      :unknown
+  end
+
+  defp stale_outcome(export) do
+    case Repo.get(Export, export.id) do
+      %Export{status: :done} ->
+        Logger.warning(
+          "export status not set to failed: export #{export.id} is done, package kept"
+        )
+
+        :done
+
+      _other ->
+        Logger.warning(
+          "export status not set to failed: export #{export.id} is no longer queued or running"
+        )
+
+        :not_done
+    end
   end
 
   defp build(export, paths) do

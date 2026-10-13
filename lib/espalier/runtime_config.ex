@@ -62,7 +62,10 @@ defmodule Espalier.RuntimeConfig do
   `EXPORT_DIR` (task 0016) is the directory of the SCORM packages that
   `Espalier.Interop.ExportWorker` writes and the download route reads. The
   defaults of development and tests lie below `tmp/`, which `.gitignore`
-  covers; in production an unset value stops the boot.
+  covers; in production an unset value stops the boot. The directory
+  belongs to one installation and its database: the retention of
+  `Espalier.Interop.prune_exports/1` deletes the packages there that the
+  database does not know, so two installations must not share it.
   """
 
   @doc "Returns the settings as a keyword list for `config :espalier`."

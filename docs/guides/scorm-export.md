@@ -81,11 +81,15 @@ After the transaction, the worker builds the package in
 `<EXPORT_DIR>/<id>.build/`, zips it into `<id>.zip.part`, renames that file to
 `<id>.zip` and sets the status `done`. On any error, an error of the status
 changes to `running` and `done` included, it sets `failed`, writes a short
-text into `error`, logs the cause with `export failed: export <id>` and
-removes the build directory and the partial files. When the change to
-`failed` fails as well, the worker logs `export status not set to failed:
-export <id>` with the cause, and the job still ends with the error. The export
-then stays `queued` or `running` until the sweep below ends it.
+text into `error`, logs the cause with `export failed: export <id>` and then
+removes the build directory and the partial files. The status changes first:
+when the change to `done` committed but its answer was lost, the change to
+`failed` finds the export `done`, the worker logs `export status not set to
+failed: export <id> is done, package kept`, keeps the package and ends the job
+without an error. When the change to `failed` fails as well, the worker logs
+`export status not set to failed: export <id>` with the cause, keeps the files,
+and the job still ends with the error. The export then stays `queued` or
+`running` until the sweep below ends it and removes its files.
 
 Every status change of the worker goes through
 `Espalier.Interop.transition_export/3`: one `UPDATE exports ... WHERE id = $1
@@ -191,7 +195,7 @@ that another author requested.
 
 | Setting | Default | Content |
 |---|---|---|
-| `EXPORT_DIR` | `tmp/exports` in development, `tmp/test-exports` in tests | The directory of the packages. A production boot stops while it is unset; `.env.example` names `/data/exports` as an example. The sweep of interrupted exports removes the files of the exports that it sets to `failed`, and the retention deletes the packages of `done` exports beyond `max_packages` or older than `max_age_days` and the files without an export row. The platform writes and deletes only entries named `<id>.build`, `<id>.zip.part` and `<id>.zip` there. |
+| `EXPORT_DIR` | `tmp/exports` in development, `tmp/test-exports` in tests | The directory of the packages. A production boot stops while it is unset; `.env.example` names `/data/exports` as an example. The sweep of interrupted exports removes the files of the exports that it sets to `failed`, and the retention deletes the packages of `done` exports beyond `max_packages` or older than `max_age_days` and the files without an export row. The platform writes and deletes only entries named `<id>.build`, `<id>.zip.part` and `<id>.zip` there. The directory belongs to one installation and its database, because the retention deletes the packages that the database does not know; two installations, such as a staging and a production instance on one host, must not share it. |
 | `config :espalier, :export_retention` | `max_age_days: 7, max_packages: 100` | The retention of exports, set in `config/config.exs` (section "Retention" above). |
 | `config :espalier, :scorm_player_dir` | `priv/scorm_player` of the application | The output of `npm --prefix frontend run build:scorm`. |
 | `config :espalier, :scorm_xsd_dir` | `priv/scorm/xsd` of the application | The schema files below `12/` and `2004/`, written by `mix espalier.scorm_xsd`. |

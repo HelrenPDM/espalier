@@ -210,7 +210,8 @@ defmodule Espalier.Interop.SchemaFiles do
   the body as the server sent it: without a redirect, a decompression or a
   decoding, so that the SHA-256 of the archive applies to its bytes. Req
   checks the server certificate against the CA certificates of the
-  operating system and repeats a request after a transient error twice.
+  operating system and repeats a request after a transient error twice,
+  after one and after two seconds, whatever `Retry-After` the server sends.
   `config :espalier, Espalier.Interop.SchemaFiles, req_options: [...]`
   adds options; the tests stub the server with `Req.Test` that way.
   """
@@ -227,7 +228,10 @@ defmodule Espalier.Interop.SchemaFiles do
           compressed: false,
           decode_body: false,
           retry: :transient,
-          max_retries: 2
+          max_retries: 2,
+          # A fixed backoff of 1 and 2 seconds: Req ignores Retry-After
+          # once retry_delay is set, so a server cannot stall the build.
+          retry_delay: &(1_000 * 2 ** &1)
         ],
         Application.get_env(:espalier, __MODULE__, [])[:req_options] || []
       )

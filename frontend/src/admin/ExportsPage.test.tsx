@@ -468,13 +468,17 @@ describe("the list of exports", () => {
     ).toBeInTheDocument();
     expect(requestsTo(requests, "GET", SHOW)).toHaveLength(2);
 
-    // Neither the interval nor the focus reads a deleted export again.
+    // Neither the interval, the focus nor a reconnect reads a deleted
+    // export again.
     await advance(6000);
     await act(async () => {
       window.dispatchEvent(new Event("visibilitychange"));
+      window.dispatchEvent(new Event("offline"));
+      window.dispatchEvent(new Event("online"));
     });
     await advance(2000);
     expect(requestsTo(requests, "GET", SHOW)).toHaveLength(2);
+    expect(within(entry).queryByRole("link")).not.toBeInTheDocument();
   });
 
   test("lists the newest export first", async () => {

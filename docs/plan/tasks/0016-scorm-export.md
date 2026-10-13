@@ -230,9 +230,12 @@ tasks rely on the implemented form.
   `:infinity`), and the package files are written after the transaction. The
   status change to `running` lies inside the rescued part, so an exception
   there, in the build or in the change to `done` ends the export as `failed`
-  and removes the partial files. When the change to `failed` itself fails,
-  the worker logs `export status not set to failed: export <id>` with the
-  cause, and the job still returns `{:error, message}`. Every status change
+  and then removes the partial files. The status changes first, so an
+  export whose change to `done` committed although its answer was lost
+  stays `done` with its package, and the job ends with `:ok`. When the
+  change to `failed` itself fails, the worker logs `export status not set to
+  failed: export <id>` with the cause, keeps the files for the sweep, and
+  the job still returns `{:error, message}`. Every status change
   goes through `Interop.transition_export/3`, one `UPDATE ... WHERE id = $1
   AND status IN (...) RETURNING *` that answers `{:ok, export}` or
   `{:error, :stale}`; `Export.status_changeset/2` checks the values. A stale

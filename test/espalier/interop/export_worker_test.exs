@@ -201,6 +201,26 @@ defmodule Espalier.Interop.ExportWorkerTest do
     """)
   end
 
+  # Plays a change to done that committed although the worker never saw
+  # its answer: an AFTER trigger sets the row to done in the transaction of
+  # the change to running, while the worker builds on. The rollback of the
+  # sandbox transaction removes the trigger.
+  defp done_after_running! do
+    Repo.query!("""
+    CREATE FUNCTION espalier_test_done() RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN
+      UPDATE exports SET status = 'done', file_name = NEW.id::text || '.zip' WHERE id = NEW.id;
+      RETURN NULL;
+    END
+    $$
+    """)
+
+    Repo.query!("""
+    CREATE TRIGGER espalier_test_done AFTER UPDATE ON exports
+    FOR EACH ROW WHEN (NEW.status = 'running') EXECUTE FUNCTION espalier_test_done()
+    """)
+  end
+
   # Makes every change of an export row to `status` find no row, as the
   # conditional UPDATE does when another session has changed the status
   # first. The rollback of the sandbox transaction removes the trigger.
@@ -454,6 +474,25 @@ defmodule Espalier.Interop.ExportWorkerTest do
       assert failed.error =~ @build_command
       refute failed.error =~ "LICENSE"
       assert File.ls!(Interop.export_dir()) == []
+    end
+
+    test "keeps the package of an export that is done although its job failed",
+         %{scope: scope, program: program} do
+      player = tmp_dir!("player")
+      File.cp_r!(@player, player)
+      File.rm!(Path.join(player, "NOTICE"))
+      put_env(:scorm_player_dir, player)
+      export = request!(scope, program, 1, :scorm12)
+      zip = Interop.export_paths(export.id).zip
+      File.mkdir_p!(Path.dirname(zip))
+      File.write!(zip, "package")
+      done_after_running!()
+
+      log = capture_log(fn -> assert :ok = perform_job(ExportWorker, %{export_id: export.id}) end)
+
+      assert log =~ "export #{export.id} is done, package kept"
+      assert Repo.get!(Export, export.id).status == :done
+      assert File.read!(zip) == "package"
     end
 
     test "names every missing player file", %{scope: scope, program: program} do

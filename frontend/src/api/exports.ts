@@ -87,8 +87,9 @@ export function useExportModules(slug: string | null) {
  * seconds while its status is `queued` or `running` (`exportPollInterval`).
  * The request puts its answer into the cache, so the first read follows one
  * interval after the request. A finished export is read again when the
- * window regains focus, so that the page learns of an export that the
- * server has deleted; after a 404 the export is not read again.
+ * window regains focus or the network comes back, so that the page learns
+ * of an export that the server has deleted; after a 404 the export is not
+ * read again.
  */
 export function useExport(id: string) {
   const client = useApiClient();
@@ -103,6 +104,7 @@ export function useExport(id: string) {
     staleTime: EXPORT_POLL_INTERVAL,
     refetchInterval: (query) => exportPollInterval(query.state),
     refetchOnWindowFocus: (query) => !exportRemoved(query.state.error),
+    refetchOnReconnect: (query) => !exportRemoved(query.state.error),
   });
 }
 

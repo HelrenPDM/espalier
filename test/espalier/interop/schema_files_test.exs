@@ -77,6 +77,19 @@ defmodule Espalier.Interop.SchemaFilesTest do
       assert_received {:request, "GET", "/zips/schemas.zip", ["Espalier"]}
     end
 
+    test "decompresses and decodes nothing, so the checksum applies to the bytes sent" do
+      gzipped = :zlib.gzip(archive(@files))
+
+      Req.Test.stub(SchemaFiles, fn conn ->
+        conn
+        |> Plug.Conn.put_resp_content_type("application/zip")
+        |> Plug.Conn.put_resp_header("content-encoding", "gzip")
+        |> Plug.Conn.send_resp(200, gzipped)
+      end)
+
+      assert SchemaFiles.fetch_https("https://example.org/a.zip") == {:ok, gzipped}
+    end
+
     test "answers an error for a status other than 200, also for a redirect" do
       Req.Test.stub(SchemaFiles, &Plug.Conn.send_resp(&1, 404, "missing"))
       assert SchemaFiles.fetch_https("https://example.org/a.zip") == {:error, {:http_status, 404}}
@@ -157,7 +170,7 @@ defmodule Espalier.Interop.SchemaFilesTest do
     end
 
     @tag :tmp_dir
-    test "fetches the archive with Req by default", %{tmp_dir: dir} do
+    test "installs an archive that fetch_https/1 fetches", %{tmp_dir: dir} do
       zip = archive(@files)
       source = source(zip)
       Req.Test.stub(SchemaFiles, &Plug.Conn.send_resp(&1, 200, zip))

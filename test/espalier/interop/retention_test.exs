@@ -74,9 +74,15 @@ defmodule Espalier.Interop.RetentionTest do
   # requested one minute before that. A `done` export names its zip, and
   # every export gets the files of a build: the build directory with a
   # file, the partial zip and the zip.
-  defp export!(module, status, minutes) do
-    id = Ecto.UUID.generate()
-    changed = DateTime.add(DateTime.utc_now(:second), -minutes, :minute)
+  # `opts` may fix the `:id` and the time `:at` of the last change, which
+  # is otherwise `minutes` ago.
+  defp export!(module, status, minutes, opts \\ []) do
+    id = Keyword.get_lazy(opts, :id, &Ecto.UUID.generate/0)
+
+    changed =
+      Keyword.get_lazy(opts, :at, fn ->
+        DateTime.add(DateTime.utc_now(:second), -minutes, :minute)
+      end)
 
     Repo.insert!(%Export{
       id: id,
@@ -166,18 +172,19 @@ defmodule Espalier.Interop.RetentionTest do
 
     test "keeps the export named by keep among exports of the same second", %{module: module} do
       put_env(:export_retention, max_age_days: 7, max_packages: 1)
+      at = DateTime.add(DateTime.utc_now(:second), -10, :minute)
 
-      for _round <- 1..2 do
-        [first, second] = for _n <- 1..2, do: export!(module, :done, 10)
+      # Equal timestamps leave the order to the id, which ranks `first`
+      # above `second`; only `keep` saves `second`.
+      first = export!(module, :done, 10, id: "ffffffff-ffff-4fff-bfff-ffffffffffff", at: at)
+      second = export!(module, :done, 10, id: "00000000-0000-4000-8000-000000000000", at: at)
 
-        assert {%{deleted: [deleted]}, _log} =
-                 with_log(fn -> Interop.prune_exports(:count, keep: second.id) end)
+      assert {%{deleted: [deleted]}, _log} =
+               with_log(fn -> Interop.prune_exports(:count, keep: second.id) end)
 
-        assert deleted == first.id
-        assert exists?(second)
-        assert files(second.id) == all_files(second.id)
-        Repo.delete!(second)
-      end
+      assert deleted == first.id
+      assert exists?(second)
+      assert files(second.id) == all_files(second.id)
     end
 
     test "deletes nothing while the done exports stay within the limit", %{module: module} do
