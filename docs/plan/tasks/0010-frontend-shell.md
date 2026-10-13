@@ -249,3 +249,25 @@ tasks rely on the implemented form.
 - Build: `vite build` warns that the entry chunk exceeds 500 kB (509 kB
   minified, 163 kB with gzip). Splitting the routes of 0012 into chunks can
   follow there.
+- Main navigation (step 9): the maintainer reported that a signed-in admin
+  found no way into the admin area and that the learner pages were not
+  reachable from every view. The header of a full session (`mfa` or `demo`,
+  the sessions that `RequireAuth` admits) therefore holds the main
+  navigation of `src/app/MainNav.tsx`, `<nav aria-label="Main">` with the
+  programs (`/`, current on `/` and below `/programs/`), the credentials, the
+  policies and, for a session with one of `ADMIN_ROLES`, the administration.
+  The section of the current path carries `aria-current="page"`. Below the
+  `md` breakpoint a Headless UI `Popover` behind the "Menu" button holds the
+  same links and closes after a navigation, on Escape and on a click
+  outside, and the header bar wraps onto a second line, so that it fits a
+  width of 360 pixels. The user menu keeps the security settings of an `mfa`
+  session and sign-out; the credentials and the policies moved to the main
+  navigation. `ADMIN_ROLES` moved from `router.tsx` to
+  `src/admin/sections.ts`, so that the header reads it without importing the
+  route tree, and `navLinkClasses` in `src/app/formStyles.ts` gives the main
+  navigation and the admin sections one style. `src/app/Breadcrumbs.tsx`
+  renders a trail as `<nav aria-label="Breadcrumb">` with an `<ol>`: every
+  item but the last is a link, the last one carries `aria-current="page"`,
+  the separators are `aria-hidden`, and an item of pack text carries its
+  `lang`. The program pages (0012) and the credential page of 0013 use it;
+  on the credential page it replaces the link back to the list.

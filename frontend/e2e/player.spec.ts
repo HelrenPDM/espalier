@@ -108,8 +108,10 @@ test("a learner goes through module 1 on the short path", async ({ page }) => {
   await page.getByRole("radio", { name: "Short path" }).click();
   await expect(page.getByRole("radio", { name: "Short path" })).toBeChecked();
 
+  // From the lg breakpoint up, the step list stands in the program sidebar.
   await page
-    .getByRole("navigation", { name: "Stations" })
+    .getByRole("navigation", { name: "Program" })
+    .getByRole("list", { name: "Stations" })
     .getByRole("link", { name: MODULE_1_TITLE })
     .click();
   await expect(page).toHaveURL(
@@ -253,9 +255,11 @@ test("a learner goes through module 1 on the short path", async ({ page }) => {
 test("a second person in the same browser sees none of the visited stations of the first", async ({
   page,
 }) => {
-  const visited = page
-    .getByRole("navigation", { name: "Stations" })
-    .getByText("Visited");
+  // The step list in the program navigation beside every station.
+  const steps = page
+    .getByRole("navigation", { name: "Program" })
+    .getByRole("list", { name: "Stations" });
+  const visited = steps.getByText("Visited");
 
   await signInAsDemo(page, 5);
   await page.goto(`/programs/${SLUG}/stations/2`);
@@ -274,9 +278,7 @@ test("a second person in the same browser sees none of the visited stations of t
   ).toBeVisible();
   await expect(visited).toHaveCount(1);
   await expect(
-    page
-      .getByRole("navigation", { name: "Stations" })
-      .getByRole("link", { name: STATIONS[1].title }),
+    steps.getByRole("link", { name: STATIONS[1].title }),
   ).not.toContainText("Visited");
 });
 

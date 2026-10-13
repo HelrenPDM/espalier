@@ -8,9 +8,9 @@ const ITEM_CLASSES =
   "block w-full px-4 py-2 text-left text-sm text-gray-900 data-focus:bg-accent-50 dark:text-gray-100 dark:data-focus:bg-accent-700";
 
 /**
- * The display name of a signed-in session with the credentials and the
- * policies (0013), the security settings of an `mfa` session (0011) and the
- * sign-out action (ASVS 7.4.4).
+ * The display name of a signed-in session with the security settings of an
+ * `mfa` session (0011) and the sign-out action (ASVS 7.4.4). The credentials
+ * and the policies (0013) sit in the main navigation.
  */
 export function UserMenu() {
   const { t } = useTranslation();
@@ -24,16 +24,6 @@ export function UserMenu() {
         <ChevronDownIcon aria-hidden="true" className="size-4" />
       </MenuButton>
       <MenuItems className="absolute right-0 z-10 mt-2 w-48 rounded-md border border-gray-200 bg-white py-1 shadow-lg focus:outline-none dark:border-gray-700 dark:bg-gray-900">
-        <MenuItem>
-          <Link to="/me/credentials" className={ITEM_CLASSES}>
-            {t("layout.credentials")}
-          </Link>
-        </MenuItem>
-        <MenuItem>
-          <Link to="/policies" className={ITEM_CLASSES}>
-            {t("layout.policies")}
-          </Link>
-        </MenuItem>
         {sessionStrength === "mfa" && (
           <MenuItem>
             <Link to="/account/security" className={ITEM_CLASSES}>

@@ -5,8 +5,15 @@
     "language": "Language",
     "account": "Account",
     "signOut": "Sign out",
-    "credentials": "Credentials",
-    "policies": "Policies"
+    "nav": {
+      "label": "Main",
+      "menu": "Menu",
+      "programs": "Programs",
+      "credentials": "Credentials",
+      "policies": "Policies",
+      "admin": "Administration"
+    },
+    "breadcrumb": "Breadcrumb"
   },
   "theme": {
     "toggle": "Color theme: {{value}}",
@@ -355,7 +362,10 @@
     "continue": "Continue with",
     "stations": "Stations",
     "moreLabel": "More on this program",
-    "back": "Back to"
+    "back": "Back to",
+    "navLabel": "Program",
+    "menu": "Program menu",
+    "overview": "Program overview"
   },
   "player": {
     "loading": "Loading the program…",
@@ -572,7 +582,6 @@
     "loadFailedOne": "The credential could not be loaded. Please try again later.",
     "notFoundTitle": "Credential not found",
     "notFound": "No credential of yours exists at this address.",
-    "back": "Back to the credentials",
     "print": "Print",
     "holder": "Holder",
     "noDisplayName": "No display name recorded",

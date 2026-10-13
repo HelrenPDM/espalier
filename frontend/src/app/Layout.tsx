@@ -2,14 +2,22 @@ import { useTranslation } from "react-i18next";
 import { Link, Outlet } from "react-router";
 import { useSession } from "../auth/SessionProvider";
 import { LanguageSwitch } from "./LanguageSwitch";
+import { MainNav } from "./MainNav";
 import { productName } from "./product";
 import { ThemeToggle } from "./ThemeToggle";
 import { UserMenu } from "./UserMenu";
 
-/** The frame of every route: skip link, header, demo banner and `<main>`. */
+/**
+ * The frame of every route: skip link, header, demo banner and `<main>`. The
+ * header holds the main navigation for a full session (`mfa` or `demo`, the
+ * sessions that `RequireAuth` admits). The bar wraps onto a second line when
+ * its parts do not fit side by side, so it fits a width of 360 pixels.
+ */
 export function Layout() {
   const { t } = useTranslation();
-  const { flags } = useSession();
+  const { flags, user, sessionStrength } = useSession();
+  const signedIn =
+    user !== null && (sessionStrength === "mfa" || sessionStrength === "demo");
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -25,14 +33,15 @@ export function Layout() {
             {t("layout.demoBanner")}
           </p>
         )}
-        <div className="no-print mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
+        <div className="no-print relative mx-auto flex max-w-5xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
           <Link
             to="/"
             className="rounded-md text-lg font-semibold text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500 dark:text-gray-100"
           >
             {productName}
           </Link>
-          <div className="flex items-center gap-2">
+          {signedIn && <MainNav />}
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
             <LanguageSwitch />
             <ThemeToggle />
             <UserMenu />

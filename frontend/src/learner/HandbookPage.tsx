@@ -8,6 +8,7 @@ import { Markdown } from "../player/Markdown";
 import { useContentLang } from "../player/contentLang";
 import { useCurrentPlayer } from "../player/usePlayer";
 import { BackToProgram } from "./BackToProgram";
+import { useProgramChrome } from "./programChrome";
 
 /**
  * `/programs/:slug/handbook`: every rule with statement and action, grouped
@@ -17,20 +18,23 @@ import { BackToProgram } from "./BackToProgram";
  * 21). Rules and titles carry the language of the program; the policy
  * text carries no `lang` and inherits the language of the document. It
  * prints on A4 without the navigation; every module after the first starts
- * a new page.
+ * a new page. Outside the program shell it links back to the program page.
  */
 export function HandbookPage() {
   const { t, i18n } = useTranslation();
   const { program } = useCurrentPlayer();
   const lang = useContentLang();
   const handbook = useHandbook(program.slug);
+  const chrome = useProgramChrome();
 
   return (
     <article className="max-w-3xl">
-      <p className="no-print text-sm">
-        <BackToProgram />
-      </p>
-      <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
+      {!chrome && (
+        <p className="no-print mb-4 text-sm">
+          <BackToProgram />
+        </p>
+      )}
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
             {t("handbook.title")}

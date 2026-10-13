@@ -1,4 +1,5 @@
 import { CheckIcon } from "@heroicons/react/20/solid";
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { FOCUS_RING } from "../app/formStyles";
@@ -7,26 +8,41 @@ import { sortedStations } from "../player/program";
 import type { ProgramView, ResumeState } from "../player/runtime";
 import { useProgramBase } from "../player/programBase";
 
+/** `children` in a navigation landmark named `label`, or alone for `null`. */
+function Landmark({
+  label,
+  children,
+}: {
+  label: string | null;
+  children: ReactNode;
+}) {
+  return label === null ? children : <nav aria-label={label}>{children}</nav>;
+}
+
 /**
  * The step list of a program: every station with its position, a mark for
- * the visited ones and the current one as `aria-current="step"`.
+ * the visited ones and the current one as `aria-current="step"`. It is a
+ * navigation landmark of its own, unless `labelledBy` names the element
+ * that labels the list inside a navigation that holds it.
  */
 export function StationList({
   program,
   state,
   current = null,
+  labelledBy,
 }: {
   program: ProgramView;
   state: ResumeState;
   current?: number | null;
+  labelledBy?: string;
 }) {
   const { t } = useTranslation();
   const programBase = useProgramBase();
   const lang = useContentLang();
   const stations = sortedStations(program);
   return (
-    <nav aria-label={t("station.listLabel")}>
-      <ol className="space-y-1">
+    <Landmark label={labelledBy === undefined ? t("station.listLabel") : null}>
+      <ol aria-labelledby={labelledBy} className="space-y-1">
         {stations.map((station, index) => {
           const visited = state.visitedStations.includes(station.position);
           const isCurrent = station.position === current;
@@ -58,6 +74,6 @@ export function StationList({
           );
         })}
       </ol>
-    </nav>
+    </Landmark>
   );
 }

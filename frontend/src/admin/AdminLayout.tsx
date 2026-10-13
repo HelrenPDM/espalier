@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { NavLink, Outlet } from "react-router";
+import { navLinkClasses } from "../app/formStyles";
 import { useSession } from "../auth/SessionProvider";
 import { PasskeyGateProvider } from "./passkeyGate";
 import { usePasskeyRequired } from "./passkeyRequired";
@@ -19,10 +20,7 @@ function AdminNavigation() {
       <ul className="flex flex-wrap gap-2 md:flex-col md:gap-1">
         {sections.map((section) => (
           <li key={section.key}>
-            <NavLink
-              to={`/admin/${section.path}`}
-              className="block rounded-md px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500 aria-[current=page]:bg-accent-50 aria-[current=page]:text-accent-700 dark:text-gray-300 dark:hover:bg-gray-800 dark:aria-[current=page]:bg-accent-700 dark:aria-[current=page]:text-white"
-            >
+            <NavLink to={`/admin/${section.path}`} className={navLinkClasses}>
               {t(`admin.nav.${section.key}`)}
             </NavLink>
           </li>

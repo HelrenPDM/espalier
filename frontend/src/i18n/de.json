@@ -5,8 +5,15 @@
     "language": "Sprache",
     "account": "Konto",
     "signOut": "Abmelden",
-    "credentials": "Nachweise",
-    "policies": "Richtlinien"
+    "nav": {
+      "label": "Hauptnavigation",
+      "menu": "Menü",
+      "programs": "Programme",
+      "credentials": "Nachweise",
+      "policies": "Richtlinien",
+      "admin": "Administration"
+    },
+    "breadcrumb": "Brotkrümelnavigation"
   },
   "theme": {
     "toggle": "Farbschema: {{value}}",
@@ -355,7 +362,10 @@
     "continue": "Weiter mit",
     "stations": "Stationen",
     "moreLabel": "Mehr zu diesem Programm",
-    "back": "Zurück zu"
+    "back": "Zurück zu",
+    "navLabel": "Programm",
+    "menu": "Programm-Menü",
+    "overview": "Programmübersicht"
   },
   "player": {
     "loading": "Das Programm wird geladen …",
@@ -572,7 +582,6 @@
     "loadFailedOne": "Der Nachweis konnte nicht geladen werden. Bitte versuchen Sie es später erneut.",
     "notFoundTitle": "Nachweis nicht gefunden",
     "notFound": "Unter dieser Adresse gibt es keinen Nachweis von Ihnen.",
-    "back": "Zurück zu den Nachweisen",
     "print": "Drucken",
     "holder": "Inhaberin oder Inhaber",
     "noDisplayName": "Kein Anzeigename hinterlegt",

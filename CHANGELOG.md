@@ -352,6 +352,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- The header of a signed-in session holds a main navigation with the
+  programs, the credentials, the policies and, for the roles of the admin
+  area, the administration, with a "Menu" button below the `md` breakpoint;
+  the user menu keeps the security settings and sign-out. The pages of a
+  program show breadcrumbs and a program navigation with the overview, the
+  stations, the glossary and the handbook, and the credential page shows
+  breadcrumbs in place of its back link. The admin area had no entry point,
+  and the learner pages were not reachable from every view (tasks 0010,
+  0012, 0013 and 0015).
+
 - The publisher gives a later publish of one pack a later `published_at`,
   also within one second, so that the fields of `pack.yaml` that no table
   holds come from the import published last (task 0016).
