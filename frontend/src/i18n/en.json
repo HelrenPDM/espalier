@@ -724,6 +724,7 @@
     "nav": {
       "label": "Administration sections",
       "packs": "Packs",
+      "workbench": "Workbench",
       "exports": "Exports",
       "users": "Users",
       "policies": "Policies",
@@ -882,6 +883,199 @@
         "items": "Items"
       },
       "handbook": "The handbook lists the rules of the published program and is not part of the preview."
+    },
+    "workbench": {
+      "list": {
+        "title": "Pack workbench",
+        "intro": "The workbench holds drafts of content packs. A draft holds the YAML and Markdown files of a pack, which you edit, check and turn into an import. The page of the import then shows the report, the alignment, the preview and the publication.",
+        "loading": "Loading the drafts…",
+        "empty": "There is no draft yet. Start one below.",
+        "drafts": "Drafts",
+        "columns": {
+          "title": "Title",
+          "packKey": "Pack key",
+          "files": "Files",
+          "size": "Size",
+          "updatedAt": "Last change",
+          "actions": "Actions"
+        },
+        "download": "Download",
+        "delete": "Delete",
+        "deleted": "The draft {{title}} is deleted.",
+        "deleteDialog": {
+          "title": "Delete this draft?",
+          "text": "The draft {{title}} and its files are deleted. Imports created from it stay. To keep the files, download the draft first."
+        }
+      },
+      "start": {
+        "title": "Start a draft",
+        "intro": "Each start creates a new draft and opens it.",
+        "creating": "Creating the draft…",
+        "fromImport": "Edit in the workbench",
+        "empty": {
+          "title": "Empty pack",
+          "intro": "The draft starts with a skeleton of one module with a lesson, learning objectives and an item. The skeleton passes the check.",
+          "name": "Name of the pack",
+          "nameHint": "The name becomes the title of the pack, and the key of the pack derives from it.",
+          "nameInvalid": "Enter a name of 1 to 255 characters.",
+          "submit": "Start an empty pack"
+        },
+        "program": {
+          "title": "Published program",
+          "intro": "The draft holds the files of the published version of the program, as mix espalier.export writes them.",
+          "label": "Program",
+          "choose": "Choose a program",
+          "missing": "Choose a program.",
+          "gone": "This program is no longer published. Choose another one.",
+          "loading": "Loading the programs…",
+          "loadFailed": "The programs could not be loaded.",
+          "none": "No program is published.",
+          "submit": "Start from the program"
+        },
+        "archive": {
+          "title": "Zip archive",
+          "intro": "The draft keeps the files of the pack layout, the YAML and Markdown files of a pack, and leaves every other file out.",
+          "file": "Pack archive (zip)",
+          "fileHint": "The archive holds pack.yaml at its top level or in a single folder and stays within the upload limit of this instance.",
+          "submit": "Start from the archive",
+          "rejected": "The archive was rejected:",
+          "created": "Draft {{title}} created",
+          "skipped": "The archive held files outside the pack layout. The draft leaves them out:",
+          "omitted_one": "and {{count}} further path.",
+          "omitted_other": "and {{count}} further paths.",
+          "open": "Open the draft"
+        },
+        "errors": {
+          "draftLimit": "The workbench holds at most {{limit}} drafts, and this limit is reached. Delete a draft that you no longer need, then start again.",
+          "tooManyFiles": "The pack has more files than a draft may hold.",
+          "tooLarge": "The pack is larger than a draft may be.",
+          "noPayload": "This import holds no pack, because its validation failed. Start a draft from its archive instead."
+        }
+      },
+      "draft": {
+        "title": "Draft",
+        "loading": "Loading the draft…",
+        "loadFailed": "The draft could not be loaded.",
+        "notFound": "This draft does not exist.",
+        "back": "Back to the workbench",
+        "breadcrumb": "Pack workbench",
+        "packKey": "Pack key",
+        "noPackKey": "None: pack.yaml names no usable key.",
+        "files": "Files",
+        "size": "Size",
+        "usage": "{{used}} of {{limit}}",
+        "fileLimit": "(at most {{limit}} per file)",
+        "updatedAt": "Last change",
+        "download": "Download as zip",
+        "saved": "Saved {{path}}",
+        "added": "Added {{path}}",
+        "renamed": "Renamed {{from}} to {{to}}",
+        "deleted": "Deleted {{path}}",
+        "tree": {
+          "title": "Files of the draft",
+          "add": "Add file",
+          "empty": "The draft holds no file.",
+          "actions": "Actions",
+          "actionsFor": "for {{path}}",
+          "rename": "Rename",
+          "delete": "Delete",
+          "unsaved": "unsaved"
+        },
+        "add": {
+          "title": "Add a file",
+          "kind": "Kind of file",
+          "kinds": {
+            "root": "File at the root of the pack",
+            "module": "File of a module directory",
+            "lesson": "Lesson of a module directory"
+          },
+          "fileName": "File name",
+          "moduleDir": "Module directory",
+          "moduleDirHint": "Lowercase letters, digits and hyphens, such as 01-first-module. A new name starts a new module directory.",
+          "lessonKey": "Lesson key",
+          "lessonKeyHint": "Lowercase letters, digits and hyphens, such as 02-second-lesson.",
+          "lessonTitle": "Lesson title",
+          "titleRequired": "Enter the title of the lesson.",
+          "path": "Path",
+          "pathHint": "The path follows from the choices above. A YAML file starts empty, and a lesson starts with its front matter and one text block.",
+          "submit": "Add file"
+        },
+        "rename": {
+          "title": "Rename {{path}}",
+          "path": "New path",
+          "hint": "A path of the pack layout, such as modules/01-first-module/items.yaml.",
+          "submit": "Rename"
+        },
+        "delete": {
+          "title": "Delete {{path}}?",
+          "body": "The file leaves the draft, and its unsaved changes are lost. The draft keeps no earlier version of it.",
+          "confirm": "Delete"
+        },
+        "editor": {
+          "title": "Editor",
+          "none": "Choose a file in the list of files to edit it.",
+          "label": "Content of {{path}}",
+          "unsaved": "Unsaved changes",
+          "loading": "Loading the file…",
+          "loadFailed": "The file could not be loaded.",
+          "gone": "This file no longer exists, because another session deleted it.",
+          "deleted": "The file {{path}} no longer exists, because another session deleted it.",
+          "deletedKeep": "The file {{path}} no longer exists, because another session deleted it, so your changes were not saved. The text stays in the editor until you open another file: copy it, add the file again and paste the text there to keep it.",
+          "draftDeleted": "This draft no longer exists, because another session deleted it, so your changes were not saved. The text stays in the editor until you leave the page: copy it to keep it.",
+          "saveNotFound": "The file was not saved, because the draft or the file no longer exists. The text stays in the editor: copy it before you reload the page.",
+          "save": "Save",
+          "saveHint": "Ctrl+S or Cmd+S in the editor saves as well.",
+          "cursor": "Line {{line}}, column {{column}}"
+        },
+        "unsaved": {
+          "title": "Unsaved changes",
+          "body": "The file {{path}} has changes that are not saved yet.",
+          "save": "Save",
+          "discard": "Discard"
+        },
+        "conflict": {
+          "title": "The draft changed",
+          "body": "The draft changed since you opened it, in another session or another tab, so your change was not stored.",
+          "loadHint": "\"Load the stored version\" reads the draft and the open file again and replaces the text in the editor.",
+          "keepHint": "\"Keep my version\" keeps your text in the editor, unsaved. The next save replaces the stored version of the file.",
+          "load": "Load the stored version",
+          "keep": "Keep my version",
+          "loadFailed": "The stored version could not be loaded, so the editor keeps its text. The next save or import asks again how to handle the changed draft."
+        },
+        "check": {
+          "button": "Check",
+          "running": "Checking the draft…",
+          "finished": "Check finished: {{errors}}, {{warnings}}",
+          "errorCount_one": "{{count}} error",
+          "errorCount_other": "{{count}} errors",
+          "warningCount_one": "{{count}} warning",
+          "warningCount_other": "{{count}} warnings"
+        },
+        "report": {
+          "title": "Check report",
+          "noMatrix": "The check gives no alignment matrix while the loader or the checks before the alignment checks report errors. The findings of the alignment checks follow.",
+          "intro": "The check runs the loader and the validator on the saved files of the draft and on the unsaved text of the open file, and it stores nothing. The report lists every line that mix espalier.validate prints, the findings of the alignment checks included. The section Alignment shows the matrix and the findings of the alignment checks again.",
+          "outdated": "This report belongs to an earlier state: the draft or the open file changed since the check. Check again for a current report.",
+          "errors": "Errors ({{count}})",
+          "warnings": "Warnings ({{count}})",
+          "none": "None."
+        },
+        "import": {
+          "button": "Create import",
+          "running": "Creating the import…",
+          "unsaved": "Save the open file before you create an import, because the import reads the saved files."
+        },
+        "errors": {
+          "invalidPath": "This path is outside the pack layout. Use a file name of the layout, and lowercase letters, digits and hyphens for module directories and lesson keys.",
+          "pathTaken": "The draft holds a file with this path already.",
+          "fileTooLarge": "The file is larger than {{size}}, the limit of a file.",
+          "nulCharacter": "The text holds the character U+0000, which a file cannot hold.",
+          "tooManyFiles": "The draft holds {{max}} files, the limit of a draft. Delete a file first.",
+          "draftTooLarge": "The change takes the draft above its limit of {{size}}.",
+          "checksBusy": "Other checks or imports are running. Try again in a few seconds.",
+          "notFound": "The draft or the file no longer exists. Reload the page."
+        }
+      }
     },
     "exports": {
       "title": "SCORM export",

@@ -38,6 +38,10 @@ defmodule Espalier.Application do
         [
           # Each LDAP sign-in runs in a task with a hard deadline (task 0007).
           {Task.Supervisor, name: Espalier.Identity.LdapTaskSupervisor},
+          # The checks and imports of pack drafts run in tasks, at most
+          # max_parallel_checks at once (task 0016a).
+          {Task.Supervisor, name: Espalier.Workbench.TaskSupervisor},
+          Espalier.Workbench.CheckLimiter,
           {Espalier.RateLimit, clean_period: :timer.minutes(1)},
           {DNSCluster, query: Application.get_env(:espalier, :dns_cluster_query) || :ignore},
           {Phoenix.PubSub, name: Espalier.PubSub},

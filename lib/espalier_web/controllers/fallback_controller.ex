@@ -34,6 +34,17 @@ defmodule EspalierWeb.FallbackController do
   `alignment_errors` with its findings and the 422 answer
   `archive_rejected` with its report itself, and
   `EspalierWeb.Plugs.RequireAdminPasskey` answers 403 `passkey_required`.
+
+  Task 0016a adds the codes of the pack workbench: 409 `path_taken`,
+  `too_many_files`, `draft_too_large`, `no_payload` and `draft_limit`, which
+  names the configured limit in `max_drafts`; 429
+  `checks_busy` with `retry-after: 5` when every slot of
+  `Espalier.Workbench.CheckLimiter` is taken; and 422 `validation_failed`
+  with `fields.path` `["invalid_path"]` and `fields.content` `["too_large"]`,
+  `["nul_character"]` or `["invalid_encoding"]`, and with the members of a
+  request whose sources do not fit (`required`, `not_allowed`). The draft
+  controllers render the 409 answer `stale_draft` with the stored
+  `lock_version` themselves.
   """
   use EspalierWeb, :controller
 
@@ -69,7 +80,21 @@ defmodule EspalierWeb.FallbackController do
     superseded: :conflict,
     already_revoked: :conflict,
     not_publishable: :conflict,
-    secret_env_unset: :unprocessable_entity
+    secret_env_unset: :unprocessable_entity,
+    path_taken: :conflict,
+    too_many_files: :conflict,
+    draft_too_large: :conflict,
+    draft_limit: :conflict,
+    no_payload: :conflict,
+    checks_busy: :too_many_requests
+  }
+
+  # The workbench codes of a path or a content (task 0016a).
+  @validation_codes %{
+    invalid_path: {"path", "invalid_path"},
+    file_too_large: {"content", "too_large"},
+    nul_character: {"content", "nul_character"},
+    invalid_encoding: {"content", "invalid_encoding"}
   }
 
   def call(conn, {:error, %Ecto.Changeset{} = changeset}) do
@@ -92,6 +117,29 @@ defmodule EspalierWeb.FallbackController do
   def call(conn, {:error, {:validation_failed, member, code}})
       when is_binary(member) and is_binary(code) do
     validation_failed(conn, member, code)
+  end
+
+  def call(conn, {:error, code}) when is_map_key(@validation_codes, code) do
+    {member, reason} = Map.fetch!(@validation_codes, code)
+    validation_failed(conn, member, reason)
+  end
+
+  def call(conn, {:error, {:fields, fields}}) when is_map(fields) do
+    conn
+    |> put_status(:unprocessable_entity)
+    |> json(%{error: "validation_failed", fields: fields})
+  end
+
+  def call(conn, {:error, :draft_limit}) do
+    conn
+    |> put_status(:conflict)
+    |> json(%{error: "draft_limit", max_drafts: Espalier.Workbench.max_drafts()})
+  end
+
+  def call(conn, {:error, :checks_busy}) do
+    conn
+    |> put_resp_header("retry-after", "5")
+    |> render_error(:checks_busy)
   end
 
   def call(conn, {:error, {:assessments_open, assessments}}) do

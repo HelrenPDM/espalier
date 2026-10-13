@@ -24,5 +24,6 @@
     "vite.scorm.config.ts",
     "playwright.config.ts",
     "e2e"
-  ]
+  ],
+  "exclude": ["e2e/workbench/harness"]
 }

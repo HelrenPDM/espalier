@@ -204,23 +204,63 @@ defmodule Espalier.Catalog.Pack.Loader do
     end
   end
 
+  @typedoc "The members of `pack.yaml` that `pack_meta/1` and `pack_meta_text/1` read."
+  @type pack_meta :: %{
+          key: String.t() | nil,
+          version: String.t() | nil,
+          title: String.t() | nil
+        }
+
   @doc """
   Reads only `pack.yaml` of the pack in `path`, with the same safety rules as
-  `load/1`, and returns its `key` and `version` when they are strings. The
-  importer uses it for a pack that `load/1` rejects.
+  `load/1`, and returns its `key`, `version` and `title` when they are
+  strings. The importer uses it for a pack that `load/1` rejects.
   """
-  @spec pack_meta(Path.t()) :: %{key: String.t() | nil, version: String.t() | nil}
+  @spec pack_meta(Path.t()) :: pack_meta()
   def pack_meta(path) when is_binary(path) do
     root = Path.expand(path)
 
     with :ok <- check_root(root),
          {:ok, %File.Stat{type: :regular}} <- File.lstat(Path.join(root, "pack.yaml")),
          {:ok, %{data: %{} = data}} <- read_yaml(root, "pack.yaml") do
-      %{key: string_or_nil(data["key"]), version: string_or_nil(data["version"])}
+      meta(data)
     else
-      _ -> %{key: nil, version: nil}
+      _ -> meta(nil)
     end
   end
+
+  @doc """
+  Applies the parse of `pack_meta/1` to `text`, the content of a
+  `pack.yaml`: the size, UTF-8 and control character checks of `load/1` and
+  the two passes within the budget of `parse_budget/0`. Returns `key`,
+  `version` and `title` with `nil` for a member that is no string, and all
+  three `nil` when the text does not parse to a map (task 0016a: the title
+  and the pack key of a draft of the pack workbench).
+  """
+  @spec pack_meta_text(String.t()) :: pack_meta()
+  def pack_meta_text(text) when is_binary(text) do
+    with :ok <- check_text_size(text),
+         :ok <- check_utf8(text, "pack.yaml"),
+         :ok <- check_control(text, "pack.yaml"),
+         {:ok, %{data: %{} = data}} <- parse_yaml("pack.yaml", text, 1) do
+      meta(data)
+    else
+      _ -> meta(nil)
+    end
+  end
+
+  defp meta(%{} = data) do
+    %{
+      key: string_or_nil(data["key"]),
+      version: string_or_nil(data["version"]),
+      title: string_or_nil(data["title"])
+    }
+  end
+
+  defp meta(nil), do: %{key: nil, version: nil, title: nil}
+
+  defp check_text_size(text) when byte_size(text) > @max_file_bytes, do: {:error, :too_large}
+  defp check_text_size(_text), do: :ok
 
   defp string_or_nil(value) when is_binary(value), do: value
   defp string_or_nil(_value), do: nil

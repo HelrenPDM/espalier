@@ -724,6 +724,7 @@
     "nav": {
       "label": "Bereiche der Administration",
       "packs": "Inhaltspakete",
+      "workbench": "Werkbank",
       "exports": "Exporte",
       "users": "Personen",
       "policies": "Richtlinien",
@@ -882,6 +883,199 @@
         "items": "Aufgaben"
       },
       "handbook": "Das Handbuch nennt die Regeln des veröffentlichten Programms und gehört nicht zur Vorschau."
+    },
+    "workbench": {
+      "list": {
+        "title": "Paket-Werkbank",
+        "intro": "Die Werkbank enthält Entwürfe von Inhaltspaketen. Ein Entwurf enthält die YAML- und Markdown-Dateien eines Pakets, die Sie bearbeiten, prüfen und in einen Import überführen. Die Seite des Imports zeigt danach den Bericht, die Ausrichtung, die Vorschau und die Veröffentlichung.",
+        "loading": "Die Entwürfe werden geladen …",
+        "empty": "Es gibt noch keinen Entwurf. Beginnen Sie unten einen.",
+        "drafts": "Entwürfe",
+        "columns": {
+          "title": "Titel",
+          "packKey": "Paketschlüssel",
+          "files": "Dateien",
+          "size": "Größe",
+          "updatedAt": "Letzte Änderung",
+          "actions": "Aktionen"
+        },
+        "download": "Herunterladen",
+        "delete": "Löschen",
+        "deleted": "Der Entwurf {{title}} ist gelöscht.",
+        "deleteDialog": {
+          "title": "Diesen Entwurf löschen?",
+          "text": "Der Entwurf {{title}} und seine Dateien werden gelöscht. Importe, die aus ihm entstanden sind, bleiben erhalten. Laden Sie den Entwurf vorher herunter, wenn Sie die Dateien behalten möchten."
+        }
+      },
+      "start": {
+        "title": "Entwurf beginnen",
+        "intro": "Jeder Start legt einen neuen Entwurf an und öffnet ihn.",
+        "creating": "Der Entwurf wird angelegt …",
+        "fromImport": "In der Werkbank bearbeiten",
+        "empty": {
+          "title": "Leeres Paket",
+          "intro": "Der Entwurf beginnt mit einem Gerüst aus einem Modul mit einer Lektion, Lernzielen und einer Aufgabe. Das Gerüst besteht die Prüfung.",
+          "name": "Name des Pakets",
+          "nameHint": "Der Name wird zum Titel des Pakets, und der Schlüssel des Pakets wird daraus abgeleitet.",
+          "nameInvalid": "Geben Sie einen Namen mit 1 bis 255 Zeichen ein.",
+          "submit": "Leeres Paket beginnen"
+        },
+        "program": {
+          "title": "Veröffentlichtes Programm",
+          "intro": "Der Entwurf enthält die Dateien der veröffentlichten Version des Programms, so wie mix espalier.export sie schreibt.",
+          "label": "Programm",
+          "choose": "Programm auswählen",
+          "missing": "Wählen Sie ein Programm aus.",
+          "gone": "Dieses Programm ist nicht mehr veröffentlicht. Wählen Sie ein anderes aus.",
+          "loading": "Die Programme werden geladen …",
+          "loadFailed": "Die Programme konnten nicht geladen werden.",
+          "none": "Es ist kein Programm veröffentlicht.",
+          "submit": "Mit dem Programm beginnen"
+        },
+        "archive": {
+          "title": "ZIP-Archiv",
+          "intro": "Der Entwurf übernimmt die Dateien des Paketlayouts, also die YAML- und Markdown-Dateien eines Pakets, und lässt jede andere Datei aus.",
+          "file": "Paketarchiv (ZIP)",
+          "fileHint": "Das Archiv enthält pack.yaml auf der obersten Ebene oder in einem einzigen Ordner und hält die Upload-Grenze dieser Instanz ein.",
+          "submit": "Mit dem Archiv beginnen",
+          "rejected": "Das Archiv wurde abgelehnt:",
+          "created": "Entwurf {{title}} angelegt",
+          "skipped": "Das Archiv enthielt Dateien außerhalb des Paketlayouts. Der Entwurf lässt sie aus:",
+          "omitted_one": "und {{count}} weiterer Pfad.",
+          "omitted_other": "und {{count}} weitere Pfade.",
+          "open": "Entwurf öffnen"
+        },
+        "errors": {
+          "draftLimit": "Die Werkbank enthält höchstens {{limit}} Entwürfe, und diese Grenze ist erreicht. Löschen Sie einen Entwurf, den Sie nicht mehr brauchen, und beginnen Sie dann erneut.",
+          "tooManyFiles": "Das Paket hat mehr Dateien, als ein Entwurf enthalten darf.",
+          "tooLarge": "Das Paket ist größer, als ein Entwurf sein darf.",
+          "noPayload": "Dieser Import enthält kein Paket, weil seine Validierung fehlgeschlagen ist. Beginnen Sie den Entwurf stattdessen mit seinem Archiv."
+        }
+      },
+      "draft": {
+        "title": "Entwurf",
+        "loading": "Der Entwurf wird geladen …",
+        "loadFailed": "Der Entwurf konnte nicht geladen werden.",
+        "notFound": "Diesen Entwurf gibt es nicht.",
+        "back": "Zurück zur Werkbank",
+        "breadcrumb": "Paket-Werkbank",
+        "packKey": "Paketschlüssel",
+        "noPackKey": "Keiner: pack.yaml nennt keinen verwendbaren Schlüssel.",
+        "files": "Dateien",
+        "size": "Größe",
+        "usage": "{{used}} von {{limit}}",
+        "fileLimit": "(höchstens {{limit}} je Datei)",
+        "updatedAt": "Letzte Änderung",
+        "download": "Als ZIP herunterladen",
+        "saved": "{{path}} gespeichert",
+        "added": "{{path}} hinzugefügt",
+        "renamed": "{{from}} in {{to}} umbenannt",
+        "deleted": "{{path}} gelöscht",
+        "tree": {
+          "title": "Dateien des Entwurfs",
+          "add": "Datei hinzufügen",
+          "empty": "Der Entwurf enthält keine Datei.",
+          "actions": "Aktionen",
+          "actionsFor": "für {{path}}",
+          "rename": "Umbenennen",
+          "delete": "Löschen",
+          "unsaved": "ungespeichert"
+        },
+        "add": {
+          "title": "Datei hinzufügen",
+          "kind": "Art der Datei",
+          "kinds": {
+            "root": "Datei auf der obersten Ebene des Pakets",
+            "module": "Datei eines Modulverzeichnisses",
+            "lesson": "Lektion eines Modulverzeichnisses"
+          },
+          "fileName": "Dateiname",
+          "moduleDir": "Modulverzeichnis",
+          "moduleDirHint": "Kleinbuchstaben, Ziffern und Bindestriche, etwa 01-first-module. Ein neuer Name legt ein neues Modulverzeichnis an.",
+          "lessonKey": "Schlüssel der Lektion",
+          "lessonKeyHint": "Kleinbuchstaben, Ziffern und Bindestriche, etwa 02-second-lesson.",
+          "lessonTitle": "Titel der Lektion",
+          "titleRequired": "Geben Sie den Titel der Lektion ein.",
+          "path": "Pfad",
+          "pathHint": "Der Pfad ergibt sich aus der Auswahl oben. Eine YAML-Datei beginnt leer, eine Lektion beginnt mit ihrem Front Matter und einem Textblock.",
+          "submit": "Datei hinzufügen"
+        },
+        "rename": {
+          "title": "{{path}} umbenennen",
+          "path": "Neuer Pfad",
+          "hint": "Ein Pfad des Paketlayouts, etwa modules/01-first-module/items.yaml.",
+          "submit": "Umbenennen"
+        },
+        "delete": {
+          "title": "{{path}} löschen?",
+          "body": "Die Datei verlässt den Entwurf, und ihre ungespeicherten Änderungen gehen verloren. Der Entwurf bewahrt keine frühere Fassung von ihr auf.",
+          "confirm": "Löschen"
+        },
+        "editor": {
+          "title": "Editor",
+          "none": "Wählen Sie in der Liste der Dateien eine Datei aus, um sie zu bearbeiten.",
+          "label": "Inhalt von {{path}}",
+          "unsaved": "Ungespeicherte Änderungen",
+          "loading": "Die Datei wird geladen …",
+          "loadFailed": "Die Datei konnte nicht geladen werden.",
+          "gone": "Diese Datei gibt es nicht mehr, weil eine andere Sitzung sie gelöscht hat.",
+          "deleted": "Die Datei {{path}} gibt es nicht mehr, weil eine andere Sitzung sie gelöscht hat.",
+          "deletedKeep": "Die Datei {{path}} gibt es nicht mehr, weil eine andere Sitzung sie gelöscht hat. Ihre Änderungen wurden deshalb nicht gespeichert. Der Text bleibt im Editor, bis Sie eine andere Datei öffnen: Kopieren Sie ihn, fügen Sie die Datei erneut hinzu und setzen Sie den Text dort ein, um ihn zu behalten.",
+          "draftDeleted": "Diesen Entwurf gibt es nicht mehr, weil eine andere Sitzung ihn gelöscht hat. Ihre Änderungen wurden deshalb nicht gespeichert. Der Text bleibt im Editor, bis Sie die Seite verlassen: Kopieren Sie ihn, um ihn zu behalten.",
+          "saveNotFound": "Die Datei wurde nicht gespeichert, weil es den Entwurf oder die Datei nicht mehr gibt. Der Text bleibt im Editor: Kopieren Sie ihn, bevor Sie die Seite neu laden.",
+          "save": "Speichern",
+          "saveHint": "Strg+S oder Cmd+S im Editor speichert ebenfalls.",
+          "cursor": "Zeile {{line}}, Spalte {{column}}"
+        },
+        "unsaved": {
+          "title": "Ungespeicherte Änderungen",
+          "body": "Die Datei {{path}} hat Änderungen, die noch nicht gespeichert sind.",
+          "save": "Speichern",
+          "discard": "Verwerfen"
+        },
+        "conflict": {
+          "title": "Der Entwurf hat sich geändert",
+          "body": "Der Entwurf hat sich geändert, seit Sie ihn geöffnet haben, in einer anderen Sitzung oder einem anderen Tab. Ihre Änderung wurde deshalb nicht gespeichert.",
+          "loadHint": "„Gespeicherte Fassung laden“ liest den Entwurf und die geöffnete Datei neu und ersetzt den Text im Editor.",
+          "keepHint": "„Meine Fassung behalten“ lässt Ihren Text ungespeichert im Editor. Das nächste Speichern ersetzt die gespeicherte Fassung der Datei.",
+          "load": "Gespeicherte Fassung laden",
+          "keep": "Meine Fassung behalten",
+          "loadFailed": "Die gespeicherte Fassung konnte nicht geladen werden. Der Editor behält deshalb seinen Text. Beim nächsten Speichern oder Import fragt die Seite erneut, wie mit dem geänderten Entwurf zu verfahren ist."
+        },
+        "check": {
+          "button": "Prüfen",
+          "running": "Der Entwurf wird geprüft …",
+          "finished": "Prüfung abgeschlossen: {{errors}}, {{warnings}}",
+          "errorCount_one": "{{count}} Fehler",
+          "errorCount_other": "{{count}} Fehler",
+          "warningCount_one": "{{count}} Warnung",
+          "warningCount_other": "{{count}} Warnungen"
+        },
+        "report": {
+          "title": "Prüfbericht",
+          "noMatrix": "Die Prüfung liefert keine Ausrichtungsmatrix, solange der Loader oder die Prüfungen vor den Ausrichtungsprüfungen Fehler melden. Die Befunde der Ausrichtungsprüfungen folgen.",
+          "intro": "Die Prüfung führt den Loader und den Validator auf den gespeicherten Dateien des Entwurfs und auf dem ungespeicherten Text der geöffneten Datei aus und speichert nichts. Der Bericht führt jede Zeile auf, die mix espalier.validate ausgibt, die Befunde der Ausrichtungsprüfungen eingeschlossen. Der Abschnitt Ausrichtung zeigt die Matrix und die Befunde der Ausrichtungsprüfungen noch einmal.",
+          "outdated": "Dieser Bericht gehört zu einem früheren Stand: Der Entwurf oder die geöffnete Datei hat sich seit der Prüfung geändert. Prüfen Sie erneut, um einen aktuellen Bericht zu erhalten.",
+          "errors": "Fehler ({{count}})",
+          "warnings": "Warnungen ({{count}})",
+          "none": "Keine."
+        },
+        "import": {
+          "button": "Import anlegen",
+          "running": "Der Import wird angelegt …",
+          "unsaved": "Speichern Sie die geöffnete Datei, bevor Sie einen Import anlegen, denn der Import liest die gespeicherten Dateien."
+        },
+        "errors": {
+          "invalidPath": "Dieser Pfad liegt außerhalb des Paketlayouts. Verwenden Sie einen Dateinamen des Layouts und für Modulverzeichnisse und Schlüssel von Lektionen Kleinbuchstaben, Ziffern und Bindestriche.",
+          "pathTaken": "Der Entwurf enthält bereits eine Datei mit diesem Pfad.",
+          "fileTooLarge": "Die Datei ist größer als {{size}}, die Grenze einer Datei.",
+          "nulCharacter": "Der Text enthält das Zeichen U+0000, das eine Datei nicht enthalten kann.",
+          "tooManyFiles": "Der Entwurf enthält {{max}} Dateien, die Grenze eines Entwurfs. Löschen Sie zuerst eine Datei.",
+          "draftTooLarge": "Die Änderung bringt den Entwurf über seine Grenze von {{size}}.",
+          "checksBusy": "Andere Prüfungen oder Importe laufen gerade. Versuchen Sie es in einigen Sekunden erneut.",
+          "notFound": "Der Entwurf oder die Datei existiert nicht mehr. Laden Sie die Seite neu."
+        }
+      }
     },
     "exports": {
       "title": "SCORM-Export",

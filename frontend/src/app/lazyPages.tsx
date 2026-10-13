@@ -42,6 +42,18 @@ const PackPreviewPageChunk = lazy(() =>
     default: m.PackPreviewPage,
   })),
 );
+// The pages of the pack workbench (task 0016a): the draft page loads the
+// editor, so the editor reaches only the authors who open a draft.
+const WorkbenchPageChunk = lazy(() =>
+  import("../admin/workbench/WorkbenchPage").then((m) => ({
+    default: m.WorkbenchPage,
+  })),
+);
+const DraftPageChunk = lazy(() =>
+  import("../admin/workbench/DraftPage").then((m) => ({
+    default: m.DraftPage,
+  })),
+);
 const ExportsPageChunk = lazy(() =>
   import("../admin/ExportsPage").then((m) => ({ default: m.ExportsPage })),
 );
@@ -165,6 +177,22 @@ export function PackPreviewPage() {
   return (
     <Chunk>
       <PackPreviewPageChunk />
+    </Chunk>
+  );
+}
+
+export function WorkbenchPage() {
+  return (
+    <Chunk>
+      <WorkbenchPageChunk />
+    </Chunk>
+  );
+}
+
+export function DraftPage() {
+  return (
+    <Chunk>
+      <DraftPageChunk />
     </Chunk>
   );
 }

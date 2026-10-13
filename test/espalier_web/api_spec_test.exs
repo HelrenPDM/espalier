@@ -25,6 +25,16 @@ defmodule EspalierWeb.ApiSpecTest do
   request schema of `POST /api/admin/exports` sets `additionalProperties:
   false` (ASVS 2.1.1 and 15.3.3), and the download answers the zip as
   `application/zip`.
+
+  Task 0016a step 9 adds the operations of the 13 routes of the pack
+  workbench: every request schema of its POST, PUT and PATCH routes, the
+  multipart schema of the upload of a draft included, sets
+  `additionalProperties: false` and the limits of step 3 (a path of at
+  most 255 characters, a content of at most 1,048,576 characters, a
+  `lock_version` of at least 1), the descriptions of the upload, the file
+  create and the file update name the limits of a draft (ASVS 2.1.1, 2.1.3,
+  5.1.1 and 15.3.3), and the download answers the zip as
+  `application/zip`.
   """
   use EspalierWeb.ConnCase, async: true
 
@@ -158,11 +168,29 @@ defmodule EspalierWeb.ApiSpecTest do
     # Task 0016 step 10: the SCORM export.
     {:post, "/api/admin/exports"},
     {:get, "/api/admin/exports/{id}"},
-    {:get, "/api/admin/exports/{id}/download"}
+    {:get, "/api/admin/exports/{id}/download"},
+    # Task 0016a step 9: the pack workbench.
+    {:get, "/api/admin/pack-drafts"},
+    {:post, "/api/admin/pack-drafts"},
+    {:post, "/api/admin/pack-draft-uploads"},
+    {:get, "/api/admin/pack-drafts/{id}"},
+    {:delete, "/api/admin/pack-drafts/{id}"},
+    {:get, "/api/admin/pack-drafts/{id}/download"},
+    {:post, "/api/admin/pack-drafts/{id}/check"},
+    {:post, "/api/admin/pack-drafts/{id}/imports"},
+    {:post, "/api/admin/pack-drafts/{id}/files"},
+    {:get, "/api/admin/pack-drafts/{id}/files/{file_id}"},
+    {:put, "/api/admin/pack-drafts/{id}/files/{file_id}"},
+    {:patch, "/api/admin/pack-drafts/{id}/files/{file_id}"},
+    {:delete, "/api/admin/pack-drafts/{id}/files/{file_id}"}
   ]
 
-  # The 2xx answers that carry a file instead of JSON (task 0016).
-  @binary_answers %{{:get, "/api/admin/exports/{id}/download"} => "application/zip"}
+  # The 2xx answers that carry a file instead of JSON (tasks 0016 and
+  # 0016a).
+  @binary_answers %{
+    {:get, "/api/admin/exports/{id}/download"} => "application/zip",
+    {:get, "/api/admin/pack-drafts/{id}/download"} => "application/zip"
+  }
 
   # The POST routes of task 0013 and the schema of their request body.
   @posts_0013 %{
@@ -202,6 +230,21 @@ defmodule EspalierWeb.ApiSpecTest do
 
   # The POST route of task 0016 and the schema of its request body.
   @posts_0016 %{"/api/admin/exports" => "AdminExportRequest"}
+
+  # The POST, PUT and PATCH routes of task 0016a and the schema of their
+  # request body. The upload of a draft is a multipart body with an inline
+  # schema, and the body of the check is optional.
+  @requests_0016a %{
+    {:post, "/api/admin/pack-drafts"} => "AdminPackDraftRequest",
+    {:post, "/api/admin/pack-draft-uploads"} => "AdminPackDraftUpload",
+    {:post, "/api/admin/pack-drafts/{id}/check"} => "AdminPackDraftCheckRequest",
+    {:post, "/api/admin/pack-drafts/{id}/files"} => "AdminPackDraftFileRequest",
+    {:put, "/api/admin/pack-drafts/{id}/files/{file_id}"} => "AdminPackDraftFileUpdate",
+    {:patch, "/api/admin/pack-drafts/{id}/files/{file_id}"} => "AdminPackDraftRename",
+    {:post, "/api/admin/pack-drafts/{id}/imports"} => "AdminPackDraftImportRequest"
+  }
+
+  @posts_0016a for {{:post, path}, _title} <- @requests_0016a, do: path
 
   defp operations do
     for {path, item} <- ApiSpec.spec().paths,
@@ -365,7 +408,8 @@ defmodule EspalierWeb.ApiSpecTest do
     admin_posts =
       for {{:post, "/api/admin/" <> _rest = path}, _operation} <- operations(), do: path
 
-    assert Enum.sort(admin_posts) == Enum.sort(Map.keys(@posts_0015) ++ Map.keys(@posts_0016))
+    assert Enum.sort(admin_posts) ==
+             Enum.sort(Map.keys(@posts_0015) ++ Map.keys(@posts_0016) ++ @posts_0016a)
 
     for {path, title} <- @posts_0015 do
       assert %Operation{requestBody: %RequestBody{content: content}} = spec.paths[path].post
@@ -405,6 +449,77 @@ defmodule EspalierWeb.ApiSpecTest do
         assert object.additionalProperties == false, "#{path} #{title}"
       end
     end
+  end
+
+  # Task 0016a step 9, Security requirements 2.1.1, 2.1.3, 5.1.1 and 15.3.3.
+  test "the request schemas of the POST, PUT and PATCH routes of task 0016a set additionalProperties false" do
+    spec = ApiSpec.spec()
+
+    for {{verb, path}, title} <- @requests_0016a do
+      label = "#{verb} #{path}"
+      item = spec.paths[path]
+      assert %Operation{requestBody: %RequestBody{content: content} = body} = Map.get(item, verb)
+      assert body.required == (path != "/api/admin/pack-drafts/{id}/check"), label
+
+      media_type =
+        if path == "/api/admin/pack-draft-uploads",
+          do: "multipart/form-data",
+          else: "application/json"
+
+      assert [{^media_type, %MediaType{schema: schema}}] = Map.to_list(content), label
+      schema = resolve(spec, schema)
+      assert %Schema{title: ^title, type: :object, additionalProperties: false} = schema, label
+
+      for object <- objects(schema, spec) do
+        assert object.additionalProperties == false, "#{label} #{title}"
+      end
+
+      for {member, %Schema{} = property} <- schema.properties do
+        case member do
+          :path -> assert {property.minLength, property.maxLength} == {1, 527}, label
+          :content -> assert property.maxLength == 1_048_576, label
+          :lock_version -> assert {property.type, property.minimum} == {:integer, 1}, label
+          :name -> assert {property.minLength, property.maxLength} == {1, 255}, label
+          _other -> :ok
+        end
+      end
+    end
+
+    # The starting points and the overlay of the check.
+    request = spec.components.schemas["AdminPackDraftRequest"]
+    assert request.properties.source.enum == ["empty", "program", "import"]
+    assert request.required == [:source]
+
+    check = spec.components.schemas["AdminPackDraftCheckRequest"]
+    assert check.required == []
+    assert Enum.sort(Map.keys(check.properties)) == [:content, :file_id]
+
+    # The upload is described as a binary field `file`, as the pack upload.
+    upload =
+      spec.paths["/api/admin/pack-draft-uploads"].post.requestBody.content["multipart/form-data"]
+
+    assert %Schema{type: :string, format: :binary} = upload.schema.properties.file
+    assert upload.schema.required == [:file]
+
+    # The descriptions of the upload, the file create and the file update
+    # name the limits of a draft.
+    for {verb, path} <- [
+          {:post, "/api/admin/pack-draft-uploads"},
+          {:post, "/api/admin/pack-drafts/{id}/files"},
+          {:put, "/api/admin/pack-drafts/{id}/files/{file_id}"}
+        ] do
+      description = Map.get(spec.paths[path], verb).description
+
+      for limit <- ["2,000", "1,048,576", "PACK_UPLOAD_MAX_MB", "U+0000"] do
+        assert description =~ limit, "#{verb} #{path}: #{limit}"
+      end
+    end
+
+    # The delete of a file takes the lock_version in its query string.
+    delete = spec.paths["/api/admin/pack-drafts/{id}/files/{file_id}"].delete
+
+    assert [%{schema: %Schema{type: :integer, minimum: 1}, required: true}] =
+             Enum.filter(delete.parameters, &(&1.in == :query and &1.name == :lock_version))
   end
 
   test "the integration operation names the bearer token, which the document declares" do

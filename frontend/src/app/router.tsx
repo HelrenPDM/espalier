@@ -27,6 +27,7 @@ import {
   ApprovedToolsPage,
   AttendancePage,
   AuditPage,
+  DraftPage,
   ExportsPage,
   GlossaryPage,
   HandbookPage,
@@ -42,6 +43,7 @@ import {
   StationPage,
   UsersPage,
   WebhooksPage,
+  WorkbenchPage,
 } from "./lazyPages";
 import { NotFoundPage } from "./NotFoundPage";
 
@@ -117,6 +119,18 @@ export const appRoutes: RouteObject[] = [
               { index: true, element: <PacksPage /> },
               { path: ":id", element: <PackPage /> },
               { path: ":id/preview/*", element: <PackPreviewPage /> },
+            ],
+          },
+          {
+            path: "workbench",
+            element: (
+              <RequireRole anyOf={["author"]}>
+                <Outlet />
+              </RequireRole>
+            ),
+            children: [
+              { index: true, element: <WorkbenchPage /> },
+              { path: ":id", element: <DraftPage /> },
             ],
           },
           {

@@ -37,6 +37,7 @@ node "Application server (Elixir release)" {
     [Policies] as Policies
     [Insights] as Insights
     [Interop] as Interop
+    [Workbench\n(pack drafts)] as Workbench
     [Audit] as Audit
     [Repo (Ecto)] as Repo
   }
@@ -87,6 +88,7 @@ Api --> Credentials
 Api --> Policies
 Api --> Insights
 Api --> Interop
+Api --> Workbench
 
 Learning --> Credentials : requirement events
 Policies --> Credentials : refresher events
@@ -102,6 +104,11 @@ Oban --> Down : signed webhooks
 Down --> Api : integration API\n(machine token)
 
 Packs --> Catalog : import\n(mix task or upload)
+Packs --> Workbench : zip upload
+Workbench --> Catalog : check and import\n(loader, validator, importer)
+Workbench --> Interop : files of a program\nor an import (pack writer)
+Workbench --> Audit : draft created\nand deleted
+Workbench ..> Packs : zip download
 Interop ..> Packs : pack export\n(mix espalier.export)
 Interop ..> LMS : SCORM package (zip)
 

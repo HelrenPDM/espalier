@@ -29,12 +29,23 @@ defmodule EspalierWeb.Admin.PackJSON do
       published_at: pack_import.published_at,
       report: %{errors: errors, warnings: warnings},
       payload: if(pack_import.status == :validated, do: payload),
-      alignment: %{
-        mode: if(is_map(payload), do: payload["alignment"]),
-        matrix: if(is_map(payload), do: Alignment.matrix(payload)),
-        errors: findings(errors),
-        warnings: findings(warnings)
-      }
+      alignment: alignment(payload, report)
+    }
+  end
+
+  @doc """
+  The member `alignment` of the pack view and of the check of a draft of
+  the pack workbench (task 0016a, step 6): `mode` and `matrix` from
+  `payload` (`nil` without one) and the entries of `report` (a report of
+  `Espalier.Catalog.Pack.Report.stored/2`) that carry `check`, split into
+  `errors` and `warnings`.
+  """
+  def alignment(payload, report) when is_map(report) do
+    %{
+      mode: if(is_map(payload), do: payload["alignment"]),
+      matrix: if(is_map(payload), do: Alignment.matrix(payload)),
+      errors: findings(Map.get(report, "errors", [])),
+      warnings: findings(Map.get(report, "warnings", []))
     }
   end
 

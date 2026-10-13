@@ -42,8 +42,11 @@ const KNOWN_ACTIONS = [
   "approved_tool.deleted",
   "credential.revoked",
   "attendance.issued",
+  // An import from a draft of the pack workbench names `pack_draft_id`.
   "pack.imported",
   "pack.published",
+  "pack_draft.created",
+  "pack_draft.deleted",
   "export.requested",
 ] as const;
 

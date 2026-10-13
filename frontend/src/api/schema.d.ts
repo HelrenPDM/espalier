@@ -132,6 +132,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/pack-draft-uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a draft from a zip archive
+         * @description A zip archive of at most `PACK_UPLOAD_MAX_MB` (default 20) with at most 2,000 entries and declared sizes of at most five times that limit, with the pack at its root or in its one top-level directory. The draft keeps the files of the pack layout (`pack.yaml`, `sources.yaml`, `glossary.yaml`, `segments.yaml`, `stations.yaml`, `feedback.yaml`, `qualifications.yaml`, `formats.yaml`, `modules/<dir>/{module,objectives,rules,items,assessment}.yaml` and `modules/<dir>/lessons/<key>.md`) and lists every other file in `skipped`. Each kept file is UTF-8 text without U+0000 of at most 1,048,576 bytes. A draft holds at most 2,000 files of at most 1,048,576 bytes each and at most five times `PACK_UPLOAD_MAX_MB` (default 20) in total; at most 50 drafts exist.
+         */
+        post: operations["EspalierWeb.Admin.PackDraftController.upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/pack-drafts/{id}/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a file to a draft
+         * @description A path names a file of the pack layout: a top-level YAML file (`pack.yaml`, `sources.yaml`, `glossary.yaml`, `segments.yaml`, `stations.yaml`, `feedback.yaml`, `qualifications.yaml`, `formats.yaml`), `modules/<dir>/{module,objectives,rules,items,assessment}.yaml` or `modules/<dir>/lessons/<key>.md`. A content is UTF-8 text without U+0000 of at most 1,048,576 bytes. A draft holds at most 2,000 files and at most five times `PACK_UPLOAD_MAX_MB` (default 20) in total.
+         */
+        post: operations["EspalierWeb.Admin.PackDraftFileController.create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/policies/{id}": {
         parameters: {
             query?: never;
@@ -589,6 +629,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/pack-drafts/{id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download a draft as a zip archive
+         * @description Sends the files in the pack layout at the root of a zip archive named `<pack key>-draft.zip`, or `pack-draft.zip` without a usable pack key. The archive is built in memory, so a download takes one of the two slots of the checks and imports.
+         */
+        get: operations["EspalierWeb.Admin.PackDraftController.download"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/second-factor": {
         parameters: {
             query?: never;
@@ -604,6 +664,24 @@ export interface paths {
          */
         post: operations["EspalierWeb.Auth.SecondFactorController.create"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/pack-drafts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read a draft with its files */
+        get: operations["EspalierWeb.Admin.PackDraftController.show"];
+        put?: never;
+        post?: never;
+        /** Delete a draft with its files */
+        delete: operations["EspalierWeb.Admin.PackDraftController.delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -778,6 +856,26 @@ export interface paths {
         put?: never;
         /** Confirm an e-mail change */
         post: operations["EspalierWeb.Me.EmailController.confirm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/pack-drafts/{id}/imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import a draft
+         * @description Validates the files of the draft as an upload of the same files would and stores the import; the pack page continues with report, diff, preview and publish. The draft stays. At most two checks and imports run at once.
+         */
+        post: operations["EspalierWeb.Admin.PackDraftController.create_import"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1127,6 +1225,27 @@ export interface paths {
          * @description Ends every session of the user. An `idp_claim` grant answers 409 `idp_claim`.
          */
         delete: operations["EspalierWeb.Admin.RoleGrantController.delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/pack-drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the drafts */
+        get: operations["EspalierWeb.Admin.PackDraftController.index"];
+        put?: never;
+        /**
+         * Start a draft
+         * @description Starts a draft from an empty pack (`name`), a published program (`program_slug`) or an import with a payload (`pack_import_id`). A draft holds at most 2,000 files of at most 1,048,576 bytes each and at most five times `PACK_UPLOAD_MAX_MB` (default 20) in total; at most 50 drafts exist.
+         */
+        post: operations["EspalierWeb.Admin.PackDraftController.create"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1557,6 +1676,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/pack-drafts/{id}/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a draft without saving it
+         * @description Runs the loader and the validator of the pack format on the files of the draft, with the unsaved `content` of the file `file_id` when both are given, and changes no state. At most two checks and imports run at once.
+         */
+        post: operations["EspalierWeb.Admin.PackDraftController.check"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/pack-drafts/{id}/files/{file_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read a file of a draft with its content */
+        get: operations["EspalierWeb.Admin.PackDraftFileController.show"];
+        /**
+         * Save the content of a file
+         * @description A path names a file of the pack layout: a top-level YAML file (`pack.yaml`, `sources.yaml`, `glossary.yaml`, `segments.yaml`, `stations.yaml`, `feedback.yaml`, `qualifications.yaml`, `formats.yaml`), `modules/<dir>/{module,objectives,rules,items,assessment}.yaml` or `modules/<dir>/lessons/<key>.md`. A content is UTF-8 text without U+0000 of at most 1,048,576 bytes. A draft holds at most 2,000 files and at most five times `PACK_UPLOAD_MAX_MB` (default 20) in total.
+         */
+        put: operations["EspalierWeb.Admin.PackDraftFileController.update"];
+        post?: never;
+        /** Delete a file */
+        delete: operations["EspalierWeb.Admin.PackDraftFileController.delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Rename a file
+         * @description A path names a file of the pack layout: a top-level YAML file (`pack.yaml`, `sources.yaml`, `glossary.yaml`, `segments.yaml`, `stations.yaml`, `feedback.yaml`, `qualifications.yaml`, `formats.yaml`), `modules/<dir>/{module,objectives,rules,items,assessment}.yaml` or `modules/<dir>/lessons/<key>.md`. A content is UTF-8 text without U+0000 of at most 1,048,576 bytes. A draft holds at most 2,000 files and at most five times `PACK_UPLOAD_MAX_MB` (default 20) in total.
+         */
+        patch: operations["EspalierWeb.Admin.PackDraftFileController.rename"];
+        trace?: never;
+    };
     "/api/modules/{id}": {
         parameters: {
             query?: never;
@@ -1891,6 +2056,21 @@ export interface components {
             self_assessment: boolean;
         };
         /**
+         * AdminPackDraftFile
+         * @description A file of a draft.
+         */
+        AdminPackDraftFile: {
+            bytes: number;
+            content: string;
+            /** Format: uuid */
+            id: string;
+            /** @description The `lock_version` of the draft. */
+            lock_version: number;
+            path: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        /**
          * AdminRoleGrant
          * @description A role grant.
          */
@@ -1904,6 +2084,18 @@ export interface components {
             source: "idp_claim" | "manual";
             /** Format: uuid */
             user_id: string;
+        };
+        /**
+         * AdminPackDraftFileRequest
+         * @description A new file of a draft.
+         */
+        AdminPackDraftFileRequest: {
+            /** @description UTF-8 text without U+0000, at most 1,048,576 bytes. */
+            content: string;
+            /** @description The `lock_version` of the draft that the change starts from. */
+            lock_version: number;
+            /** @description A path of the pack layout: a top-level YAML file, `modules/<dir>/<name>.yaml` or `modules/<dir>/lessons/<key>.md`, with at most 255 bytes per component. */
+            path: string;
         };
         /**
          * AdminPolicyVersionList
@@ -2184,6 +2376,19 @@ export interface components {
             nickname?: string;
         };
         /**
+         * AdminPackDraftCheckRequest
+         * @description The overlay of a check.
+         */
+        AdminPackDraftCheckRequest: {
+            /** @description UTF-8 text without U+0000, at most 1,048,576 bytes. */
+            content?: string;
+            /**
+             * Format: uuid
+             * @description A file of the draft.
+             */
+            file_id?: string;
+        };
+        /**
          * ItemReport
          * @description The attempts and the share correct per practice item and month.
          */
@@ -2411,6 +2616,16 @@ export interface components {
             };
         };
         /**
+         * AdminPackDraftRename
+         * @description The new path of a file.
+         */
+        AdminPackDraftRename: {
+            /** @description The `lock_version` of the draft that the change starts from. */
+            lock_version: number;
+            /** @description A path of the pack layout: a top-level YAML file, `modules/<dir>/<name>.yaml` or `modules/<dir>/lessons/<key>.md`, with at most 255 bytes per component. */
+            path: string;
+        };
+        /**
          * PasskeyAssertion
          * @description A passkey assertion, base64url-encoded.
          */
@@ -2524,6 +2739,19 @@ export interface components {
             secret_base32: string;
         };
         /**
+         * AdminPackDraftCheck
+         * @description The check of a draft.
+         */
+        AdminPackDraftCheck: {
+            alignment: components["schemas"]["AdminPackAlignment"];
+            /** @description The version checked. */
+            lock_version: number;
+            report: {
+                errors: components["schemas"]["AdminReportEntry"][];
+                warnings: components["schemas"]["AdminReportEntry"][];
+            };
+        };
+        /**
          * AdminApprovedTool
          * @description An entry of the approved tool list.
          */
@@ -2540,6 +2768,16 @@ export interface components {
                 status: "approved" | "restricted" | "not_approved";
                 vendor: string;
             };
+        };
+        /**
+         * AdminPackDraftFileUpdate
+         * @description The new content of a file.
+         */
+        AdminPackDraftFileUpdate: {
+            /** @description UTF-8 text without U+0000, at most 1,048,576 bytes. */
+            content: string;
+            /** @description The `lock_version` of the draft that the change starts from. */
+            lock_version: number;
         };
         /**
          * SecuritySummary
@@ -2686,13 +2924,7 @@ export interface components {
          * @description A content pack import.
          */
         AdminPackImport: {
-            alignment: {
-                errors: components["schemas"]["AdminAlignmentFinding"][];
-                matrix: components["schemas"]["AdminAlignmentMatrixRow"][] | null;
-                /** @enum {string|null} */
-                mode: "strict" | "warn" | null;
-                warnings: components["schemas"]["AdminAlignmentFinding"][];
-            };
+            alignment: components["schemas"]["AdminPackAlignment"];
             /** Format: uuid */
             id: string;
             /** Format: date-time */
@@ -2797,6 +3029,11 @@ export interface components {
             /** @description The slug of a published program. */
             program_slug: string;
         };
+        /** AdminPackDraftUpload */
+        AdminPackDraftUpload: {
+            /** Format: binary */
+            file: string;
+        };
         /**
          * ApprovedToolList
          * @description The approved tool list.
@@ -2886,6 +3123,18 @@ export interface components {
             role: "facilitator" | "author" | "registrar" | "analyst" | "admin";
             /** Format: uuid */
             user_id: string;
+        };
+        /**
+         * AdminStaleDraft
+         * @description A conflict with the stored draft.
+         */
+        AdminStaleDraft: {
+            /** @enum {string} */
+            error: "stale_draft" | "path_taken" | "too_many_files" | "draft_too_large" | "draft_limit" | "no_payload";
+            /** @description For `stale_draft`: the stored version. */
+            lock_version?: number;
+            /** @description For `draft_limit`: the largest number of drafts. */
+            max_drafts?: number;
         };
         /**
          * ModuleCompletionView
@@ -2984,6 +3233,23 @@ export interface components {
              * @enum {string}
              */
             choice: "would_use";
+        };
+        /**
+         * AdminPackDraftRequest
+         * @description The starting point of a new draft.
+         */
+        AdminPackDraftRequest: {
+            /** @description For `empty`: the title of the pack. */
+            name?: string;
+            /**
+             * Format: uuid
+             * @description For `import`: a `validated` or `published` import.
+             */
+            pack_import_id?: string;
+            /** @description For `program`: the slug of a published program. */
+            program_slug?: string;
+            /** @enum {string} */
+            source: "empty" | "program" | "import";
         };
         /**
          * SecondFactorSession
@@ -3477,6 +3743,53 @@ export interface components {
             file: string;
         };
         /**
+         * AdminPackDraft
+         * @description A draft of the pack workbench.
+         */
+        AdminPackDraft: {
+            /** @description The files ordered by path, without content. */
+            files?: {
+                bytes: number;
+                /** Format: uuid */
+                id: string;
+                path: string;
+                /** Format: date-time */
+                updated_at: string;
+            }[];
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            inserted_at: string;
+            limits: {
+                /** @description At most five times `PACK_UPLOAD_MAX_MB` per draft. */
+                draft_bytes: number;
+                /** @description At most 1,048,576 bytes per file. */
+                file_bytes: number;
+                /** @description At most 2,000 files per draft. */
+                files: number;
+            };
+            /** @description Grows by one with each file change; every change sends it. */
+            lock_version: number;
+            /** @description The key of `pack.yaml`, when it is usable. */
+            pack_key: string | null;
+            /** @description The files of an uploaded archive outside the pack layout. */
+            skipped?: {
+                /** @description The number of further skipped paths. */
+                omitted: number;
+                /** @description The first 100 paths, sorted. */
+                paths: string[];
+            };
+            title: string;
+            /** Format: date-time */
+            updated_at: string;
+            usage: {
+                /** @description The bytes of all contents. */
+                bytes: number;
+                /** @description The number of files. */
+                files: number;
+            };
+        };
+        /**
          * FinishRequest
          * @description Ends an OIDC flow same-origin.
          */
@@ -3655,6 +3968,14 @@ export interface components {
             recovery_code?: string;
             /** @description A six-digit code of the authenticator app. */
             totp?: string;
+        };
+        /**
+         * AdminPackDraftImportRequest
+         * @description The import of a draft.
+         */
+        AdminPackDraftImportRequest: {
+            /** @description The `lock_version` of the draft that the change starts from. */
+            lock_version: number;
         };
         /**
          * ProgramList
@@ -3870,6 +4191,17 @@ export interface components {
             email: string;
         };
         /**
+         * AdminPackAlignment
+         * @description The alignment matrix and findings of a pack.
+         */
+        AdminPackAlignment: {
+            errors: components["schemas"]["AdminAlignmentFinding"][];
+            matrix: components["schemas"]["AdminAlignmentMatrixRow"][] | null;
+            /** @enum {string|null} */
+            mode: "strict" | "warn" | null;
+            warnings: components["schemas"]["AdminAlignmentFinding"][];
+        };
+        /**
          * AssessmentsOpenError
          * @description The open exams of the module.
          */
@@ -4008,6 +4340,13 @@ export interface components {
                 name: string;
                 scopes: "credentials:read"[];
             }[];
+        };
+        /**
+         * AdminPackDraftList
+         * @description The drafts, without files.
+         */
+        AdminPackDraftList: {
+            data: components["schemas"]["AdminPackDraft"][];
         };
         /**
          * RecoveryStartRequest
@@ -4463,6 +4802,161 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.PackDraftController.upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The archive */
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The draft with the skipped paths */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPackDraft"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `draft_limit`, `too_many_files`, `draft_too_large` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminStaleDraft"];
+                };
+            };
+            /** @description Error codes: `request_too_large` */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `unsupported_media_type` */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The rejected archive */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminArchiveRejected"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.PackDraftFileController.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The draft id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description The file */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminPackDraftFileRequest"];
+            };
+        };
+        responses: {
+            /** @description The draft */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPackDraft"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `stale_draft` (with `lock_version`), `path_taken`, `too_many_files`, `draft_too_large` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminStaleDraft"];
                 };
             };
             /** @description Error codes: `validation_failed` */
@@ -6241,6 +6735,76 @@ export interface operations {
             };
         };
     };
+    "EspalierWeb.Admin.PackDraftController.download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The draft id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The archive */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": string;
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `checks_busy` */
+            429: {
+                headers: {
+                    /** @description Seconds until the bucket admits the next request. */
+                    "retry-after"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     "EspalierWeb.Auth.SecondFactorController.create": {
         parameters: {
             query?: never;
@@ -6296,6 +6860,122 @@ export interface operations {
                 headers: {
                     /** @description Seconds until the bucket admits the next request. */
                     "retry-after"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.PackDraftController.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The draft id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The draft */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPackDraft"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.PackDraftController.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The draft id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The draft is deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
                     [name: string]: unknown;
                 };
                 content: {
@@ -7237,6 +7917,90 @@ export interface operations {
             /** @description Error codes: `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request` */
             403: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.PackDraftController.create_import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The draft id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description The version of the draft */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminPackDraftImportRequest"];
+            };
+        };
+        responses: {
+            /** @description The import */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPackImport"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error code: `stale_draft` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminStaleDraft"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `checks_busy` */
+            429: {
+                headers: {
+                    /** @description Seconds until the bucket admits the next request. */
+                    "retry-after"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -8496,6 +9260,114 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.PackDraftController.index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The drafts, newest change first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPackDraftList"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.PackDraftController.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The starting point */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminPackDraftRequest"];
+            };
+        };
+        responses: {
+            /** @description The draft */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPackDraft"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `draft_limit`, `no_payload`, `too_many_files`, `draft_too_large` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminStaleDraft"];
                 };
             };
             /** @description Error codes: `validation_failed` */
@@ -10122,6 +10994,374 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.PackDraftController.check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The draft id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description The overlay */
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["AdminPackDraftCheckRequest"];
+            };
+        };
+        responses: {
+            /** @description The check */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPackDraftCheck"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error code: `draft_too_large` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminStaleDraft"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `checks_busy` */
+            429: {
+                headers: {
+                    /** @description Seconds until the bucket admits the next request. */
+                    "retry-after"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.PackDraftFileController.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The draft id. */
+                id: string;
+                /** @description The file id. */
+                file_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPackDraftFile"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.PackDraftFileController.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The draft id. */
+                id: string;
+                /** @description The file id. */
+                file_id: string;
+            };
+            cookie?: never;
+        };
+        /** @description The content */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminPackDraftFileUpdate"];
+            };
+        };
+        responses: {
+            /** @description The draft */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPackDraft"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `stale_draft` (with `lock_version`), `path_taken`, `too_many_files`, `draft_too_large` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminStaleDraft"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.PackDraftFileController.delete": {
+        parameters: {
+            query: {
+                /** @description The `lock_version` of the draft that the change starts from. */
+                lock_version: number;
+            };
+            header?: never;
+            path: {
+                /** @description The draft id. */
+                id: string;
+                /** @description The file id. */
+                file_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The draft */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPackDraft"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error code: `stale_draft` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminStaleDraft"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.PackDraftFileController.rename": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The draft id. */
+                id: string;
+                /** @description The file id. */
+                file_id: string;
+            };
+            cookie?: never;
+        };
+        /** @description The new path */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminPackDraftRename"];
+            };
+        };
+        responses: {
+            /** @description The draft */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPackDraft"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `stale_draft` (with `lock_version`), `path_taken`, `too_many_files`, `draft_too_large` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminStaleDraft"];
                 };
             };
             /** @description Error codes: `validation_failed` */

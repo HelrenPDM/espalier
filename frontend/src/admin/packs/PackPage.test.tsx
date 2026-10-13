@@ -5,6 +5,7 @@ import type {
   PackDiff,
   PackImport,
 } from "../../api/admin/packs";
+import type { PackDraft } from "../../api/admin/workbench";
 import { AREAS, DEPTHS } from "../../player/objectives/labels";
 import { expectNoAxeViolations } from "../../test/axe";
 import {
@@ -26,6 +27,10 @@ import { PackPage } from "./PackPage";
  * and its dialog lists the diff, the changed fields of each changed
  * objective and the number of warnings, and shows the findings of a 409
  * `alignment_errors` answer.
+ *
+ * Task 0016a step 12: "Edit in the workbench" appears for a `validated` or
+ * `published` import, creates a draft from the import and moves to it; a
+ * 409 `draft_limit` names the limit and the advice to delete a draft.
  */
 const ID = "00000000-0000-4000-8000-000000000501";
 const PATH = `/api/admin/packs/${ID}`;
@@ -423,5 +428,78 @@ describe("the publication", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(screen.getByRole("button", { name: "Publish" })).toBeEnabled();
     expect(screen.queryByText("The pack is published.")).toBeNull();
+  });
+});
+
+describe("Edit in the workbench", () => {
+  const DRAFT_ID = "00000000-0000-4000-8000-000000000701";
+  const draft: PackDraft = {
+    id: DRAFT_ID,
+    title: "Demo",
+    pack_key: "demo",
+    lock_version: 1,
+    inserted_at: "2026-10-13T09:00:00Z",
+    updated_at: "2026-10-13T09:00:00Z",
+    usage: { files: 12, bytes: 40_960 },
+    limits: { files: 2000, file_bytes: 1_048_576, draft_bytes: 524_288_000 },
+    files: [],
+  };
+
+  test.each(["validated", "published"] as const)(
+    "a %s import creates a draft from the import and moves to it",
+    async (status) => {
+      const { user, requests, location, container } = renderPage(
+        { ...publishable(), status },
+        { "POST /api/admin/pack-drafts": { status: 201, body: draft } },
+      );
+
+      const button = await screen.findByRole("button", {
+        name: "Edit in the workbench",
+      });
+      await expectNoAxeViolations(container);
+      await user.click(button);
+
+      await waitFor(() =>
+        expect(location()).toBe(`/admin/workbench/${DRAFT_ID}`),
+      );
+      const [request] = requestsTo(requests, "POST", "/api/admin/pack-drafts");
+      expect(request.body).toEqual({ source: "import", pack_import_id: ID });
+      expect(request.headers.get("x-csrf-token")).toBe("csrf-1");
+    },
+  );
+
+  test("a failed import offers no draft", async () => {
+    renderPage(pack());
+
+    await matrixTable();
+    expect(
+      screen.queryByRole("button", { name: "Edit in the workbench" }),
+    ).toBeNull();
+  });
+
+  test("a 409 draft_limit names the limit and the advice to delete a draft", async () => {
+    const { user, location } = renderPage(publishable(), {
+      "POST /api/admin/pack-drafts": {
+        status: 409,
+        body: { error: "draft_limit", max_drafts: 12 },
+      },
+    });
+
+    await user.click(
+      await screen.findByRole("button", { name: "Edit in the workbench" }),
+    );
+
+    await waitFor(() =>
+      expect(
+        screen
+          .getAllByRole("alert")
+          .some((alert) =>
+            alert.textContent?.includes(
+              "The workbench holds at most 12 drafts, and this limit is reached. Delete a draft that you no longer need, then start again.",
+            ),
+          ),
+      ).toBe(true),
+    );
+    expect(location()).toBe(`/admin/packs/${ID}`);
   });
 });
