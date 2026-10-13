@@ -47,21 +47,30 @@ defmodule Espalier.Catalog do
   (`Espalier.Catalog.Pack.Importer.prepare/2`); the import row and its audit
   event are then written in one `Repo.transact/1`, so that neither persists
   without the other.
+
+  Options:
+
+    * `:audit` - a map that is merged into the details of `pack.imported`,
+      such as `%{pack_draft_id: id}` for an import from a draft of the pack
+      workbench (task 0016a, step 7).
   """
-  def import_pack(%Scope{} = scope, path) when is_binary(path) do
+  def import_pack(%Scope{} = scope, path, opts \\ []) when is_binary(path) and is_list(opts) do
     with :ok <- require_author(scope) do
       changeset = Importer.prepare(path, scope.user.id)
-      Repo.transact(fn -> insert_import(scope, changeset) end)
+      details = Keyword.get(opts, :audit, %{})
+      Repo.transact(fn -> insert_import(scope, changeset, details) end)
     end
   end
 
-  defp insert_import(scope, changeset) do
+  defp insert_import(scope, changeset, details) do
     with {:ok, pack_import} <- Repo.insert(changeset) do
       {:ok, _event} =
-        Audit.record(scope, "pack.imported", pack_import, %{
-          pack_key: pack_import.pack_key,
-          status: pack_import.status
-        })
+        Audit.record(
+          scope,
+          "pack.imported",
+          pack_import,
+          Map.merge(details, %{pack_key: pack_import.pack_key, status: pack_import.status})
+        )
 
       {:ok, pack_import}
     end

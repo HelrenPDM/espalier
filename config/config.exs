@@ -56,6 +56,11 @@ config :espalier, Oban,
 # newest max_packages keep their package.
 config :espalier, :export_retention, max_age_days: 7, max_packages: 100
 
+# The drafts of the pack workbench (task 0016a, Espalier.Workbench): at most
+# max_drafts drafts in total, and at most max_parallel_checks checks and
+# imports from drafts at once per node.
+config :espalier, :pack_drafts, max_drafts: 50, max_parallel_checks: 2
+
 # Rate limit buckets as {scale_ms, limit} (docs/security/authentication.md).
 config :espalier, :rate_limits, %{
   auth_ip: {:timer.minutes(1), 30},

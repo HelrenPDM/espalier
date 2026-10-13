@@ -131,7 +131,7 @@ defmodule Espalier.Catalog.LoaderTest do
       assert {:error, [%{file: ".", line: 1, message: "the pack directory is a symbolic link"}]} =
                Loader.load(link)
 
-      assert Loader.pack_meta(link) == %{key: nil, version: nil}
+      assert Loader.pack_meta(link) == %{key: nil, version: nil, title: nil}
     end
 
     test "rejects an entry that is neither a directory nor a regular file" do
@@ -686,30 +686,38 @@ defmodule Espalier.Catalog.LoaderTest do
   end
 
   describe "pack_meta/1" do
-    test "returns key and version of pack.yaml" do
-      assert Loader.pack_meta(fixture_path("minimal")) == %{key: "minimal-pack", version: "0.1.0"}
+    test "returns key, version and title of pack.yaml" do
+      assert Loader.pack_meta(fixture_path("minimal")) ==
+               %{key: "minimal-pack", version: "0.1.0", title: "Minimal pack (test fixture)"}
     end
 
-    test "returns key and version when the rest of the pack fails to load" do
+    test "returns key, version and title when the rest of the pack fails to load" do
       pack = copy_pack!("minimal")
       remove!(pack, "modules")
       assert {:error, _errors} = Loader.load(pack)
-      assert Loader.pack_meta(pack) == %{key: "minimal-pack", version: "0.1.0"}
+
+      assert Loader.pack_meta(pack) ==
+               %{key: "minimal-pack", version: "0.1.0", title: "Minimal pack (test fixture)"}
     end
 
     test "returns nil for values that are not strings and for an unreadable pack.yaml" do
       pack = copy_pack!("minimal")
       replace!(pack, "pack.yaml", "version: 0.1.0", "version: 1")
-      assert Loader.pack_meta(pack) == %{key: "minimal-pack", version: nil}
+
+      assert Loader.pack_meta(pack) == %{
+               key: "minimal-pack",
+               version: nil,
+               title: "Minimal pack (test fixture)"
+             }
 
       write!(pack, "pack.yaml", "key: [unclosed")
-      assert Loader.pack_meta(pack) == %{key: nil, version: nil}
+      assert Loader.pack_meta(pack) == %{key: nil, version: nil, title: nil}
 
       remove!(pack, "pack.yaml")
       File.ln_s!(fixture_path("minimal/pack.yaml"), path(pack, "pack.yaml"))
-      assert Loader.pack_meta(pack) == %{key: nil, version: nil}
+      assert Loader.pack_meta(pack) == %{key: nil, version: nil, title: nil}
 
-      assert Loader.pack_meta(pack <> "-missing") == %{key: nil, version: nil}
+      assert Loader.pack_meta(pack <> "-missing") == %{key: nil, version: nil, title: nil}
     end
   end
 end

@@ -30,17 +30,7 @@ defmodule EspalierWeb.Schemas.Admin.PackImport do
           additionalProperties: true,
           description: "The normalized pack of a validated import."
         },
-        alignment:
-          Fields.object(%{
-            mode: %Schema{type: :string, enum: ["strict", "warn"], nullable: true},
-            matrix: %Schema{
-              type: :array,
-              nullable: true,
-              items: EspalierWeb.Schemas.Admin.AlignmentMatrixRow
-            },
-            errors: Fields.array(EspalierWeb.Schemas.Admin.AlignmentFinding),
-            warnings: Fields.array(EspalierWeb.Schemas.Admin.AlignmentFinding)
-          })
+        alignment: EspalierWeb.Schemas.Admin.PackAlignment
       }),
       %{title: "AdminPackImport", description: "A content pack import."}
     ),

@@ -84,7 +84,7 @@ defmodule EspalierWeb.Admin.PackController do
 
     result =
       Archive.with_extracted(path, PackMultipart.max_bytes(), fn dir ->
-        Catalog.import_pack(scope, pack_root(dir))
+        Catalog.import_pack(scope, Archive.pack_root(dir))
       end)
 
     case result do
@@ -182,19 +182,6 @@ defmodule EspalierWeb.Admin.PackController do
         {:error, _reason} = error ->
           error
       end
-    end
-  end
-
-  # An archive holds the pack at its root or in one top-level directory,
-  # the form that zipping a pack folder gives.
-  defp pack_root(dir) do
-    with false <- File.regular?(Path.join(dir, "pack.yaml")),
-         {:ok, [single]} <- File.ls(dir),
-         nested = Path.join(dir, single),
-         true <- File.regular?(Path.join(nested, "pack.yaml")) do
-      nested
-    else
-      _other -> dir
     end
   end
 end

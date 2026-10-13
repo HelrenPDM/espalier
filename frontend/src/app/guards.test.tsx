@@ -146,7 +146,7 @@ describe("RequireRole", () => {
     ).toEqual(["Credentials"]);
   });
 
-  test("the admin navigation lists packs and exports for an author", () => {
+  test("the admin navigation lists packs, the workbench and exports for an author", () => {
     renderAt("/admin", sessionValue({ roles: ["learner", "author"] }));
 
     const navigation = screen.getByRole("navigation", {
@@ -158,8 +158,23 @@ describe("RequireRole", () => {
         .map((link) => [link.textContent, link.getAttribute("href")]),
     ).toEqual([
       ["Packs", "/admin/packs"],
+      ["Workbench", "/admin/workbench"],
       ["Exports", "/admin/exports"],
     ]);
+  });
+
+  test.each([
+    "/admin/workbench",
+    "/admin/workbench/00000000-0000-4000-8000-000000000701",
+  ])("renders the 403 page for an admin on %s", (path) => {
+    renderAt(path, sessionValue({ roles: ["learner", "admin"] }));
+
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Access denied" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Pack workbench" }),
+    ).not.toBeInTheDocument();
   });
 
   test("renders the 403 page for an admin on /admin/exports", () => {

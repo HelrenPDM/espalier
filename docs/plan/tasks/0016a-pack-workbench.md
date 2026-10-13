@@ -307,3 +307,130 @@ The workbench routes also rely on the controls that the rows 7.5.1, 8.2.1, 14.2.
 - A draft whose `pack.yaml` names the key of a published program updates that program at its publish. The diff of the pack page lists every added, changed and archived key before the publish (0015 step 7).
 - `created_by_id` records who started a draft. The routes check the role only, so every author reads and changes every draft, as every author reads every import and export (0016 addendum).
 - The editor shows text and runs no code from the content. The Markdown of a lesson is rendered only in the preview of the pack page, through the renderer of the player (0012, row 1.3.5).
+
+## Addendum: implementation
+The implementation departs from the steps above in the points below, and later
+tasks rely on the implemented form.
+
+- Editor spike (step 1): the outcome is CodeMirror 6 with
+  `@codemirror/state` 6.7.6, `@codemirror/view` 6.43.13,
+  `@codemirror/commands` 6.11.1, `@codemirror/language` 6.12.4,
+  `@codemirror/lang-yaml` 6.1.3, `@codemirror/lang-markdown` 6.5.2 and
+  `@lezer/highlight` 1.2.5, which the highlight style imports directly. All
+  23 packages below them carry the MIT license (`style-mod` 4.1.4,
+  `w3c-keyname` 2.2.8, `crelt` 1.0.7, `@marijn/find-cluster-break` 1.0.4,
+  the `@lezer/*` and the further `@codemirror/*` packages of the language
+  modes). The assumption on `style-mod` does not hold:
+  `StyleModule.mount` adopts a constructed `CSSStyleSheet` only for a root
+  without `head`, a shadow root, and gives a document a `<style>` element
+  filled through `textContent`, which `style-src 'self'` blocks
+  (`style-src-elem`, one violation per page, and the base theme is missing);
+  `EditorView.cspNonce` only sets the nonce of that element. `PackFileEditor`
+  therefore mounts the view in an open shadow root of its frame, where the
+  styles arrive as a constructed stylesheet, and takes its colors from CSS
+  custom properties that the frame sets with Tailwind classes for both
+  themes. The CSP and the Trusted Types header stay unchanged. Under the
+  headers of `GET /health`, Chromium (Playwright 1.59.1) records no
+  `securitypolicyviolation` event and no console message about a policy,
+  also none for `require-trusted-types-for`, while both editors are typed
+  in, selected, undone and moved through; a YAML key has another computed
+  color than plain text; the content element has the role `textbox`,
+  `aria-multiline="true"` and the accessible name of `label`; Tab and
+  Shift+Tab move the focus out of the editor; `Mod-]` and `Mod-[`
+  (`indentMore` and `indentLess` of `defaultKeymap`) indent and dedent the
+  selected lines; and axe reports no violation in the light and the dark
+  theme, inside the shadow roots too. The screen reader check with NVDA or
+  Orca is open for the maintainer. Further details of the shadow root:
+  `delegatesFocus: true` and a `focusin` listener move a focus that lands on
+  the host or the scroller to the content element, so a dialog that closes
+  returns the focus into the editor (Headless UI records the host); the
+  content element carries `tabindex="0"`, because axe does not count the
+  contenteditable element as focusable content of the scrollable region
+  (`scrollable-region-focusable`) and CodeMirror takes the scroller out of
+  the tab order; the name comes from `aria-label` inside the shadow root,
+  which an `aria-labelledby` outside cannot reach. The harness of
+  `editor-csp.spec.ts` renders a third editor taller than its frame, and its
+  Ctrl+S opens a dialog. `PackFileEditor` has the further optional prop
+  `readOnly`, which the draft page sets while it loads the stored version
+  after a conflict, and it keeps CRLF line endings: a value with `\r\n` sets
+  `EditorState.lineSeparator`, and `onChange` reports `state.sliceDoc()`. In
+  jsdom the Vitest tests query inside the shadow root, cannot follow a Tab
+  move (Playwright covers it) and stub `document.execCommand`, which
+  CodeMirror calls on the Safari path that the jsdom vendor string selects.
+  A run in Firefox and WebKit outside `make e2e` recorded no violation;
+  WebKit in Playwright reports a Mac platform, so `Mod` is Cmd there.
+- Path rules (step 3): a path holds 1 to 527 bytes, and no component of it
+  more than 255 bytes, the longest file or directory name that common file
+  systems hold. The bound of 255 bytes for the whole path rejected files of
+  valid packs: the validator admits lesson keys and module directories of up
+  to 255 characters, a start from such an import or program answered
+  `invalid_path`, and an archive start skipped the lesson, so that its
+  import could archive it at the publish. `path` is `varchar(527)`, the
+  request schemas set `maxLength: 527`, and `Paths.max_component_bytes/0`
+  names the bound of a component.
+- Content rules (steps 3 and 4): `Workbench.check_content/1` also answers
+  `:invalid_encoding` (422 `fields.content` `["invalid_encoding"]`) for a
+  content that is no valid UTF-8, which JSON cannot carry, so that the
+  context functions check it for every caller.
+- Names and titles (steps 5 and 9): the request schema counts `name` in
+  graphemes and the `varchar(255)` columns count code points, so
+  `create_empty/2` answers 422 `fields.name` `["max_length"]` for a name of
+  more than 255 code points, and the title from an upload file name keeps at
+  most 255 code points; `.zip` is removed in any letter case.
+- Limits (step 4): a change that adds no file passes the file limit and a
+  change that adds no byte passes the byte limit, so that a draft above a
+  lowered limit can still shrink.
+- File changes (step 4): an update reads the `lock_version` of the draft
+  together with the path of the file in one statement before it parses
+  `pack.yaml`, and a rename to `pack.yaml` also reads the stored content
+  there; a `lock_version` that differs answers `stale_draft` before any
+  parse, so the parse and the transaction see the same version. A new path
+  is checked against the draft under the row lock, and the unique index
+  stays as a second barrier.
+- Check limiter (steps 6 to 8): `Espalier.Workbench.CheckLimiter` is a
+  `GenServer` that grants a slot while fewer than `max_parallel_checks/0`
+  slots are taken, reads the setting at each request and monitors each
+  holder, so that a holder that dies frees its slot. `await/1` runs the work
+  in an unlinked task of `Espalier.Workbench.TaskSupervisor` with a watchdog
+  that kills it when the caller dies; an exception of the task is raised
+  again in the caller, so that the `after` blocks of the caller remove the
+  directory and free the slot. The check, the import and the download read
+  the contents of a draft only inside a slot, an import with a stale or
+  unknown version answers before it asks for one, and the download also
+  takes a slot and answers 429 `checks_busy`, because the draft and its
+  archive take up to twice `max_draft_bytes/0` of memory.
+- Answers (step 9): `AdminPackDraftUpload` is the multipart request schema of
+  the upload, as `AdminPackUpload` is for `POST /api/admin/packs`; the
+  upload answers `AdminPackDraft`, whose members `files` and `skipped` are
+  optional. `AdminStaleDraft` describes every 409 answer of the workbench
+  routes: `stale_draft` with `lock_version`, `draft_limit` with
+  `max_drafts`, the configured limit that the SPA names, and the other codes
+  without a further member. The starts of a draft answer 201 with `location`
+  `/api/admin/pack-drafts/:id`. The import action is named `create_import`,
+  because `import` is a special form. The context returns the `payload` of
+  the check, and `PackDraftJSON.check/1` renders `alignment` through
+  `PackJSON.alignment/2`, so the context does not depend on the web layer.
+- Audit (step 10): `pack_draft.created` names the source `upload` for a
+  start from an archive.
+- Workbench page (step 12): a zip start that skipped paths stays on
+  `/admin/workbench` and shows the skipped paths with a link "Open the
+  draft"; a start without skipped paths moves to the draft. The pages reuse
+  the keys `auth.forms.cancel`, `admin.common.*` and `admin.packs.errors.*`
+  for texts that other admin pages share.
+- Draft page (step 13): `useDraft` does not refetch on window focus or on
+  reconnect, because such a read would take the `lock_version` of a change
+  of another session without its content; the change hooks and the conflict
+  dialog update the cache. A file query is dropped from the cache when the
+  file closes, and the editor takes a text only from a successful read. The
+  Check report lists every entry of the report, the alignment findings
+  included, so that it shows the lines of `mix espalier.validate`; the
+  alignment section shows them again with the matrix. While "Load the
+  stored version" runs, the editor is read-only and save and import are
+  blocked. A conflict on an add, a rename, a delete or an import opens the
+  conflict dialog of a save, and a 404 on a save says whether the file or
+  the whole draft is gone.
+- Tests (step 14): the test modules that create drafts run synchronously,
+  because the sandbox transaction of a test holds the advisory lock of a
+  creation until the test ends. The check test points `TMPDIR` at a
+  directory of its own, so that the assertion on leftover directories is
+  independent of other test runs.

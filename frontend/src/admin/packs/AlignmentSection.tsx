@@ -1,9 +1,16 @@
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
-import type { AlignmentMatrixRow, PackImport } from "../../api/admin/packs";
+import type { AlignmentMatrixRow } from "../../api/admin/packs";
+import type { components } from "../../api/schema";
 import { FOCUS_RING } from "../../app/formStyles";
 import { areaKey, depthKey } from "../../player/objectives/labels";
-import { AlignmentFindingList } from "./findings";
+import { AlignmentFindingList, type EntryOpener } from "./findings";
+
+/**
+ * The alignment of a pack: the shared schema `AdminPackAlignment` of the
+ * pack view (0015) and of the check of a draft (0016a).
+ */
+type PackAlignment = components["schemas"]["AdminPackAlignment"];
 
 const BORDER = "border border-gray-300 dark:border-gray-700";
 
@@ -120,12 +127,17 @@ function ModuleTable({
  * import without a stored payload has no matrix; the section says so and
  * lists the findings alone. Area and depth carry the labels of the
  * objectives panel of the player (0012 step 11).
+ *
+ * The draft page of task 0016a renders the alignment of a check here. It
+ * passes `onOpen`, with which the file and the line of a finding open the
+ * file at that line, and `noMatrix`, the sentence for a check without a
+ * matrix; the pack page passes neither.
  */
 export function AlignmentSection({
   alignment,
-}: {
-  alignment: PackImport["alignment"];
-}) {
+  noMatrix,
+  ...opener
+}: EntryOpener & { alignment: PackAlignment; noMatrix?: string }) {
   const { t } = useTranslation();
   const headingId = useId();
   const errorsId = useId();
@@ -138,7 +150,7 @@ export function AlignmentSection({
       </h2>
       {alignment.matrix === null ? (
         <p className="text-gray-700 dark:text-gray-300">
-          {t("admin.pack.alignment.noMatrix")}
+          {noMatrix ?? t("admin.pack.alignment.noMatrix")}
         </p>
       ) : (
         <>
@@ -166,7 +178,7 @@ export function AlignmentSection({
             {t("admin.pack.alignment.none")}
           </p>
         ) : (
-          <AlignmentFindingList findings={alignment.errors} />
+          <AlignmentFindingList findings={alignment.errors} {...opener} />
         )}
       </section>
       <section aria-labelledby={warningsId} className="space-y-2">
@@ -180,7 +192,7 @@ export function AlignmentSection({
             {t("admin.pack.alignment.none")}
           </p>
         ) : (
-          <AlignmentFindingList findings={alignment.warnings} />
+          <AlignmentFindingList findings={alignment.warnings} {...opener} />
         )}
       </section>
     </section>

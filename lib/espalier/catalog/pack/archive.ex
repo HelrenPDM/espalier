@@ -110,6 +110,27 @@ defmodule Espalier.Catalog.Pack.Archive do
     end
   end
 
+  @doc """
+  The pack directory inside the directory `dir` of an extracted archive: an
+  archive holds the pack at its root or in its one top-level directory, the
+  form that zipping a pack folder gives. Returns `dir` itself unless `dir`
+  holds no `pack.yaml` and exactly one entry, a directory that holds one.
+  """
+  @spec pack_root(Path.t()) :: Path.t()
+  # The directory comes from extract/2, and the one name below it comes from
+  # its listing; no input reaches the path.
+  # sobelow_skip ["Traversal.FileModule"]
+  def pack_root(dir) when is_binary(dir) do
+    with false <- File.regular?(Path.join(dir, "pack.yaml")),
+         {:ok, [single]} <- File.ls(dir),
+         nested = Path.join(dir, single),
+         true <- File.regular?(Path.join(nested, "pack.yaml")) do
+      nested
+    else
+      _other -> dir
+    end
+  end
+
   ## Reading
 
   # The path is the temporary file of the multipart parser (Plug.Upload);

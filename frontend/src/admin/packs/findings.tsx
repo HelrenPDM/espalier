@@ -4,6 +4,7 @@ import type {
   AlignmentFinding,
   ReportEntry,
 } from "../../api/admin/packs";
+import { linkClasses } from "../../app/formStyles";
 
 const ITEM_CLASSES =
   "rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-800 dark:border-gray-700 dark:text-gray-200";
@@ -16,25 +17,76 @@ const PackFile = ({ path }: { path: string }) => (
 );
 
 /**
+ * Opens a file of the pack at a line (the draft page of task 0016a). With
+ * `onOpen`, the lists below show the file and the line of an entry as a
+ * button when `canOpen` admits the file; an entry on `.` or on a directory
+ * keeps its text. The pack page passes neither.
+ */
+export interface EntryOpener {
+  /** Opens `file` and moves the cursor to `line`, when it has one. */
+  onOpen?: (file: string, line: number | null) => void;
+  /** True for a file that `onOpen` opens; every file without it. */
+  canOpen?: (file: string) => boolean;
+}
+
+/**
+ * The file and the line (or "no line") of an entry: a button that opens
+ * the file at the line when `opener` admits the file, and text otherwise.
+ */
+function FileAndLine({
+  file,
+  line,
+  opener: { onOpen, canOpen = () => true },
+}: {
+  file: string;
+  line: number | null;
+  opener: EntryOpener;
+}) {
+  const { t } = useTranslation();
+  const text = (
+    <>
+      <PackFile path={file} />
+      <Separator />
+      <span>
+        {line === null
+          ? t("admin.pack.entry.noLine")
+          : t("admin.pack.entry.line", { line })}
+      </span>
+    </>
+  );
+  if (onOpen === undefined || !canOpen(file)) return text;
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(file, line)}
+      className={`text-left ${linkClasses}`}
+    >
+      {text}
+    </button>
+  );
+}
+
+/**
  * Entries of an import report or of a rejected archive: file, line (or "no
  * line") and message. A closing entry that stands for omitted entries
- * shows its message alone.
+ * shows its message alone. With `onOpen`, the file and the line of an
+ * entry form a button that opens the file at that line.
  */
-export function ReportEntryList({ entries }: { entries: ReportEntry[] }) {
-  const { t } = useTranslation();
+export function ReportEntryList({
+  entries,
+  ...opener
+}: EntryOpener & { entries: ReportEntry[] }) {
   return (
     <ul className="space-y-2">
       {entries.map((entry, index) => (
         <li key={index} className={ITEM_CLASSES}>
           {entry.omitted === undefined && (
             <>
-              <PackFile path={entry.file} />
-              <Separator />
-              <span>
-                {entry.line === null
-                  ? t("admin.pack.entry.noLine")
-                  : t("admin.pack.entry.line", { line: entry.line })}
-              </span>
+              <FileAndLine
+                file={entry.file}
+                line={entry.line}
+                opener={opener}
+              />
               {": "}
             </>
           )}
@@ -47,21 +99,23 @@ export function ReportEntryList({ entries }: { entries: ReportEntry[] }) {
 
 /**
  * Findings of the alignment checks of an import: file, line, check number,
- * key and message of each.
+ * key and message of each. With `onOpen`, the file and the line form a
+ * button that opens the file at that line.
  */
 export function AlignmentFindingList({
   findings,
-}: {
-  findings: AlignmentFinding[];
-}) {
+  ...opener
+}: EntryOpener & { findings: AlignmentFinding[] }) {
   const { t } = useTranslation();
   return (
     <ul className="space-y-2">
       {findings.map((finding, index) => (
         <li key={index} className={ITEM_CLASSES}>
-          <PackFile path={finding.file} />
-          <Separator />
-          <span>{t("admin.pack.entry.line", { line: finding.line })}</span>
+          <FileAndLine
+            file={finding.file}
+            line={finding.line}
+            opener={opener}
+          />
           <Separator />
           <span>{t("admin.pack.entry.check", { check: finding.check })}</span>
           <Separator />

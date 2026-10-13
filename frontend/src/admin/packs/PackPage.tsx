@@ -1,12 +1,14 @@
 import { useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import { usePackImport, type PackImport } from "../../api/admin/packs";
+import { useCreateDraft } from "../../api/admin/workbench";
 import { ApiError } from "../../api/errors";
 import { formatDateTime } from "../../app/format";
-import { Button, StatusRegion } from "../../app/forms";
+import { AlertRegion, Button, StatusRegion } from "../../app/forms";
 import { buttonClasses, linkClasses } from "../../app/formStyles";
 import { LoadingStatus } from "../../app/LoadingStatus";
+import { useStartErrorText } from "../workbench/startErrors";
 import { AlignmentSection } from "./AlignmentSection";
 import { ReportEntryList } from "./findings";
 import { PublishDialog } from "./PublishDialog";
@@ -115,6 +117,43 @@ function PublishControl({ pack }: { pack: PackImport }) {
   );
 }
 
+/**
+ * "Edit in the workbench" for an import with a payload (status `validated`
+ * or `published`): it creates a draft from the import (task 0016a, step 12)
+ * and moves to the draft. A failed start, such as a 409 `draft_limit`,
+ * shows its sentence below the button.
+ */
+function WorkbenchControl({ pack }: { pack: PackImport }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const errorText = useStartErrorText();
+  const create = useCreateDraft();
+
+  const start = () => {
+    if (create.isPending) return;
+    create.mutate(
+      { source: "import", pack_import_id: pack.id },
+      { onSuccess: (draft) => navigate(`/admin/workbench/${draft.id}`) },
+    );
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-4">
+        <Button variant="secondary" onClick={start} disabled={create.isPending}>
+          {t("admin.workbench.start.fromImport")}
+        </Button>
+        {create.isPending && (
+          <LoadingStatus text={t("admin.workbench.start.creating")} />
+        )}
+      </div>
+      <AlertRegion>
+        {create.error === null ? null : errorText(create.error)}
+      </AlertRegion>
+    </div>
+  );
+}
+
 function PackView({ pack }: { pack: PackImport }) {
   const { t, i18n } = useTranslation();
 
@@ -158,6 +197,7 @@ function PackView({ pack }: { pack: PackImport }) {
             </Link>
           </p>
         )}
+        {pack.status !== "failed" && <WorkbenchControl pack={pack} />}
         <PublishControl pack={pack} />
       </div>
       <ValidationReport report={pack.report} />
@@ -169,7 +209,8 @@ function PackView({ pack }: { pack: PackImport }) {
 /**
  * `/admin/packs/:id`: one import with its status, the validation report
  * with file and line per error, the section "Alignment", the preview link
- * and the publication (task 0015, step 11).
+ * and the publication (task 0015, step 11), and "Edit in the workbench"
+ * (task 0016a, step 12).
  */
 export function PackPage() {
   const { t } = useTranslation();

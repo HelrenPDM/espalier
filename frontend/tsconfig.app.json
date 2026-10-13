@@ -24,5 +24,6 @@
     "noFallthroughCasesInSwitch": true,
     "strict": true
   },
-  "include": ["src"]
+  // The editor harness of task 0016a is a browser page that Vite builds.
+  "include": ["src", "e2e/workbench/harness"]
 }

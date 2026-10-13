@@ -161,7 +161,7 @@ defmodule Espalier.Interop.PackWriter do
   def write(%Program{status: :published} = program, path) when is_binary(path) do
     with {:ok, payload} <- published_payload(program),
          :ok <- prepare(path),
-         :ok <- write_files(payload, path),
+         :ok <- write_files(render(payload), path),
          do: {:ok, payload["version"]}
   end
 
@@ -174,8 +174,32 @@ defmodule Espalier.Interop.PackWriter do
   """
   @spec write_payload(Payload.t(), Path.t()) :: :ok | {:error, error()}
   def write_payload(payload, path) when is_map(payload) and is_binary(path) do
-    with :ok <- prepare(path), do: write_files(payload, path)
+    with :ok <- prepare(path), do: write_files(render(payload), path)
   end
+
+  @doc """
+  Returns the files of the content pack of `payload` as a list of
+  `{relative path, content}`: the files that `write_payload/2` writes, in
+  the order of the moduledoc (task 0016a: the files of a draft of the pack
+  workbench).
+  """
+  @spec render(Payload.t()) :: [{String.t(), String.t()}]
+  def render(payload) when is_map(payload), do: files(payload)
+
+  @doc """
+  Reads the payload of the published `program` as `write/2` does, in one
+  transaction under `pg_advisory_xact_lock_shared(hashtext(<program slug>))`
+  with its timeout, and returns `{:ok, files}` with the files of
+  `render/1`, or `{:error, :not_published}` for a program that is not
+  published, also when the stored program is no longer published.
+  """
+  @spec render_program(Ecto.Schema.schema()) ::
+          {:ok, [{String.t(), String.t()}]} | {:error, :not_published}
+  def render_program(%Program{status: :published} = program) do
+    with {:ok, payload} <- published_payload(program), do: {:ok, render(payload)}
+  end
+
+  def render_program(%Program{}), do: {:error, :not_published}
 
   ## Payload
 
@@ -232,10 +256,8 @@ defmodule Espalier.Interop.PackWriter do
   # in the key format and lesson keys, which the validator restricts to the
   # key format, so no write leaves the target directory.
   # sobelow_skip ["Traversal.FileModule"]
-  defp write_files(payload, path) do
-    payload
-    |> files()
-    |> Enum.reduce_while(:ok, fn {rel, content}, :ok ->
+  defp write_files(files, path) do
+    Enum.reduce_while(files, :ok, fn {rel, content}, :ok ->
       file = Path.join(path, rel)
 
       with :ok <- File.mkdir_p(Path.dirname(file)),
@@ -411,9 +433,16 @@ defmodule Espalier.Interop.PackWriter do
     end
   end
 
-  # Letters lose their accents, and every other run of characters outside
-  # a-z and 0-9 becomes one hyphen.
-  defp slug(title) do
+  @doc """
+  The slug of a module directory: `title` in lowercase ASCII letters and
+  digits, letters without their accents, every other run of characters
+  joined into one hyphen, at most #{@max_slug} characters and without a
+  leading or trailing hyphen. The result is empty when no such character
+  remains. The workbench of task 0016a takes the key of an empty pack from
+  it.
+  """
+  @spec slug(String.t()) :: String.t()
+  def slug(title) when is_binary(title) do
     title
     |> :unicode.characters_to_nfd_binary()
     |> String.replace(~r/\p{Mn}/u, "")

@@ -301,7 +301,8 @@ defmodule EspalierWeb.Router do
   # The admin area (task 0015, README section 8). Every GET route runs
   # :admin or :author; every POST, PUT, PATCH and DELETE route runs
   # :admin_write or :author_write, apart from the user lookup, which changes
-  # no state and carries the address in its body (ASVS 14.2.1).
+  # no state and carries the address in its body (ASVS 14.2.1), and the
+  # check of a pack draft (task 0016a).
   scope "/api/admin", EspalierWeb.Admin do
     pipe_through [:api, :admin]
 
@@ -338,6 +339,9 @@ defmodule EspalierWeb.Router do
     post "/credentials/:id/revoke", CredentialAdminController, :revoke
   end
 
+  # The check of a draft (task 0016a) writes and removes a temporary
+  # directory and changes no state, so it runs in :author like the reads; it
+  # carries a content in its body, which a query string cannot hold.
   scope "/api/admin", EspalierWeb.Admin do
     pipe_through [:api, :author]
 
@@ -345,6 +349,11 @@ defmodule EspalierWeb.Router do
     get "/packs/:id/diff", PackController, :diff
     get "/exports/:id", ExportController, :show
     get "/exports/:id/download", ExportController, :download
+    get "/pack-drafts", PackDraftController, :index
+    get "/pack-drafts/:id", PackDraftController, :show
+    get "/pack-drafts/:id/download", PackDraftController, :download
+    post "/pack-drafts/:id/check", PackDraftController, :check
+    get "/pack-drafts/:id/files/:file_id", PackDraftFileController, :show
   end
 
   scope "/api/admin", EspalierWeb.Admin do
@@ -352,12 +361,20 @@ defmodule EspalierWeb.Router do
 
     post "/packs/:id/publish", PackController, :publish
     post "/exports", ExportController, :create
+    post "/pack-drafts", PackDraftController, :create
+    delete "/pack-drafts/:id", PackDraftController, :delete
+    post "/pack-drafts/:id/imports", PackDraftController, :create_import
+    post "/pack-drafts/:id/files", PackDraftFileController, :create
+    put "/pack-drafts/:id/files/:file_id", PackDraftFileController, :update
+    patch "/pack-drafts/:id/files/:file_id", PackDraftFileController, :rename
+    delete "/pack-drafts/:id/files/:file_id", PackDraftFileController, :delete
   end
 
   scope "/api/admin", EspalierWeb.Admin do
     pipe_through [:api, :author_write, :pack_upload]
 
     post "/packs", PackController, :create
+    post "/pack-draft-uploads", PackDraftController, :upload
   end
 
   # Seeding routes of the end-to-end tests (task 0011). Only config/dev.exs

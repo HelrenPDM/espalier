@@ -1,0 +1,4 @@
+/* The stylesheet of the SPA. Tailwind scans the root of the build, which is
+   the harness directory, so the sources of the SPA are named here. */
+@import "../../../src/styles/app.css";
+@source "../../../src";

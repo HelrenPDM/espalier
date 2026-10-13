@@ -19,17 +19,24 @@ defmodule EspalierWeb.Admin.AdminRoutesTest do
   - Every route in `:admin_write` and `:author_write` answers 403
     `reauth_required` when `mfa_at` lies 11 minutes back and passes the plug
     with `mfa_at` now; the routes in `:admin` and `:author`, among them the
-    user lookup, need no recent second factor (ASVS 7.5.1).
+    user lookup and the check of a pack draft, need no recent second factor
+    (ASVS 7.5.1).
   - Every POST, PUT, PATCH and DELETE route apart from
-    `POST /api/admin/user-lookups` runs `:admin_write` or `:author_write`,
-    the lookup runs `:admin`, and every GET runs `:admin` or `:author`.
+    `POST /api/admin/user-lookups` and `POST /api/admin/pack-drafts/:id/check`
+    runs `:admin_write` or `:author_write`, the lookup runs `:admin`, the
+    check of a pack draft (task 0016a), which changes no state, runs
+    `:author`, and every GET runs `:admin` or `:author`.
+  - Only the pack upload and the upload of a pack draft (task 0016a) run
+    `:pack_upload`, after `:author_write`, and both check the content type
+    only after the checks of `:author_write`.
   - A failed role check, a missing recent second factor and a closed
     passkey gate log `authz_fail` (ASVS 16.3.2).
   - Every answer under `/api/admin` carries `cache-control: no-store` (ASVS
     14.2.2 and 14.3.2), and no route takes an e-mail address in its path or
     query string (ASVS 14.2.1).
-  - Every POST route answers 422 `validation_failed` for a JSON body with an
-    extra member (ASVS 15.3.3).
+  - Every POST route apart from the two uploads and every PUT and PATCH
+    route answers 422 `validation_failed` for a JSON body with an extra
+    member (ASVS 15.3.3).
   """
   # put_setting/2 changes the application environment.
   use EspalierWeb.ConnCase, async: false
@@ -43,13 +50,17 @@ defmodule EspalierWeb.Admin.AdminRoutesTest do
 
   @host "www.example.com"
   @lookup "/api/admin/user-lookups"
+  @draft_check "/api/admin/pack-drafts/:id/check"
   @pack_upload "/api/admin/packs"
+  @draft_upload "/api/admin/pack-draft-uploads"
+  @uploads [@pack_upload, @draft_upload]
   @uuid "6f1c2d3e-4b5a-4c6d-8e7f-0a1b2c3d4e5f"
 
   # A body of every POST route that its request schema accepts. The test of
-  # extra members merges the member "unexpected" into it. The pack upload
-  # is a multipart body with the archive in the field "file" and has no
-  # JSON members, so that test leaves it out; the archive tests cover it.
+  # extra members merges the member "unexpected" into it. The two uploads
+  # are multipart bodies with the archive in the field "file" and have no
+  # JSON members, so that test leaves them out; the archive tests cover
+  # them.
   @post_bodies %{
     "/api/admin/policies" => %{policy: %{key: "route-test", title: "A policy"}},
     "/api/admin/approved-tools" => %{
@@ -78,7 +89,35 @@ defmodule EspalierWeb.Admin.AdminRoutesTest do
     "/api/admin/users/:id/reset-failure-counters" => %{},
     "/api/admin/credentials/:id/revoke" => %{},
     "/api/admin/packs/:id/publish" => %{},
-    "/api/admin/exports" => %{module_id: @uuid, scorm_version: "scorm12"}
+    "/api/admin/exports" => %{module_id: @uuid, scorm_version: "scorm12"},
+    "/api/admin/pack-drafts" => %{source: "empty", name: "A pack"},
+    "/api/admin/pack-drafts/:id/check" => %{},
+    "/api/admin/pack-drafts/:id/files" => %{
+      path: "sources.yaml",
+      content: "[]\n",
+      lock_version: 1
+    },
+    "/api/admin/pack-drafts/:id/imports" => %{lock_version: 1}
+  }
+
+  # A body of every PUT and PATCH route that its request schema accepts,
+  # for the test of extra members. A resource route with `:update` answers
+  # PUT and PATCH with one schema; the file of a pack draft takes its
+  # content with PUT and its path with PATCH (task 0016a).
+  @update_bodies %{
+    {:put, "/api/admin/policies/:id"} => %{policy: %{title: "A policy"}},
+    {:patch, "/api/admin/policies/:id"} => %{policy: %{title: "A policy"}},
+    {:put, "/api/admin/approved-tools/:id"} => %{approved_tool: %{name: "A tool"}},
+    {:patch, "/api/admin/approved-tools/:id"} => %{approved_tool: %{name: "A tool"}},
+    {:put, "/api/admin/webhooks/:id"} => %{webhook: %{active: false}},
+    {:patch, "/api/admin/webhooks/:id"} => %{webhook: %{active: false}},
+    {:put, "/api/admin/policy-versions/:id"} => %{requires_refresher: false},
+    {:patch, "/api/admin/policy-versions/:id"} => %{requires_refresher: false},
+    {:put, "/api/admin/pack-drafts/:id/files/:file_id"} => %{content: "", lock_version: 1},
+    {:patch, "/api/admin/pack-drafts/:id/files/:file_id"} => %{
+      path: "sources.yaml",
+      lock_version: 1
+    }
   }
 
   # Every route under /api/admin with its method, a path with a valid UUID
@@ -97,7 +136,8 @@ defmodule EspalierWeb.Admin.AdminRoutesTest do
 
     patterns = Enum.map(routes, & &1.pattern)
     assert @lookup in patterns
-    assert @pack_upload in patterns
+    assert @draft_check in patterns
+    assert Enum.all?(@uploads, &(&1 in patterns))
     routes
   end
 
@@ -136,11 +176,12 @@ defmodule EspalierWeb.Admin.AdminRoutesTest do
 
   # Sends the request of `route` with the CSRF token of the session of
   # `conn` and returns `{status, headers, decoded body}`. GET and DELETE
-  # send no body, the pack upload sends a multipart body that holds no zip
-  # archive, and every other route sends `body` as JSON. An exception that
-  # the endpoint rendered as a client error before it raised it again, such
-  # as `Ecto.NoResultsError` as 404 for an unknown id, counts with the
-  # answer it sent; any other exception fails the test.
+  # send no body, the two uploads send the multipart body of the pack
+  # upload with a file that holds no zip archive, and every other route
+  # sends `body` as JSON. An exception that the endpoint rendered as a
+  # client error before it raised it again, such as `Ecto.NoResultsError`
+  # as 404 for an unknown id, counts with the answer it sent; any other
+  # exception fails the test.
   defp send_route(conn, route, body \\ %{}) do
     discard_sent()
 
@@ -149,7 +190,7 @@ defmodule EspalierWeb.Admin.AdminRoutesTest do
         %{verb: verb} when verb in [:get, :delete] ->
           json_request(conn, verb, route.path)
 
-        %{verb: :post, pattern: @pack_upload} ->
+        %{verb: :post, pattern: pattern} when pattern in @uploads ->
           upload_request(conn, route.path, "not a zip archive")
 
         %{verb: verb} ->
@@ -206,7 +247,7 @@ defmodule EspalierWeb.Admin.AdminRoutesTest do
   end
 
   describe "the pipelines" do
-    test "every mutating route runs :admin_write or :author_write, the lookup and every GET a read pipeline" do
+    test "every mutating route runs :admin_write or :author_write, the lookup, the check and every GET a read pipeline" do
       for route <- admin_routes() do
         assert [:api | _rest] = route.pipes, label(route)
 
@@ -214,6 +255,11 @@ defmodule EspalierWeb.Admin.AdminRoutesTest do
           %{verb: :post, pattern: @lookup} ->
             assert :admin in route.pipes, label(route)
             refute write_route?(route), label(route)
+
+          # The check of a draft writes and removes a temporary directory
+          # and changes no state (task 0016a, step 9).
+          %{verb: :post, pattern: @draft_check} ->
+            assert route.pipes == [:api, :author], label(route)
 
           %{verb: :get} ->
             assert :admin in route.pipes or :author in route.pipes, label(route)
@@ -224,9 +270,9 @@ defmodule EspalierWeb.Admin.AdminRoutesTest do
             refute :admin in route.pipes or :author in route.pipes, label(route)
         end
 
-        # The upload parser runs only for the pack upload and only after the
+        # The upload parser runs only for the two uploads and only after the
         # checks of :author_write.
-        if route.pattern == @pack_upload do
+        if route.pattern in @uploads do
           assert route.pipes == [:api, :author_write, :pack_upload], label(route)
         else
           refute :pack_upload in route.pipes, label(route)
@@ -355,7 +401,7 @@ defmodule EspalierWeb.Admin.AdminRoutesTest do
       end
     end
 
-    test "the read routes and the user lookup need no recent second factor" do
+    test "the read routes, the user lookup and the check of a draft need no recent second factor" do
       put_setting(:admin_require_passkey, true)
       admin_token = sign_in(admin_with_passkey())
       author_token = sign_in(user_with_role_fixture(:author))
@@ -363,6 +409,7 @@ defmodule EspalierWeb.Admin.AdminRoutesTest do
       set_mfa_at(author_token, minutes_ago(11))
       routes = Enum.reject(admin_routes(), &write_route?/1)
       assert Enum.any?(routes, &(&1.pattern == @lookup))
+      assert Enum.any?(routes, &(&1.pattern == @draft_check))
 
       for route <- routes do
         token = if author_route?(route), do: author_token, else: admin_token
@@ -370,40 +417,39 @@ defmodule EspalierWeb.Admin.AdminRoutesTest do
       end
     end
 
-    test "POST /api/admin/packs checks the content type only after the checks of :author_write" do
+    test "both uploads check the content type only after the checks of :author_write" do
       author = user_with_role_fixture(:author)
       token = sign_in(author)
+      learner_token = sign_in(user_fixture())
 
-      conn = json_request(api_conn(), :post, @pack_upload, %{})
-      assert json_response(conn, 401) == %{"error" => "unauthenticated"}
+      for path <- @uploads do
+        conn = json_request(api_conn(), :post, path, %{})
+        assert json_response(conn, 401) == %{"error" => "unauthenticated"}, path
 
-      conn = json_request(session_conn(sign_in(user_fixture())), :post, @pack_upload, %{})
-      assert json_response(conn, 403) == %{"error" => "forbidden"}
+        conn = json_request(session_conn(learner_token), :post, path, %{})
+        assert json_response(conn, 403) == %{"error" => "forbidden"}, path
 
-      set_mfa_at(token, minutes_ago(11))
-      conn = json_request(session_conn(token), :post, @pack_upload, %{})
-      assert json_response(conn, 403) == %{"error" => "reauth_required"}
+        set_mfa_at(token, minutes_ago(11))
+        conn = json_request(session_conn(token), :post, path, %{})
+        assert json_response(conn, 403) == %{"error" => "reauth_required"}, path
 
-      set_mfa_at(token, DateTime.utc_now(:second))
-      conn = json_request(session_conn(token), :post, @pack_upload, %{})
-      assert json_response(conn, 415) == %{"error" => "unsupported_media_type"}
-      assert get_resp_header(conn, "cache-control") == ["no-store"]
+        set_mfa_at(token, DateTime.utc_now(:second))
+        conn = json_request(session_conn(token), :post, path, %{})
+        assert json_response(conn, 415) == %{"error" => "unsupported_media_type"}, path
+        assert get_resp_header(conn, "cache-control") == ["no-store"], path
+      end
     end
   end
 
   describe "the request bodies" do
-    # The pack upload is a multipart body without JSON members; the archive
-    # tests check it.
+    # The two uploads are multipart bodies without JSON members; the
+    # archive tests check them.
     test "every POST route answers 422 validation_failed for a body with an extra member" do
-      put_setting(:admin_require_passkey, true)
-      staff = user_with_role_fixture(:admin)
-      {:ok, _grant} = Accounts.grant_role(Scope.system(), staff, :author)
-      passkey_fixture(staff)
-      token = sign_in(staff)
+      token = sign_in(staff_with_passkey())
 
       posts =
         for %{verb: :post, pattern: pattern} = route <- admin_routes(),
-            pattern != @pack_upload,
+            pattern not in @uploads,
             do: route
 
       assert Enum.sort(Enum.map(posts, & &1.pattern)) == Enum.sort(Map.keys(@post_bodies))
@@ -421,5 +467,38 @@ defmodule EspalierWeb.Admin.AdminRoutesTest do
                label(route)
       end
     end
+
+    test "every PUT and PATCH route answers 422 validation_failed for a body with an extra member" do
+      token = sign_in(staff_with_passkey())
+
+      updates =
+        for %{verb: verb} = route <- admin_routes(), verb in [:put, :patch], do: route
+
+      assert Enum.sort(Enum.map(updates, &{&1.verb, &1.pattern})) ==
+               Enum.sort(Map.keys(@update_bodies))
+
+      for route <- updates do
+        body = Map.put(Map.fetch!(@update_bodies, {route.verb, route.pattern}), :unexpected, 1)
+        {status, _headers, answer} = send_route(session_conn(token), route, body)
+
+        assert {status, answer} ==
+                 {422,
+                  %{
+                    "error" => "validation_failed",
+                    "fields" => %{"unexpected" => ["unexpected_field"]}
+                  }},
+               label(route)
+      end
+    end
+  end
+
+  # An admin with a passkey who also holds the role author, so that one
+  # session reaches every route with the passkey gate on.
+  defp staff_with_passkey do
+    put_setting(:admin_require_passkey, true)
+    staff = user_with_role_fixture(:admin)
+    {:ok, _grant} = Accounts.grant_role(Scope.system(), staff, :author)
+    passkey_fixture(staff)
+    staff
   end
 end

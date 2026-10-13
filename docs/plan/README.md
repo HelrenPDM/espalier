@@ -122,7 +122,7 @@ Hex registries on 2026-10-07. Lockfiles (`mix.lock`,
 | Account security | see the library table in section 6.3 | pinned per library |
 | API contract | `open_api_spex` (spec and request validation) | current Hex release |
 | Frontend tooling | Node.js `nodejs_24`, Vite via `create-vite` template `react-ts` | Node 24.21, create-vite 9.2.1, Vite 8.3 |
-| Frontend libraries | React 19, TypeScript (as pinned by the template), Tailwind CSS with `@tailwindcss/vite`, React Router, TanStack Query, Headless UI, Heroicons, react-i18next, react-markdown with remark-gfm and remark-directive, openapi-typescript and openapi-fetch | React 19.3, TypeScript 6.0, Tailwind 4.3, React Router 8.4, TanStack Query 5, Headless UI 2.2 |
+| Frontend libraries | React 19, TypeScript (as pinned by the template), Tailwind CSS with `@tailwindcss/vite`, React Router, TanStack Query, Headless UI, Heroicons, react-i18next, react-markdown with remark-gfm and remark-directive, openapi-typescript and openapi-fetch, CodeMirror 6 for the editor of the pack workbench (task 0016a, mounted in a shadow root under the CSP of section 6.5) | React 19.3, TypeScript 6.0, Tailwind 4.3, React Router 8.4, TanStack Query 5, Headless UI 2.2, CodeMirror 6 (`@codemirror/view` 6.43) |
 | Lint and audit | `mix format`, Credo, Sobelow 0.16, mix_audit 2.1, `mix hex.audit` (Hex 2.5.1 or later); Oxlint (template default), Prettier | |
 | Tests | ExUnit, Vitest with Testing Library, Playwright | Playwright 1.59.1, matching `playwright-driver.browsers` in nixpkgs; passkey tests use the Chromium DevTools virtual authenticator |
 | Docs | PlantUML, Graphviz | PlantUML 1.2026.3 |

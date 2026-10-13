@@ -207,10 +207,10 @@ Administrative actions are also written to the table `audit_events` through
 
 | Column | Content |
 |---|---|
-| `action` | `user.invited`, `user.invitation_resent`, `user.signed_up`, `user.disabled`, `role.granted`, `role.revoked`, `role.synced`, `sessions.ended`, `sessions.ended_all`, `api_client.created`, `api_client.deleted`; since task 0007 `failure_counter.reset`; since task 0013 `policy_version.created`, `policy_version.published`, `attendance.issued`, `credential.revoked`; since task 0015 `user.factors_reset`, `user.failure_counters_reset`, `policy.created`, `policy.updated`, `policy.deleted`, `approved_tool.created`, `approved_tool.updated`, `approved_tool.deleted`, `webhook.created`, `webhook.updated`, `webhook.deleted`, `policy_version.updated`, `pack.imported`, `pack.published`; since task 0016 `export.requested` |
+| `action` | `user.invited`, `user.invitation_resent`, `user.signed_up`, `user.disabled`, `role.granted`, `role.revoked`, `role.synced`, `sessions.ended`, `sessions.ended_all`, `api_client.created`, `api_client.deleted`; since task 0007 `failure_counter.reset`; since task 0013 `policy_version.created`, `policy_version.published`, `attendance.issued`, `credential.revoked`; since task 0015 `user.factors_reset`, `user.failure_counters_reset`, `policy.created`, `policy.updated`, `policy.deleted`, `approved_tool.created`, `approved_tool.updated`, `approved_tool.deleted`, `webhook.created`, `webhook.updated`, `webhook.deleted`, `policy_version.updated`, `pack.imported`, `pack.published`; since task 0016 `export.requested`; since task 0016a `pack_draft.created`, `pack_draft.deleted` |
 | `actor_id` | the acting user; `null` for release functions, the boot task and the `signup` job (`Scope.system/0`) |
 | `subject_type`, `subject_id` | the changed record |
-| `details` | role names, provider keys and counts, for task 0013 policy keys, version numbers, format keys, session dates and the previous credential status, and for task 0015 `identity_verified: true` of a factor reset, policy keys with version numbers or the number of deleted drafts, tool names, the events and the name of the secret variable of a webhook (no URL and no secret), and pack keys with the import status; no personal data |
+| `details` | role names, provider keys and counts, for task 0013 policy keys, version numbers, format keys, session dates and the previous credential status, and for task 0015 `identity_verified: true` of a factor reset, policy keys with version numbers or the number of deleted drafts, tool names, the events and the name of the secret variable of a webhook (no URL and no secret), and pack keys with the import status, and for task 0016a the `source` (`empty`, `program`, `import` or `upload`), `pack_key`, `file_count` and the `program_slug` or `pack_import_id` of the start of `pack_draft.created`, the `pack_key` and `file_count` of `pack_draft.deleted`, and `pack_draft_id` in `pack.imported` for an import from a draft; no personal data |
 | `at` | UTC time of the action |
 
 Audit events are append-only: the context has no update or delete function
@@ -224,3 +224,15 @@ were written. Every admin change of task 0015 writes its event with the
 acting admin or author as actor and the changed record as subject. A factor
 reset that sends an invitation also writes `user.invitation_resent`, and a
 reset that deletes a directory counter also writes `failure_counter.reset`.
+
+The pack workbench of task 0016a writes `pack_draft.created` and
+`pack_draft.deleted` with the acting author as actor and the draft as
+subject, each in the transaction of its change, and `pack.imported` names
+the draft in `pack_draft_id` for an import from a draft. A file save, a new
+file, a rename and the deletion of a file write no audit event: a draft
+changes no catalog row, no learner record and no account, every content
+that reaches learners passes `pack.imported` and `pack.published` with their
+actors, and an event per save would record the working rhythm of an author
+in `audit_events`, which data minimization (README section 2, principle 3)
+speaks against. `updated_at` and `lock_version` of the draft show that it
+changed ([`../guides/pack-workbench.md`](../guides/pack-workbench.md)).
