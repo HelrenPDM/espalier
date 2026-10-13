@@ -3,7 +3,6 @@ import { createBrowserRouter, Outlet, type RouteObject } from "react-router";
 import { EmailConfirmPage } from "../account/EmailConfirmPage";
 import { SecurityPage } from "../account/SecurityPage";
 import { StepUpProvider } from "../account/StepUpProvider";
-import type { Role } from "../api/session";
 import { EnrollmentWizard } from "../auth/EnrollmentWizard";
 import { FinishPage } from "../auth/FinishPage";
 import { InvitationPage } from "../auth/InvitationPage";
@@ -21,6 +20,7 @@ import { Layout } from "./Layout";
 import { AdminHome } from "../admin/AdminHome";
 import { AdminLayout } from "../admin/AdminLayout";
 import { AdminPasskeyGate } from "../admin/passkeyGate";
+import { ADMIN_ROLES } from "../admin/sections";
 import {
   AdminPoliciesPage,
   ApiClientsPage,
@@ -44,15 +44,6 @@ import {
   WebhooksPage,
 } from "./lazyPages";
 import { NotFoundPage } from "./NotFoundPage";
-
-/** The roles that the admin navigation serves (README section 9, task 0015). */
-export const ADMIN_ROLES: readonly Role[] = [
-  "author",
-  "admin",
-  "facilitator",
-  "analyst",
-  "registrar",
-];
 
 /** A section of the role `admin` behind its guard and the passkey gate. */
 function adminSection(path: string, page: ReactNode): RouteObject {

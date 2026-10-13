@@ -328,3 +328,11 @@ tasks rely on the implemented form.
   browser context, the page and the virtual authenticator of the staff
   member. The specs find a person through the lookup by exact address, so
   that they do not depend on the paging of the user list.
+- Administration entry (step 5): the maintainer reported that a signed-in
+  admin saw no way into the admin area, because neither the header nor the
+  user menu linked to `/admin`. The main navigation of the header (0010)
+  shows "Administration" with the link to `/admin` for a session with one of
+  `ADMIN_ROLES` (`author`, `admin`, `facilitator`, `analyst`, `registrar`)
+  and marks it as the current section on every path below `/admin`. The
+  sidebar of `AdminLayout` stays the menu of the sections. The entry is
+  convenience; `RequireRole` and the server check every role (ASVS 8.3.1).

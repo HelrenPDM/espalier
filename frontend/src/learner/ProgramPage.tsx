@@ -7,16 +7,21 @@ import { sortedStations } from "../player/program";
 import { useCurrentPlayer } from "../player/usePlayer";
 import { StationList } from "./StationList";
 import { useProgramBase } from "../player/programBase";
+import { useProgramChrome } from "./programChrome";
 
 /**
  * `/programs/:slug`: the program title, the path switch, the step list and
- * the links to the glossary and the handbook.
+ * the links to the glossary and the handbook. Inside `ProgramShell`, whose
+ * sidebar holds the step list and both links from the `lg` breakpoint up,
+ * the page shows them only below that breakpoint, so that they do not
+ * appear twice.
  */
 export function ProgramPage() {
   const { t } = useTranslation();
   const programBase = useProgramBase();
   const { program, state } = useCurrentPlayer();
   const lang = useContentLang();
+  const chrome = useProgramChrome();
   const stations = sortedStations(program);
   const next =
     stations.find(
@@ -47,37 +52,39 @@ export function ProgramPage() {
         )}
       </div>
       <PathSwitch />
-      <section aria-labelledby="program-stations">
-        <h2
-          id="program-stations"
-          className="text-xl font-semibold tracking-tight"
-        >
-          {t("program.stations")}
-        </h2>
-        <div className="mt-3">
-          <StationList program={program} state={state} />
-        </div>
-      </section>
-      <nav aria-label={t("program.moreLabel")}>
-        <ul className="flex flex-wrap gap-x-6 gap-y-2">
-          <li>
-            <Link
-              to={`${programBase}/${program.slug}/glossary`}
-              className={linkClasses}
-            >
-              {t("glossary.title")}
-            </Link>
-          </li>
-          <li>
-            <Link
-              to={`${programBase}/${program.slug}/handbook`}
-              className={linkClasses}
-            >
-              {t("handbook.title")}
-            </Link>
-          </li>
-        </ul>
-      </nav>
+      <div className={chrome ? "space-y-8 lg:hidden" : "space-y-8"}>
+        <section aria-labelledby="program-stations">
+          <h2
+            id="program-stations"
+            className="text-xl font-semibold tracking-tight"
+          >
+            {t("program.stations")}
+          </h2>
+          <div className="mt-3">
+            <StationList program={program} state={state} />
+          </div>
+        </section>
+        <nav aria-label={t("program.moreLabel")}>
+          <ul className="flex flex-wrap gap-x-6 gap-y-2">
+            <li>
+              <Link
+                to={`${programBase}/${program.slug}/glossary`}
+                className={linkClasses}
+              >
+                {t("glossary.title")}
+              </Link>
+            </li>
+            <li>
+              <Link
+                to={`${programBase}/${program.slug}/handbook`}
+                className={linkClasses}
+              >
+                {t("handbook.title")}
+              </Link>
+            </li>
+          </ul>
+        </nav>
+      </div>
     </div>
   );
 }

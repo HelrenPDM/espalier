@@ -94,9 +94,27 @@ describe("the credential page", () => {
       screen.getByRole("heading", { level: 1, name: "AI assistant basics" }),
     ).toHaveAttribute("lang", "fr");
     expect(within(tasks).getByRole("list")).toHaveAttribute("lang", "fr");
+  });
+
+  test("the breadcrumbs lead back to the credential list and end with the qualification title", async () => {
+    renderCredential();
+
+    await screen.findByRole("heading", {
+      level: 1,
+      name: "AI assistant basics",
+    });
+    const trail = screen.getByRole("navigation", { name: "Breadcrumb" });
+    expect(within(trail).getByRole("link")).toHaveAttribute(
+      "href",
+      "/me/credentials",
+    );
+    expect(within(trail).getByRole("link")).toHaveTextContent("Credentials");
+    const current = within(trail).getByText("AI assistant basics");
+    expect(current).toHaveAttribute("aria-current", "page");
+    expect(current).toHaveAttribute("lang", "fr");
     expect(
-      screen.getByRole("link", { name: "Back to the credentials" }),
-    ).toHaveAttribute("href", "/me/credentials");
+      screen.queryByRole("link", { name: "Back to the credentials" }),
+    ).not.toBeInTheDocument();
   });
 
   test("renders no score, percentage or comparison with other people", async () => {
@@ -132,7 +150,7 @@ describe("the credential page", () => {
     expect(button).toHaveClass("no-print");
     expect(
       screen
-        .getByRole("link", { name: "Back to the credentials" })
+        .getByRole("navigation", { name: "Breadcrumb" })
         .closest(".no-print"),
     ).not.toBeNull();
     expect(container.querySelector("article.credential-sheet")).not.toBeNull();
@@ -177,6 +195,14 @@ describe("the credential page", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent(
       "No credential of yours exists at this address.",
+    );
+    const trail = screen.getByRole("navigation", { name: "Breadcrumb" });
+    expect(
+      within(trail).getByRole("link", { name: "Credentials" }),
+    ).toHaveAttribute("href", "/me/credentials");
+    expect(within(trail).getByText("Credential not found")).toHaveAttribute(
+      "aria-current",
+      "page",
     );
   });
 });

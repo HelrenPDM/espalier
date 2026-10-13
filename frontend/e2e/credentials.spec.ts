@@ -155,9 +155,11 @@ test("the demo user earns the credential basics and opens it", async ({
   await openStation(page, MODULE_POSITIONS[1]);
   await completeModule(page);
 
-  // The policy, reached through the user menu.
-  await page.getByRole("button", { name: DISPLAY_NAME }).click();
-  await page.getByRole("menuitem", { name: "Policies" }).click();
+  // The policy, reached through the main navigation.
+  await page
+    .getByRole("navigation", { name: "Main" })
+    .getByRole("link", { name: "Policies" })
+    .click();
   await expect(page).toHaveURL("/policies");
   const policy = page.locator(`[data-policy-key="${POLICY_KEY}"]`);
   await expect(policy).toBeVisible();
@@ -263,7 +265,7 @@ test("the demo user earns the credential basics and opens it", async ({
   await page.emulateMedia({ media: "print" });
   await expect(page.getByRole("button", { name: "Print" })).toBeHidden();
   await expect(
-    page.getByRole("link", { name: "Back to the credentials" }),
+    page.getByRole("navigation", { name: "Breadcrumb" }),
   ).toBeHidden();
   await expect(heading).toBeVisible();
   const path = testInfo.outputPath("credential.pdf");

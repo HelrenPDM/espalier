@@ -11,10 +11,13 @@ import { STATION_COMPONENTS } from "./stations";
 import { BackToProgram } from "./BackToProgram";
 import { StationList } from "./StationList";
 import { useProgramBase } from "../player/programBase";
+import { useProgramChrome } from "./programChrome";
 
 /**
  * `/programs/:slug/stations/:position`: the station by its kind, the
  * position ("3 of 7"), the step list and the previous and next buttons.
+ * Below the program shell, which holds the step list and the way back to
+ * the program page, the page leaves out both; the admin preview keeps them.
  * Opening a station adds its position to `visitedStations` and
  * `station_opened` to the test session notes, and a station change moves
  * focus to the station heading, or to the element of the URL fragment when
@@ -28,6 +31,7 @@ export function StationPage() {
   const { program, state, update } = useCurrentPlayer();
   const note = useTestNote();
   const lang = useContentLang();
+  const chrome = useProgramChrome();
   const headingRef = useRef<HTMLHeadingElement>(null);
   // The station of the last `station_opened` note, so the second effect run
   // of StrictMode adds none.
@@ -76,9 +80,11 @@ export function StationPage() {
         <h1 className="text-2xl font-semibold tracking-tight">
           {t("station.notFound.title")}
         </h1>
-        <p className="mt-4">
-          <BackToProgram />
-        </p>
+        {!chrome && (
+          <p className="mt-4">
+            <BackToProgram />
+          </p>
+        )}
       </section>
     );
 
@@ -87,12 +93,18 @@ export function StationPage() {
   const next = stations[index + 1];
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[16rem_minmax(0,1fr)]">
+    <div
+      className={
+        chrome ? undefined : "grid gap-8 lg:grid-cols-[16rem_minmax(0,1fr)]"
+      }
+    >
       <div className="min-w-0 lg:col-start-2">
-        <p className="no-print text-sm">
-          <BackToProgram />
-        </p>
-        <p className="mt-4 text-sm text-gray-700 dark:text-gray-300">
+        {!chrome && (
+          <p className="no-print mb-4 text-sm">
+            <BackToProgram />
+          </p>
+        )}
+        <p className="text-sm text-gray-700 dark:text-gray-300">
           {t("station.position", {
             position: index + 1,
             total: stations.length,
@@ -133,13 +145,15 @@ export function StationPage() {
           )}
         </nav>
       </div>
-      <aside className="no-print min-w-0 lg:col-start-1 lg:row-start-1">
-        <StationList
-          program={program}
-          state={state}
-          current={station.position}
-        />
-      </aside>
+      {!chrome && (
+        <aside className="no-print min-w-0 lg:col-start-1 lg:row-start-1">
+          <StationList
+            program={program}
+            state={state}
+            current={station.position}
+          />
+        </aside>
+      )}
     </div>
   );
 }

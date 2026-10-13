@@ -310,3 +310,30 @@ tasks rely on the implemented form.
   the entry still holds no user id. Without `crypto.subtle`, which needs a
   secure context, the runtime reads and writes no entry and keeps the
   browser part of the state for the visit only.
+- Program shell (step 9): the maintainer reported that the program list was
+  reachable only through the product name and that the program page had no
+  way back to it. `ProgramRoute` therefore renders the pages of a program
+  inside `src/learner/ProgramShell.tsx`. The shell shows the breadcrumbs
+  (Programs, the program title, then the station title, "Glossary" or
+  "Handbook"; on the program page the trail ends with the program title) and
+  the program navigation `<nav aria-label="Program">` with the program
+  title, the entry "Program overview", the step list of `StationList` with
+  the visited marks and `aria-current="step"`, the glossary and the
+  handbook; the entry of the current page carries `aria-current="page"`. The
+  entry of the program page reads "Program overview", because a pack can
+  name a station "Overview", as the demo pack does. Program and station
+  titles carry the language of the program. From the `lg` breakpoint up the
+  navigation stands left of the page; below it a Headless UI `Disclosure`
+  with a static panel opens it through the "Program menu" button above the
+  page, and a link of the panel or Escape closes it. The shell provides
+  `ProgramChromeContext` of `src/learner/programChrome.ts`, and
+  `StationPage`, `GlossaryPage`, `HandbookPage` and `BackToProgram` leave
+  out their own step list and back link below it. The admin preview of 0015
+  and the SCORM package of 0016 render the same pages without the shell, so
+  they keep their step list and back links unchanged. `StationList` takes
+  `labelledBy`, which renders its list without a landmark of its own inside
+  the program navigation. Inside the shell, the program page shows its own
+  step list and its links to the glossary and the handbook only below the
+  `lg` breakpoint, where the program navigation is folded into the "Program
+  menu", so that they do not appear twice; without the shell (the admin
+  preview) the page keeps them at every width.

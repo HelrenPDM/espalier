@@ -1,8 +1,9 @@
 import { PrinterIcon } from "@heroicons/react/20/solid";
 import { useTranslation } from "react-i18next";
-import { Link, useParams } from "react-router";
+import { useParams } from "react-router";
+import { Breadcrumbs } from "../app/Breadcrumbs";
 import { formatDate } from "../app/format";
-import { buttonClasses, linkClasses } from "../app/formStyles";
+import { buttonClasses } from "../app/formStyles";
 import { LoadingStatus } from "../app/LoadingStatus";
 import { useCredential } from "../api/credentials";
 import { ApiError } from "../api/errors";
@@ -12,14 +13,20 @@ import { CredentialStatus } from "./CredentialStatus";
 const isNotFound = (error: unknown) =>
   error instanceof ApiError && (error.status === 404 || error.status === 422);
 
-function BackToCredentials() {
+/**
+ * The breadcrumbs from the credential list to the page `label`; `lang` is
+ * the language of a qualification title.
+ */
+function CredentialTrail({ label, lang }: { label: string; lang?: string }) {
   const { t } = useTranslation();
   return (
-    <p className="no-print text-sm">
-      <Link to="/me/credentials" className={linkClasses}>
-        {t("credentials.back")}
-      </Link>
-    </p>
+    <Breadcrumbs
+      className="mb-4"
+      items={[
+        { label: t("credentials.title"), to: "/me/credentials" },
+        { label, lang },
+      ]}
+    />
   );
 }
 
@@ -30,7 +37,8 @@ function BackToCredentials() {
  * principle 2). It shows no score, no percentage and no comparison with
  * other people, and it prints on A4 without the navigation. Any id that is
  * not one of the user's credentials answers 404 (ASVS 8.2.2). The
- * qualification title and the tasks carry the language of the program.
+ * qualification title and the tasks carry the language of the program. The
+ * breadcrumbs lead back to the credential list.
  */
 export function CredentialPage() {
   const { t, i18n } = useTranslation();
@@ -40,8 +48,8 @@ export function CredentialPage() {
   if (credential.isPending)
     return (
       <section className="max-w-3xl">
-        <BackToCredentials />
-        <h1 className="mt-4 text-2xl font-semibold tracking-tight">
+        <CredentialTrail label={t("credentials.detailTitle")} />
+        <h1 className="text-2xl font-semibold tracking-tight">
           {t("credentials.detailTitle")}
         </h1>
         <div className="mt-4">
@@ -53,8 +61,14 @@ export function CredentialPage() {
   if (credential.isError)
     return (
       <section className="max-w-3xl">
-        <BackToCredentials />
-        <h1 className="mt-4 text-2xl font-semibold tracking-tight">
+        <CredentialTrail
+          label={
+            isNotFound(credential.error)
+              ? t("credentials.notFoundTitle")
+              : t("credentials.detailTitle")
+          }
+        />
+        <h1 className="text-2xl font-semibold tracking-tight">
           {isNotFound(credential.error)
             ? t("credentials.notFoundTitle")
             : t("credentials.detailTitle")}
@@ -79,8 +93,8 @@ export function CredentialPage() {
 
   return (
     <article className="credential-sheet max-w-3xl">
-      <BackToCredentials />
-      <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
+      <CredentialTrail label={title} lang={locale} />
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
             {t("credentials.kicker")}

@@ -1,5 +1,18 @@
 import type { Role } from "../api/session";
 
+/**
+ * The roles that the admin area serves (README section 9, task 0015): the
+ * guard of `/admin` and the "Administration" entry of the main navigation
+ * admit a session that holds one of them.
+ */
+export const ADMIN_ROLES: readonly Role[] = [
+  "author",
+  "admin",
+  "facilitator",
+  "analyst",
+  "registrar",
+];
+
 /** The key of a section of the admin area (task 0015, step 5). */
 export type AdminSectionKey =
   | "packs"

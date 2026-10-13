@@ -1,30 +1,47 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { afterEach, describe, expect, test } from "vitest";
 import { axe } from "vitest-axe";
+import { ADMIN_ROLES } from "../admin/sections";
 import {
   SessionContext,
   type SessionContextValue,
 } from "../auth/SessionProvider";
 import i18n from "../i18n";
+import { expectNoAxeViolations } from "../test/axe";
 import { sessionValue } from "../test/session";
 import { Layout } from "./Layout";
 
-function renderLayout(value: SessionContextValue) {
-  const router = createMemoryRouter([
-    {
-      path: "/",
-      element: <Layout />,
-      children: [{ index: true, element: <h1>Home</h1> }],
-    },
-  ]);
-  return render(
+function renderLayout(value: SessionContextValue, path = "/") {
+  const router = createMemoryRouter(
+    [
+      {
+        path: "/",
+        element: <Layout />,
+        children: [
+          { index: true, element: <h1>Home</h1> },
+          { path: "*", element: <h1>Page</h1> },
+        ],
+      },
+    ],
+    { initialEntries: [path] },
+  );
+  const result = render(
     <SessionContext.Provider value={value}>
       <RouterProvider router={router} />
     </SessionContext.Provider>,
   );
+  return { ...result, router };
 }
+
+const mainNav = () => screen.getByRole("navigation", { name: "Main" });
+
+/** The links of the main navigation bar as `[name, href]`. */
+const barLinks = () =>
+  within(mainNav())
+    .getAllByRole("link")
+    .map((link) => [link.textContent, link.getAttribute("href")]);
 
 const DEMO_BANNER =
   "Demo mode: every account here is a pseudonymous test account.";
@@ -71,19 +88,130 @@ test("a signed-in session shows the display name and sign-out", async () => {
   expect(value.signOut).toHaveBeenCalledTimes(1);
 });
 
-test("the user menu links to the credentials and the policies (task 0013)", async () => {
-  renderLayout(sessionValue());
+test.each([
+  ["demo", ["Sign out"]],
+  ["mfa", ["Security", "Sign out"]],
+] as const)(
+  "the user menu of a %s session holds the security settings of an mfa session and sign-out",
+  async (sessionStrength, items) => {
+    renderLayout(sessionValue({ sessionStrength }));
 
-  await userEvent.click(screen.getByRole("button", { name: "Test person 1" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Test person 1" }),
+    );
 
-  expect(screen.getByRole("menuitem", { name: "Credentials" })).toHaveAttribute(
-    "href",
-    "/me/credentials",
-  );
-  expect(screen.getByRole("menuitem", { name: "Policies" })).toHaveAttribute(
-    "href",
-    "/policies",
-  );
+    expect(
+      screen.getAllByRole("menuitem").map((item) => item.textContent),
+    ).toEqual(items);
+  },
+);
+
+describe("the main navigation", () => {
+  test("lists the programs, the credentials and the policies for a learner", () => {
+    renderLayout(sessionValue());
+
+    expect(barLinks()).toEqual([
+      ["Programs", "/"],
+      ["Credentials", "/me/credentials"],
+      ["Policies", "/policies"],
+    ]);
+  });
+
+  test.each(ADMIN_ROLES)("adds the administration for the role %s", (role) => {
+    renderLayout(sessionValue({ roles: ["learner", role] }));
+
+    expect(barLinks()).toEqual([
+      ["Programs", "/"],
+      ["Credentials", "/me/credentials"],
+      ["Policies", "/policies"],
+      ["Administration", "/admin"],
+    ]);
+  });
+
+  test.each<[string, Parameters<typeof sessionValue>[0]]>([
+    ["signed out", { user: null, sessionStrength: null, roles: [] }],
+    ["in enrollment", { sessionStrength: "enrollment" }],
+  ])("is absent for a session %s", (_name, overrides) => {
+    renderLayout(sessionValue(overrides));
+
+    expect(
+      screen.queryByRole("navigation", { name: "Main" }),
+    ).not.toBeInTheDocument();
+  });
+
+  test.each([
+    ["/", "Programs"],
+    ["/programs/demo", "Programs"],
+    ["/programs/demo/stations/2", "Programs"],
+    ["/me/credentials", "Credentials"],
+    ["/me/credentials/3c5e7a9b-1d2f-4a6b-8c0d-2e4f6a8b0c1d", "Credentials"],
+    ["/policies", "Policies"],
+    ["/admin", "Administration"],
+    ["/admin/users", "Administration"],
+    ["/account/security", null],
+  ])("on %s marks the section %s as the current page", (path, section) => {
+    renderLayout(sessionValue({ roles: ["learner", "admin"] }), path);
+
+    const current = within(mainNav())
+      .getAllByRole("link")
+      .filter((link) => link.getAttribute("aria-current") === "page")
+      .map((link) => link.textContent);
+    expect(current).toEqual(section === null ? [] : [section]);
+  });
+
+  test("the menu button opens the links on a narrow screen and closes after a navigation", async () => {
+    const { router } = renderLayout(sessionValue());
+    const button = within(mainNav()).getByRole("button", { name: "Menu" });
+    expect(button).toHaveAttribute("aria-expanded", "false");
+
+    await userEvent.click(button);
+
+    expect(button).toHaveAttribute("aria-expanded", "true");
+    const panel = document.getElementById(
+      button.getAttribute("aria-controls") ?? "",
+    );
+    expect(panel).not.toBeNull();
+    expect(mainNav()).toContainElement(panel);
+    const links = within(panel as HTMLElement).getAllByRole("link");
+    expect(links.map((link) => link.textContent)).toEqual([
+      "Programs",
+      "Credentials",
+      "Policies",
+    ]);
+    expect(links[0]).toHaveAttribute("aria-current", "page");
+
+    await userEvent.click(
+      within(panel as HTMLElement).getByRole("link", { name: "Credentials" }),
+    );
+
+    expect(router.state.location.pathname).toBe("/me/credentials");
+    expect(button).toHaveAttribute("aria-expanded", "false");
+    expect(panel).not.toBeInTheDocument();
+  });
+
+  test("the menu closes on Escape and returns focus to its button", async () => {
+    renderLayout(sessionValue());
+    const button = within(mainNav()).getByRole("button", { name: "Menu" });
+
+    await userEvent.click(button);
+    expect(button).toHaveAttribute("aria-expanded", "true");
+    await userEvent.keyboard("{Escape}");
+
+    expect(button).toHaveAttribute("aria-expanded", "false");
+    expect(button).toHaveFocus();
+  });
+
+  test("has no axe violations with the open menu in the admin area", async () => {
+    const { container } = renderLayout(
+      sessionValue({ roles: ["learner", "admin"] }),
+      "/admin/users",
+    );
+    await userEvent.click(
+      within(mainNav()).getByRole("button", { name: "Menu" }),
+    );
+
+    await expectNoAxeViolations(container);
+  });
 });
 
 test("server values render as text, never as markup", () => {
