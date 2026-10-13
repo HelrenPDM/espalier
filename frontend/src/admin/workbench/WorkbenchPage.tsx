@@ -46,8 +46,15 @@ const FILE_INPUT = `${CONTROL} file:mr-3 file:rounded-md file:border-0 file:bg-g
 const START_SECTION =
   "space-y-4 rounded-lg border border-gray-300 p-4 dark:border-gray-700";
 
-/** The length of a pack name that `POST /api/admin/pack-drafts` takes. */
+/**
+ * The length of a pack name that `POST /api/admin/pack-drafts` takes, in
+ * code points: the server stores the name in a `varchar(255)` column, which
+ * counts code points (`Workbench.check_name/1`). A string `length` and the
+ * native `maxLength` count UTF-16 code units, which an emoji takes two of.
+ */
 const NAME_MAX = 255;
+
+const codePoints = (text: string) => Array.from(text).length;
 
 /** The path of the draft page. */
 const draftPath = (id: string) => `/admin/workbench/${id}`;
@@ -119,7 +126,7 @@ function StartEmpty() {
     event.preventDefault();
     if (create.isPending) return;
     const trimmed = name.trim();
-    if (trimmed === "" || trimmed.length > NAME_MAX) {
+    if (trimmed === "" || codePoints(trimmed) > NAME_MAX) {
       setNameInvalid(true);
       document.getElementById(nameId)?.focus();
       return;
@@ -149,7 +156,6 @@ function StartEmpty() {
           hint={t("admin.workbench.start.empty.nameHint")}
           name="pack-name"
           autoComplete="off"
-          maxLength={NAME_MAX}
           value={name}
           errors={
             nameInvalid || serverNameInvalid

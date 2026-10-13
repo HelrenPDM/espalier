@@ -434,20 +434,25 @@ defmodule Espalier.Workbench.CheckTest do
   defp draft_dirs, do: Path.wildcard(Path.join(System.tmp_dir!(), "espalier-draft-*"))
 
   # A process that takes a slot of the CheckLimiter and holds it until it
-  # receives :release.
+  # receives :release. The test supervises it, so that ExUnit stops it, and
+  # the limiter frees its slot, also after a failed assertion.
   defp hold_slot! do
     test = self()
 
     holder =
-      spawn(fn ->
-        CheckLimiter.run(fn ->
-          send(test, :holding)
+      start_supervised!(
+        {Task,
+         fn ->
+           CheckLimiter.run(fn ->
+             send(test, :holding)
 
-          receive do
-            :release -> :ok
-          end
-        end)
-      end)
+             receive do
+               :release -> :ok
+             end
+           end)
+         end},
+        id: make_ref()
+      )
 
     assert_receive :holding, 1_000
     holder

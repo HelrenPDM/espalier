@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, test } from "vitest";
 import type { PackDraft } from "../../api/admin/workbench";
 import { expectNoAxeViolations } from "../../test/axe";
@@ -221,6 +221,38 @@ describe("the starting points", () => {
     const [request] = requestsTo(view.requests, "POST", DRAFTS);
     expect(request.body).toEqual({ source: "empty", name: "New pack" });
     expect(request.headers.get("x-csrf-token")).toBe("csrf-1");
+  });
+
+  test("Empty pack counts the name in code points, as the server does", async () => {
+    const view = renderPage({
+      [`POST ${DRAFTS}`]: { status: 201, body: created },
+    });
+    const field = screen.getByLabelText("Name of the pack");
+    // 255 emoji are 255 code points and 510 UTF-16 code units.
+    const name = "\u{1F4DA}".repeat(255);
+    fireEvent.change(field, { target: { value: name } });
+    await view.user.click(
+      screen.getByRole("button", { name: "Start an empty pack" }),
+    );
+
+    await waitFor(() =>
+      expect(view.location()).toBe(`/admin/workbench/${created.id}`),
+    );
+    const [request] = requestsTo(view.requests, "POST", DRAFTS);
+    expect(request.body).toEqual({ source: "empty", name });
+  });
+
+  test("Empty pack refuses a name of 256 code points before it sends anything", async () => {
+    const { user, requests } = renderPage();
+    const field = screen.getByLabelText("Name of the pack");
+    fireEvent.change(field, { target: { value: "\u{1F4DA}".repeat(256) } });
+
+    await user.click(
+      screen.getByRole("button", { name: "Start an empty pack" }),
+    );
+
+    expect(field).toHaveAttribute("aria-invalid", "true");
+    expect(requestsTo(requests, "POST", DRAFTS)).toHaveLength(0);
   });
 
   test("Empty pack asks for a name before it sends anything", async () => {
