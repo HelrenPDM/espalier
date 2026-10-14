@@ -1,7 +1,8 @@
 defmodule Espalier.Test.CountingPlug do
   @moduledoc """
   A plug that counts its requests in a `:counters` reference and answers
-  200 with `{}`. The transport test of task 0006 serves it over TLS.
+  200 with `{}`. The transport test of task 0006 serves it over TLS, and
+  `EspalierWeb.EndpointHttp2Test` serves it over plain TCP.
   """
   @behaviour Plug
 
