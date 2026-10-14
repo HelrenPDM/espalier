@@ -352,6 +352,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- The endpoint serves no HTTP/2 (`http_2_options: [enabled: false]`), because
+  `bandit` 1.12.5 carries EEF-CVE-2026-105659 (CVE-2026-105659,
+  GHSA-69m6-wcv4-rwcf: a peer that drips small `WINDOW_UPDATE` frames keeps
+  HTTP/2 stream processes alive indefinitely) and no release fixes it yet.
+  Over plain TCP, Bandit had accepted HTTP/2 with prior knowledge. `mix.exs`
+  ignores the advisory until a release fixes it, and HTTP/1.1 is unchanged.
+
 - `postcss-selector-parser` 7.1.6 replaces 6.0.10, which carries
   CVE-2026-104844 (GHSA-rj75-hqrm-r3gf: parse time quadratic in the classes
   and ids of a flat selector). `@tailwindcss/typography` 0.5.20 pins 6.0.10

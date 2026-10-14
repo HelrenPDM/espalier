@@ -111,6 +111,10 @@ config :espalier, :bootstrap_on_boot, true
 config :espalier, EspalierWeb.Endpoint,
   url: [host: "localhost"],
   adapter: Bandit.PhoenixAdapter,
+  # No HTTP/2: bandit 1.12.5 carries EEF-CVE-2026-105659 in its HTTP/2 stack
+  # (mix.exs, ignore_advisories). The env files and config/runtime.exs merge
+  # their http options into this list.
+  http: [http_2_options: [enabled: false]],
   render_errors: [
     formats: [json: EspalierWeb.ErrorJSON],
     layout: false
