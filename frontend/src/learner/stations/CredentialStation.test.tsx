@@ -206,6 +206,32 @@ describe("CredentialStation", () => {
     ).toBeNull();
   });
 
+  test("names a met attendance requirement by its format certificate, without link", async () => {
+    renderStation([
+      basics(),
+      {
+        ...workshop,
+        met: [
+          { kind: "attendance", target_key: "workshop", station_position: 4 },
+        ],
+        open: [
+          {
+            kind: "qualification_held",
+            target_key: "basics",
+            station_position: null,
+          },
+        ],
+      },
+    ]);
+    const addOn = await section("AI assistants in the team");
+
+    const met = entries(addOn, "Met requirements");
+    expect(met.map((entry) => entry.textContent)).toEqual([
+      "Format certificate held: Team workshop",
+    ]);
+    expect(within(met[0]).queryByRole("link")).toBeNull();
+  });
+
   test("pack titles carry the content language in their own element", async () => {
     renderStation();
     const qualification = await section("AI assistant basics");
