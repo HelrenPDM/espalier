@@ -319,3 +319,10 @@ tasks rely on the implemented form.
   steps that the demo user has already done, and runs axe on `/policies`
   (also at 360 pixels width), the credential station and the credential
   page.
+- Credential station (step 23): an attendance requirement reads "Obtain the
+  format certificate:" when open and "Format certificate held:" when met
+  (German "Bescheinigung zum Format erhalten:" and "Bescheinigung zum Format
+  vorhanden:"), in place of "Attend the format:" and "Format attended:", so that the label
+  also fits a format that the person leads or completes with a sign-off. The
+  requirement still counts an attendance certificate of a format with
+  `attendance_counts`.

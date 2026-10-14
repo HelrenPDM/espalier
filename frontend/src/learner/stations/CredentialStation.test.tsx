@@ -194,7 +194,7 @@ describe("CredentialStation", () => {
     const open = entries(addOn, "Open requirements");
     expect(
       within(open[0]).getByRole("link", {
-        name: "Attend the format: Team workshop",
+        name: "Obtain the format certificate: Team workshop",
       }),
     ).toHaveAttribute("href", `/programs/${SLUG}/stations/4`);
     expect(open[1]).toHaveTextContent(

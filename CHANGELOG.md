@@ -352,6 +352,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- The credential station labels an open attendance requirement "Obtain the
+  format certificate:" and a met one "Format certificate held:" (German
+  "Bescheinigung zum Format erhalten:" and "Bescheinigung zum Format
+  vorhanden:") in place of "Attend the format:" and "Format attended:", so
+  that the label also fits a format that the person leads or completes with a
+  sign-off (task 0013).
+
 - The header of a signed-in session holds a main navigation with the
   programs, the credentials, the policies and, for the roles of the admin
   area, the administration, with a "Menu" button below the `md` breakpoint;
