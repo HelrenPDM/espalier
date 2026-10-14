@@ -619,14 +619,14 @@
       "module_completed": "Modul abschließen:",
       "assessment_passed": "Prüfung bestehen:",
       "policy_acknowledged": "Richtlinie zur Kenntnis nehmen:",
-      "attendance": "Am Format teilnehmen:",
+      "attendance": "Bescheinigung zum Format erhalten:",
       "qualification_held": "Nachweis besitzen:"
     },
     "done": {
       "module_completed": "Modul abgeschlossen:",
       "assessment_passed": "Prüfung bestanden:",
       "policy_acknowledged": "Richtlinie zur Kenntnis genommen:",
-      "attendance": "Am Format teilgenommen:",
+      "attendance": "Bescheinigung zum Format vorhanden:",
       "qualification_held": "Nachweis vorhanden:"
     }
   },

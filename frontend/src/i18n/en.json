@@ -619,14 +619,14 @@
       "module_completed": "Complete the module:",
       "assessment_passed": "Pass the exam:",
       "policy_acknowledged": "Acknowledge the policy:",
-      "attendance": "Attend the format:",
+      "attendance": "Obtain the format certificate:",
       "qualification_held": "Hold the credential:"
     },
     "done": {
       "module_completed": "Module completed:",
       "assessment_passed": "Exam passed:",
       "policy_acknowledged": "Policy acknowledged:",
-      "attendance": "Format attended:",
+      "attendance": "Format certificate held:",
       "qualification_held": "Credential held:"
     }
   },
