@@ -140,6 +140,11 @@ nix-shell --run "HEX_COOLDOWN=0d mix deps.update <package>"
 
 State in the commit message why the change cannot wait for the cooldown.
 
+`@tailwindcss/typography` 0.5.20 pins `postcss-selector-parser` 6.0.10, which
+carries CVE-2026-104844. The entry for the plugin in `overrides` of
+`frontend/package.json` lifts the pin to 7.1.6 or later. Remove the entry when
+a release of `@tailwindcss/typography` depends on 7.1.6 or later.
+
 ## Secret scanning
 
 `make secrets-scan` runs `gitleaks detect` over the whole history with the
