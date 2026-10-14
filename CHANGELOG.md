@@ -352,6 +352,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `postcss-selector-parser` 7.1.6 replaces 6.0.10, which carries
+  CVE-2026-104844 (GHSA-rj75-hqrm-r3gf: parse time quadratic in the classes
+  and ids of a flat selector). `@tailwindcss/typography` 0.5.20 pins 6.0.10
+  exactly, so an entry in `overrides` of `frontend/package.json` lifts the
+  pin. The plugin parses only its own selectors at build time, and the built
+  SPA and SCORM player stay byte for byte the same.
+
 - The credential station labels an open attendance requirement "Obtain the
   format certificate:" and a met one "Format certificate held:" (German
   "Bescheinigung zum Format erhalten:" and "Bescheinigung zum Format
