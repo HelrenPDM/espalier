@@ -249,9 +249,9 @@ tasks rely on the implemented form.
     are listed apart from those of the other questions, and the report has no
     breakdown by month.
   - credentials: `{"qualifications": [{"code", "title", "archived",
-    "statuses": [{"status", "cell"}]}]}` with the live qualifications by add-on
-    flag and code, followed by archived qualifications with at least one
-    shown cell.
+    "statuses": [{"status", "cell"}]}]}` with the live qualifications by
+    position and code, followed by archived qualifications with at least one
+    shown cell in the same order.
   The breakdown by org unit still shows which org units have answers or
   attempts anywhere in a report; `INSIGHTS_ORG_UNIT=false`, the default,
   avoids that.

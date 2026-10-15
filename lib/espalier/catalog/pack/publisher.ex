@@ -112,7 +112,8 @@ defmodule Espalier.Catalog.Pack.Publisher do
     :validity_kind,
     :validity_months,
     :refresher_mode,
-    :phases
+    :phases,
+    :position
   ]
   @block_fields [:position, :kind, :body, :provenance, :collapsed_on, :placeholder_key]
   @option_fields [:key, :label, :correct, :feedback, :position]
@@ -341,11 +342,12 @@ defmodule Espalier.Catalog.Pack.Publisher do
   end
 
   defp upsert_qualifications(program_id, qualifications) do
-    Map.new(qualifications, fn qualification ->
+    for {qualification, position} <- Enum.with_index(qualifications, 1), into: %{} do
       struct = %Qualification{program_id: program_id}
-      row = upsert!(struct, qualification, @qualification_fields, [:program_id, :code])
+      attrs = positioned(qualification, position)
+      row = upsert!(struct, attrs, @qualification_fields, [:program_id, :code])
       {qualification["code"], row.id}
-    end)
+    end
   end
 
   ## Rows replaced per parent

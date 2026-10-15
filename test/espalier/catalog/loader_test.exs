@@ -47,6 +47,16 @@ defmodule Espalier.Catalog.LoaderTest do
              ]
     end
 
+    test "keeps the entries of a list file in the order of the file" do
+      pack = copy_pack!("minimal")
+      update_yaml!(pack, "qualifications.yaml", &Enum.reverse/1)
+
+      assert {:ok, loaded} = Loader.load(pack)
+
+      assert Enum.map(loaded.files["qualifications.yaml"].data, & &1["code"]) ==
+               ["workshop", "basics"]
+    end
+
     test "sorts the lessons of a module by key" do
       pack = copy_pack!("minimal")
       lesson = "---\ntitle: Extra\nposition: 9\n---\n\n:::text{provenance=invented}\nText.\n:::\n"

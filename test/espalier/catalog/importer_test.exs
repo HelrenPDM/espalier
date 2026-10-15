@@ -58,6 +58,34 @@ defmodule Espalier.Catalog.ImporterTest do
       assert Publisher.publish(pack_import) == {:error, :not_validated}
     end
 
+    test "a qualification position on some entries only, twice or below 1 fails with file and line" do
+      cases = [
+        {1, nil, 19, "`position` must be set on every qualification or on none"},
+        {1, 1, 20,
+         "duplicate qualification position `1`, first used in `qualifications.yaml` at line 2"},
+        {0, 1, 2, "`position` must be at least 1"}
+      ]
+
+      for {basics, workshop, line, message} <- cases do
+        pack = copy_pack!("minimal")
+
+        for {code, position} <- [{"basics", basics}, {"workshop", workshop}], position do
+          replace!(
+            pack,
+            "qualifications.yaml",
+            "- code: #{code}\n",
+            "- code: #{code}\n  position: #{position}\n"
+          )
+        end
+
+        assert {:ok, %PackImport{status: :failed, payload: nil} = pack_import} =
+                 Importer.import(pack, nil)
+
+        assert Enum.map(pack_import.report["errors"], &{&1["file"], &1["line"], &1["message"]}) ==
+                 [{"qualifications.yaml", line, message}]
+      end
+    end
+
     @tag :tmp_dir
     test "an import without an actor stores no actor id", %{tmp_dir: tmp_dir} do
       assert {:ok, pack_import} = Importer.import(Path.join(tmp_dir, "missing-pack"), nil)

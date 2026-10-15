@@ -209,6 +209,39 @@ defmodule Espalier.Interop.PackWriterTest do
     payload["modules"] |> Enum.flat_map(& &1["objectives"]) |> find_key(key)
   end
 
+  defp codes(qualifications), do: Enum.map(qualifications, & &1["code"])
+
+  # Sets `position` on every qualification, counting down from the number of
+  # entries, so that the positions reverse the order of the file.
+  defp reverse_positions(qualifications) do
+    count = length(qualifications)
+
+    qualifications
+    |> Enum.with_index()
+    |> Enum.map(fn {qualification, index} ->
+      Map.put(qualification, "position", count - index)
+    end)
+  end
+
+  # The original payload, the built payload and the written
+  # qualifications.yaml list the qualifications in the order `codes`, the
+  # written file holds no `position`, and the re-import of the written pack
+  # gives the payload of the original import.
+  defp assert_qualification_round_trip(run, codes) do
+    assert codes(run.original["qualifications"]) == codes
+    assert codes(run.built["qualifications"]) == codes
+
+    written = read_yaml!(run.out, "qualifications.yaml")
+    assert codes(written) == codes
+    refute Enum.any?(written, &Map.has_key?(&1, "position"))
+
+    assert run.built == run.original
+    assert run.validated == run.original
+    assert run.reimported == run.original
+    assert Payload.build(run.program) == run.original
+    assert Enum.all?(archived_rows(), fn {_schema, count} -> count == 0 end)
+  end
+
   describe "write/2" do
     @tag :tmp_dir
     test "round trip: the re-import of the output gives the payload of the program", %{
@@ -297,6 +330,29 @@ defmodule Espalier.Interop.PackWriterTest do
 
       assert Payload.build(run.program) == run.original
       assert Enum.all?(archived_rows(), fn {_schema, count} -> count == 0 end)
+    end
+
+    # The demo pack lists `basics` before `workshop`, as the code order
+    # does. The copies of the next two tests list `workshop` first: one by
+    # the order of its file, one by `position` against the order of its file.
+    @tag :tmp_dir
+    test "round trip of the qualification order of the file", %{tmp_dir: tmp_dir} do
+      pack = copy_pack!(demo_path())
+      update_yaml!(pack, "qualifications.yaml", &Enum.reverse/1)
+      assert codes(read_yaml!(pack, "qualifications.yaml")) == ["workshop", "basics"]
+
+      assert_qualification_round_trip(round_trip!(pack, tmp_dir), ["workshop", "basics"])
+    end
+
+    @tag :tmp_dir
+    test "round trip of the qualification order by position", %{tmp_dir: tmp_dir} do
+      pack = copy_pack!(demo_path())
+      update_yaml!(pack, "qualifications.yaml", &reverse_positions/1)
+
+      assert [%{"code" => "basics", "position" => 2}, %{"code" => "workshop", "position" => 1}] =
+               read_yaml!(pack, "qualifications.yaml")
+
+      assert_qualification_round_trip(round_trip!(pack, tmp_dir), ["workshop", "basics"])
     end
 
     @tag :tmp_dir

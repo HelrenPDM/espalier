@@ -628,7 +628,8 @@ defmodule Espalier.Insights.RetentionWorkerLockTest do
         add_on: false,
         validity_kind: :months,
         validity_months: 12,
-        refresher_mode: :update_unit
+        refresher_mode: :update_unit,
+        position: 1
       })
 
     Repo.insert!(%Requirement{

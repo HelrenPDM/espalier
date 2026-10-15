@@ -8,7 +8,8 @@ defmodule Espalier.Credentials.EvaluationTest do
   `attendance_counts`, the last missing requirement issues the credential
   with `unlocks_snapshot` and `valid_until` from the qualification, an
   add-on needs its prerequisite in force and follows it in the same call,
-  a revoked credential blocks a new issue, another program issues nothing
+  also when `qualifications.yaml` lists it first, a revoked credential
+  blocks a new issue, another program issues nothing
   for the demo program, and each issue enqueues `credential.issued` once
   per subscribed active webhook.
   """
@@ -267,6 +268,31 @@ defmodule Espalier.Credentials.EvaluationTest do
                  qualification!(program, "basics").id,
                  qualification!(program, "workshop").id
                ])
+
+      assert Enum.all?(changed, &(&1.status == :active))
+      assert {:ok, []} = Credentials.evaluate(scope, program)
+    end
+
+    test "an add-on listed before its prerequisite is issued in the same evaluation as well",
+         %{scope: scope} do
+      # The demo pack again with workshop first in qualifications.yaml, so
+      # the evaluation reaches the add-on before basics.
+      pack = PackFixtures.copy_pack!(PackFixtures.demo_path())
+      PackFixtures.update_yaml!(pack, "qualifications.yaml", &Enum.reverse/1)
+      program = publish_demo!(pack)
+      workshop = qualification!(program, "workshop")
+      basics = qualification!(program, "basics")
+      assert {workshop.position, basics.position} == {1, 2}
+
+      version = published_policy!("usage-policy")
+      certificate_fixture(scope.user, format!(program, "workshop"))
+      basics_but_policy!(scope, program)
+      acknowledge_quietly!(scope.user, version)
+
+      assert {:ok, changed} = Credentials.evaluate(scope, program)
+
+      assert changed |> Enum.map(& &1.qualification_id) |> Enum.sort() ==
+               Enum.sort([basics.id, workshop.id])
 
       assert Enum.all?(changed, &(&1.status == :active))
       assert {:ok, []} = Credentials.evaluate(scope, program)

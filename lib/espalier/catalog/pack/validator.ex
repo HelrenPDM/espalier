@@ -20,9 +20,10 @@ defmodule Espalier.Catalog.Pack.Validator do
      item names a lesson or is listed by an assessment, an exam item names
      no lesson, and an exam with `core_required: true` has a core item;
      `refresher_mode: update_unit` has a module with `refresher_unit: true`;
-     and the pack has exactly one `self_assessment` station when
-     `segments.yaml` has entries and exactly one `feedback` station when
-     `feedback.yaml` exists, and none otherwise.
+     every entry of `qualifications.yaml` sets `position` or none does, and
+     no position appears twice; and the pack has exactly one
+     `self_assessment` station when `segments.yaml` has entries and exactly
+     one `feedback` station when `feedback.yaml` exists, and none otherwise.
   3. **Alignment.** `Espalier.Catalog.Alignment.check/1` runs on the
      normalized map, and `alignment_entries/2` places each finding at the
      line of its objective, item or module area.
@@ -711,12 +712,35 @@ defmodule Espalier.Catalog.Pack.Validator do
     graph = Map.new(cast.qualifications, &{&1.code, held_codes(&1)})
     refresher_unit? = Enum.any?(cast.modules, & &1.module.refresher_unit)
 
-    cast.qualifications
-    |> Enum.with_index()
-    |> Enum.flat_map(fn {qualification, index} ->
-      requirement_errors(doc, index, qualification, ctx, graph) ++
-        refresher_errors(doc, index, qualification, refresher_unit?)
-    end)
+    position_errors(doc, cast.qualifications) ++
+      (cast.qualifications
+       |> Enum.with_index()
+       |> Enum.flat_map(fn {qualification, index} ->
+         requirement_errors(doc, index, qualification, ctx, graph) ++
+           refresher_errors(doc, index, qualification, refresher_unit?)
+       end))
+  end
+
+  # Every entry sets `position` or none does, and no value appears twice, so
+  # that the positions order every qualification of the file.
+  defp position_errors(doc, qualifications) do
+    indexed = Enum.with_index(qualifications)
+
+    located =
+      for {%{position: position}, index} <- indexed,
+          not is_nil(position),
+          do: {position, loc(doc, [index, "position"])}
+
+    missing =
+      if located == [],
+        do: [],
+        else:
+          for(
+            {%{position: nil}, index} <- indexed,
+            do: at(doc, [index], "`position` must be set on every qualification or on none")
+          )
+
+    missing ++ duplicates(located, "qualification position")
   end
 
   defp held_codes(qualification),

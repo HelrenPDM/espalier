@@ -1,9 +1,14 @@
 defmodule Espalier.Catalog.Pack.Schema.Qualification do
   @moduledoc """
   An entry of `qualifications.yaml`: `code`, `title`, `audience`, `unlocks`,
-  `add_on`, `validity_kind`, `validity_months`, `refresher_mode`, `phases`
-  and at least one requirement in `requirements`
-  (`Espalier.Catalog.Pack.Schema.Requirement`).
+  `add_on`, `validity_kind`, `validity_months`, `refresher_mode`, `phases`,
+  at least one requirement in `requirements`
+  (`Espalier.Catalog.Pack.Schema.Requirement`) and the optional `position`
+  (at least 1).
+
+  `position` orders the qualifications for display and means nothing else.
+  The validator admits it on every entry of the file or on none, each value
+  once; without it, the entries keep the order of the file.
 
   `validity_kind: months` needs `validity_months` above 0, and only that kind
   takes `validity_months`. `months` and `event` need a `refresher_mode`, and
@@ -28,6 +33,7 @@ defmodule Espalier.Catalog.Pack.Schema.Qualification do
     field :validity_months, :integer
     field :refresher_mode, Ecto.Enum, values: [:update_unit, :full_run, :test_only]
     field :phases, {:array, Ecto.Enum}, values: @phases
+    field :position, :integer
     embeds_many :requirements, Requirement
   end
 
@@ -46,6 +52,7 @@ defmodule Espalier.Catalog.Pack.Schema.Qualification do
     |> Cast.validate_unique(:unlocks)
     |> Cast.validate_unique(:phases)
     |> Cast.validate_length(:requirements, 1, "`requirements` needs at least one requirement")
+    |> Cast.validate_min(:position, 1)
     |> validate_months()
     |> validate_refresher()
     |> validate_unique_requirements()

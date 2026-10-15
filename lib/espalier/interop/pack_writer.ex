@@ -48,7 +48,10 @@ defmodule Espalier.Interop.PackWriter do
       and `cite` of a rule or an item;
     * the empty `options` or `config` of an item and the empty `options` of
       a feedback question, because each item kind takes one of the two and a
-      question of kind `scale` or `free_text` takes no options.
+      question of kind `scale` or `free_text` takes no options;
+    * `position` of a qualification: the writer lists the qualifications in
+      the order of the payload, and without `position` the normalizer keeps
+      the order of the file.
 
   The target of a `module_completed` requirement is written as the integer
   that the validator expects, and the normalizer turns it back into the

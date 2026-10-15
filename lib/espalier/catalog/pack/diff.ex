@@ -102,7 +102,8 @@ defmodule Espalier.Catalog.Pack.Diff do
     :validity_kind,
     :validity_months,
     :refresher_mode,
-    :phases
+    :phases,
+    :position
   ]
   @format_fields [:title, :description, :phases, :attendance_counts, :position]
   @source_fields [:title, :publisher, :url, :edition_date, :retrieved_on, :kind]
@@ -189,14 +190,15 @@ defmodule Espalier.Catalog.Pack.Diff do
   defp top_level_values(payload) do
     %{
       qualifications:
-        Map.new(list(payload, "qualifications"), fn qualification ->
+        for {qualification, position} <- Enum.with_index(list(payload, "qualifications"), 1),
+            into: %{} do
           values =
             Qualification
-            |> cast(qualification, @qualification_fields)
+            |> cast(Map.put(qualification, "position", position), @qualification_fields)
             |> Map.put(:requirements, payload_requirements(qualification))
 
           {qualification["code"], values}
-        end),
+        end,
       sources:
         Map.new(list(payload, "sources"), fn source ->
           {source["key"], cast(Source, source, @source_fields)}

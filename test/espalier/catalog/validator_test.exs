@@ -59,6 +59,19 @@ defmodule Espalier.Catalog.ValidatorTest do
     end
   end
 
+  # Sets `position` on the two qualifications of the minimal pack, in the
+  # line after their code; `nil` leaves the entry without it.
+  defp put_positions!(pack, basics, workshop) do
+    for {code, position} <- [{"basics", basics}, {"workshop", workshop}], position do
+      replace!(
+        pack,
+        "qualifications.yaml",
+        "- code: #{code}\n",
+        "- code: #{code}\n  position: #{position}\n"
+      )
+    end
+  end
+
   describe "a valid pack" do
     test "the minimal pack has no errors and no warnings and gives a payload" do
       pack = copy_pack!("minimal")
@@ -1451,6 +1464,55 @@ defmodule Espalier.Catalog.ValidatorTest do
     end
   end
 
+  describe "qualification position" do
+    test "without position, the qualifications keep the order of the file" do
+      pack = copy_pack!("minimal")
+      update_yaml!(pack, "qualifications.yaml", &Enum.reverse/1)
+
+      assert %{errors: [], payload: payload} = run!(pack)
+      assert Enum.map(payload["qualifications"], & &1["code"]) == ["workshop", "basics"]
+      refute Enum.any?(payload["qualifications"], &Map.has_key?(&1, "position"))
+    end
+
+    test "with position on every entry, the positions decide the order and leave no key" do
+      pack = copy_pack!("minimal")
+      put_positions!(pack, 2, 1)
+      reordered = copy_pack!("minimal")
+      update_yaml!(reordered, "qualifications.yaml", &Enum.reverse/1)
+
+      assert %{errors: [], payload: payload} = run!(pack)
+      assert Enum.map(payload["qualifications"], & &1["code"]) == ["workshop", "basics"]
+      assert %{errors: [], payload: ^payload} = run!(reordered)
+    end
+
+    test "a position below 1 is an error at its line" do
+      pack = copy_pack!("minimal")
+      put_positions!(pack, 0, 1)
+
+      assert errors(pack) == [{"qualifications.yaml", 2, "`position` must be at least 1"}]
+    end
+
+    test "a position on some entries only is an error at each entry without it" do
+      pack = copy_pack!("minimal")
+      put_positions!(pack, nil, 1)
+
+      assert errors(pack) == [
+               {"qualifications.yaml", 1,
+                "`position` must be set on every qualification or on none"}
+             ]
+    end
+
+    test "a position appears once in the file" do
+      pack = copy_pack!("minimal")
+      put_positions!(pack, 1, 1)
+
+      assert errors(pack) == [
+               {"qualifications.yaml", 20,
+                "duplicate qualification position `1`, first used in `qualifications.yaml` at line 2"}
+             ]
+    end
+  end
+
   describe "stations" do
     test "the pack has a self_assessment station when segments.yaml has entries" do
       pack = copy_pack!("minimal")
@@ -1865,8 +1927,6 @@ defmodule Espalier.Catalog.ValidatorTest do
         ~s(cite="fictional-guide#Section 2"),
         ~s(cite="fictional-guide#Section 1,fictional-guide#Section 2")
       )
-
-      update_yaml!(reordered, "qualifications.yaml", &Enum.reverse/1)
 
       update_yaml!(reordered, "qualifications.yaml", fn qualifications ->
         Enum.map(

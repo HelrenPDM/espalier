@@ -301,7 +301,7 @@ defmodule Espalier.Credentials do
     Repo.all(
       from q in Qualification,
         where: q.program_id == ^program_id and is_nil(q.archived_at),
-        order_by: [q.add_on, q.code],
+        order_by: [q.position, q.code],
         preload: [requirements: ^from(r in Requirement, order_by: [r.kind, r.target_key])]
     )
   end
