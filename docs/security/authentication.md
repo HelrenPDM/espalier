@@ -576,7 +576,8 @@ that combine them live in `Espalier.Accounts.Factors`.
 authentication use attestation `"none"`, `user_verification: "required"`, the
 relying party id and the exact origin list of `config :espalier, :webauthn`
 (in production the host and the origin of `PUBLIC_URL`, which must use
-`https`) and 300 seconds. Credentials are discoverable. The application adds
+`https` and which `Espalier.RuntimeConfig` returns with a lower-case host)
+and 300 seconds. Credentials are discoverable. The application adds
 the checks that `wax_` leaves open:
 
 | Check | Module |

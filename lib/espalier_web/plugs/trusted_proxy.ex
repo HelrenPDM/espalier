@@ -8,6 +8,16 @@ defmodule EspalierWeb.Plugs.TrustedProxy do
   takes the leftmost entry, which a client controls behind an appending
   proxy, so it is not used. The proxy must overwrite or append the header;
   task 0017 checks the proxy example.
+
+  Bandit listens on the IPv6 address `::` in production, so a peer that
+  connects over IPv4 arrives as an IPv4-mapped IPv6 address such as
+  `::ffff:172.30.0.10`. The plug turns such an address into its IPv4 form,
+  for the peer and for the entry of the header, so that an IPv4 entry of
+  `TRUSTED_PROXIES` matches the peer, and logs and rate limits see one form
+  of each address (task 0017, `scripts/smoke.sh --proxy`).
+  `Espalier.RuntimeConfig.proxy!/1` turns an IPv4-mapped entry into its
+  IPv4 form in the same way. An IPv4 peer is never compared with an IPv6
+  range, so `::/0` trusts IPv6 peers only.
   """
   @behaviour Plug
 
@@ -19,15 +29,22 @@ defmodule EspalierWeb.Plugs.TrustedProxy do
   @impl Plug
   def call(conn, _opts) do
     proxies = Application.get_env(:espalier, :trusted_proxies, [])
+    peer = unmap(conn.remote_ip)
 
-    with true <- trusted?(conn.remote_ip, proxies),
+    with true <- trusted?(peer, proxies),
          [_ | _] = values <- Plug.Conn.get_req_header(conn, "x-forwarded-for"),
          {:ok, ip} <- rightmost(values) do
-      %{conn | remote_ip: ip}
+      %{conn | remote_ip: unmap(ip)}
     else
-      _ -> conn
+      _ -> %{conn | remote_ip: peer}
     end
   end
+
+  @doc "Returns the IPv4 form of an IPv4-mapped IPv6 address and every other address unchanged."
+  def unmap({0, 0, 0, 0, 0, 0xFFFF, high, low}),
+    do: {high >>> 8, high &&& 0xFF, low >>> 8, low &&& 0xFF}
+
+  def unmap(ip), do: ip
 
   defp rightmost(values) do
     values

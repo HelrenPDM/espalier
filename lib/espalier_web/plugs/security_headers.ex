@@ -11,6 +11,11 @@ defmodule EspalierWeb.Plugs.SecurityHeaders do
   Task 0015 adds the admin area `/api/admin/*`, whose answers carry API
   tokens once and pack payloads with answer keys. HSTS comes from the
   reverse proxy (task 0017).
+
+  `Plug.Static` sends the type of `MIME.from_path/1` without a charset, so
+  the callback appends `; charset=utf-8` to a `text/*`, `*/*+xml` or
+  `*/xml` type without one, such as `text/javascript` and `text/css` of the
+  SPA assets and `image/svg+xml` of its icon (ASVS 4.1.1, task 0017).
   """
   @behaviour Plug
 
@@ -46,6 +51,27 @@ defmodule EspalierWeb.Plugs.SecurityHeaders do
     |> Plug.Conn.merge_resp_headers(@headers)
     |> put_vary()
     |> put_no_store()
+    |> put_charset()
+  end
+
+  defp put_charset(conn) do
+    case Plug.Conn.get_resp_header(conn, "content-type") do
+      [type] ->
+        if needs_charset?(String.downcase(type)),
+          do: Plug.Conn.put_resp_header(conn, "content-type", type <> "; charset=utf-8"),
+          else: conn
+
+      _other ->
+        conn
+    end
+  end
+
+  # The media types that ASVS 4.1.1 names: text/*, */*+xml and */xml.
+  defp needs_charset?(type) do
+    media_type = type |> String.split(";", parts: 2) |> hd() |> String.trim()
+
+    (String.starts_with?(media_type, "text/") or String.ends_with?(media_type, ["+xml", "/xml"])) and
+      not String.contains?(type, "charset=")
   end
 
   defp put_vary(conn) do

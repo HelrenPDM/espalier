@@ -1,0 +1,12 @@
+#!/bin/sh
+# The health check of the image (HEALTHCHECK in the Dockerfile): asks /health
+# on the port that the endpoint listens on. config/runtime.exs reads PORT
+# through Espalier.RuntimeConfig.value/2, which trims the value, removes one
+# pair of surrounding double quotes and trims again, and an empty value means
+# 4000. This script reads PORT the same way.
+set -eu
+
+port=$(printf '%s' "${PORT:-}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' \
+  -e 's/^"\(.*\)"$/\1/' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+
+exec curl -fsS "http://localhost:${port:-4000}/health"

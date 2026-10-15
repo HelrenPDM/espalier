@@ -54,3 +54,9 @@ description = "The fake SCORM 2004 API object of the SCORM entry test of task 00
 condition = "AND"
 paths = ['''^frontend/src/scorm/boot\.test\.ts$''']
 regexes = ['''^scorm2004\.api$''']
+
+[[allowlists]]
+description = "Objective key of the example pack in the content pack guide of task 0017; the rule generic-api-key reads `key:` as an API key, no secret"
+condition = "AND"
+paths = ['''^docs/guides/content-packs\.md$''']
+regexes = ['''^m1-subject-prompt-parts$''']

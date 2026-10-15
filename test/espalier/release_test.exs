@@ -39,6 +39,59 @@ defmodule Espalier.ReleaseTest do
     capture_io(fn -> assert :ok = Release.invite_user("ADA@example.org") end)
   end
 
+  test "create_api_client/2 prints the token once and stores only its hash" do
+    output =
+      capture_io(fn ->
+        assert {:ok, _id} = Release.create_api_client("hr-system", ["credentials:read"])
+      end)
+
+    assert ["{:ok, \"hr-system\"}", "token: " <> token] = String.split(output, "\n", trim: true)
+
+    assert %Accounts.ApiClient{name: "hr-system", scopes: ["credentials:read"]} =
+             client = Accounts.get_api_client_by_token(token)
+
+    refute inspect(client) =~ token
+
+    output =
+      capture_io(fn ->
+        assert {:error, _errors} = Release.create_api_client("hr-system", ["admin"])
+      end)
+
+    refute output =~ "token"
+  end
+
+  test "seed_demo/1 publishes the demo pack and seeds the demo policy and tools" do
+    import Ecto.Query
+
+    output =
+      capture_io(fn ->
+        assert {:ok, %{pack: pack_import, policies: 1, tools: 3}} =
+                 Release.seed_demo("content/demo")
+
+        assert pack_import.status == :published
+        assert pack_import.pack_key == "ai-assistant-basics-demo"
+      end)
+
+    assert output =~ "Seeded 1 policies and 3 approved tools."
+    assert Repo.exists?(from p in Espalier.Policies.Policy, where: p.key == "usage-policy")
+
+    # A second run publishes the pack again and skips the existing rows.
+    capture_io(fn ->
+      assert {:ok, %{policies: 0, tools: 0}} = Release.seed_demo("content/demo")
+    end)
+  end
+
+  test "seed_demo/0 reads priv/demo_pack and seeds nothing when the import fails" do
+    # Only the builder stage of the Dockerfile copies content/demo there.
+    refute File.exists?(Application.app_dir(:espalier, "priv/demo_pack"))
+
+    capture_io(fn ->
+      assert {:error, %Espalier.Catalog.PackImport{status: :failed}} = Release.seed_demo()
+    end)
+
+    refute Repo.exists?(Espalier.Policies.Policy)
+  end
+
   test "end_all_sessions/0 ends every session" do
     {token, _session} = session_fixture(user_fixture())
     capture_io(fn -> assert {:ok, _count} = Release.end_all_sessions() end)

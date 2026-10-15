@@ -65,6 +65,8 @@ make check
 | Frontend lint | `npm --prefix frontend run lint` |
 | Frontend format | `npm --prefix frontend run format:check` |
 | Frontend tests | `npm --prefix frontend run test -- --run` |
+| SCORM player build | `npm --prefix frontend run build:scorm` |
+| npm advisories | `npm --prefix frontend audit --omit=dev` |
 
 `make lint` applies `mix format`, the automatic Oxlint fixes and Prettier.
 `make test` runs only the ExUnit and Vitest suites. `make secrets-scan` scans
@@ -74,6 +76,20 @@ every push and pull request to `main`.
 When `scripts/check-hex-version.sh` stops the gate, update Hex with
 `nix-shell --run "mix local.hex --force"`. An older Hex neither reports
 advisories in `mix hex.audit` nor reads `ignore_advisories` from `mix.exs`.
+
+A change to the `Dockerfile`, `compose.yaml`, `config/runtime.exs`,
+`config/prod.exs` or the scripts below `scripts/` also runs the smoke test of
+the production image, which needs Docker, curl and a POSIX shell only:
+
+```sh
+make docker-build
+make smoke
+make smoke-proxy
+```
+
+`make smoke` starts the image with the demo profile under the Compose project
+`espalier-smoke` and removes it afterwards; `make smoke-proxy` adds the Caddy
+example on port 443 (`docs/guides/self-hosting.md`).
 
 After you remove a dependency from `mix.exs`, run
 `nix-shell --run "mix deps.unlock --unused"`, so that `mix.lock` holds no

@@ -210,3 +210,214 @@ same row, and `Notes` states what this task delivers.
 - The runner stage of `phx.gen.release` installs `openssl` and `ca-certificates` and sets `USER nobody`; it has no `HEALTHCHECK`, no `EXPOSE` and no copy of `LICENSE` or `NOTICE` (Phoenix 1.8.15, `priv/templates/phx.gen.release/Dockerfile.eex`), which step 1 adds. The `.dockerignore` of the same release follows the line `.git` with `!.git/HEAD` and `!.git/refs` (`priv/templates/phx.gen.release/dockerignore.eex`), which step 1 removes.
 - The published image redistributes the work in object form, so section 4 of the Apache License 2.0 applies to it (0002 Notes).
 - The OWASP ASVS repository tags the 5.0.0 release as `v5.0.0_release` (github.com/OWASP/ASVS, tags).
+
+## Addendum: implementation
+The implementation departs from the steps above in the points below, and later
+tasks rely on the implemented form.
+
+- Image (step 1): `make docker-build` had failed since task 0015, because
+  `tsc -b` in the frontend stage checks `src/player/evaluate.test.ts`, which
+  imports `test/fixtures/evaluator_cases.json` from outside `frontend/`. The
+  frontend stage copies that file to `/test/fixtures/`, and `.dockerignore`
+  admits it below the excluded `/test/`. `.dockerignore` also excludes
+  `**/.git`, `**/.svn`, `.claude/` (agent worktrees, which hold checkouts of
+  their own) and `/dev/` (the LDAP test CA and the lldap secrets). The health
+  check runs every 10 seconds with a start period of 30 seconds.
+- Database TLS (step 2): Postgrex 0.22.4 merges the keyword list of `ssl`
+  into its defaults, `verify: :verify_peer` and the host name check of
+  `:public_key.pkix_verify_hostname_match_fun(:https)`; `ssl: true` would
+  trust every CA of the system store. `config/runtime.exs` reads
+  `DATABASE_CA_CERT_FILE` through `Espalier.RuntimeConfig.value/2`.
+  `db-certs` runs `bash -euc`, keeps the CA key in a temporary directory that
+  a trap removes, and skips the generation when `server.pem`, `server.key` and
+  `ca.pem` exist; `pg_hba.conf` belongs to 999 with mode 644. The first start
+  on 2026-10-15 wrote certificates valid until 2029-01-17.
+- Compose (step 3): `compose.yaml` reads `ESPALIER_IMAGE` (default
+  `espalier:latest`) and `APP_PORT` (default 4000) besides `ENV_FILE`, so
+  that the smoke test runs next to a development server on port 4000, and it
+  requires `POSTGRES_PASSWORD`. `.env.example` holds empty `POSTGRES_PASSWORD`
+  and `DATABASE_URL` lines, because the example password `postgres` was a
+  default credential (ASVS 13.2.3). `compose.caddy.yaml` reads
+  `PROXY_SUBNET`, `PROXY_ADDRESS` and `CADDYFILE`, because a relative path in
+  a second compose file resolves against the directory of the first. Caddy
+  publishes port 443 alone and answers the ACME TLS-ALPN challenge on it. The
+  suites that Caddy offers with its defaults meet row 12.1.2, so the
+  Caddyfile has no `ciphers` subdirective.
+- Boot check (step 4): the missing required variables form one message
+  `Missing environment variables: <names>`, the form of task 0003, and every
+  other gap has a message of its own; `config/runtime.exs` raises
+  `The environment stops the boot:` followed by one line `  * <message>` per
+  gap. `Espalier.Identity.Config.parse!/2` raises at its first invalid
+  variable, so one boot names one `AUTH_*` gap. `Espalier.RuntimeConfig`
+  makes `value/2` public, and `parse!/2` raises the first message of the
+  checks that `errors/2` runs. A `PUBLIC_URL` with the path `/` counts as an
+  origin. The boot log line comes from `Espalier.Application.settings_line/0`:
+  `Effective settings: NAME=value ...; providers: <key> (<type>, MFA <mode>)`,
+  with `unset` for a retention variable without a value.
+- Headers and cookies (step 5): two checks failed on the running stack and
+  changed the code. Plug.SSL sent `strict-transport-security:
+  max-age=31536000` on every proxied answer for a host other than
+  `localhost`, next to the header of the proxy, so `config/prod.exs` sets
+  `force_ssl` with `hsts: false`, and the security headers test reads it from
+  the production configuration. Bandit listens on `::`, so an IPv4 peer
+  arrives as `::ffff:a.b.c.d`, which no IPv4 entry of `TRUSTED_PROXIES`
+  matched, and the log carried the address of Caddy;
+  `EspalierWeb.Plugs.TrustedProxy.unmap/1` turns such an address into IPv4
+  for the peer and for the header entry. The charset of text and XML types is
+  part of `EspalierWeb.Plugs.SecurityHeaders`. Bandit adds a line `vary:
+  accept-encoding` of its own, so `scripts/check-headers.sh` looks for the
+  three Fetch Metadata names in the combined list of all `Vary` lines
+  (RFC 9110, section 5.3). curl 8.5.0 stores a `__Host-` cookie received from
+  `http://localhost` in its jar; the script reads `Set-Cookie` and sends
+  `Cookie` itself, which works with any version. `CHECK_CONTAINER` names the
+  container of the `bin/espalier eval` check, whose output leaves out the
+  salts. The no-store check uses unauthenticated `GET` requests of
+  `/api/session`, `/api/me/progress`, `/api/admin/users`,
+  `/api/registrar/credentials` and `/api/policies` and `POST` requests to
+  `/api/auth/demo`, `/api/facilitator/user-lookups` and
+  `/api/integration/credential-lookups`; the demo request must pass the CSRF
+  layers (any status but 403). No provider was configured, so the check of
+  `GET /auth/oidc/<key>` (`CHECK_OIDC_PROVIDER`) has not run; the options of
+  the transaction cookie were checked in the release.
+- Release checks (step 6): `find` runs as root (`--user 0`), because
+  `nobody` cannot read `/root` and further directories of the image. The code
+  of `bin/espalier eval` goes in as an argument. It also checks that no route
+  has the verb `TRACE`, that the release runs with
+  `RELEASE_DISTRIBUTION=none`, and, with `SMTP_HOST` set, the SMTP options
+  that `config/runtime.exs` of the release produces (row 12.3.1). Further
+  checks find no listener on the epmd port 4369 and no `beam.smp` process
+  with `-sname` or `-name` in the container. The script reads
+  `ESPALIER_IMAGE`, `CHECK_CONTAINER`, `CHECK_DB`, `BASE_URL`, `ENV_FILE` and
+  `SECRET_ENV_FILE`. The directory paths `/spa/assets/`, `/spa/` and
+  `/assets/` return the SPA `index.html` byte for byte.
+- Cookie prefix (step 7): retrieved 2026-10-15, caniuse
+  (`mdn-http_headers_set-cookie_http_host-http_prefixes`) and the MDN
+  compatibility data list `__Host-Http-` in Chrome and Edge from 140, Opera
+  from 124 and Firefox from 143 (142 partial), and in no release of Safari or
+  iOS Safari up to 27.2. Apple's release notes name Safari 27.0 (2026-09-14)
+  as the current release and do not mention the prefix. The names stay; row
+  3.3.3, `security.md` and README section 6.5 record the outcome.
+- Release functions (step 8): `Ecto.Migrator.with_repo/2` of ecto_sql 3.14.0
+  reuses a running Repo (`start_link` answers `already_started`, and the
+  cleanup leaves the running pool in place), so `seed_demo/0` calls
+  `import_pack/2`. It is `seed_demo/1` with the default path
+  `priv/demo_pack`, so that the test imports `content/demo`; a second run
+  publishes the pack again and skips the policy and the tools that exist.
+  `create_api_client(name, scopes)` prints `{:ok, name}` and a line
+  `token: <token>` and returns `{:ok, id}`.
+- Makefile and smoke test (step 9): `scripts/fill-secrets.sh SRC DEST` fills
+  the empty lines `SECRET_KEY_BASE` (64 bytes), `CLOAK_KEY_V1` and
+  `CLOAK_HMAC_SECRET` (32 bytes each, Base64), `POSTGRES_PASSWORD` (32
+  letters and digits) and `DATABASE_URL` (`ecto://postgres:<password>@db/espalier_prod`)
+  and refuses an existing DEST; `make demo-env` and `scripts/smoke.sh` use
+  it, and `.env.demo.example` holds both database lines empty. Further
+  targets: `make smoke-proxy` and `make demo-down`. `make demo-up` waits on
+  `/health` at the port that `docker compose port app 4000` reports.
+  `make release-push` needs `REGISTRY`, and `RELEASE_ENV` (default `prod`)
+  and `VERSION` (from `mix.exs`) form the tag. `scripts/smoke.sh --proxy` sets
+  `LOCAL_ACCOUNTS=true`, because the password route answers 404 without local
+  accounts, and sends the forged `X-Forwarded-For` from a container of the
+  image with the address `PROBE_ADDRESS` (default 172.30.0.20) on the proxy
+  network, which is the address that Caddy sees. The smoke test answers the
+  first `single_choice` item among the practice items of module 1, because
+  exam items take answers through an attempt, and checks the published ports
+  with `docker port`, because `docker compose port` prints `:0` for a port
+  that is not published. Bandit answers a refused request with an
+  `HTTP/1.0 400` status line; row 4.2.1 records the probe results.
+- Audits (step 10): `ignore_advisories` holds `EEF-CVE-2026-105659` of
+  bandit 1.12.5 (HTTP/2, which `config/config.exs` turns off) besides the two
+  entries of 0003, and `security.md` names all three. On 2026-10-15,
+  `mix hex.audit` exited 0, and `mix deps.audit` and
+  `npm --prefix frontend audit --omit=dev` found no advisory.
+- Guides and tests (step 11): `security.md` states the remediation time
+  frames that the maintainer set on 2026-10-15 (critical 7 days, high 30
+  days, medium 90 days, low with the next regular update; dependency updates
+  once a month). `test/docs/content_packs_guide_test.exs` writes the example
+  files of `content-packs.md` (a heading `` ### `path` `` or a line
+  `` `path`: `` before a `yaml` or `markdown` block) into a directory and runs
+  the validator and the alignment checks on them.
+  `test/docs/deployment_test.exs` holds the source checks of the deployment
+  files and of the statements that the rows of this task take from the
+  guides. Both run in `make check`.
+- Acceptance: Playwright 1.59.1 (Chromium) ran on 2026-10-15 against the
+  image behind the Caddy example: demo sign-in and the learner pages, every
+  page of the admin navigation with a person who holds the roles admin and
+  author and signed in with a passkey of the CDP virtual authenticator (the
+  account came from an invitation token built in `bin/espalier eval`,
+  because the instance had no SMTP), and the download of a SCORM 1.2 package.
+  It recorded no console error, no page error, no CSP violation and no
+  report-only Trusted Types message; the download carried
+  `content-type: application/zip`, `content-disposition: attachment` and the
+  headers of README section 6.5. The maintainer check of `self-hosting.md` on
+  a fresh machine is open.
+- Review: the fixes of the review depart from the steps above in these
+  points. `Espalier.RuntimeConfig` returns `PUBLIC_URL` with a lower-case
+  host and without the default port, the form of the origin that browsers
+  send to the passkey and Fetch Metadata checks. The boot check also stops a
+  `PUBLIC_URL` with user info, `https://@host` included. The production block
+  of `config/runtime.exs` reads `DATABASE_URL`, `SECRET_KEY_BASE`,
+  `PHX_HOST`, the Cloak variables and the `SMTP_*` variables through
+  `RuntimeConfig.value/2`, so the bindings of step 4 keep their names and hold
+  the values that the boot check sees. The boot check stops a `DATABASE_URL`
+  without a host or a database name (Ecto would print the URL with its
+  password) or with the query parameter `ssl`, which Ecto merges over the
+  `ssl` options of step 2, an `SMTP_PORT` or `PORT` outside 1 to 65535 and
+  a `POOL_SIZE` that is no positive integer. The
+  SMTP configuration sets `no_mx_lookups: true`, so that gen_smtp connects to
+  `SMTP_HOST` itself, and the eval check asserts it.
+  `RuntimeConfig.proxy!/1` stores an IPv4-mapped entry of `TRUSTED_PROXIES`
+  with a prefix of at least 96 as IPv4 with the prefix minus 96, and `::/0`
+  matches IPv6 peers only. `SecurityHeaders` also appends the charset to
+  `*/*+xml` and `*/xml` types, such as the SVG icon of the SPA, and
+  `scripts/check-headers.sh` checks the charset of that icon.
+  `Espalier.Application.settings_line/1` takes a getter, so that its test
+  compares the whole line for fixed settings, and `scripts/smoke.sh` checks
+  the line in the log of the boot. `scripts/check-release.sh` compares the
+  secret values of `SECRET_ENV_FILE` (default `ENV_FILE`, then `.env`),
+  because the secrets of the smoke test come into being after the build;
+  `scripts/smoke.sh` passes the `.env` of the checkout or an empty value,
+  which skips the comparison, and no script passes the value of a secret
+  variable as an argument. The eval check asserts
+  `RELEASE_DISTRIBUTION=none`, because an eval node never starts
+  distribution. `make demo-up` waits on the published port, so that an
+  `APP_PORT` of `.env.demo` counts. `make demo-up` and `scripts/smoke.sh`
+  unset `POSTGRES_PASSWORD`, because Docker Compose takes a value of the
+  shell before the env file, while `app` reads `DATABASE_URL` from the env
+  file alone. `db` also starts with
+  `ssl_ciphers=ECDHE+AESGCM:ECDHE+CHACHA20`; on 2026-10-15, PostgreSQL 18.6
+  accepted for TLS 1.2 the three ECDHE-ECDSA suites with AES-GCM or
+  ChaCha20-Poly1305 alone and kept the OpenSSL defaults for TLS 1.3.
+  `.dockerignore` also excludes `**/.env` and `**/.env.*`, because Vite reads
+  env files in `frontend/`. The release belongs to root, so `nobody` can
+  change none of its files, and it writes nothing below `/app`, because
+  `sys.config` sets no `RUNTIME_CONFIG=true`. The builder deletes
+  `releases/COOKIE`, which every holder of the image could read, and
+  `rel/env.sh.eex` gives each command a random cookie while distribution is
+  off and stops without `RELEASE_COOKIE` when it is on;
+  `scripts/check-release.sh` finds no env file and no cookie in the image and
+  checks the stop. `self-hosting.md` writes the dumps with `umask 077` to
+  `/var/backups/espalier`, outside the checkout. `make demo-down` runs
+  `docker compose -p espalier-demo down -v`, which finds the containers,
+  networks and volumes of the project by its label, the proxy example
+  included. A second review round added: `Espalier.RuntimeConfig.normalize_url/1`
+  gives the OIDC redirect URI and the mock provider of dev and test the same
+  form of `PUBLIC_URL` as the post-logout URI and the mail links; the
+  database URL check follows the path rule of `Ecto.Repo.Supervisor`
+  (one segment) and stops a `timeout`, `pool_size` or `idle_interval` that is
+  no integer, because Ecto prints the URL with its password for each; the
+  builder removes the group and other write bits of the release, `LICENSE`
+  and `NOTICE` get the mode 0644, and `/data/exports` admits the group root
+  for a container with another uid; `scripts/check-release.sh` checks the
+  owner and the mode of `/app` and treats `RELEASE_COOKIE` as a secret;
+  `scripts/check-headers.sh` checks the report-only Trusted Types header;
+  `make argon2-bench` sets the two variables that
+  `compose.yaml` adds for `app`. A third round moved the redirect URIs of the
+  mock provider from `config/dev.exs` and `config/test.exs` to
+  `config/runtime.exs`, which takes them from the `:public_url` of
+  `Espalier.RuntimeConfig.parse!/2`, so that the mock and the application
+  share one form. The review of the pull request added `bin/health` (from
+  `rel/overlays/bin/`), which the `HEALTHCHECK` runs and which asks `/health`
+  on the port of `PORT`, read as `RuntimeConfig.value/2` reads it, and
+  `scripts/count-inline-scripts.sh`, with which `scripts/check-headers.sh`
+  counts each script tag without `src` on its own; step 1 named
+  `curl -fsS http://localhost:4000/health` as the health check.

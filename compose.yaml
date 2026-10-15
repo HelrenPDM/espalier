@@ -1,28 +1,120 @@
 name: espalier
 
+# Production services: PostgreSQL with TLS and the application image
+# (docs/guides/self-hosting.md). The application port is published on the
+# loopback address only; the reverse proxy of
+# docs/guides/examples/compose.caddy.yaml serves HTTPS to other hosts.
+#
+# Variables of this file (Docker Compose reads them from .env or the shell):
+#   POSTGRES_PASSWORD  password of the database user postgres, also part of
+#                      DATABASE_URL in the env file of app
+#   ENV_FILE           env file of app (default .env)
+#   ESPALIER_IMAGE     image of app (default espalier:latest, make docker-build)
+#   APP_PORT           loopback port of app on the host (default 4000)
+
 services:
+  # One-shot: on its first run, a CA and a server certificate for the host
+  # name db, both with EC P-256 keys, SHA-256 signatures and a validity of
+  # 825 days. The CA key exists only while this service runs, so no new
+  # certificate can be signed with it later. A later run finds the files and
+  # prints their expiry. Renewal: docs/security/key-management.md.
+  db-certs:
+    image: postgres:18
+    user: root
+    entrypoint: ["/bin/bash", "-euc"]
+    command:
+      - |
+        if [ -s /tls/server.pem ] && [ -s /tls/server.key ] && [ -s /ca/ca.pem ]; then
+          echo "db-certs: the certificates exist; server.pem $$(openssl x509 -enddate -noout -in /tls/server.pem)"
+          exit 0
+        fi
+        umask 077
+        work=$$(mktemp -d)
+        trap 'rm -rf "$$work"' EXIT
+        openssl req -x509 -new -newkey ec -pkeyopt ec_paramgen_curve:P-256 -sha256 -nodes \
+          -days 825 -subj "/CN=Espalier database CA" \
+          -addext "basicConstraints=critical,CA:TRUE" \
+          -addext "keyUsage=critical,keyCertSign,cRLSign" \
+          -keyout "$$work/ca.key" -out "$$work/ca.pem"
+        openssl req -new -newkey ec -pkeyopt ec_paramgen_curve:P-256 -sha256 -nodes \
+          -subj "/CN=db" -keyout "$$work/server.key" -out "$$work/server.csr"
+        printf '%s\n' "subjectAltName=DNS:db" "basicConstraints=critical,CA:FALSE" \
+          "keyUsage=critical,digitalSignature" "extendedKeyUsage=serverAuth" > "$$work/server.ext"
+        openssl x509 -req -sha256 -days 825 -in "$$work/server.csr" \
+          -CA "$$work/ca.pem" -CAkey "$$work/ca.key" -set_serial "0x$$(openssl rand -hex 16)" \
+          -extfile "$$work/server.ext" -out "$$work/server.pem"
+        # The postgres user of the image has the uid and gid 999.
+        install -o 999 -g 999 -m 600 "$$work/server.key" /tls/server.key
+        install -o 999 -g 999 -m 644 "$$work/server.pem" /tls/server.pem
+        printf '%s\n' "local all all trust" "hostssl all all all scram-sha-256" > "$$work/pg_hba.conf"
+        install -o 999 -g 999 -m 644 "$$work/pg_hba.conf" /tls/pg_hba.conf
+        install -m 644 "$$work/ca.pem" /ca/ca.pem
+        echo "db-certs: wrote the certificates; server.pem $$(openssl x509 -enddate -noout -in /tls/server.pem)"
+    volumes:
+      - db-tls:/tls
+      - db-ca:/ca
+    restart: "no"
+
+  # TCP connections need TLS: pg_hba.conf admits hostssl only, so a
+  # connection without TLS fails with "no pg_hba.conf entry ... no
+  # encryption". The first-run initialization of the image and pg_isready
+  # use the local socket. TLS 1.2 offers ECDHE with AES-GCM or
+  # ChaCha20-Poly1305 only (ASVS 12.1.2). ssl_ciphers leaves TLS 1.3 alone,
+  # which keeps the default suites of OpenSSL: AES-256-GCM,
+  # ChaCha20-Poly1305 and AES-128-GCM.
   db:
     image: postgres:18
+    depends_on:
+      db-certs:
+        condition: service_completed_successfully
     environment:
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
       POSTGRES_DB: espalier_prod
+    command:
+      - postgres
+      - -c
+      - ssl=on
+      - -c
+      - ssl_cert_file=/etc/postgresql/tls/server.pem
+      - -c
+      - ssl_key_file=/etc/postgresql/tls/server.key
+      - -c
+      - ssl_min_protocol_version=TLSv1.2
+      - -c
+      - ssl_ciphers=ECDHE+AESGCM:ECDHE+CHACHA20
+      - -c
+      - hba_file=/etc/postgresql/tls/pg_hba.conf
     volumes:
       # PostgreSQL 18 images keep their data below /var/lib/postgresql.
       - db_data:/var/lib/postgresql
+      - db-tls:/etc/postgresql/tls:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   app:
-    image: espalier:latest
+    image: ${ESPALIER_IMAGE:-espalier:latest}
     depends_on:
       db:
         condition: service_healthy
     ports:
-      - "4000:4000"
-    env_file: .env
+      - "127.0.0.1:${APP_PORT:-4000}:4000"
+    env_file: ${ENV_FILE:-.env}
+    environment:
+      # The CA of db-certs is the only trust anchor of the database
+      # connection (config/runtime.exs).
+      DATABASE_CA_CERT_FILE: /etc/espalier/db-ca/ca.pem
+      EXPORT_DIR: /data/exports
+    volumes:
+      - db-ca:/etc/espalier/db-ca:ro
+      - exports:/data/exports
+    restart: unless-stopped
 
 volumes:
   db_data:
+  db-tls:
+  db-ca:
+  exports:

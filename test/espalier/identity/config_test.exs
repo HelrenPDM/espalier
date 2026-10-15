@@ -141,6 +141,11 @@ defmodule Espalier.Identity.ConfigTest do
       assert provider.worker == Espalier.Identity.Oidc.Provider.Entra
     end
 
+    test "the redirect URI uses the normalized PUBLIC_URL" do
+      provider = entra() |> Map.put("PUBLIC_URL", "https://LEARN.Example.org:443/") |> parse!()
+      assert provider.redirect_uri == "https://learn.example.org/auth/oidc/entra/callback"
+    end
+
     test "every required variable is named per type" do
       for {build, names} <- [
             {&entra/1, ["LABEL", "CLIENT_ID", "TENANT_ID"]},

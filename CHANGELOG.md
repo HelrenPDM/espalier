@@ -349,6 +349,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `docs/guides/scorm-export.md` with the package contents, the data model of
   both versions, the objective states, the suspend data and the procedure of
   the LMS test (task 0016).
+- A production image that carries `LICENSE` and `NOTICE` at `/app`, the demo
+  pack for `Espalier.Release.seed_demo/0`, a health check (`bin/health`
+  with `curl`) on `/health` at the port of `PORT`, `EXPOSE 4000` and the
+  directory `/data/exports` (task 0017).
+- TLS between the application and PostgreSQL: the one-shot service
+  `db-certs` of `compose.yaml` generates a CA and a server certificate with
+  EC P-256 keys, the database admits TLS connections only, and the Repo
+  verifies the server certificate against `DATABASE_CA_CERT_FILE` and the
+  host name of `DATABASE_URL` (task 0017).
+- `Espalier.BootCheck`: a missing or invalid setting stops the boot with one
+  message that names every gap, and `Espalier.RuntimeConfig.errors/2`
+  returns every invalid value instead of the first. Each boot logs the
+  effective session and data protection settings and the providers with key,
+  type and MFA mode (task 0017).
+- The release functions `create_api_client/2` and `seed_demo/0` (task 0017).
+- `scripts/check-headers.sh`, `scripts/check-release.sh` and
+  `scripts/smoke.sh` with `make smoke` and `make smoke-proxy`, which need
+  Docker, curl and a POSIX shell only; `make release-push`; the demo profile
+  of decision D5 in `.env.demo.example` with `make demo-env`, `make demo-up`
+  and `make demo-down` (task 0017).
+- The reverse proxy example `docs/guides/examples/Caddyfile` with
+  `compose.caddy.yaml`, and log forwarding over TLS to a syslog receiver in
+  `compose.logging.yaml` (task 0017).
+- The guides `self-hosting.md`, `demo-instance.md`, `content-packs.md`,
+  `security.md` and `operations.md`, a troubleshooting section in
+  `identity-providers.md`, and the keys and certificates of the deployment in
+  `docs/security/key-management.md` and `docs/security/crypto-inventory.md`
+  (task 0017).
+- `npm --prefix frontend audit --omit=dev` as the last command of
+  `make check`, and tests that check the example files of the content pack
+  guide and the deployment files against the guides (task 0017).
 
 ### Changed
 
@@ -468,5 +499,65 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   (decisions D13 to D17, task 0004a).
 - A production boot stops when `SECRET_KEY_BASE` is shorter than 64 bytes,
   because the encrypted session cookies need it (task 0004).
+- The production endpoint leaves HSTS to the reverse proxy
+  (`force_ssl: [hsts: false]`), because Plug.SSL added a second
+  `Strict-Transport-Security` header with another `max-age` to proxied
+  answers for a host other than `localhost` (task 0017).
+- `EspalierWeb.Plugs.TrustedProxy` turns an IPv4-mapped IPv6 peer address,
+  which Bandit reports for an IPv4 client of its IPv6 listener, into its IPv4
+  form, so that an IPv4 entry of `TRUSTED_PROXIES` matches the reverse proxy.
+  An IPv4-mapped entry of `TRUSTED_PROXIES`, such as `::ffff:172.30.0.10`,
+  counts as its IPv4 form, and an IPv6 range such as `::/0` matches IPv6
+  peers only (task 0017).
+- `EspalierWeb.Plugs.SecurityHeaders` appends `charset=utf-8` to every
+  `text/*`, `*/*+xml` and `*/xml` content type without one, such as the
+  script, the style and the SVG icon of the SPA (task 0017).
+- `compose.yaml` publishes the application port on `127.0.0.1` only, restarts
+  the services unless stopped, and reads `ENV_FILE`, `ESPALIER_IMAGE` and
+  `APP_PORT` (task 0017).
+- The frontend stage of the Dockerfile copies `test/fixtures/evaluator_cases.json`,
+  which `tsc -b` needs for a test since task 0015; without it,
+  `make docker-build` failed. `.dockerignore` keeps `.git`, nested
+  repository metadata, `dev/` and agent worktrees out of the build context
+  (task 0017).
+- The `__Host-Http-` cookie prefix was revisited on 2026-10-15: Safari 27.0
+  and iOS Safari 27.0 do not support it, so the cookie names stay (task 0017).
+- The application takes `PUBLIC_URL` with a lower-case host and without the
+  default port, the form of the origin that browsers send, so that passkeys
+  and the Fetch Metadata check work with a value such as
+  `https://Learn.Example.org:443` (task 0017).
+- A production boot also stops for a `PUBLIC_URL` with user info, a
+  `DATABASE_URL` without a host or with a path other than one database name,
+  with the query parameter `ssl`, which Ecto merges over the TLS options of
+  the Repo, or with a `timeout`, `pool_size` or `idle_interval` that is no
+  integer (for these, Ecto prints the URL with its password), an
+  `SMTP_PORT` outside 1 to 65535 and a `POOL_SIZE` that is no positive
+  integer, and a boot in every environment for a `PORT` outside 1 to
+  65535. `config/runtime.exs` reads the connection and secret variables
+  trimmed and without one pair of surrounding double quotes, as the boot
+  check does, and an empty `SMTP_USERNAME` or `SMTP_PASSWORD` counts as unset
+  (task 0017).
+- The OIDC redirect URI uses the same normalized `PUBLIC_URL` as the
+  post-logout URI and the mail links (`Espalier.RuntimeConfig.normalize_url/1`,
+  task 0017).
+- The release in the image has no group or other write bits, `LICENSE` and
+  `NOTICE` have the mode 0644, and `/data/exports` admits the group root;
+  `make argon2-bench` runs with an env file written for `compose.yaml`
+  (task 0017).
+- Production mail goes to `SMTP_HOST` itself (`no_mx_lookups: true`);
+  gen_smtp had connected to the MX hosts of that name when it had any
+  (task 0017).
+- The release in the image belongs to `root`, and the image holds no
+  distribution cookie: `rel/env.sh.eex` gives every command a random cookie
+  while the Erlang distribution is off and stops without `RELEASE_COOKIE`
+  when it is on. `.dockerignore` keeps the env files of every directory out
+  of the build context, `frontend/` included (task 0017).
+- The PostgreSQL service of `compose.yaml` offers for TLS 1.2 only the suites
+  with ECDHE and AES-GCM or ChaCha20-Poly1305 (`ssl_ciphers`) (task 0017).
+- `make demo-down` runs `docker compose -p espalier-demo down -v`, which
+  needs no env file and also removes the proxy example of the demo.
+  `make demo-up` waits on the port that Docker Compose publishes, and
+  `make demo-up` and `make smoke` ignore a `POSTGRES_PASSWORD` of the shell
+  (task 0017).
 
 [Unreleased]: https://github.com/HelrenPDM/espalier/commits/main

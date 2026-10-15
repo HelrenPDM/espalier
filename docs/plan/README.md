@@ -361,7 +361,10 @@ guard, re-authentication before sensitive changes) and changes these defaults:
 | Headers | Own plug for every response: CSP `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'`, Trusted Types first in report-only mode, `Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Resource-Policy: same-origin`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Content-Type-Options: nosniff`, `Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), publickey-credentials-create=(self), publickey-credentials-get=(self)`, `Cache-Control: no-store` on `/api/session`, `/api/auth/*` and `/api/me/*` (task 0004), on `/api/admin/*` (task 0015) and on `/api/facilitator/*`, `/api/registrar/*`, `/api/integration/*`, `/api/policies` and `/api/formats/:id/attendance` (task 0013), `Vary: Sec-Fetch-Site, Sec-Fetch-Mode, Sec-Fetch-Dest`. HSTS comes from the reverse proxy. |
 
 The `__Host-Http-` prefix from RFC 10017 is not used yet, because Safari does
-not support it. The plan revisits it in task 0017.
+not support it. Task 0017 revisited it on 2026-10-15: caniuse and the MDN
+compatibility data list no support in Safari or iOS Safari up to 27.2, and
+Safari 27.0 is the current release, so the names stay
+(`docs/guides/security.md`).
 
 ### 6.6 Passkeys, TOTP and recovery codes
 
@@ -1136,9 +1139,9 @@ target with its `##` comment, and `nix-shell --run` around every toolchain call.
 | `make docker-build` | `docker build -t $(IMAGE):$(TAG) .` |
 | `make docker-up` / `docker-down` / `docker-logs` | `docker compose` on `compose.yaml` |
 | `make docker-migrate` | `docker compose exec app bin/migrate` |
-| `make smoke` | starts the production image with demo sign-in and runs a smoke test |
-| `make demo-env` / `make demo-up` | write `.env.demo` from `.env.demo.example` with generated secrets / start a demo instance with the demo content |
-| `make release-push` | tag and push to `$(REGISTRY)` |
+| `make smoke` / `make smoke-proxy` | start the production image with demo sign-in and run `scripts/smoke.sh`, without and with the Caddy example; Docker, curl and a POSIX shell only |
+| `make demo-env` / `make demo-up` / `make demo-down` | write `.env.demo` from `.env.demo.example` with generated secrets / start a demo instance with the demo content / remove it with its volumes |
+| `make release-push` | tag `$(IMAGE):$(TAG)` as `$(REGISTRY)/$(IMAGE):<date>-<time>.<version>-<env>` and `latest`, and push both |
 
 ### Container
 
@@ -1147,10 +1150,15 @@ target with its `##` comment, and `nix-shell --run` around every toolchain call.
 stage `FROM node:24-trixie-slim AS frontend` that runs `npm ci` and both Vite
 builds, and the builder stage copies `priv/static/spa` and `priv/scorm_player`
 from it before `mix release`. The runner image stays as generated (Debian slim,
-user `nobody`).
+user `nobody`) and adds `curl` for its health check on `/health`, `LICENSE`
+and `NOTICE` at `/app`, and `/data/exports`; the builder copies
+`content/demo` as the demo pack of `Espalier.Release.seed_demo/0` (task 0017).
 
-`compose.yaml` runs `postgres:18` and the app image with a health check, reading
-`.env`. `compose.dev.yaml` runs `lldap/lldap:v0.6.3` and
+`compose.yaml` runs `postgres:18` with TLS only, the one-shot service
+`db-certs` that generates its certificates, and the app image with a health
+check, reading `.env` (or `ENV_FILE`) and publishing its port on `127.0.0.1`.
+`docs/guides/examples/` holds the Caddy reverse proxy and the log forwarding
+examples (task 0017). `compose.dev.yaml` runs `lldap/lldap:v0.6.3` and
 `axllent/mailpit:v1.31.4` with fixed local ports, and `postgres:18` on
 `127.0.0.1` at `DATABASE_PORT`. `.env.example` sets 5433, so that a PostgreSQL
 installed on the host keeps port 5432. The mock OIDC provider runs inside the
