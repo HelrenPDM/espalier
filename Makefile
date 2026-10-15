@@ -65,6 +65,14 @@ refresh-db: ## drop, create and migrate the database, import the demo pack and s
 	$(NIX) '$(DOTENV) mix espalier.import content/demo'
 	$(NIX) '$(DOTENV) mix espalier.seed_demo'
 
+.PHONY: migrate-db
+migrate-db: ## migrate the database
+	$(NIX) '$(DOTENV) mix ecto.migrate'
+
+.PHONY: rollback-db
+rollback-db: ## rollback the last database migration
+	$(NIX) '$(DOTENV) mix ecto.rollback'
+
 .PHONY: lint
 lint: ## format and fix the code of both projects
 	$(NIX) 'mix format'
