@@ -33,7 +33,7 @@ lists the milestones and the order of the tasks.
 | 0015 | [Admin area](0015-admin-area.md) | M5 Administration | 0011, 0012, 0013, 0014 | [#15](https://github.com/HelrenPDM/espalier/issues/15) (closed) | Done |
 | 0016 | [SCORM 1.2 and 2004 export, and pack export](0016-scorm-export.md) | M6 Interop and operations | 0012, 0015 | [#16](https://github.com/HelrenPDM/espalier/issues/16) (closed) | Done |
 | 0016a | [Pack workbench](0016a-pack-workbench.md) | M5 Administration | 0015, 0016 | [#37](https://github.com/HelrenPDM/espalier/issues/37) | Done |
-| 0017 | [Production image, guides and hardening](0017-production-hardening.md) | M6 Interop and operations | 0002, 0015, 0016, 0016a | [#17](https://github.com/HelrenPDM/espalier/issues/17) | To do |
+| 0017 | [Production image, guides and hardening](0017-production-hardening.md) | M6 Interop and operations | 0002, 0015, 0016, 0016a | [#17](https://github.com/HelrenPDM/espalier/issues/17) (closed) | Done |
 
 Status values: `To do`, `In progress`, `Done`. A task is done when it meets
 section 13 of the plan (quality gates).
