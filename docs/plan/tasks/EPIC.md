@@ -8,8 +8,9 @@
 The platform described in [`../README.md`](../README.md): a Phoenix JSON API
 and a Vite/React single-page application with local and federated accounts,
 topics built on constructive alignment, credentials, anonymous insights, an
-admin area with a pack workbench and SCORM export. Section 14 of the plan
-lists the milestones and the order of the tasks.
+admin area with a pack workbench, a media library for images, SVG and video,
+and SCORM export. Section 14 of the plan lists the milestones and the order of
+the tasks.
 
 ## Tasks (milestone = GitHub milestone, task = issue)
 
@@ -34,6 +35,7 @@ lists the milestones and the order of the tasks.
 | 0016 | [SCORM 1.2 and 2004 export, and pack export](0016-scorm-export.md) | M6 Interop and operations | 0012, 0015 | [#16](https://github.com/HelrenPDM/espalier/issues/16) (closed) | Done |
 | 0016a | [Pack workbench](0016a-pack-workbench.md) | M5 Administration | 0015, 0016 | [#37](https://github.com/HelrenPDM/espalier/issues/37) | Done |
 | 0017 | [Production image, guides and hardening](0017-production-hardening.md) | M6 Interop and operations | 0002, 0015, 0016, 0016a | [#17](https://github.com/HelrenPDM/espalier/issues/17) (closed) | Done |
+| 0018 | [Media in content packs: images, SVG and video](0018-media.md) | M2 Content | 0008, 0012, 0015, 0016, 0016a, 0017 | pending | To do |
 
 Status values: `To do`, `In progress`, `Done`. A task is done when it meets
 section 13 of the plan (quality gates).

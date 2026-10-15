@@ -33,7 +33,7 @@ says, run its acceptance checks, stop.
    open, and no lesson is skipped on either path.
 4. Records are separated by purpose, and the operating organization configures
    how much is recorded per person.
-5. Content lives in versioned content packs (YAML and Markdown), so that an
+5. Content lives in versioned content packs (YAML, Markdown and media files), so that an
    organization keeps its course content in Git next to its review process.
 6. The UI uses the Tailwind CSS default palette and utilities. An adopter
    restyles it in one CSS file.
@@ -55,7 +55,10 @@ extension point in the architecture (provider behaviour, runtime adapter,
 webhooks), and none of them is built now. The pack workbench of task 0016a
 lets authors edit the YAML and Markdown files of a content pack in the
 browser, and content packs stay the only import and export format (decision
-D18).
+D18). Task 0018 adds images, vector graphics and videos to lessons through a
+media library and a `media/` folder in content packs; audio-only blocks,
+streaming formats (HLS, DASH), image and video editing and object storage stay
+out of scope (decision D19).
 
 ## 2 Principles
 
@@ -127,6 +130,8 @@ Hex registries on 2026-10-07. Lockfiles (`mix.lock`,
 | Tests | ExUnit, Vitest with Testing Library, Playwright | Playwright 1.59.1, matching `playwright-driver.browsers` in nixpkgs; passkey tests use the Chromium DevTools virtual authenticator |
 | Docs | PlantUML, Graphviz | PlantUML 1.2026.3 |
 | Container | Dockerfile from `phx.gen.release --docker` (hexpm/elixir on Debian trixie slim) plus a `node:24` stage for the frontend | |
+| Media processing | ffmpeg and ffprobe as separate processes (`ffmpeg-headless` in nix, the Debian `ffmpeg` package in the runner image); SVG through `:xmerl_sax_parser` of OTP (task 0018) | ffmpeg 8.1.2 in nix, the Debian trixie package in the image |
+| Malware scan (optional) | ClamAV `clamd` over a Unix socket (`clamav` in nix for the integration test, the `clamav/clamav` image in the compose example, task 0018) | ClamAV 1.4.6 in nix |
 
 `phx.new` 1.8.15 resolves `ecto_sql ~> 3.13` to Ecto 3.14.2 and ecto_sql
 3.14.0. The Cloak tests of task 0003 run on these versions and on the pinned
@@ -167,7 +172,7 @@ plan keeps the template version until the toolchain around it (Oxlint,
 ├── Dockerfile             from phx.gen.release --docker, extended with a frontend stage
 ├── mix.exs, config/, lib/, priv/, rel/, test/      Phoenix project from phx.new
 ├── frontend/              Vite project from create-vite (react-ts)
-├── content/demo/          neutral demo content pack in English
+├── content/demo/          neutral demo content pack in English, with its media files in `media/`
 ├── dev/                   lldap bootstrap files and secrets script, test CA generator for LDAPS (dev/ldap-ca/)
 ├── test/support/dev_oidc/ mock OIDC provider for development and tests (not compiled in prod)
 ├── test/support/dev_e2e/  seeding routes for end-to-end tests, mounted only with dev routes
@@ -175,7 +180,7 @@ plan keeps the template version until the toolchain around it (Oxlint,
     ├── architecture/      PlantUML sources
     ├── plan/              this plan and the task specs
     ├── security/          asvs-l2.md, crypto-inventory.md, key-management.md, authentication.md, logging.md, wax-spike.md
-    └── guides/            self-hosting.md, identity-providers.md, content-packs.md, pack-workbench.md, scorm-export.md, security.md, operations.md
+    └── guides/            self-hosting.md, identity-providers.md, content-packs.md, pack-workbench.md, media.md, scorm-export.md, security.md, operations.md
 ```
 
 The Phoenix project sits at the repository root, as in `sl_vanilla`. The
@@ -195,13 +200,14 @@ the business logic. Oban runs scheduled and long-running work.
 | `Espalier.Accounts` | Users, sessions, second factors, recovery, role grants, machine clients, bootstrap admin, notifications | `User`, `UserToken`, `ExternalIdentity`, `WebauthnCredential`, `TotpFactor`, `RecoveryCode`, `AuthChallenge`, `FailureCounter`, `RoleGrant`, `ApiClient` |
 | `Espalier.Identity` | OIDC providers (`oidcc`), LDAP wrapper (`:eldap`), claim normalization and role mapping | none |
 | `Espalier.Vault` | Cloak vault with the strict AES-GCM cipher and the HMAC secret | none |
-| `Espalier.Catalog` | Programs and content; pack import, validation, publish | `PackImport`, `Program`, `Station`, `Segment`, `Qualification`, `Requirement`, `Module`, `LearningObjective`, `Lesson`, `Block`, `Rule`, `Item`, `Option`, `Assessment`, `CompanionFormat`, `GlossaryTerm`, `Source`, `Citation` |
+| `Espalier.Catalog` | Programs and content; pack import, validation, publish | `PackImport`, `Program`, `Station`, `Segment`, `Qualification`, `Requirement`, `Module`, `LearningObjective`, `Lesson`, `Block`, `Rule`, `Item`, `Option`, `Assessment`, `CompanionFormat`, `GlossaryTerm`, `Source`, `Citation`, `ProgramMedia` |
 | `Espalier.Learning` | Enrollment and path, item evaluation, exam attempts, module completion | `Enrollment`, `ItemResponse`, `AssessmentAttempt`, `ModuleCompletion` |
 | `Espalier.Policies` | Policy versions, acknowledgements, approved tool list | `Policy`, `PolicyVersion`, `Acknowledgement`, `ApprovedTool` |
 | `Espalier.Credentials` | Requirement evaluation, issue, validity, refresher, attendance, webhooks | `Credential`, `AttendanceCertificate`, `Webhook` |
 | `Espalier.Insights` | Anonymous responses, item statistics, reports with group threshold, retention | `SelfAssessmentResponse`, `InterestVote`, `FeedbackResponse`, `ItemStat`, `ParticipationMarker` |
 | `Espalier.Interop` | Content pack export, SCORM export | `Export` |
-| `Espalier.Workbench` | Drafts of content packs that authors edit in the browser; check and import through the pack importer (task 0016a) | `PackDraft`, `PackDraftFile` |
+| `Espalier.Workbench` | Drafts of content packs that authors edit in the browser; check and import through the pack importer (task 0016a) | `PackDraft`, `PackDraftFile`, `PackDraftMedia` |
+| `Espalier.Media` | Media library: upload, type detection, conversion with ffmpeg, SVG and WebVTT checks, optional malware scan, content-addressed store below `MEDIA_DIR` (task 0018) | `Asset` |
 | `Espalier.Audit` | Trail of administrative actions | `AuditEvent` |
 
 ### Request flow
@@ -358,7 +364,7 @@ guard, re-authentication before sensitive changes) and changes these defaults:
 | Termination | Logout deletes the row. Disabling a user ends all sessions. Users list and end their sessions after re-authentication; admins end the sessions of a user or of all users (ASVS 7.4, 7.5). |
 | CSRF | Three layers: (1) `Plug.CSRFProtection` token in the `x-csrf-token` header on every mutating request of the session pipelines (the integration route of task 0013 takes a bearer token and no session cookie); (2) a Fetch Metadata plug that rejects `Sec-Fetch-Site: cross-site` except for the allowlisted navigation endpoints (OIDC callback, `/auth/finish`, front-channel logout in an iframe), with an `Origin` check when the header is missing; (3) the `Strict` session cookie. Sobelow does not flag a JSON pipeline without CSRF protection, so a test covers every mutating route, with the integration route of task 0013 as its only exemption. |
 | Strict cookie and redirects | The OIDC callback arrives as a cross-site navigation and never carries the `Strict` cookie. The callback therefore validates the response, stores a single-use sign-in ticket (60 seconds, hashed, bound to a value in the transaction cookie) and redirects to the SPA route `/auth/finish#ticket=<ticket>`. The SPA posts the ticket same-origin to `POST /api/auth/finish`, which sets the `Strict` session cookie and deletes the transaction cookie. Phoenix serves `/auth/finish` through `SpaController`, and the Vite dev proxy excludes it (proxy key `^/auth/(?!finish)`). |
-| Headers | Own plug for every response: CSP `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'`, Trusted Types first in report-only mode, `Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Resource-Policy: same-origin`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Content-Type-Options: nosniff`, `Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), publickey-credentials-create=(self), publickey-credentials-get=(self)`, `Cache-Control: no-store` on `/api/session`, `/api/auth/*` and `/api/me/*` (task 0004), on `/api/admin/*` (task 0015) and on `/api/facilitator/*`, `/api/registrar/*`, `/api/integration/*`, `/api/policies` and `/api/formats/:id/attendance` (task 0013), `Vary: Sec-Fetch-Site, Sec-Fetch-Mode, Sec-Fetch-Dest`. HSTS comes from the reverse proxy. |
+| Headers | Own plug for every response: CSP `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'` (task 0018 appends `media-src` and `frame-src` with the hosts of `MEDIA_EXTERNAL_HOSTS` and `MEDIA_EMBED_HOSTS` when they are set, and the media route `/media/:file` sends `default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'; sandbox` instead, and `DELETE /api/session` adds `Clear-Site-Data: "cache"`), Trusted Types first in report-only mode, `Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Resource-Policy: same-origin`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Content-Type-Options: nosniff`, `Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), publickey-credentials-create=(self), publickey-credentials-get=(self)`, `Cache-Control: no-store` on `/api/session`, `/api/auth/*` and `/api/me/*` (task 0004), on `/api/admin/*` (task 0015) and on `/api/facilitator/*`, `/api/registrar/*`, `/api/integration/*`, `/api/policies` and `/api/formats/:id/attendance` (task 0013), `Vary: Sec-Fetch-Site, Sec-Fetch-Mode, Sec-Fetch-Dest`. HSTS comes from the reverse proxy. |
 
 The `__Host-Http-` prefix from RFC 10017 is not used yet, because Safari does
 not support it. Task 0017 revisited it on 2026-10-15: caniuse and the MDN
@@ -690,14 +696,14 @@ that each task can rely on the others.
 | `EspalierWeb.UserAuth.log_in_user/3` with `auth_methods:` and `strength:`, `put_reissued_session/2`, `require_authenticated_user/2`, `require_recent_auth/2` (403 `reauth_required`), the pending second-factor state with `put_pending_second_factor/3` and `fetch_pending_second_factor/1`, the `:enrollment` pipeline | 0004 | 0005, 0006, 0007 |
 | `EspalierWeb.TransactionCookie` (`main_session_options/0`, `session_options/0`, `fetch/1`, `get/2`, `put/3`, `delete/2`, `clear/1`, `read_main_session/1`); the router of 0004 reads both option sets | 0004 | 0006 (`get/2`, `clear/1`, `read_main_session/1`), 0017 (checks `session_options/0` in the container) |
 | `GET /auth/providers` (`ProviderController`, pipeline `:auth_bare`), `Espalier.Identity.Config.parse!/2` with `public_entry/1`; application env `:identity_providers` (full structs) and `:auth_providers` (public entries with `key`, `type`, `kind`, `label`, `start_url`) | 0004 | 0006 adds the types `entra`, `google`, `oidc`; 0007 adds `ldap` |
-| `Espalier.RateLimit`, `EspalierWeb.Plugs.RateLimit` with `check_account/3`, `Espalier.Accounts.FailureCounters`, `Espalier.SecurityLog.event/3`, `Espalier.Accounts.UserNotifier` through Oban, `Espalier.RuntimeConfig` | 0004 | all account tasks; `Espalier.RuntimeConfig` also 0009 and 0013 to 0017, and the rate limiter also 0009 and 0014 |
+| `Espalier.RateLimit`, `EspalierWeb.Plugs.RateLimit` with `check_account/3`, `Espalier.Accounts.FailureCounters`, `Espalier.SecurityLog.event/3`, `Espalier.Accounts.UserNotifier` through Oban, `Espalier.RuntimeConfig` | 0004 | all account tasks; `Espalier.RuntimeConfig` also 0009 and 0013 to 0018, and the rate limiter also 0009 and 0014 |
 | Second factors, `POST /api/auth/second-factor`, `POST /api/me/reauth`, `Accounts.enrolled?/1`, `Accounts.Factors.complete_enrollment/3`, recovery | 0005 | 0006, 0007, 0011, 0015 |
 | `Accounts.sign_in_external/2`, `link_external_identity/3`, `deliver_identity_linked/2`, `POST /api/auth/finish`, `POST /api/auth/oidc/:provider/intents` | 0006 | 0007, 0011 |
 | Answers of `POST /api/auth/finish` and of the LDAP sign-in: `{"next": "second_factor"}`, `{"next": "enroll_second_factor"}`, or the session payload of `GET /api/session` for a full session (with `"linked": true` after a link) | 0006, 0007 | 0011 |
 | Mail link formats: `/invite#token=`, `/recover#token=`, `/account/email/confirm#token=`; post-logout page `/signed-out` | 0004, 0005, 0006 | 0011 |
 | OpenAPI operations: routes of 0004 and the learner routes of 0009 | 0009 | 0010, 0011 |
 | OpenAPI operations: routes of 0005, 0006 and 0007 | 0011 | 0015 |
-| OpenAPI operations: routes of 0013, 0014, 0015, 0016 and 0016a | each of these tasks for its own routes | the SPA |
+| OpenAPI operations: routes of 0013, 0014, 0015, 0016, 0016a and 0018 | each of these tasks for its own routes | the SPA |
 
 ## 7 Domain rules
 
@@ -789,6 +795,13 @@ each get at least one test.
     competence report (task 0014) groups item statistics by competence area and
     depth through the objectives, and the SCORM export writes the objectives of
     a module to `cmi.objectives`.
+16. **Media.** A lesson block of kind `figure` shows an image or an SVG with
+    alternative text (or `decorative=true`) and an optional caption. A block of
+    kind `video` plays a video of the pack, an external file of an allowlisted
+    host or the player of an allowlisted streaming service, with captions or a
+    transcript. An embedded player loads after the learner agrees, unless
+    `MEDIA_EMBED_CONSENT=auto`. The player records no playback data. Publishing
+    waits until every media file of the import is converted (task 0018).
 
 ## 8 API outline
 
@@ -814,6 +827,8 @@ at `/api/openapi`. The frontend generates its types from that document.
 | Administration | `POST /api/admin/packs`, `GET /api/admin/packs/:id`, `GET /api/admin/packs/:id/diff`, `POST /api/admin/packs/:id/publish`, CRUD on `/api/admin/policies`, `/api/admin/policy-versions`, `/api/admin/approved-tools`, `/api/admin/role-grants`, `/api/admin/api-clients`, `/api/admin/webhooks`, `/api/admin/users` (invite, resend invitation, disable, end sessions, reset factors, reset failure counters), `POST /api/admin/user-lookups` (address in the body), `DELETE /api/admin/sessions` (all users), `POST /api/admin/credentials/:id/revoke`, `GET /api/admin/audit` | author / admin (changes need a recent second factor) |
 | Pack workbench | `GET /api/admin/pack-drafts`, `POST /api/admin/pack-drafts` (from an empty skeleton, a published program or an import), `POST /api/admin/pack-draft-uploads` (from a zip archive), `GET /api/admin/pack-drafts/:id`, `DELETE /api/admin/pack-drafts/:id`, `POST /api/admin/pack-drafts/:id/files`, `GET`, `PUT` (content), `PATCH` (rename) and `DELETE /api/admin/pack-drafts/:id/files/:file_id`, `POST /api/admin/pack-drafts/:id/check`, `POST /api/admin/pack-drafts/:id/imports`, `GET /api/admin/pack-drafts/:id/download` | author (changes need a recent second factor; the check changes no state) |
 | Exports | `POST /api/admin/exports`, `GET /api/admin/exports/:id`, `GET /api/admin/exports/:id/download` | author |
+| Media library | `GET /api/admin/media`, `POST /api/admin/media` (multipart), `GET`, `PATCH` (title) and `DELETE /api/admin/media/:id`, `POST /api/admin/pack-drafts/:id/media`, `PATCH` and `DELETE /api/admin/pack-drafts/:id/media/:media_id` | author (changes need a recent second factor) |
+| Media files | `GET /media/:file` with byte ranges: for a learner the files of published programs, for an author every converted file | signed in |
 | Integration | `POST /api/integration/credential-lookups` (machine token, scope `credentials:read`, address in the body) | machine client |
 | Health | `GET /health` | public |
 
@@ -829,7 +844,7 @@ frontend/src/
 ├── auth/         session hook, sign-in (passkey with conditional UI, password and second factor, providers, LDAP, demo), invitation, recovery
 ├── account/      security settings: passkeys, TOTP, recovery codes, password, e-mail, sessions, step-up dialog
 ├── learner/      program overview, stations, module view, exam, credential, handbook, formats, feedback
-├── admin/        packs, preview, pack workbench, exports, users, policies, approved tools, roles, API clients, webhooks, audit, attendance, reports, registrar list
+├── admin/        packs, preview, pack workbench, media library, exports, users, policies, approved tools, roles, API clients, webhooks, audit, attendance, reports, registrar list
 ├── player/       content renderer: blocks, items, glossary terms, provenance badges, path logic
 ├── runtimes/     platform.ts, scorm12.ts, scorm2004.ts, standalone.ts
 ├── i18n/         en.json, de.json
@@ -841,7 +856,7 @@ frontend/src/
 The admin area under `/admin` serves every role beyond `learner`. Its guard
 admits `author`, `admin`, `facilitator`, `analyst` and `registrar` (task 0010),
 and each section appears only for its role (task 0015). Authors see packs,
-the pack workbench and exports. The pack workbench (task 0016a) holds drafts
+the pack workbench, the media library (task 0018) and exports. The pack workbench (task 0016a) holds drafts
 of content packs: a file tree, an editor for the YAML and Markdown files, a
 check with the report and the alignment matrix of the pack page, and an
 import that hands the draft over to the pack page. Admins see users,
@@ -889,7 +904,9 @@ The legal assessment under the GDPR follows in a separate workstream after the
 first version. It covers the records of processing, the data protection impact
 assessment, the retention periods, the note on the breached-password range
 query, the org unit in anonymous rows, the vote that a format-vote
-participation marker states, and the data protection guide for operators.
+participation marker states, media that show identifiable persons, the
+players of external streaming services, and the data protection guide for
+operators.
 Until then the mechanisms below exist with data-sparing defaults, and the
 retention variables are unset, which disables automatic deletion of learning
 records.
@@ -905,6 +922,7 @@ records.
 | `RETENTION_ITEM_RESPONSES_DAYS` | unset | Deletes `ItemResponse` rows. |
 | `RETENTION_ANONYMOUS_DAYS` | unset | Deletes anonymous insight rows. |
 | `RETENTION_AUDIT_DAYS` | unset | Deletes audit events. |
+| `MEDIA_EMBED_CONSENT` | `click` | `click` loads the player of an external streaming service only after the learner agrees in a notice that names its host; `auto` loads it with the page (task 0018). |
 
 | Data | Learner (own) | Facilitator | Registrar | Analyst | Admin |
 |---|---|---|---|---|---|
@@ -969,6 +987,7 @@ content/demo/
 ├── qualifications.yaml
 ├── formats.yaml
 ├── feedback.yaml
+├── media/                 images, SVG, videos and WebVTT captions of the figure and video blocks (task 0018)
 └── modules/
     ├── 01-basics/
     │   ├── module.yaml      number, title, summary, phases, domains, single_path, refresher_unit, areas_elsewhere
@@ -1064,6 +1083,12 @@ receive `archived_at`. `mix espalier.import PATH` and the admin
 upload use the same code path. `mix espalier.export SLUG PATH` writes a pack
 back to disk.
 
+The importer moves the media files that blocks reference into the media
+library, which converts raster images to WebP and videos to WebM (VP9 and
+Opus), sanitizes SVG files and checks WebVTT captions. Publishing waits until
+every media file of the import is ready, and `mix espalier.export` writes
+the files back in these delivery formats (task 0018).
+
 Content packs of an adopting organization live in that organization's own
 repository. This repository ships the neutral demo pack only.
 
@@ -1081,7 +1106,8 @@ that clearly covers redistribution in an open-source repository;
 SHA-256 (`priv/scorm/xsd/SOURCE.md`). One module becomes
 one SCO, and its learning objectives become `cmi.objectives` entries with the
 status of their evidence in the package. The resume state uses a compact encoding that fits the 4,096 characters
-of `cmi.suspend_data` in SCORM 1.2.
+of `cmi.suspend_data` in SCORM 1.2. The package carries the media files of
+the module below `media/` (task 0018).
 
 The person-linked report of the receiving LMS (learner id, status, score, time)
 is a property of SCORM and happens outside this platform. The export contains no
@@ -1130,7 +1156,7 @@ target with its `##` comment, and `nix-shell --run` around every toolchain call.
 | `make lint` | `mix format`, `npm --prefix frontend run lint -- --fix`, Prettier write |
 | `make check` | format check, `mix compile --warnings-as-errors`, `mix credo --strict`, `mix sobelow --config --exit`, `scripts/check-hex-version.sh`, `mix hex.audit`, `mix deps.audit`, `mix deps.unlock --check-unused`, `mix test`, the `api-types` diff check, `tsc -b`, Oxlint, Prettier check, `vitest run`, `npm run build:scorm`, `npm audit --omit=dev` |
 | `make test` | `mix test` with `DATABASE_PORT` from `.env`, and `npm --prefix frontend run test -- --run` |
-| `make test-integration` | `mix test --only ldap --only mail` with `DATABASE_PORT` from `.env`, against the dev services |
+| `make test-integration` | `mix test --only ldap --only mail --only clamav` with `DATABASE_PORT` from `.env`, against the dev services |
 | `make e2e` | `scorm-xsd` and `npm --prefix frontend run build:scorm`, then Playwright against `make run` |
 | `make scorm-xsd` | `mix espalier.scorm_xsd`: fetches the SCORM schema files into `priv/scorm/xsd/` and checks them by SHA-256 |
 | `make api-types` | `mix openapi.spec.json --spec EspalierWeb.ApiSpec` into `frontend/openapi.json`, then `openapi-typescript` into `frontend/src/api/schema.d.ts` |
@@ -1151,14 +1177,15 @@ stage `FROM node:24-trixie-slim AS frontend` that runs `npm ci` and both Vite
 builds, and the builder stage copies `priv/static/spa` and `priv/scorm_player`
 from it before `mix release`. The runner image stays as generated (Debian slim,
 user `nobody`) and adds `curl` for its health check on `/health`, `LICENSE`
-and `NOTICE` at `/app`, and `/data/exports`; the builder copies
+and `NOTICE` at `/app`, `/data/exports`, and with task 0018 `ffmpeg` and
+`/data/media`; the builder copies
 `content/demo` as the demo pack of `Espalier.Release.seed_demo/0` (task 0017).
 
 `compose.yaml` runs `postgres:18` with TLS only, the one-shot service
 `db-certs` that generates its certificates, and the app image with a health
 check, reading `.env` (or `ENV_FILE`) and publishing its port on `127.0.0.1`.
 `docs/guides/examples/` holds the Caddy reverse proxy and the log forwarding
-examples (task 0017). `compose.dev.yaml` runs `lldap/lldap:v0.6.3` and
+examples (task 0017) and the ClamAV example (task 0018). `compose.dev.yaml` runs `lldap/lldap:v0.6.3` and
 `axllent/mailpit:v1.31.4` with fixed local ports, and `postgres:18` on
 `127.0.0.1` at `DATABASE_PORT`. `.env.example` sets 5433, so that a PostgreSQL
 installed on the host keeps port 5432. The mock OIDC provider runs inside the
@@ -1204,13 +1231,17 @@ no copy of that list.
 | 0016 | [SCORM 1.2 and 2004 export, and pack export](tasks/0016-scorm-export.md) | M6 Interop and operations | 0012, 0015 |
 | 0016a | [Pack workbench](tasks/0016a-pack-workbench.md) | M5 Administration | 0015, 0016 |
 | 0017 | [Production image, guides and hardening](tasks/0017-production-hardening.md) | M6 Interop and operations | 0002, 0015, 0016, 0016a |
+| 0018 | [Media in content packs: images, SVG and video](tasks/0018-media.md) | M2 Content | 0008, 0012, 0015, 0016, 0016a, 0017 |
 
 0007 follows 0006, because it reuses the external-identity functions of 0006.
 0004a carries the implemented interfaces of 0004, the ASVS scan rows and the
 decisions D13 to D17 into the specs of the later tasks. 0008 and 0010 can
 start as soon as 0004a is done. 0016a follows 0016, because it renders
 drafts with the pack writer of 0016 under its shared advisory lock, and it
-comes before 0017, whose content pack guide links the guide of 0016a.
+comes before 0017, whose content pack guide links the guide of 0016a. 0018
+follows 0017, because it changes the image, the compose file and the header
+checks of 0017, and it extends the pack format of 0008, the player of 0012,
+the pack page of 0015, the exports of 0016 and the workbench of 0016a.
 
 Each task has a GitHub issue under its milestone, and
 [`tasks/EPIC.md`](tasks/EPIC.md) records the issue and status of every task.
@@ -1237,6 +1268,7 @@ Each task has a GitHub issue under its milestone, and
 | D16 | ASVS scan rows | Decided: every row of the matrix appears in the ownership table of task 0004 (step 42), and the section "Security requirements" of each task spec lists exactly the rows whose `Task` column names that task. `test/docs/asvs_matrix_test.exs` checks both rules in `make check`. |
 | D17 | Proxy hop | Decided: the hop from the reverse proxy to the application stays HTTP on the compose network of one host, which `self-hosting.md` requires (task 0017), and the matrix records it as a deviation from ASVS 12.3.1 and 12.3.3. A proxy on another host needs TLS on that hop. |
 | D18 | Course editor | Decided after task 0016: a pack workbench in the admin area (task 0016a) edits the YAML and Markdown files of a content pack with a file tree, an editor, the check of the pack validator with file and line, the alignment matrix and the import into the existing pack page. WYSIWYG authoring stays out of scope (section 1), and content packs stay the only import and export format, so Git workflows, `mix espalier.import`, `mix espalier.validate` and `mix espalier.export` keep working. The CSP of section 6.5 stays unchanged; the editor is CodeMirror 6 when the spike of 0016a shows that it runs under that CSP, and a textarea with line numbers otherwise. |
+| D19 | Media | Decided on 2026-10-15: one media library per installation, and a `media/` folder in content packs whose files the importer moves into it (task 0018). Raster images are converted to WebP and videos to WebM with VP9 and Opus by ffmpeg on the server, SVG files are rebuilt from an allowlist, and WebVTT captions are checked; only these delivery files are kept, and pack and SCORM exports write them. External videos come from hosts in `MEDIA_EXTERNAL_HOSTS`, embedded players from hosts in `MEDIA_EMBED_HOSTS`, and an embed loads after the learner agrees (`MEDIA_EMBED_CONSENT=click`). A ClamAV scan runs when `MEDIA_CLAMAV_SOCKET` names a clamd socket; without it, the matrix records ASVS 5.4.3 as a deviation. Audio-only blocks, HLS and DASH, image and video editing and object storage stay out of scope (section 1). |
 
 ## 16 Risks
 
@@ -1257,3 +1289,6 @@ Each task has a GitHub issue under its milestone, and
 | SCORM 1.2 limits resume state to 4,096 characters. | Compact state encoding with a size test in 0016. |
 | Playwright in npm and the browsers in nixpkgs drift apart. | `@playwright/test` is pinned to the version of `playwright-driver` in the pinned nixpkgs. |
 | The content pack schema changes after adopters have packs. | `pack.yaml` carries `schema: 1`. The importer migrates older schema versions or rejects them with a message. |
+| ffmpeg parses untrusted files, and its decoders receive security fixes several times a year. | Forced input formats, `-protocol_whitelist file`, `-max_pixels`, `-max_alloc` and a timeout per job; ffmpeg runs as a separate process of the user `nobody`; the optional ClamAV scan runs before any parser; the image is rebuilt within the remediation time frames of `security.md` (task 0018). |
+| Media fill the disk of an installation. | `MEDIA_STORAGE_MAX_GB`, the retention of unused imported files and the stale sweep (task 0018). |
+| Older Safari releases play no WebM with VP9 and Opus. | The media guide names the supported versions, and an external MP4 file on an allowlisted host stays possible (task 0018). |
