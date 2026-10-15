@@ -16,18 +16,19 @@
 
 .dockerignore
 
-# Ignore git, but keep git HEAD and refs to access current commit hash if needed:
-#
-# $ cat .git/HEAD | awk '{print ".git/"$2}' | xargs cat
-# d0b8727759e1e0e7aa3d41707d12376e373d5ecc
+# No repository metadata in the build context (ASVS 13.4.1). The template
+# of phx.gen.release keeps .git/HEAD and .git/refs; Espalier needs neither.
+# Agent worktrees below .claude/ hold checkouts of their own.
 .git
-!.git/HEAD
-!.git/refs
+**/.git
+**/.svn
+.claude/
 
 # Common development/test artifacts
 /cover/
 /doc/
 /test/
+!/test/fixtures/evaluator_cases.json
 /tmp/
 .elixir_ls
 
@@ -45,9 +46,16 @@ erl_crash.dump
 /priv/static/assets/
 /priv/static/cache_manifest.json
 
-# Local environment files and secrets
+# Local environment files and secrets (ASVS 13.3.1). A pattern without **/
+# matches at the root of the context alone; Vite reads env files from
+# frontend/ as well.
 .env
 .env.*
+**/.env
+**/.env.*
+
+# Development services: the LDAP test CA, the lldap secrets and fixtures
+/dev/
 
 # Project-local Mix and Hex homes from shell.nix
 .nix-mix/

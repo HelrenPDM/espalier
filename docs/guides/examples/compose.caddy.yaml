@@ -1,0 +1,52 @@
+# The reverse proxy example in front of compose.yaml
+# (docs/guides/self-hosting.md):
+#
+#   docker compose -f compose.yaml -f docs/guides/examples/compose.caddy.yaml up -d
+#
+# Caddy terminates TLS for SITE_ADDRESS and forwards to app:4000 over HTTP on
+# the network proxy of this host, which is the deviation of ASVS 12.3.1 and
+# 12.3.3 (decision D17): proxy and application run on one host. Caddy has a
+# fixed address on that network, and TRUSTED_PROXIES in the env file of app
+# names it, so that the application takes the client address from the
+# X-Forwarded-For header that Caddy writes.
+#
+# Variables (Docker Compose reads them from .env or the shell):
+#   SITE_ADDRESS   the dedicated host name of Espalier, the host of PUBLIC_URL
+#   HTTPS_PORT     published HTTPS port (default 443)
+#   PROXY_SUBNET   subnet of the network proxy (default 172.30.0.0/24)
+#   PROXY_ADDRESS  address of caddy in it (default 172.30.0.10), the value
+#                  of TRUSTED_PROXIES
+#   CADDYFILE      path of the Caddyfile, relative to the directory of
+#                  compose.yaml (default docs/guides/examples/Caddyfile)
+
+services:
+  caddy:
+    image: caddy:2.11
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?set SITE_ADDRESS to the host name of Espalier}
+    ports:
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ${CADDYFILE:-./docs/guides/examples/Caddyfile}:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    networks:
+      proxy:
+        ipv4_address: ${PROXY_ADDRESS:-172.30.0.10}
+    restart: unless-stopped
+
+  app:
+    networks:
+      - default
+      - proxy
+
+networks:
+  proxy:
+    ipam:
+      config:
+        - subnet: ${PROXY_SUBNET:-172.30.0.0/24}
+
+volumes:
+  caddy_data:

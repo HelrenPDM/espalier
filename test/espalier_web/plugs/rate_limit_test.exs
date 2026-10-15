@@ -81,6 +81,40 @@ defmodule EspalierWeb.Plugs.RateLimitTest do
                {0x2001, 0xDB8, 0, 0, 0, 0, 0, 1}
     end
 
+    test "an IPv4-mapped IPv6 peer matches an IPv4 range and becomes IPv4" do
+      # Bandit listens on :: in production, so IPv4 peers arrive mapped.
+      mapped = fn {a, b, c, d} -> {0, 0, 0, 0, 0, 0xFFFF, a * 256 + b, c * 256 + d} end
+
+      assert forwarded(mapped.({10, 1, 2, 3}), "203.0.113.9").remote_ip == {203, 0, 113, 9}
+
+      assert forwarded(mapped.({10, 1, 2, 3}), "::ffff:203.0.113.9").remote_ip ==
+               {203, 0, 113, 9}
+
+      assert forwarded(mapped.({192, 0, 2, 1}), "203.0.113.9").remote_ip == {192, 0, 2, 1}
+
+      conn = Phoenix.ConnTest.build_conn() |> Map.put(:remote_ip, mapped.({192, 0, 2, 1}))
+      assert TrustedProxy.call(conn, []).remote_ip == {192, 0, 2, 1}
+
+      # Other IPv6 addresses stay as they are.
+      assert TrustedProxy.unmap({0x2001, 0xDB8, 0, 0, 0, 0xFFFF, 1, 2}) ==
+               {0x2001, 0xDB8, 0, 0, 0, 0xFFFF, 1, 2}
+    end
+
+    test "an IPv4-mapped entry matches the IPv4 peer, and ::/0 matches IPv6 peers only" do
+      mapped = {0, 0, 0, 0, 0, 0xFFFF, 0x0A00, 0x0001}
+
+      for entry <- ["::ffff:10.0.0.1", "::ffff:10.0.0.0/104"] do
+        put_setting(:trusted_proxies, [Espalier.RuntimeConfig.proxy!(entry)])
+        assert forwarded(mapped, "192.0.2.1").remote_ip == {192, 0, 2, 1}, entry
+        assert forwarded({10, 0, 0, 1}, "192.0.2.1").remote_ip == {192, 0, 2, 1}, entry
+      end
+
+      put_setting(:trusted_proxies, [Espalier.RuntimeConfig.proxy!("::/0")])
+      assert forwarded(mapped, "192.0.2.1").remote_ip == {10, 0, 0, 1}
+      assert forwarded({10, 0, 0, 1}, "192.0.2.1").remote_ip == {10, 0, 0, 1}
+      assert forwarded({0x2001, 0xDB8, 0, 0, 0, 0, 0, 1}, "192.0.2.1").remote_ip == {192, 0, 2, 1}
+    end
+
     test "ignores the header from another peer and when it is malformed" do
       assert forwarded({192, 0, 2, 1}, "203.0.113.9").remote_ip == {192, 0, 2, 1}
       assert forwarded({10, 1, 2, 3}, "203.0.113.9, not-an-ip").remote_ip == {10, 1, 2, 3}
@@ -91,6 +125,16 @@ defmodule EspalierWeb.Plugs.RateLimitTest do
 
       assert Espalier.RuntimeConfig.proxy!("2001:db8::/32") ==
                {{0x2001, 0xDB8, 0, 0, 0, 0, 0, 0}, 32}
+
+      # An IPv4-mapped entry with a prefix of at least 96 becomes IPv4, and
+      # other IPv6 ranges stay IPv6.
+      assert Espalier.RuntimeConfig.proxy!("::ffff:10.0.0.1") == {{10, 0, 0, 1}, 32}
+      assert Espalier.RuntimeConfig.proxy!("::ffff:10.0.0.0/104") == {{10, 0, 0, 0}, 8}
+      assert Espalier.RuntimeConfig.proxy!("::ffff:0.0.0.0/96") == {{0, 0, 0, 0}, 0}
+      assert Espalier.RuntimeConfig.proxy!("::/0") == {{0, 0, 0, 0, 0, 0, 0, 0}, 0}
+
+      assert Espalier.RuntimeConfig.proxy!("::ffff:0:0/80") ==
+               {{0, 0, 0, 0, 0, 0xFFFF, 0, 0}, 80}
 
       for invalid <- ["10.0.0.0/33", "example.org", "10.0.0/8"] do
         assert_raise ArgumentError, ~r/TRUSTED_PROXIES/, fn ->

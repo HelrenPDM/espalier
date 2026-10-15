@@ -115,6 +115,50 @@ defmodule EspalierWeb.Plugs.SecurityHeadersTest do
     refute no_store?.("/health")
   end
 
+  test "a static text file carries charset=utf-8 (ASVS 4.1.1)", %{conn: conn} do
+    conn = get(conn, "/robots.txt")
+    assert conn.status == 200
+    assert get_resp_header(conn, "content-type") == ["text/plain; charset=utf-8"]
+  end
+
+  test "the plug appends charset=utf-8 to every text and XML type without one" do
+    send_typed = fn type ->
+      Phoenix.ConnTest.build_conn()
+      |> SecurityHeaders.call([])
+      |> put_resp_header("content-type", type)
+      |> send_resp(200, "")
+      |> get_resp_header("content-type")
+    end
+
+    # The types that Plug.Static sends for the SPA assets (MIME.from_path/1).
+    assert send_typed.("text/javascript") == ["text/javascript; charset=utf-8"]
+    assert send_typed.("text/css") == ["text/css; charset=utf-8"]
+    assert send_typed.("text/html") == ["text/html; charset=utf-8"]
+
+    # ASVS 4.1.1 also names */*+xml and */xml, such as the SVG icon of the SPA.
+    assert send_typed.("image/svg+xml") == ["image/svg+xml; charset=utf-8"]
+    assert send_typed.("application/xml") == ["application/xml; charset=utf-8"]
+    assert send_typed.("Application/Atom+XML") == ["Application/Atom+XML; charset=utf-8"]
+
+    # A charset stays as it is, and other types stay without one.
+    assert send_typed.("text/html; charset=utf-8") == ["text/html; charset=utf-8"]
+    assert send_typed.("text/plain; Charset=UTF-8") == ["text/plain; Charset=UTF-8"]
+    assert send_typed.("image/svg+xml; charset=utf-8") == ["image/svg+xml; charset=utf-8"]
+    assert send_typed.("application/zip") == ["application/zip"]
+    assert send_typed.("application/xml-dtd") == ["application/xml-dtd"]
+    assert send_typed.("application/json") == ["application/json"]
+  end
+
+  test "production leaves HSTS to the reverse proxy (README section 6.5)" do
+    # Phoenix compiles :force_ssl into the endpoint, so the test reads the
+    # production configuration from the files.
+    config = Config.Reader.read!("config/config.exs", env: :prod, target: :host)
+    force_ssl = config[:espalier][EspalierWeb.Endpoint][:force_ssl]
+
+    assert force_ssl[:hsts] == false
+    assert force_ssl[:rewrite_on] == [:x_forwarded_proto]
+  end
+
   test "a vary header of another plug is merged" do
     conn =
       Phoenix.ConnTest.build_conn()

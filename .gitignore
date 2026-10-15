@@ -46,6 +46,7 @@ espalier-*.tar
 .env
 .env.*
 !.env.example
+!.env.demo.example
 
 # Development LDAP test CA and lldap secrets (make ldap-ca, make ldap-secrets).
 dev/ldap-ca/*.key

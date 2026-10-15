@@ -23,6 +23,7 @@ defmodule Espalier.Application do
     PasswordPolicy.load_lists()
     Espalier.RateLimit.init_key(secret_key_base())
     warn_settings()
+    log_settings()
     Ldap.log_providers()
 
     children =
@@ -95,6 +96,59 @@ defmodule Espalier.Application do
       Logger.warning("SMTP_HOST is not set: this instance delivers no mail")
     end
   end
+
+  @doc """
+  Returns the one line that the boot logs with the effective session and
+  data protection settings (README sections 6.11 and 10) and each provider
+  with its key, type and MFA mode: values only, without any secret or
+  address.
+  """
+  @spec settings_line() :: String.t()
+  def settings_line, do: settings_line(&Application.get_env(:espalier, &1))
+
+  # The line for the settings that `get` returns for each key of
+  # `config :espalier`, so that a test can pass fixed values.
+  @doc false
+  @spec settings_line((atom() -> term())) :: String.t()
+  def settings_line(get) do
+    learning = get.(:learning) || []
+    insights = get.(:insights) || []
+
+    providers =
+      case get.(:identity_providers) || [] do
+        [] -> "none"
+        providers -> Enum.map_join(providers, ", ", &"#{&1.key} (#{&1.type}, MFA #{&1.mfa})")
+      end
+
+    settings = [
+      {"SESSION_IDLE_MINUTES", get.(:session_idle_minutes)},
+      {"SESSION_MAX_HOURS", get.(:session_max_hours)},
+      {"SESSION_MAX_CONCURRENT", get.(:session_max_concurrent)},
+      {"SIGNUP", get.(:signup)},
+      {"LOCAL_ACCOUNTS", get.(:local_accounts)},
+      {"AUTH_DEMO", get.(:auth_demo)},
+      {"PASSWORD_BREACH_CHECK", get.(:password_breach_check)},
+      {"TRACKING_DETAIL", learning[:tracking_detail]},
+      {"INSIGHTS_ORG_UNIT", learning[:insights_org_unit]},
+      {"REGISTRAR_ENABLED", get.(:registrar_enabled)},
+      {"INSIGHTS_MIN_GROUP_SIZE", insights[:min_group_size]},
+      {"FEEDBACK_FREE_TEXT", insights[:feedback_free_text]},
+      {"TEST_NOTES", insights[:test_notes]},
+      {"RETENTION_ATTEMPTS_DAYS", insights[:retention_attempts_days]},
+      {"RETENTION_ITEM_RESPONSES_DAYS", insights[:retention_item_responses_days]},
+      {"RETENTION_ANONYMOUS_DAYS", insights[:retention_anonymous_days]},
+      {"RETENTION_AUDIT_DAYS", insights[:retention_audit_days]}
+    ]
+
+    "Effective settings: " <>
+      Enum.map_join(settings, " ", &setting/1) <>
+      "; providers: " <> providers
+  end
+
+  defp setting({name, nil}), do: "#{name}=unset"
+  defp setting({name, value}), do: "#{name}=#{value}"
+
+  defp log_settings, do: Logger.info(settings_line())
 
   # Tell Phoenix to update the endpoint configuration
   # whenever the application is updated.

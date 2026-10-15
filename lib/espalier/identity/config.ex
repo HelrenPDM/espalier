@@ -373,8 +373,10 @@ defmodule Espalier.Identity.Config do
     host
   end
 
+  # The form of PUBLIC_URL that the post-logout redirect URI and the mail
+  # links use as well (Espalier.RuntimeConfig.normalize_url/1).
   defp public_url(env) do
-    (value(env, "PUBLIC_URL") || "http://localhost:5173") |> String.trim_trailing("/")
+    Espalier.RuntimeConfig.normalize_url(value(env, "PUBLIC_URL") || "http://localhost:5173")
   end
 
   ## Value reader

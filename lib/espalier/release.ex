@@ -2,6 +2,10 @@ defmodule Espalier.Release do
   @moduledoc """
   Used for executing DB release tasks when run in production without Mix
   installed.
+
+  Every function runs with `bin/espalier eval` in the container, and
+  `docs/guides/operations.md` and `docs/guides/self-hosting.md` list the
+  calls.
   """
   @app :espalier
 
@@ -10,6 +14,7 @@ defmodule Espalier.Release do
   alias Espalier.Catalog.Pack.Report
   alias Espalier.Crypto.{Keys, Rotation}
   alias Espalier.Identity.Ldap
+  alias Espalier.Policies.Demo
   alias Espalier.Repo
 
   def migrate do
@@ -212,6 +217,66 @@ defmodule Espalier.Release do
     case Ecto.Migrator.with_repo(Repo, fn _repo -> Report.run_import(path, draft: draft?) end) do
       {:ok, result, _apps} -> result
       {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc """
+  Creates a machine client of the integration API with the name `name` and
+  the scopes `scopes` (task 0013: `["credentials:read"]`) and prints its
+  token once; the table stores only its hash. Prints `{:ok, name}` with the
+  token on the next line, or the error, and returns `{:ok, id}` of the
+  client.
+
+      bin/espalier eval 'Espalier.Release.create_api_client("hr-system", ["credentials:read"])'
+
+  The admin area of task 0015 creates and deletes clients as well. A token
+  rotation creates a new client and then deletes the old one
+  (`docs/security/key-management.md`).
+  """
+  @spec create_api_client(String.t(), [String.t()]) :: {:ok, String.t()} | {:error, term()}
+  def create_api_client(name, scopes) when is_binary(name) and is_list(scopes) do
+    start_app()
+
+    case Accounts.create_api_client(Scope.system(), %{name: name, scopes: scopes}) do
+      {:ok, {client, token}} ->
+        IO.puts(inspect({:ok, client.name}))
+        IO.puts("token: " <> token)
+        {:ok, client.id}
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        print({:error, changeset.errors})
+
+      {:error, reason} ->
+        print({:error, reason})
+    end
+  end
+
+  @doc """
+  Imports and publishes the demo pack that the image carries in
+  `priv/demo_pack`, then seeds the policy `usage-policy`, which the demo
+  qualification `basics` requires, and the approved tools of the demo
+  (`Espalier.Policies.Demo.seed/0`). This is the release counterpart of
+  `mix espalier.import content/demo` followed by `mix espalier.seed_demo`,
+  and `make demo-up` and `scripts/smoke.sh` run it.
+
+      bin/espalier eval 'Espalier.Release.seed_demo()'
+
+  The import publishes the pack as `import_pack/2` without `draft: true`
+  does. The seed skips every policy key and tool name that exists. Returns
+  `{:ok, %{pack: pack_import, policies: count, tools: count}}` or the error
+  of the import.
+  """
+  @spec seed_demo(Path.t()) :: {:ok, map()} | {:error, term()}
+  def seed_demo(path \\ Application.app_dir(@app, "priv/demo_pack")) when is_binary(path) do
+    start_app()
+
+    # Ecto.Migrator.with_repo/2 of ecto_sql 3.14.0 reuses the running Repo:
+    # start_link answers already_started, and the cleanup leaves the running
+    # pool in place.
+    with {:ok, pack_import} <- import_pack(path),
+         {:ok, %{policies: policies, tools: tools}} <- Demo.seed() do
+      IO.puts("Seeded #{policies} policies and #{tools} approved tools.")
+      {:ok, %{pack: pack_import, policies: policies, tools: tools}}
     end
   end
 

@@ -30,6 +30,9 @@ WORKDIR /frontend
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 COPY frontend/ ./
+# tsc -b checks the tests of src/ as well, and the evaluator test imports the
+# shared cases of the server and the browser evaluator from test/fixtures/.
+COPY test/fixtures/evaluator_cases.json /test/fixtures/
 RUN npm run build -- --outDir /out/spa
 # The SCORM build reads LICENSE and NOTICE from the parent directory of
 # /frontend, as it does in the repository, and fails without them.
@@ -67,6 +70,9 @@ RUN mix deps.compile
 COPY priv priv
 COPY --from=frontend /out/spa priv/static/spa
 COPY --from=frontend /out/scorm_player priv/scorm_player
+# The demo pack for Espalier.Release.seed_demo/0, the only content pack of
+# the image; organizations import their own packs after deployment.
+COPY content/demo priv/demo_pack
 
 COPY lib lib
 
@@ -81,14 +87,26 @@ RUN mix espalier.scorm_xsd
 COPY config/runtime.exs config/
 
 COPY rel rel
-RUN mix release
+# mix release writes a random distribution cookie to releases/COOKIE. A file
+# in any layer of the image is known to everyone who holds the image, and a
+# later RUN rm in the final stage would leave it in the layer of the copy, so
+# the builder removes it before the copy. rel/env.sh.eex generates a cookie
+# for each command while distribution is off and requires RELEASE_COOKIE when
+# it is on.
+# chmod removes the group and other write bits that the files carry from a
+# checkout with the umask 002, so that no user of the group root (gid 0, the
+# group of a uid without a passwd entry) can change the release.
+RUN mix release \
+  && rm _build/${MIX_ENV}/rel/espalier/releases/COOKIE \
+  && chmod -R go-w _build/${MIX_ENV}/rel/espalier
 
 # start a new build stage so that the final image will only contain
 # the compiled release and other runtime necessities
 FROM ${RUNNER_IMAGE} AS final
 
+# curl serves the health check below.
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends libstdc++6 openssl libncurses6 locales ca-certificates \
+  && apt-get install -y --no-install-recommends libstdc++6 openssl libncurses6 locales ca-certificates curl \
   && rm -rf /var/lib/apt/lists/*
 
 # Set the locale
@@ -100,13 +118,31 @@ ENV LANGUAGE=en_US:en
 ENV LC_ALL=en_US.UTF-8
 
 WORKDIR "/app"
-RUN chown nobody /app
 
 # set runner ENV
 ENV MIX_ENV="prod"
 
-# Only copy the final release from the build stage
-COPY --from=builder --chown=nobody:root /app/_build/${MIX_ENV}/rel/espalier ./
+# Only copy the final release from the build stage. The release belongs to
+# root, so the runtime user nobody can neither change nor replace a file of
+# it. The release writes nothing below /app: sys.config holds no
+# RUNTIME_CONFIG=true, so bin/espalier writes no runtime configuration to
+# RELEASE_TMP (default /app/tmp), and System.tmp_dir!/0 is /tmp.
+COPY --from=builder /app/_build/${MIX_ENV}/rel/espalier ./
+
+# The image redistributes the work in object form, so it carries the license
+# text and the attribution notices (Apache License 2.0, sections 4 a and
+# 4 d). Both files belong to root.
+COPY --chmod=0644 LICENSE NOTICE ./
+
+# The SCORM packages of the export (EXPORT_DIR=/data/exports in compose.yaml).
+# The group root may write as well, for a container that runs with another
+# uid and the gid 0.
+RUN mkdir -p /data/exports && chown nobody:0 /data/exports && chmod 0770 /data/exports
+
+EXPOSE 4000
+
+HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=3 \
+  CMD curl -fsS http://localhost:4000/health || exit 1
 
 USER nobody
 

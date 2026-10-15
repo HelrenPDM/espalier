@@ -114,6 +114,18 @@ defmodule Espalier.RuntimeConfigTest do
     assert config[:export_dir] == "/data/exports"
   end
 
+  test "PUBLIC_URL comes back as the origin that browsers send" do
+    for {url, origin} <- [
+          {"https://LEARN.example.org", "https://learn.example.org"},
+          {"https://Learn.Example.org:443/", "https://learn.example.org"},
+          {"https://learn.example.org:8443", "https://learn.example.org:8443"},
+          {"http://LOCALHOST:5173", "http://localhost:5173"},
+          {"http://[::1]:4000/", "http://[::1]:4000"}
+        ] do
+      assert RuntimeConfig.parse!(%{"PUBLIC_URL" => url}, :test)[:public_url] == origin, url
+    end
+  end
+
   test "invalid values raise with the variable name" do
     for {env, name} <- [
           {%{"SESSION_MAX_HOURS" => "0"}, "SESSION_MAX_HOURS"},

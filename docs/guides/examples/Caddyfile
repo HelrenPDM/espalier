@@ -1,0 +1,15 @@
+# The reverse proxy in front of Espalier (docs/guides/self-hosting.md).
+# SITE_ADDRESS is the dedicated host name of Espalier; for a public name,
+# Caddy obtains a publicly trusted certificate through ACME, and for
+# localhost it issues one from its local CA. compose.caddy.yaml publishes
+# the HTTPS port alone, on which Caddy also answers the ACME TLS-ALPN
+# challenge.
+{$SITE_ADDRESS} {
+	tls {
+		protocols tls1.2 tls1.3
+	}
+	header Strict-Transport-Security "max-age=63072000; includeSubDomains"
+	@trace method TRACE
+	respond @trace 405
+	reverse_proxy app:4000
+}

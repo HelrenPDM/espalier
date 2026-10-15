@@ -6,6 +6,13 @@ IMAGE ?= espalier
 TAG ?= latest
 PHX_NEW_VERSION ?= 1.8.15
 
+# make release-push tags the image as REGISTRY/IMAGE:<date>-<time>.<version>-<env>
+# (the form of sl_vanilla) and as REGISTRY/IMAGE:latest.
+REGISTRY ?=
+RELEASE_ENV ?= prod
+VERSION ?= $(shell sed -n 's/^ *version: "\([^"]*\)".*/\1/p' mix.exs | head -n 1)
+RELEASE_TAG := $(shell date +%Y%m%d-%H%M%S).$(VERSION)-$(RELEASE_ENV)
+
 # Phoenix reads no .env file by itself. DOTENV exports every assignment of
 # .env into the recipe shell and skips a missing file.
 DOTENV = set -a; if [ -f .env ]; then . ./.env; fi; set +a;
@@ -99,6 +106,7 @@ check: ## run every static check, dependency audit and test of both projects
 	$(NIX) 'npm --prefix frontend run format:check'
 	$(NIX) 'npm --prefix frontend run test -- --run'
 	$(NIX) 'npm --prefix frontend run build:scorm'
+	$(NIX) 'npm --prefix frontend audit --omit=dev'
 
 # --start-app=false needs neither database nor keys. --vendor-extensions=false
 # leaves out the x-struct and x-validate members, which GET /api/openapi does
@@ -140,8 +148,10 @@ test-integration: ## Run the LDAP and mail tests against the dev services
 	$(NIX) "DATABASE_PORT=$(DATABASE_PORT) mix test --only ldap --only mail"
 
 .PHONY: argon2-bench
+# The eval opens no database connection; the two variables stand in for the
+# values that compose.yaml sets for the service app.
 argon2-bench: ## Benchmark Argon2 parameters inside the production image
-	docker run --rm --env-file .env -v "$(PWD)/scripts:/scripts:ro" $(IMAGE):$(TAG) /app/bin/espalier eval 'Code.eval_file("/scripts/argon2_bench.exs")'
+	docker run --rm --env-file $${ENV_FILE:-.env} -e DATABASE_CA_CERT_FILE=/etc/ssl/certs/ca-certificates.crt -e EXPORT_DIR=/tmp -v "$(PWD)/scripts:/scripts:ro" $(IMAGE):$(TAG) /app/bin/espalier eval 'Code.eval_file("/scripts/argon2_bench.exs")'
 
 .PHONY: gen-keys
 gen-keys: ## print new CLOAK_KEY_V1 and CLOAK_HMAC_SECRET values for .env
@@ -178,6 +188,49 @@ docker-logs: ## follow the application logs
 .PHONY: docker-migrate
 docker-migrate: ## run migrations in the app container
 	docker compose exec app bin/migrate
+
+# The smoke test needs Docker, curl and a POSIX shell, and no Nix.
+.PHONY: smoke
+smoke: ## run the smoke test of the image IMAGE:TAG with the demo profile (scripts/smoke.sh)
+	ESPALIER_IMAGE=$(IMAGE):$(TAG) scripts/smoke.sh
+
+.PHONY: smoke-proxy
+smoke-proxy: ## run the smoke test behind the Caddy example (scripts/smoke.sh --proxy)
+	ESPALIER_IMAGE=$(IMAGE):$(TAG) scripts/smoke.sh --proxy
+
+.PHONY: release-push
+release-push: ## tag IMAGE:TAG as REGISTRY/IMAGE:<date>-<time>.<version>-<env> and latest, and push both
+	@if [ -z "$(REGISTRY)" ]; then echo "Set REGISTRY, for example REGISTRY=registry.example.org/team" >&2; exit 1; fi
+	docker tag $(IMAGE):$(TAG) $(REGISTRY)/$(IMAGE):$(RELEASE_TAG)
+	docker tag $(IMAGE):$(TAG) $(REGISTRY)/$(IMAGE):latest
+	docker push $(REGISTRY)/$(IMAGE):$(RELEASE_TAG)
+	docker push $(REGISTRY)/$(IMAGE):latest
+
+# The demo profile of decision D5 (docs/guides/demo-instance.md). Docker
+# Compose takes POSTGRES_PASSWORD from the shell before --env-file, while app
+# reads DATABASE_URL from .env.demo alone, so DEMO unsets it.
+DEMO = unset POSTGRES_PASSWORD; ENV_FILE=.env.demo ESPALIER_IMAGE=$(IMAGE):$(TAG) docker compose --env-file .env.demo -p espalier-demo
+
+.PHONY: demo-env
+demo-env: ## write .env.demo from .env.demo.example with generated secrets
+	scripts/fill-secrets.sh .env.demo.example .env.demo
+
+.PHONY: demo-up
+demo-up: ## start a demo instance from .env.demo with the demo content (project espalier-demo)
+	@if [ ! -f .env.demo ]; then echo "Run make demo-env first" >&2; exit 1; fi
+	$(DEMO) up -d
+	@port=$$($(DEMO) port app 4000 | sed 's/.*://'); port=$${port:-4000}; tries=0; \
+	until curl -fsS --max-time 5 "http://localhost:$$port/health" >/dev/null 2>&1; do \
+		tries=$$((tries + 1)); if [ $$tries -ge 90 ]; then echo "No answer from /health" >&2; exit 1; fi; sleep 2; \
+	done
+	$(DEMO) exec -T app bin/migrate
+	$(DEMO) exec -T app bin/espalier eval 'Espalier.Release.seed_demo()'
+
+# down with -p and without -f finds the containers, networks and volumes of
+# the project by its label, the proxy example included.
+.PHONY: demo-down
+demo-down: ## stop the demo instance and remove its volumes
+	docker compose -p espalier-demo down -v
 
 .PHONY: help
 help: ## show this help

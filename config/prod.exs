@@ -1,10 +1,14 @@
 import Config
 
-# Force using SSL in production. This also sets the "strict-security-transport" header,
-# known as HSTS. If you have a health check endpoint, you may want to exclude it below.
+# Force using SSL in production. If you have a health check endpoint, you may want to exclude it below.
 # Note `:force_ssl` is required to be set at compile-time.
+# HSTS comes from the reverse proxy alone (README section 6.5, the Caddyfile
+# of docs/guides/examples): with `hsts: true`, Plug.SSL would add a second
+# Strict-Transport-Security header with another max-age to every proxied
+# response for a host other than localhost (task 0017, step 5).
 config :espalier, EspalierWeb.Endpoint,
   force_ssl: [
+    hsts: false,
     rewrite_on: [:x_forwarded_proto],
     exclude: [
       # paths: ["/health"],

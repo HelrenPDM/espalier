@@ -2,8 +2,11 @@
 
 This document describes the lifecycle of the encryption keys and the HMAC
 secret of Espalier, from generation through storage, boot checks and rotation
-to retirement and loss (ASVS 11.1.1). The keys, algorithms and protected
-columns are listed in [`crypto-inventory.md`](crypto-inventory.md).
+to retirement and loss (ASVS 11.1.1). The section "Other keys and
+certificates" describes the lifecycle of `SECRET_KEY_BASE`, of the API client
+tokens and of the certificates of the database connection. The keys,
+algorithms and protected columns are listed in
+[`crypto-inventory.md`](crypto-inventory.md).
 
 ## Keys
 
@@ -38,15 +41,36 @@ holds both the database and the keys protects nothing.
 
 ## Boot checks
 
-`config/runtime.exs` reads the keys in production, and
-`Espalier.Crypto.Keys.check!/0` checks them as the first step of
+`config/runtime.exs` calls `Espalier.BootCheck.errors/2` directly after
+`import Config`, before it builds any configuration, and raises once with
+every message of the list, so that one boot names every gap of the
+environment, the keys among them:
+
+```text
+The environment stops the boot:
+  * Missing environment variables: SECRET_KEY_BASE, CLOAK_KEY_V1
+```
+
+`config/runtime.exs` then reads the keys in production, and
+`Espalier.Crypto.Keys.check!/0` checks their values as the first step of
 `Espalier.Application.start/2`, before the vault starts. The release
 functions `rotate_encryption/0` and `encryption_status/0` run the same check.
 No message contains a key value.
 
 | Check | Message |
 |---|---|
-| `CLOAK_HMAC_SECRET`, or every `CLOAK_KEY_V<n>`, is unset, empty or holds only whitespace (production) | `Missing environment variables: CLOAK_KEY_V1, CLOAK_HMAC_SECRET` (the names that are missing) |
+| A required variable is unset, empty or holds only whitespace, also inside one pair of double quotes (production): `DATABASE_URL`, `SECRET_KEY_BASE`, `PHX_HOST`, `DATABASE_CA_CERT_FILE`, `CLOAK_KEY_V1` when no `CLOAK_KEY_V<n>` holds a value, and `CLOAK_HMAC_SECRET` | `Missing environment variables: <names>`, one message that lists every missing variable in this order; `Espalier.BootCheck` returns it, and `config/runtime.exs` raises it together with every other message of `Espalier.BootCheck.errors/2` |
+| `SECRET_KEY_BASE` is shorter than 64 bytes (production) | `SECRET_KEY_BASE is shorter than 64 bytes; generate one with mix phx.gen.secret` (`Espalier.BootCheck`) |
+| `DATABASE_URL` has no host, the server name of the TLS connection, or a path other than one database name (no name, a trailing `/` or a second segment), for which Ecto would print the URL with its password (production) | `DATABASE_URL must be an ecto:// URL with a host and a database name` (`Espalier.BootCheck`) |
+| `POOL_SIZE` holds a value that is no positive integer (production) | `POOL_SIZE must be a positive integer` (`Espalier.BootCheck`) |
+| `DATABASE_URL` holds the query parameter `ssl`, which Ecto merges over the TLS options of the Repo (production) | `DATABASE_URL must not set ssl; TLS comes from DATABASE_CA_CERT_FILE` (`Espalier.BootCheck`) |
+| `DATABASE_URL` gives the query parameter `timeout`, `pool_size` or `idle_interval` a value that is no integer, for which Ecto would print the URL with its password (production) | `DATABASE_URL must give timeout, pool_size and idle_interval as integers` (`Espalier.BootCheck`) |
+| `DATABASE_CA_CERT_FILE` names no regular file (production) | `DATABASE_CA_CERT_FILE names no file` (`Espalier.BootCheck`) |
+| `SMTP_PORT` holds a value that is no integer from 1 to 65535 (production) | `SMTP_PORT must be a port number from 1 to 65535` (`Espalier.BootCheck`) |
+| `PORT` holds a value that is no integer from 1 to 65535 (every environment) | `PORT must be a port number from 1 to 65535` (`Espalier.BootCheck`) |
+| `PUBLIC_URL` uses another scheme than `https` (production) | `PUBLIC_URL must use https in production, because passkeys derive their origin from it` (`Espalier.BootCheck`) |
+| `PUBLIC_URL` holds user info, a path other than `/`, a query or a fragment (production) | `PUBLIC_URL must be an origin without user info, path, query or fragment` (`Espalier.BootCheck`) |
+| The host of `PUBLIC_URL` differs from `PHX_HOST`, compared without regard to case (production) | `The host of PUBLIC_URL must equal PHX_HOST` (`Espalier.BootCheck`) |
 | A value is not Base64 with padding or does not decode to exactly 32 bytes | `CLOAK_KEY_V<n> must be 32 random bytes, Base64-encoded`, or the same with `CLOAK_HMAC_SECRET` |
 | Two key versions hold the same key | `CLOAK_KEY_V1 and CLOAK_KEY_V2 hold the same key` |
 | The HMAC secret equals an encryption key | `CLOAK_HMAC_SECRET must differ from every CLOAK_KEY_V<n>` |
@@ -69,13 +93,29 @@ therefore sets two defaults that every command of `bin/espalier` reads:
 - `ERL_CRASH_DUMP_BYTES=0`: the runtime writes no crash dump file.
 - `RELEASE_DISTRIBUTION=none`: the node starts no Erlang distribution, so
   `bin/espalier remote` and `bin/espalier rpc` cannot attach to it.
-  `bin/espalier eval` starts a node of its own and keeps working.
+  `bin/espalier eval` starts a node of its own and keeps working. The image
+  holds no `releases/COOKIE`, and each command receives a `RELEASE_COOKIE`
+  of 32 random bytes from `/dev/urandom` in hex that no other node knows.
 
 An operator who overrides either default for a debugging session or for a
 cluster (`DNS_CLUSTER_QUERY` with `RELEASE_DISTRIBUTION=name` and a random
 `RELEASE_COOKIE`) lets a crash dump or a remote console reach the keys. A
 crash dump file then needs the same protection as the keys themselves; set
 `ERL_CRASH_DUMP` to a path outside the image and delete the file after use.
+With distribution, `rel/env.sh.eex` stops every command that has no
+`RELEASE_COOKIE`; `openssl rand -hex 32` generates the value, and every node
+of the cluster receives the same one from the secret store. The nodes then
+connect to each other on the epmd port 4369 and on the distribution port of
+each node. This traffic carries decrypted values and runs over plain TCP
+without TLS, unless the operator configures `-proto_dist inet_tls` with the
+options of `-ssl_dist_optfile` in the VM arguments of the release; the cookie
+authenticates the nodes and encrypts nothing. `bin/espalier start` passes
+`RELEASE_COOKIE` to the BEAM as `-setcookie` on its command line, where every
+user of the host can read it in `/proc/<pid>/cmdline` unless `/proc` is
+mounted with `hidepid=1` (`noaccess`) or a stricter value, which still lets
+the group of its `gid=` option read it. A cluster on a host with other local users therefore runs the
+distribution over TLS with `verify_peer` and `fail_if_no_peer_cert` in the
+options of `-ssl_dist_optfile`, so that the cookie alone admits no node.
 
 ## Cryptoperiod and rotation triggers
 
@@ -225,3 +265,124 @@ dependency. It is one change with these parts:
    `cloak_ecto` leave `mix.exs` together with the `ignore_advisories` entries.
 7. The tests under `test/espalier/crypto/` run against the new modules, except
    the assertions that record upstream behavior.
+
+## Other keys and certificates
+
+The keys and certificates of this section protect no stored column. Their
+algorithms and locations are listed in
+[`crypto-inventory.md`](crypto-inventory.md), section "Keys and algorithms
+outside the database". None of them enters the repository, the image or a
+log.
+
+### `SECRET_KEY_BASE`
+
+- Generation: `mix phx.gen.secret`, which prints 64 random characters, or 64
+  random bytes in Base64 on a machine without the toolchain:
+  `head -c 64 /dev/urandom | base64 | tr -d '\n'` (88 characters).
+  `scripts/fill-secrets.sh`, which `make demo-env` and `scripts/smoke.sh`
+  run, uses the second way. `Espalier.BootCheck` stops a production boot
+  with a missing value or a value shorter than 64 bytes (section "Boot
+  checks").
+- Storage: the environment, filled from the operator's secret store, like
+  the Cloak keys. The node keeps the value in the endpoint configuration of
+  the application environment.
+- Rotation: generate a new value, replace the old one in the secret store and
+  restart every application node. The endpoint holds one value at a time.
+  Rotate after a suspected exposure and when a person with access to the
+  value leaves.
+- Effect of a rotation: every session cookie `__Host-espalier` and every
+  transaction cookie `__Host-espalier_tx` becomes unreadable, because task
+  0004 derives their encryption and signing keys from the value (the
+  `Plug.Session` cookie store with the salts of
+  `EspalierWeb.TransactionCookie`). Every user signs in again, and a sign-in
+  in progress, a pending second factor or an OIDC flow, starts again. The
+  session rows of the old cookies stay in `users_tokens` until the daily
+  purge deletes them once they are idle for the inactivity limit;
+  `docker compose exec app bin/espalier eval "Espalier.Release.end_all_sessions()"`
+  deletes them at once. The rate-limit key derives from the value as well
+  (`Espalier.RateLimit.init_key/1` at boot), so the account keys of the rate
+  limit buckets change, and a security event carries another `account_hash`
+  for the same identifier after the rotation than before it. The rate limit
+  counters live in ETS and start empty at every restart.
+
+### API client tokens
+
+- Generation: `Espalier.Accounts.create_api_client/2` draws 32 bytes with
+  `:crypto.strong_rand_bytes/1`, stores their SHA-256 hash in
+  `api_clients.token_hash` and returns the token once, Base64url-encoded
+  without padding. Two entry points create a client: the release function
+  `docker compose exec app bin/espalier eval 'Espalier.Release.create_api_client("hr-system", ["credentials:read"])'`,
+  which prints the token once, and the admin area of task 0015
+  (`POST /api/admin/api-clients`). The only scope is `credentials:read`.
+- Storage: the receiving system keeps the token in its own secret store. The
+  platform holds the hash only and cannot show the token again. A token has
+  no expiry and stays valid until its client is deleted.
+- Rotation: create a new client with the same scopes, set its token in the
+  receiving system, and then delete the old client in the admin area
+  (`DELETE /api/admin/api-clients/:id`), which writes the audit event
+  `api_client.deleted`. The release has no function that deletes a client.
+  Rotate after a suspected exposure of a token and when the receiving system
+  changes hands.
+- Effect of a rotation: both tokens are valid until the old client is
+  deleted. From then on, the old token answers 401 `unauthenticated`, and
+  each such request logs `authn_login_fail` with the factor `api_token`.
+
+### Database certificates
+
+- Generation: the one-shot service `db-certs` of `compose.yaml` runs before
+  `db` at every start of the services. On its first run, when the volumes
+  hold no `server.pem`, `server.key` and `ca.pem`, it generates with
+  `openssl` a CA (`CN=Espalier database CA`) and a server certificate for the
+  host name `db` (subject alternative name `DNS:db`), both with EC P-256
+  keys, ECDSA signatures with SHA-256 and a validity of 825 days, and a
+  `pg_hba.conf` that admits TCP connections with TLS only. The CA key exists
+  only in a temporary directory, which the service deletes when it exits, so
+  no further certificate can be signed with that CA. A later run finds the
+  files, changes nothing and prints the expiry of `server.pem`.
+- Storage: `server.pem`, `server.key` (owner uid 999, the `postgres` user of
+  the image, mode 600) and `pg_hba.conf` lie in the volume `db-tls`, which
+  `db` mounts read-only. `ca.pem` lies in the volume `db-ca`, which `app`
+  mounts read-only and `DATABASE_CA_CERT_FILE` names. The server key is the
+  only secret of these files, so a backup of `db-tls` needs the protection of
+  a key.
+- Validity: 825 days from the first start. The first start on 2026-10-15
+  printed `notAfter=Jan 17 09:35:47 2029 GMT`. This command shows the expiry
+  in the directory of `compose.yaml`, with the `-p` option of the instance
+  when it runs under another project name:
+
+  ```sh
+  docker compose run --rm --entrypoint openssl db-certs x509 -enddate -noout -in /tls/server.pem
+  ```
+
+  It prints `notAfter=<date>`, and `db-certs` prints the same value at every
+  start. After that date, the application rejects the server certificate and
+  reaches no database, so the renewal comes before it.
+- Renewal:
+
+  1. `docker compose down` stops and removes the containers and keeps the
+     volumes. `docker compose down -v` would also delete `db_data`, the
+     database.
+  2. `docker volume rm espalier_db-tls espalier_db-ca` removes the
+     certificates. The prefix is the project name, `espalier` from `name:` in
+     `compose.yaml`.
+  3. `docker compose up -d`, with the same `-f` files as before, starts the
+     services: `db-certs` generates a new CA and a new server certificate,
+     `db` starts with them, and the application reads the new CA at its next
+     start, which this step brings.
+
+- Effect of a renewal: the instance is unavailable between steps 1 and 3,
+  and the data in `db_data` stays. An application node outside this compose
+  project needs a copy of the new `ca.pem` and a restart, so that it reads
+  the new CA at its next start. With an external PostgreSQL, the renewal
+  follows that server; when its CA changes, `DATABASE_CA_CERT_FILE` names the
+  new CA, and every application node restarts.
+
+### Certificate of the reverse proxy
+
+In the Caddy example of `docs/guides/examples/`, Caddy generates the key,
+obtains the certificate and keeps it renewed (Caddy documentation,
+"Automatic HTTPS"): through ACME for a public `SITE_ADDRESS`, and from its
+local CA for `localhost`. The volume `caddy_data` holds the certificate, its
+key and, for the local CA, the keys `root.key` and `intermediate.key`, so a
+backup of that volume needs the protection of a key. A proxy other than the
+example follows the procedure of its own documentation.

@@ -1,0 +1,24 @@
+# Forwards the logs of app over TLS to a separate syslog receiver
+# (docs/guides/operations.md, ASVS 16.4.3):
+#
+#   docker compose -f compose.yaml -f docs/guides/examples/compose.logging.yaml up -d
+#
+# Variables (Docker Compose reads them from .env or the shell):
+#   SYSLOG_HOST     host name of the receiver, which its certificate names
+#   SYSLOG_CA_CERT  path on the Docker host of the CA certificate that
+#                   signed the certificate of the receiver
+#
+# The Docker daemon sends each line of standard output as one RFC 5424
+# message with the tag espalier. The syslog driver of Docker accepts the
+# scheme tcp+tls and the format rfc5424micro, and it rejects every other
+# option key with "unknown log opt".
+
+services:
+  app:
+    logging:
+      driver: syslog
+      options:
+        syslog-address: "tcp+tls://${SYSLOG_HOST:-syslog.example.org}:6514"
+        syslog-tls-ca-cert: ${SYSLOG_CA_CERT:-/etc/espalier/syslog-ca.pem}
+        syslog-format: rfc5424micro
+        tag: espalier

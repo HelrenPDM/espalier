@@ -1,7 +1,5 @@
 # Identity providers
 
-> Draft of tasks 0006 and 0007. Task 0017 finalizes this guide.
-
 Espalier signs people in through Microsoft Entra ID, Google Workspace, any
 standards-compliant OpenID Connect provider, Active Directory and other LDAP
 directories. The operator configures each provider through environment
@@ -69,6 +67,11 @@ secrets, certificates and keys come from the runtime environment only;
 
 Each provider has its own redirect URI. A response that arrives at the
 redirect URI of another provider ends the sign-in before the code is redeemed.
+`PUBLIC_URL` stands here for the form that Espalier sends: a lower-case host,
+no default port and no trailing slash (`Espalier.RuntimeConfig.normalize_url/1`).
+A provider compares these addresses exactly, so register that form, for
+example `https://learn.example.org/signed-out` for a `PUBLIC_URL` of
+`https://Learn.Example.org:443/`.
 
 ### MFA modes
 
@@ -546,3 +549,45 @@ profiles `entra`, `google` and `oidc` and invented users. The development
 block of `.env.example` configures all three; set each client secret to the
 fixture secret of the mock in `config/dev.exs`, which works only against the
 mock. The tests use the same mock on port 4011.
+
+## Troubleshooting
+
+A missing or invalid `AUTH_*` variable stops the boot. `Espalier.BootCheck`
+(task 0017) reports it together with every other configuration gap, such as
+a missing `SECRET_KEY_BASE`, in one message that starts with
+`The environment stops the boot:` and lists one gap per line. The check of
+the `AUTH_*` variables stops at the first invalid one, so a further invalid
+variable appears in the message of the next boot. After a successful boot,
+the line `Effective settings: ...` ends with the key, type and MFA mode of
+each provider, for example
+`providers: entra (entra, MFA idp_trusted), dir (ldap, MFA local)`.
+
+A failed OIDC sign-in ends at `/auth/finish?error=<code>` (section "Error
+codes"), and a failed directory sign-in answers `401 invalid_credentials`.
+The security log names the cause in the `reason` of the event
+`authn_login_fail` ([`../security/logging.md`](../security/logging.md)). For
+a directory, `bin/espalier eval 'Espalier.Release.check_ldap("<key>")'`
+prints one line per step, such as `tls_handshake: error unknown_ca`. At
+sign-in, every connect failure of an LDAPS provider, TLS failures included,
+logs the reason `connect_failed`, followed by at most one
+`directory_tls_failed` event per provider and minute with the tag that the
+`tls_handshake` line shows.
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| The provider shows its own error page and never returns to Espalier, for example with AADSTS50011 (Entra ID) or `redirect_uri_mismatch` (Google). The security log holds no event for the attempt. | The redirect URI of the request, `PUBLIC_URL/auth/oidc/<key>/callback`, matches no redirect URI registered for the client, for example in the scheme, the host, the key or a trailing slash. A provider does not redirect to an unregistered URI (RFC 6749, section 4.1.2.1). | Register exactly `PUBLIC_URL/auth/oidc/<key>/callback` with the lower-case key, one per provider (section "Addresses to register at the provider"). |
+| `oidc_failed`, reason `missing_transaction` | The callback arrived without the transaction cookie `__Host-espalier_tx`. The sign-in started at a host name other than that of `PUBLIC_URL`, so the cookie belongs to another host than the callback, or the person stayed at the provider for longer than the 10 minutes of the cookie. | Open Espalier at the address of `PUBLIC_URL` and start the sign-in again. |
+| `oidc_failed`, reason `token_not_yet_valid` or `token_expired`; at a step-up `stale_auth_time` | The clock of the application host differs from the provider's clock. oidcc 3.9.0 checks `nbf` and `exp` of the ID token against the host clock without tolerance, because Espalier does not set its `max_clock_skew`, whose default is 0. A step-up accepts an `auth_time` at most 60 seconds before the request. A client assertion (`private_key_jwt`) is valid for 30 seconds by the host clock, and a provider that finds it outside that window refuses the token request (`http_error`). | Synchronize the clock of the host through NTP. A container reads the clock of its host. |
+| The sign-in succeeds, and the person lacks a role of `AUTH_<KEY>_ROLE_MAP`. When the sign-in removes roles that the provider granted before, the security log shows `privilege_permissions_changed` with reason `role.synced`, and the audit event `role.synced` lists the removed roles. | The ID token carries no role claim, or none of its values equals a value of the role map; the comparison is exact and case-sensitive. Espalier reads the roles from the ID token only and requests no userinfo. A role claim that is no list of strings counts as no roles, and for the type `oidc` a distributed claim fails the sign-in with reason `distributed_role_claim`. | `entra`: assign the App Role to the person or to a group under Enterprise applications, and compare its value with the role map. `oidc`: configure the provider to put the claim of `AUTH_<KEY>_ROLE_CLAIM` into the ID token as a list of strings. `google` sends no role claim, so an admin grants the roles in Espalier. The provider roles change at the next sign-in. |
+| `oidc_failed`, reason `http_error` | The provider refused the token request, for example because of a wrong or expired client secret, a certificate that the client registration does not hold, or a client assertion outside its validity window. The log holds the reason tag only, without the answer of the provider. | Check `AUTH_<KEY>_CLIENT_SECRET` or the uploaded certificate at the provider, and the clock of the host. For Entra ID, keep `AUTH_<KEY>_CLIENT_KID_FORMAT` at `x5t` (section "Spike results"). |
+| `oidc_unavailable`, reason `provider_not_ready` and the error line `Metadata load failed for issuer <issuer>`, or reason a transport error such as `timeout` | The provider worker cannot load the discovery document or the JWKS, or the token request does not reach the provider: the name does not resolve, the egress allowlist or an outbound proxy blocks the request, or `AUTH_<KEY>_ISSUER` serves no `/.well-known/openid-configuration`. | Allow the hosts of section "Outbound connections" and check the issuer. The worker retries on its own. |
+| `oidc_unavailable`, reason `endpoint_not_allowed` | An endpoint of the discovery document lies on a host outside `AUTH_<KEY>_ALLOWED_HOSTS` or does not use `https`. | Check that the host belongs to the provider, and add it to `AUTH_<KEY>_ALLOWED_HOSTS`. |
+| `oidc_failed`, reason `tenant_mismatch` or `domain_mismatch` | The `tid` of the ID token differs from `AUTH_<KEY>_TENANT_ID`, or its `hd` differs from `AUTH_<KEY>_HOSTED_DOMAIN`. A Google account outside the Workspace domain, such as a personal account, carries another `hd` or none. | Compare the variable with the tenant or the Workspace domain. The person signs in with an account of that tenant or domain. |
+| `tls_handshake: error unknown_ca` | No certificate in `AUTH_<KEY>_CA_CERT_FILE` issued the chain that the server presents. | Put the issuing CA chain as PEM into the file and restart. |
+| `tls_handshake: error bad_certificate` | The certificate does not name `AUTH_<KEY>_HOST` (in a SAN DNS entry, or in the subject CN when it has no SAN), it is a wildcard certificate while `AUTH_<KEY>_TLS_WILDCARD` is not `true`, or the server presents a self-signed certificate that the CA file does not hold. Erlang/OTP 28.5 of the image reports all three cases with this alert. | Set `AUTH_<KEY>_HOST` to a name of the certificate, set `AUTH_<KEY>_TLS_WILDCARD=true` for a wildcard certificate, or put the self-signed certificate into the CA file. |
+| `tls_handshake: error certificate_expired` | A certificate of the chain lies outside its validity period by the clock of the application host. | Renew the certificate, or synchronize the clock of the host through NTP. |
+| `tls_handshake: error unsupported_certificate` | The server certificate lists extended key usages without Server Authentication (`1.3.6.1.5.5.7.3.1`), or it uses a signature algorithm or a critical extension that the TLS stack does not support. | Issue a certificate with the Server Authentication EKU (section "Certificates and transport"). |
+| `tls_handshake: error econnrefused`, `timeout` or `nxdomain`, then `connect: error connect_failed` | No service accepts the connection at `AUTH_<KEY>_HOST` and `AUTH_<KEY>_PORT`, no answer arrives within `AUTH_<KEY>_TIMEOUT_MS`, or the name does not resolve. | Check the name, the port and the firewall between the application and the directory. |
+| `start_tls: error tls_failed`; at sign-in reason `tls_failed` | With `AUTH_<KEY>_TLS=starttls`, the server refused StartTLS, as lldap 0.6.3 does, or the TLS handshake after StartTLS failed. `check_ldap` runs the TLS probe for LDAPS only, so this line carries no alert name. | Use `AUTH_<KEY>_TLS=ldaps` where the server offers LDAPS, which lets `check_ldap` name the TLS alert. |
+| `service_bind: error service_bind_failed`; at sign-in reason `service_bind_failed` | The directory refused the bind of `AUTH_<KEY>_BIND_DN` with `AUTH_<KEY>_BIND_PASSWORD`, for example after a password change without the switch of section "Service account". | Set the current DN and password and restart. |
+| `base_search: error <result code>`, for example `noSuchObject` | The directory refused the base-scope search on `AUTH_<KEY>_BASE_DN` with the LDAP result code shown. `noSuchObject` means that no entry has this DN. | Correct `AUTH_<KEY>_BASE_DN` for `noSuchObject`. RFC 4511, appendix A, defines the other result codes. |
