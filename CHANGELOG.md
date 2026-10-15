@@ -350,8 +350,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   both versions, the objective states, the suspend data and the procedure of
   the LMS test (task 0016).
 - A production image that carries `LICENSE` and `NOTICE` at `/app`, the demo
-  pack for `Espalier.Release.seed_demo/0`, `curl` for a health check on
-  `/health`, `EXPOSE 4000` and the directory `/data/exports` (task 0017).
+  pack for `Espalier.Release.seed_demo/0`, a health check (`bin/health`
+  with `curl`) on `/health` at the port of `PORT`, `EXPOSE 4000` and the
+  directory `/data/exports` (task 0017).
 - TLS between the application and PostgreSQL: the one-shot service
   `db-certs` of `compose.yaml` generates a CA and a server certificate with
   EC P-256 keys, the database admits TLS connections only, and the Repo

@@ -415,4 +415,9 @@ tasks rely on the implemented form.
   mock provider from `config/dev.exs` and `config/test.exs` to
   `config/runtime.exs`, which takes them from the `:public_url` of
   `Espalier.RuntimeConfig.parse!/2`, so that the mock and the application
-  share one form.
+  share one form. The review of the pull request added `bin/health` (from
+  `rel/overlays/bin/`), which the `HEALTHCHECK` runs and which asks `/health`
+  on the port of `PORT`, read as `RuntimeConfig.value/2` reads it, and
+  `scripts/count-inline-scripts.sh`, with which `scripts/check-headers.sh`
+  counts each script tag without `src` on its own; step 1 named
+  `curl -fsS http://localhost:4000/health` as the health check.

@@ -222,8 +222,11 @@ else
 fi
 
 # The SPA works under the CSP: index.html holds no inline script or style.
-if grep -i '<script' "$work/index.html" | grep -qv ' src='; then
-  fail "index.html holds an inline script"
+# Each script tag counts on its own, also next to another on one line.
+inline_scripts=$(sh "$(dirname "$0")/count-inline-scripts.sh" "$work/index.html")
+
+if [ "$inline_scripts" -gt 0 ]; then
+  fail "index.html holds $inline_scripts inline scripts"
 elif grep -qi '<style\| style=' "$work/index.html"; then
   fail "index.html holds an inline style"
 else

@@ -141,8 +141,10 @@ RUN mkdir -p /data/exports && chown nobody:0 /data/exports && chmod 0770 /data/e
 
 EXPOSE 4000
 
+# bin/health asks /health on the port of PORT, read as config/runtime.exs
+# reads it (rel/overlays/bin/health).
 HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=3 \
-  CMD curl -fsS http://localhost:4000/health || exit 1
+  CMD ["/app/bin/health"]
 
 USER nobody
 

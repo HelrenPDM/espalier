@@ -190,6 +190,24 @@ else
   ok "no beam.smp process of $CHECK_CONTAINER runs with -sname or -name"
 fi
 
+# The health check of the image asks the port of PORT, read as
+# config/runtime.exs reads it: a padded and quoted value of the port that the
+# endpoint listens on passes, and another port fails.
+if docker exec "$CHECK_CONTAINER" /app/bin/health >/dev/null 2>&1 &&
+  docker exec -e PORT=' "4000" ' "$CHECK_CONTAINER" /app/bin/health >/dev/null 2>&1 &&
+  ! docker exec -e PORT=4001 "$CHECK_CONTAINER" /app/bin/health >/dev/null 2>&1; then
+  ok "bin/health asks the port of PORT"
+else
+  fail "bin/health does not follow PORT"
+fi
+
+health=$(docker inspect -f '{{json .Config.Healthcheck.Test}}' "$CHECK_CONTAINER")
+if [ "$health" = '["CMD","/app/bin/health"]' ]; then
+  ok "the health check of the image runs bin/health"
+else
+  fail "the health check of the image is $health"
+fi
+
 # A directory of the static files returns no listing: 404, or the index.html
 # of the SPA catch-all (ASVS 13.4.3).
 curl -sS --max-time 20 -o "$work/index.html" "$base/"

@@ -211,10 +211,11 @@ curl -fsS http://localhost:4000/health
 docker compose ps
 ```
 
-The image defines a health check that runs
-`curl -fsS http://localhost:4000/health` every 10 seconds, with a timeout
-of 5 seconds, a start period of 30 seconds and 3 retries before the status
-`unhealthy`. `docker compose ps` shows the status. The service `db` runs
+The image defines a health check that runs `/app/bin/health` every 10
+seconds, with a timeout of 5 seconds, a start period of 30 seconds and 3
+retries before the status `unhealthy`. The script asks `/health` on the port
+of `PORT` (default 4000), which it reads as `config/runtime.exs` does.
+`docker compose ps` shows the status. The service `db` runs
 `pg_isready` every 5 seconds, `app` starts after `db` is healthy, and the
 proxy example starts `caddy` after `app` is healthy. The restart policy
 `unless-stopped` restarts a container whose process ends; the health status
