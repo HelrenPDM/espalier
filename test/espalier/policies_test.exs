@@ -354,7 +354,8 @@ defmodule Espalier.PoliciesTest do
           code: "other",
           title: "Other qualification",
           audience: "Everyone.",
-          validity_kind: :none
+          validity_kind: :none,
+          position: 1
         })
 
       assert {:ok, _acknowledgement} = Policies.acknowledge(scope, version)

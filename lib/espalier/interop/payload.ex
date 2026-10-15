@@ -181,7 +181,7 @@ defmodule Espalier.Interop.Payload do
     assessments = live_children(Assessment, module_ids, [:key])
     sources = program_rows(Source, program_id, [:key])
     formats = program_rows(CompanionFormat, program_id, [:position, :key])
-    qualifications = program_rows(Qualification, program_id, [:code])
+    qualifications = program_rows(Qualification, program_id, [:position, :code])
 
     lesson_keys = keys_by_id(lessons)
     objective_keys = keys_by_id(objectives)

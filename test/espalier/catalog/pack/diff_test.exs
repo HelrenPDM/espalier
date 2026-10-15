@@ -2,8 +2,8 @@ defmodule Espalier.Catalog.Pack.DiffTest do
   use Espalier.DataCase, async: true
 
   import Espalier.CredentialsFixtures, only: [user_with_role_fixture: 1]
-  import Espalier.LearningFixtures, only: [publish_demo!: 0, objective!: 2]
-  import Espalier.PackFixtures, only: [demo_path: 0]
+  import Espalier.LearningFixtures, only: [publish_demo!: 0, publish_demo!: 1, objective!: 2]
+  import Espalier.PackFixtures, only: [copy_pack!: 1, demo_path: 0, update_yaml!: 3]
 
   alias Espalier.Accounts.Scope
   alias Espalier.AccountsFixtures
@@ -238,6 +238,38 @@ defmodule Espalier.Catalog.Pack.DiffTest do
                changed_fields: %{}
              }
     end
+
+    test "an import that only reorders the qualifications changes those whose place changed",
+         %{scope: scope} do
+      three = copy_pack!(demo_path())
+
+      update_yaml!(three, "qualifications.yaml", fn [basics, workshop] ->
+        coach = %{workshop | "code" => "coach", "title" => "Coaching in the team"}
+        [basics, workshop, coach]
+      end)
+
+      publish_demo!(three)
+
+      assert diff!(scope, pack_payload(three)).qualifications == %{
+               added: [],
+               changed: [],
+               archived: []
+             }
+
+      reversed = copy_pack!(three)
+      update_yaml!(reversed, "qualifications.yaml", &Enum.reverse/1)
+      payload = pack_payload(reversed)
+      assert Enum.map(payload["qualifications"], & &1["code"]) == ["coach", "workshop", "basics"]
+
+      diff = diff!(scope, payload)
+
+      # workshop keeps place 2; basics and coach trade places 1 and 3.
+      assert diff.qualifications == %{added: [], changed: ["basics", "coach"], archived: []}
+
+      for kind <- Diff.kinds() -- [:qualifications] do
+        assert %{added: [], changed: [], archived: []} = diff[kind], "#{kind} is not empty"
+      end
+    end
   end
 
   test "without a program every key of the payload is added", %{scope: scope} do
@@ -314,8 +346,10 @@ defmodule Espalier.Catalog.Pack.DiffTest do
     })
   end
 
-  defp demo_payload do
-    {:ok, %PackImport{status: :validated, payload: payload}} = Importer.import(demo_path(), nil)
+  defp demo_payload, do: pack_payload(demo_path())
+
+  defp pack_payload(path) do
+    {:ok, %PackImport{status: :validated, payload: payload}} = Importer.import(path, nil)
     payload
   end
 

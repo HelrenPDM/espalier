@@ -41,6 +41,7 @@ package "Catalog" {
     validity_months : int
     refresher_mode : RefresherMode
     phases : Phase[]
+    position : int
     archived_at : datetime
   }
 

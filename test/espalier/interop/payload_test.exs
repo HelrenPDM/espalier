@@ -3,7 +3,7 @@ defmodule Espalier.Interop.PayloadTest do
 
   alias Espalier.Catalog
   alias Espalier.Catalog.Pack.{Importer, Publisher}
-  alias Espalier.Catalog.PackImport
+  alias Espalier.Catalog.{PackImport, Qualification}
   alias Espalier.Interop.Payload
   alias Espalier.{LearningFixtures, PackFixtures}
 
@@ -11,6 +11,46 @@ defmodule Espalier.Interop.PayloadTest do
     {:ok, %PackImport{status: :validated} = pack_import} = Importer.import(path, nil)
     {:ok, %PackImport{status: :published}} = Publisher.publish(pack_import)
     {pack_import.payload, Catalog.get_program_by_slug(pack_import.pack_key)}
+  end
+
+  # A copy of the demo pack whose qualifications.yaml lists `workshop`
+  # before `basics`, against the code order.
+  defp reversed_pack! do
+    pack = PackFixtures.copy_pack!(PackFixtures.demo_path())
+    PackFixtures.update_yaml!(pack, "qualifications.yaml", &Enum.reverse/1)
+    pack
+  end
+
+  # A copy of the demo pack that keeps `basics` before `workshop` in
+  # qualifications.yaml and sets `position` on every entry against that
+  # order.
+  defp positioned_pack! do
+    pack = PackFixtures.copy_pack!(PackFixtures.demo_path())
+
+    PackFixtures.update_yaml!(pack, "qualifications.yaml", fn qualifications ->
+      count = length(qualifications)
+
+      qualifications
+      |> Enum.with_index()
+      |> Enum.map(fn {qualification, index} ->
+        Map.put(qualification, "position", count - index)
+      end)
+    end)
+
+    pack
+  end
+
+  defp codes(qualifications), do: Enum.map(qualifications, & &1["code"])
+
+  # Code and position of every qualification row of `program`, archived
+  # rows included, by position.
+  defp stored_positions(program) do
+    Repo.all(
+      from q in Qualification,
+        where: q.program_id == ^program.id,
+        order_by: q.position,
+        select: {q.code, q.position}
+    )
   end
 
   describe "build/1" do
@@ -57,6 +97,42 @@ defmodule Espalier.Interop.PayloadTest do
 
       module_1 = Enum.find(built["modules"], &(&1["number"] == 1))
       refute Enum.any?(module_1["items"], &(&1["kind"] == "poll"))
+    end
+
+    test "lists the qualifications in the order of the file, against the code order" do
+      {payload, program} = import_and_publish!(reversed_pack!())
+      built = Payload.build(program)
+
+      assert built == payload
+      assert codes(built["qualifications"]) == ["workshop", "basics"]
+      assert stored_positions(program) == [{"workshop", 1}, {"basics", 2}]
+    end
+
+    test "lists the qualifications by position, against the order of the file" do
+      pack = positioned_pack!()
+
+      assert [%{"code" => "basics", "position" => 2}, %{"code" => "workshop", "position" => 1}] =
+               PackFixtures.read_yaml!(pack, "qualifications.yaml")
+
+      {payload, program} = import_and_publish!(pack)
+      built = Payload.build(program)
+
+      assert built == payload
+      assert codes(built["qualifications"]) == ["workshop", "basics"]
+      refute Enum.any?(built["qualifications"], &Map.has_key?(&1, "position"))
+      assert stored_positions(program) == [{"workshop", 1}, {"basics", 2}]
+    end
+
+    test "lists the qualifications in the order of the import published last" do
+      {_payload, program} = import_and_publish!(PackFixtures.demo_path())
+      assert codes(Payload.build(program)["qualifications"]) == ["basics", "workshop"]
+
+      {payload, republished} = import_and_publish!(reversed_pack!())
+      assert republished.id == program.id
+
+      assert Payload.build(republished) == payload
+      assert codes(payload["qualifications"]) == ["workshop", "basics"]
+      assert stored_positions(republished) == [{"workshop", 1}, {"basics", 2}]
     end
   end
 

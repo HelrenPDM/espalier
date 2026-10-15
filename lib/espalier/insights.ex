@@ -864,12 +864,13 @@ defmodule Espalier.Insights do
   `credentials` (task 0013).
 
   Returns `{:ok, %{qualifications: [row]}}` with the live qualifications
-  ordered by add-on flag and code, followed by archived qualifications with
-  at least one shown cell, so that the presence of an archived
-  qualification reveals no count below the threshold. A row holds `code`, `title`, `archived` and one
-  entry per status with `status` and a cell, whose count and value are the
-  number of credentials. A scope without `analyst` answers
-  `{:error, :forbidden}`, an unknown program `{:error, :not_found}`.
+  ordered by position and code, followed by archived qualifications with
+  at least one shown cell in the same order, so that the presence of an
+  archived qualification reveals no count below the threshold. A row holds
+  `code`, `title`, `archived` and one entry per status with `status` and a
+  cell, whose count and value are the number of credentials. A scope
+  without `analyst` answers `{:error, :forbidden}`, an unknown program
+  `{:error, :not_found}`.
   """
   def credential_report(%Scope{} = scope, slug) do
     report(scope, slug, fn program ->
@@ -888,7 +889,7 @@ defmodule Espalier.Insights do
         Repo.all(
           from q in Qualification,
             where: q.program_id == ^program.id,
-            order_by: [fragment("? IS NOT NULL", q.archived_at), q.add_on, q.code]
+            order_by: [fragment("? IS NOT NULL", q.archived_at), q.position, q.code]
         )
 
       rows =

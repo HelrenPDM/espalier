@@ -352,6 +352,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- A content pack sets the display order of its qualifications (issue #39).
+  An entry of `qualifications.yaml` takes an optional `position` of 1 or
+  more, set on every entry or on none and each value once; without it, the
+  qualifications keep the order of the file instead of the order by code.
+  The requirements of the credential station (`GET /api/me/requirements`),
+  the credential report (`GET /api/insights/credentials`) and the pack that
+  `mix espalier.export` writes follow that order, and an import that only
+  reorders the file lists the moved qualifications as changed. The new
+  column `qualifications.position` starts with the former order (add-ons
+  last, each group by code), so a live program keeps its order until its
+  next publish. An import validated before the change holds its
+  qualifications in code order and publishes them in that order; a new
+  import of the pack applies the order of the file.
+
 - The endpoint serves no HTTP/2 (`http_2_options: [enabled: false]`), because
   `bandit` 1.12.5 carries EEF-CVE-2026-105659 (CVE-2026-105659,
   GHSA-69m6-wcv4-rwcf: a peer that drips small `WINDOW_UPDATE` frames keeps

@@ -20,11 +20,12 @@ defmodule Espalier.Catalog.Pack.Normalizer do
     * positioned lists keep their order: modules follow `number`, lessons
       `position` (lessons keep `"position"`), rules `number`; segments,
       stations, objectives, items, options, blocks, companion formats and the
-      items of an assessment follow their file; `phases`, `domains`,
-      `unlocks` and `collapsed_on` keep the file order;
+      items of an assessment follow their file; qualifications follow
+      `position`, or else their file, and keep no `"position"`; `phases`,
+      `domains`, `unlocks` and `collapsed_on` keep the file order;
     * every other list is sorted ascending: sources and assessments by key,
-      glossary terms by slug, qualifications by code, requirements by kind
-      and then target, the `rules` of an item by number, and the `reveals`,
+      glossary terms by slug, requirements by kind and then target, the
+      `rules` of an item by number, and the `reveals`,
       `objectives`, `taught_in` and `cite` lists by value.
 
   Two packs that differ only in the order of the sorted lists give equal
@@ -69,8 +70,10 @@ defmodule Espalier.Catalog.Pack.Normalizer do
       "glossary" => cast.glossary |> Enum.map(&term/1) |> Enum.sort_by(& &1["slug"]),
       "segments" => Enum.map(cast.segments, &segment/1),
       "stations" => Enum.map(cast.stations, &station(&1, cast.feedback)),
+      # The validator admits `position` on every qualification or on none,
+      # and Enum.sort_by/2 is stable, so without it the file order holds.
       "qualifications" =>
-        cast.qualifications |> Enum.map(&qualification/1) |> Enum.sort_by(& &1["code"]),
+        cast.qualifications |> Enum.sort_by(& &1.position) |> Enum.map(&qualification/1),
       "formats" => Enum.map(cast.formats, &format/1),
       "modules" => cast.modules |> Enum.map(&module/1) |> Enum.sort_by(& &1["number"])
     }

@@ -2,7 +2,9 @@ defmodule EspalierWeb.Credentials.LearnerRoutesTest do
   @moduledoc """
   The learner routes of task 0013 (spec steps 11, 17 and 24): policies with
   their acknowledgements, the approved tool list, the requirements per
-  qualification, the own credentials and the repeated module completion.
+  qualification in the order of `qualifications.yaml` or by the `position`
+  of its entries (issue #39), the own credentials and the repeated module
+  completion.
 
   The routes sit behind a session (ASVS 8.2.1), a credential of another
   user answers 404 (ASVS 8.2.2), a body with an extra member answers 422
@@ -16,7 +18,9 @@ defmodule EspalierWeb.Credentials.LearnerRoutesTest do
   import Espalier.LearningFixtures
   import OpenApiSpex.TestAssertions
 
-  alias Espalier.Catalog.Station
+  alias Espalier.{Catalog, PackFixtures}
+  alias Espalier.Catalog.Pack.{Importer, Publisher}
+  alias Espalier.Catalog.{PackImport, Station}
   alias Espalier.Learning.ModuleCompletion
   alias Espalier.Policies
   alias Espalier.Policies.Acknowledgement
@@ -59,6 +63,36 @@ defmodule EspalierWeb.Credentials.LearnerRoutesTest do
     do: list |> Enum.map(&{&1["kind"], &1["target_key"], &1["station_position"]}) |> Enum.sort()
 
   defp qualification(body, code), do: Enum.find(body["qualifications"], &(&1["code"] == code))
+
+  # Publishes a copy of the demo pack whose qualifications.yaml holds
+  # `entries`. The module runs async, so the copy takes a key of its own,
+  # which the publisher locks apart from the demo pack.
+  defp publish_qualifications!(entries) do
+    key = "qualification-order-#{System.unique_integer([:positive])}"
+    pack = PackFixtures.copy_pack!(PackFixtures.demo_path())
+    PackFixtures.update_yaml!(pack, "pack.yaml", &Map.put(&1, "key", key))
+    PackFixtures.write_yaml!(pack, "qualifications.yaml", entries)
+    {:ok, %PackImport{status: :validated} = pack_import} = Importer.import(pack, nil)
+    {:ok, %PackImport{status: :published}} = Publisher.publish(pack_import)
+    Catalog.get_program_by_slug(key)
+  end
+
+  # An entry of qualifications.yaml that requires module 1 of the demo pack,
+  # with `position` when one is given.
+  defp qualification_entry(code, add_on, position \\ nil) do
+    entry = %{
+      "code" => code,
+      "title" => "Qualification #{code}",
+      "audience" => "Everyone.",
+      "unlocks" => ["Task #{code}"],
+      "add_on" => add_on,
+      "validity_kind" => "none",
+      "phases" => ["anchor"],
+      "requirements" => [%{"kind" => "module_completed", "target" => 1}]
+    }
+
+    if position, do: Map.put(entry, "position", position), else: entry
+  end
 
   # Every member name of a JSON value, nested members included.
   defp member_names(map) when is_map(map),
@@ -320,6 +354,39 @@ defmodule EspalierWeb.Credentials.LearnerRoutesTest do
       assert entries(workshop["met"]) == [{"qualification_held", "basics", nil}]
       assert [%{"kind" => "attendance", "target_key" => "workshop"}] = workshop["open"]
       assert workshop["credential"] == nil
+    end
+
+    # The add-on `a` stands between two base qualifications, where the order
+    # by add-on flag and code would put it last.
+    test "lists the qualifications in the order of qualifications.yaml",
+         %{conn: conn, spec: spec} do
+      program =
+        publish_qualifications!([
+          qualification_entry("c", false),
+          qualification_entry("a", true),
+          qualification_entry("b", false)
+        ])
+
+      body = get_json(conn, "/api/me/requirements?program=#{program.slug}")
+      assert_schema(body, "RequirementList", spec)
+
+      assert Enum.map(body["qualifications"], &{&1["code"], &1["add_on"]}) == [
+               {"c", false},
+               {"a", true},
+               {"b", false}
+             ]
+    end
+
+    test "lists the qualifications by position when every entry sets one", %{conn: conn} do
+      program =
+        publish_qualifications!([
+          qualification_entry("c", false, 30),
+          qualification_entry("a", true, 20),
+          qualification_entry("b", false, 10)
+        ])
+
+      body = get_json(conn, "/api/me/requirements?program=#{program.slug}")
+      assert Enum.map(body["qualifications"], & &1["code"]) == ~w(b a c)
     end
 
     test "answers 404 for an unknown program and 422 without the parameter", %{conn: conn} do

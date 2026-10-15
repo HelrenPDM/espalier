@@ -22,6 +22,9 @@ defmodule Espalier.Catalog.PublisherTest do
     Station
   }
 
+  import Espalier.AccountsFixtures, only: [user_fixture: 0]
+  import Espalier.CredentialsFixtures, only: [credential_fixture: 3]
+
   import Espalier.PackFixtures,
     only: [
       copy_pack!: 1,
@@ -36,10 +39,12 @@ defmodule Espalier.Catalog.PublisherTest do
 
   alias Espalier.Catalog.Module, as: CatalogModule
   alias Espalier.Catalog.Pack.{Importer, Publisher}
+  alias Espalier.Credentials.Credential
 
   @key "publisher-test"
 
   @demo_key "ai-assistant-basics-demo"
+  @qualifications "qualifications.yaml"
   @items1 "modules/01-basics/items.yaml"
   @items2 "modules/02-checking/items.yaml"
   @objectives1 "modules/01-basics/objectives.yaml"
@@ -674,6 +679,60 @@ defmodule Espalier.Catalog.PublisherTest do
       assert counts(program).prerequisites == 1
     end
 
+    test "writes the place of a qualification in the payload list as its position" do
+      pack = copy_pack!(demo_path())
+      update_yaml!(pack, @qualifications, &Enum.reverse/1)
+
+      published = publish_pack!(pack)
+
+      assert qualification_codes(published.payload) == ["workshop", "basics"]
+      assert qualification_positions(demo_program!()) == [{"workshop", 1}, {"basics", 2}]
+    end
+
+    test "orders the qualifications by the position that every entry of the file sets" do
+      pack = copy_pack!(demo_path())
+
+      update_yaml!(pack, @qualifications, fn [basics, workshop] ->
+        assert {basics["code"], workshop["code"]} == {"basics", "workshop"}
+        [Map.put(basics, "position", 20), Map.put(workshop, "position", 10)]
+      end)
+
+      published = publish_pack!(pack)
+
+      # The payload keeps the order of the positions and drops their values,
+      # so the rows hold the place in the list.
+      assert qualification_codes(published.payload) == ["workshop", "basics"]
+      refute Enum.any?(published.payload["qualifications"], &Map.has_key?(&1, "position"))
+      assert qualification_positions(demo_program!()) == [{"workshop", 1}, {"basics", 2}]
+    end
+
+    test "a second publish that only reorders the qualifications keeps their ids and the credentials" do
+      publish_pack!(copy_pack!(demo_path()))
+      program = demo_program!()
+      before = snapshot(program)
+      assert qualification_positions(program) == [{"basics", 1}, {"workshop", 2}]
+
+      basics = Repo.get_by!(Qualification, program_id: program.id, code: "basics")
+
+      credential =
+        credential_fixture(user_fixture(), basics, %{
+          issued_at: ~U[2026-09-01 08:00:00Z],
+          valid_until: ~D[2027-09-01]
+        })
+
+      stored = Repo.get!(Credential, credential.id)
+
+      reordered = copy_pack!(demo_path())
+      update_yaml!(reordered, @qualifications, &Enum.reverse/1)
+      publish_pack!(reordered)
+
+      assert snapshot(program) == before
+      assert archived(program) == []
+      assert demo_counts(program) == @demo_counts
+      assert qualification_positions(program) == [{"workshop", 1}, {"basics", 2}]
+      assert Repo.get!(Credential, credential.id) == stored
+    end
+
     test "a second publish of the unchanged pack keeps every id, archives nothing and keeps the counts" do
       pack = copy_pack!(demo_path())
       publish_pack!(pack)
@@ -1004,6 +1063,18 @@ defmodule Espalier.Catalog.PublisherTest do
   defp remove_pack_entry!(pack, rel, key) do
     pack_entry!(pack, rel, key)
     update_yaml!(pack, rel, &Enum.reject(&1, fn entry -> entry["key"] == key end))
+  end
+
+  defp qualification_codes(payload), do: Enum.map(payload["qualifications"], & &1["code"])
+
+  # The qualifications of the program as {code, position}, ordered by position.
+  defp qualification_positions(program) do
+    Repo.all(
+      from q in Qualification,
+        where: q.program_id == ^program.id,
+        order_by: [q.position, q.code],
+        select: {q.code, q.position}
+    )
   end
 
   ## Payload of a small two-module pack in the shape of the normalized map

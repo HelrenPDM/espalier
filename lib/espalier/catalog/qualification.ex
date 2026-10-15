@@ -2,6 +2,8 @@ defmodule Espalier.Catalog.Qualification do
   @moduledoc """
   A qualification with its requirements. `unlocks` lists the tasks that a
   credential for it permits; the model holds no rank, score or level.
+  `position` orders the qualifications of a program for display and means
+  nothing else.
   """
   use Ecto.Schema
   import Ecto.Changeset
@@ -24,6 +26,7 @@ defmodule Espalier.Catalog.Qualification do
       values: [:orient, :understand, :apply, :anchor, :update],
       default: []
 
+    field :position, :integer
     field :archived_at, :utc_datetime
 
     belongs_to :program, Program
@@ -48,8 +51,9 @@ defmodule Espalier.Catalog.Qualification do
       :validity_kind,
       :validity_months,
       :refresher_mode,
-      :phases
+      :phases,
+      :position
     ])
-    |> validate_required([:code, :title, :audience, :add_on, :validity_kind])
+    |> validate_required([:code, :title, :audience, :add_on, :validity_kind, :position])
   end
 end

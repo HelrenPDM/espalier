@@ -54,7 +54,7 @@ defmodule Espalier.Credentials.LockOrderTest do
       })
 
     [first, second] =
-      for code <- ["first", "second"] do
+      for {code, position} <- Enum.with_index(["first", "second"], 1) do
         Repo.insert!(%Qualification{
           program_id: program.id,
           code: code,
@@ -64,7 +64,8 @@ defmodule Espalier.Credentials.LockOrderTest do
           add_on: false,
           validity_kind: :months,
           validity_months: 12,
-          refresher_mode: :update_unit
+          refresher_mode: :update_unit,
+          position: position
         })
       end
       |> Enum.sort_by(& &1.id)

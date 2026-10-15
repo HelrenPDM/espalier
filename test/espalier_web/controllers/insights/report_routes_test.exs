@@ -24,7 +24,9 @@ defmodule EspalierWeb.Insights.ReportRoutesTest do
   the number of texts reaches the threshold, the format report counts each
   person's vote once per format, the item report leaves out polls, and the
   self-assessment report breaks down by org unit only while
-  `INSIGHTS_ORG_UNIT` is true.
+  `INSIGHTS_ORG_UNIT` is true, and the credential report lists the
+  qualifications in the order of `qualifications.yaml`, or by the
+  `position` of its entries (issue #39).
 
   The expected months are read back from the stored rows, so that a test
   that runs across the end of a month expects the month the rows were
@@ -39,9 +41,10 @@ defmodule EspalierWeb.Insights.ReportRoutesTest do
   import Espalier.LearningFixtures
   import OpenApiSpex.TestAssertions
 
-  alias Espalier.Accounts
+  alias Espalier.{Accounts, Catalog, PackFixtures}
   alias Espalier.Accounts.Scope
-  alias Espalier.Catalog.Segment
+  alias Espalier.Catalog.Pack.{Importer, Publisher}
+  alias Espalier.Catalog.{PackImport, Segment}
   alias Espalier.Insights.{ItemStat, SelfAssessmentResponse}
   alias Espalier.Repo
   alias EspalierWeb.ApiSpec
@@ -114,6 +117,34 @@ defmodule EspalierWeb.Insights.ReportRoutesTest do
 
   defp label(program, segment_key),
     do: Repo.get_by!(Segment, program_id: program.id, key: segment_key).label
+
+  # Publishes a copy of the demo pack under the key `qualification-order`,
+  # whose qualifications.yaml holds `entries`, next to the demo program.
+  defp publish_qualifications!(entries) do
+    pack = PackFixtures.copy_pack!(PackFixtures.demo_path())
+    PackFixtures.update_yaml!(pack, "pack.yaml", &Map.put(&1, "key", "qualification-order"))
+    PackFixtures.write_yaml!(pack, "qualifications.yaml", entries)
+    {:ok, %PackImport{status: :validated} = pack_import} = Importer.import(pack, nil)
+    {:ok, %PackImport{status: :published}} = Publisher.publish(pack_import)
+    Catalog.get_program_by_slug("qualification-order")
+  end
+
+  # An entry of qualifications.yaml that requires module 1 of the demo pack,
+  # with `position` when one is given.
+  defp qualification_entry(code, add_on, position \\ nil) do
+    entry = %{
+      "code" => code,
+      "title" => "Qualification #{code}",
+      "audience" => "Everyone.",
+      "unlocks" => ["Task #{code}"],
+      "add_on" => add_on,
+      "validity_kind" => "none",
+      "phases" => ["anchor"],
+      "requirements" => [%{"kind" => "module_completed", "target" => 1}]
+    }
+
+    if position, do: Map.put(entry, "position", position), else: entry
+  end
 
   # Every map in a decoded body that carries the member `suppressed`.
   defp suppressed_entries(%{} = map) do
@@ -339,6 +370,40 @@ defmodule EspalierWeb.Insights.ReportRoutesTest do
         assert_schema(body, schema, spec)
         assert :locale in spec.components.schemas[schema].required, route
       end
+    end
+
+    # The add-on `a` stands between two base qualifications, where the order
+    # by add-on flag and code would put it last.
+    test "receives the qualifications of /credentials in the order of qualifications.yaml",
+         %{analyst: analyst, spec: spec} do
+      program =
+        publish_qualifications!([
+          qualification_entry("c", false),
+          qualification_entry("a", true),
+          qualification_entry("b", false)
+        ])
+
+      body = report!(analyst, "credentials", program.slug)
+      assert_schema(body, "CredentialReport", spec)
+
+      assert Enum.map(body["qualifications"], &{&1["code"], &1["archived"]}) == [
+               {"c", false},
+               {"a", false},
+               {"b", false}
+             ]
+    end
+
+    test "receives the qualifications of /credentials by position when every entry sets one",
+         %{analyst: analyst} do
+      program =
+        publish_qualifications!([
+          qualification_entry("c", false, 30),
+          qualification_entry("a", true, 20),
+          qualification_entry("b", false, 10)
+        ])
+
+      body = report!(analyst, "credentials", program.slug)
+      assert Enum.map(body["qualifications"], & &1["code"]) == ~w(b a c)
     end
   end
 

@@ -11,8 +11,10 @@ defmodule Espalier.InsightsTest do
   format, feedback and credential reports. Once any answer exists, the
   self-assessment report lists every live segment, so that a missing row
   tells nothing, and an archived segment, a key without a segment and an
-  archived qualification appear only with a shown cell. The competence
-  report has its own tests in
+  archived qualification appear only with a shown cell. The credential
+  report follows the order of `qualifications.yaml`, or the `position` of
+  its entries, and lists the archived qualifications after the live ones
+  (issue #39). The competence report has its own tests in
   `test/espalier/insights/competence_report_test.exs`.
 
   A test that compares a stored date with the current date takes the date
@@ -936,7 +938,9 @@ defmodule Espalier.InsightsTest do
     end
   end
 
-  # Inserts an archived qualification `code` of `program`.
+  # Inserts an archived qualification `code` of `program`. Its position 1
+  # equals the position of the first live qualification of the demo pack, so
+  # the report places it after the live ones by its archive flag alone.
   defp archived_qualification!(program, code) do
     Repo.insert!(%Qualification{
       program_id: program.id,
@@ -947,8 +951,101 @@ defmodule Espalier.InsightsTest do
       add_on: false,
       validity_kind: :none,
       phases: [],
+      position: 1,
       archived_at: DateTime.utc_now(:second)
     })
+  end
+
+  describe "credential_report/2 with the qualification order of the pack" do
+    setup do
+      %{analyst: analyst_scope()}
+    end
+
+    # The add-on `a` stands between two base qualifications. The order by
+    # add-on flag and code would give b, c, a, the order by code a, b, c.
+    test "without position, lists the qualifications in the order of qualifications.yaml",
+         %{analyst: analyst} do
+      publish_qualifications!([
+        qualification_entry("c", false),
+        qualification_entry("a", true),
+        qualification_entry("b", false)
+      ])
+
+      assert {:ok, %{qualifications: qualifications}} =
+               Insights.credential_report(analyst, demo_slug())
+
+      assert Enum.map(qualifications, &{&1.code, &1.archived}) == [
+               {"c", false},
+               {"a", false},
+               {"b", false}
+             ]
+    end
+
+    test "with position on every entry, lists the qualifications by position and not in the order of the file",
+         %{analyst: analyst} do
+      publish_qualifications!([
+        qualification_entry("c", false, 30),
+        qualification_entry("a", true, 20),
+        qualification_entry("b", false, 10)
+      ])
+
+      assert {:ok, %{qualifications: qualifications}} =
+               Insights.credential_report(analyst, demo_slug())
+
+      assert Enum.map(qualifications, & &1.code) == ["b", "a", "c"]
+    end
+
+    test "lists archived qualifications after the live ones in position order, also with a lower position",
+         %{analyst: analyst} do
+      program =
+        publish_qualifications!([
+          qualification_entry("c", false),
+          qualification_entry("a", true),
+          qualification_entry("b", false)
+        ])
+
+      c = program |> qualification!("c") |> archive!()
+      b = program |> qualification!("b") |> archive!()
+      assert {c.position, qualification!(program, "a").position, b.position} == {1, 2, 3}
+
+      # An archived qualification has a row only with a shown cell.
+      credential_fixture(user_fixture(), b, %{status: :active})
+      credential_fixture(user_fixture(), c, %{status: :expired})
+
+      assert {:ok, %{qualifications: qualifications}} =
+               Insights.credential_report(analyst, demo_slug())
+
+      assert Enum.map(qualifications, &{&1.code, &1.archived}) == [
+               {"a", false},
+               {"c", true},
+               {"b", true}
+             ]
+    end
+  end
+
+  # Publishes a copy of the demo pack whose qualifications.yaml holds
+  # `entries` in place of basics and workshop.
+  defp publish_qualifications!(entries) do
+    pack = PackFixtures.copy_pack!(PackFixtures.demo_path())
+    PackFixtures.write_yaml!(pack, "qualifications.yaml", entries)
+    publish_demo!(pack)
+  end
+
+  # An entry of qualifications.yaml that requires module 1 of the demo pack,
+  # with `position` when one is given.
+  defp qualification_entry(code, add_on, position \\ nil) do
+    entry = %{
+      "code" => code,
+      "title" => "Qualification #{code}",
+      "audience" => "Everyone.",
+      "unlocks" => ["Task #{code}"],
+      "add_on" => add_on,
+      "validity_kind" => "none",
+      "phases" => ["anchor"],
+      "requirements" => [%{"kind" => "module_completed", "target" => 1}]
+    }
+
+    if position, do: Map.put(entry, "position", position), else: entry
   end
 
   describe "participation/2" do
