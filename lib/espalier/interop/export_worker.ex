@@ -32,10 +32,28 @@ defmodule Espalier.Interop.ExportWorker do
       `mix espalier.scorm_xsd` fetches them, see
       `Espalier.Interop.SchemaFiles`) at the same relative path from the
       package root;
+    * the media files of the module (task 0018, step 17): every delivery
+      file and poster that a block of the module references, once at
+      `media/<sha256>.<ext>`, which `content.json` names in its `media`
+      object. They are staged into the build directory while the shared
+      lock is held, as hard links to the files of the media store, or as
+      copies when `EXPORT_DIR` and `MEDIA_DIR` lie on different file
+      systems. A link and a copy both keep the bytes when the store file is
+      removed later, so a publish and a deletion of the old media after the
+      lock is released cannot take a file from the package. Media above
+      `export_max_mb` fail the export with a text that names the limit. A
+      file that cannot be staged logs `export media file not staged: export
+      <id>, <path in the package>: <POSIX reason> (<description>)` and
+      fails the export with "A media file of the module is missing." when
+      the store file is gone (`enoent`), with a text that names the full
+      volume of `EXPORT_DIR` for `enospc` and `edquot`, and with the
+      generic text of a failed build for any other reason;
     * `imsmanifest.xml` from `Espalier.Interop.manifest/2`, with one `file`
       element for every other file of the package, sorted by path.
 
-  It zips the directory with `:zip.create/3` into `<id>.zip.part`, renames
+  It zips the directory with `:zip.create/3` into `<id>.zip.part`, which
+  stores `.webp` and `.webm` entries without compression and reads every
+  file in blocks, renames
   that file to `<id>.zip`, removes the build directory and sets the status
   `done` with `file_name`. On any error, the status changes to `running`
   and `done` included, it sets `failed` with a short text in `error`, logs
@@ -91,8 +109,9 @@ defmodule Espalier.Interop.ExportWorker do
   alias Espalier.Catalog.Module, as: CatalogModule
   alias Espalier.Catalog.Pack.Publisher
   alias Espalier.Catalog.Program
-  alias Espalier.{Interop, Policies, Repo}
+  alias Espalier.{Interop, Media, Policies, Repo}
   alias Espalier.Interop.{Export, Payload}
+  alias Espalier.Media.{Asset, Store}
 
   # The time that the read of the content takes at most, on top of the wait
   # for a publish of the same pack.
@@ -103,6 +122,7 @@ defmodule Espalier.Interop.ExportWorker do
   @build_command "npm --prefix frontend run build:scorm"
   @schema_command "mix espalier.scorm_xsd"
   @failed "The package could not be built; the server log names the cause."
+  @volume_full "The volume of EXPORT_DIR is full; free space there and request the export again."
 
   # The directory of the schema files below :scorm_xsd_dir per version.
   @xsd_dirs %{scorm12: "12", scorm2004: "2004"}
@@ -247,8 +267,8 @@ defmodule Espalier.Interop.ExportWorker do
 
     with :ok <- check_player(player_dir),
          {:ok, xsd_files} <- schema_files(xsd_dir, export.scorm_version),
-         {:ok, content} <- published_content(export),
-         entries = entries(player_dir, xsd_dir, xsd_files, content),
+         {:ok, {content, media}} <- published_content(export, paths),
+         entries = entries(player_dir, xsd_dir, xsd_files, content, media),
          :ok <- check_unique(entries) do
       write_package(export, paths, entries, content)
     else
@@ -285,10 +305,10 @@ defmodule Espalier.Interop.ExportWorker do
   end
 
   # The program and the module must still be published and live when the
-  # job runs. The check and the content are read under the shared lock of
-  # the pack: a publish of the pack that runs ends before the read, and one
-  # that starts waits for it.
-  defp published_content(%Export{program_id: program_id, module_id: module_id}) do
+  # job runs. The check, the content, the asset rows and the staging of the
+  # media files run under the shared lock of the pack: a publish of the
+  # pack that runs ends before the read, and one that starts waits for it.
+  defp published_content(%Export{program_id: program_id, module_id: module_id} = export, paths) do
     Repo.transact(
       fn ->
         with slug when is_binary(slug) <-
@@ -296,9 +316,12 @@ defmodule Espalier.Interop.ExportWorker do
              :ok <- lock_pack_shared!(slug),
              %Program{status: :published} = program <- Repo.get(Program, program_id),
              %CatalogModule{archived_at: nil, program_id: ^program_id} = module <-
-               Repo.get(CatalogModule, module_id) do
-          {:ok, content(program, module)}
+               Repo.get(CatalogModule, module_id),
+             {:ok, content, media} <- content(program, module),
+             :ok <- stage_media(media, paths.build, export.id) do
+          {:ok, {content, media}}
         else
+          {:error, message} when is_binary(message) -> {:error, message}
           _other -> {:error, "The module is no longer published."}
         end
       end,
@@ -333,8 +356,102 @@ defmodule Espalier.Interop.ExportWorker do
   ## Content
 
   defp content(program, module) do
-    content = program |> Payload.build() |> Payload.module(module.number)
-    Map.merge(content, %{"schema" => 1, "policies" => policies(content)})
+    payload = Payload.build(program)
+    payload_module = Enum.find(payload["modules"], &(&1["number"] == module.number))
+    ids = if payload_module, do: Payload.media_asset_ids(payload, payload_module), else: []
+    assets = Map.new(Repo.all(from a in Asset, where: a.id in ^ids), &{&1.id, &1})
+    content = Payload.module(payload, module.number, assets)
+    content = Map.merge(content, %{"schema" => 1, "policies" => policies(content)})
+
+    with {:ok, media} <- media_entries(payload_module, ids, assets), do: {:ok, content, media}
+  end
+
+  # The delivery files and posters of the module keyed by their path in the
+  # package, so that a file that two paths or two assets share appears once.
+  defp media_entries(nil, _ids, _assets), do: {:ok, %{}}
+
+  defp media_entries(_module, ids, assets) do
+    with :ok <- all_ready(ids, assets) do
+      media =
+        ids
+        |> Enum.flat_map(&package_files(Map.fetch!(assets, &1)))
+        |> Map.new()
+
+      limit = Media.export_max_mb()
+
+      if media |> Map.values() |> Enum.map(&(elem(&1, 2) || 0)) |> Enum.sum() > limit * 1_048_576,
+        do:
+          {:error,
+           "The media of this module exceed #{limit} MB; link large videos with an external URL."},
+        else: {:ok, media}
+    end
+  end
+
+  # The delivery file and the poster of an asset at their package paths.
+  defp package_files(%Asset{} = asset) do
+    delivery = {"media/#{asset.sha256}.#{asset.ext}", {asset.sha256, asset.ext, asset.bytes}}
+
+    if asset.poster_sha256,
+      do: [
+        delivery,
+        {"media/#{asset.poster_sha256}.webp", {asset.poster_sha256, "webp", asset.poster_bytes}}
+      ],
+      else: [delivery]
+  end
+
+  defp all_ready(ids, assets) do
+    if Enum.all?(ids, &match?(%Asset{status: :ready}, Map.get(assets, &1))),
+      do: :ok,
+      else: {:error, "A media file of the module is missing."}
+  end
+
+  # A hard link keeps the bytes when the store file is removed; a copy does
+  # so across file systems.
+  # sobelow_skip ["Traversal.FileModule"]
+  defp stage_media(media, _build, _export_id) when map_size(media) == 0, do: :ok
+
+  # The source comes from the store and the target from the build directory of
+  # the export and the digest.
+  # sobelow_skip ["Traversal.FileModule"]
+  defp stage_media(media, build, export_id) do
+    File.mkdir_p!(Path.join(build, "media"))
+
+    Enum.reduce_while(media, :ok, fn {rel, {sha256, ext, _bytes}}, :ok ->
+      source = Store.path(sha256, ext)
+      target = Path.join(build, rel)
+
+      result =
+        case File.ln(source, target) do
+          :ok -> :ok
+          {:error, :eexist} -> :ok
+          {:error, _reason} -> File.cp(source, target)
+        end
+
+      case result do
+        :ok -> {:cont, :ok}
+        {:error, reason} -> {:halt, staging_error(export_id, rel, reason)}
+      end
+    end)
+  end
+
+  @doc false
+  # Logs why the media file at `rel` of the package was not staged and
+  # returns the text of the failed export: a missing file for `:enoent`, a
+  # full export volume for `:enospc` and `:edquot`, and the generic text for
+  # any other reason. Public, so that a test can pass the reasons of a full
+  # volume, which no test can produce on its file system.
+  @spec staging_error(String.t(), String.t(), File.posix()) :: {:error, String.t()}
+  def staging_error(export_id, rel, reason) do
+    Logger.error(
+      "export media file not staged: export #{export_id}, #{rel}: " <>
+        "#{reason} (#{:file.format_error(reason)})"
+    )
+
+    case reason do
+      :enoent -> {:error, "A media file of the module is missing."}
+      full when full in [:enospc, :edquot] -> {:error, @volume_full}
+      _other -> {:error, @failed}
+    end
   end
 
   defp policies(%{"module" => module}) do
@@ -362,7 +479,7 @@ defmodule Espalier.Interop.ExportWorker do
 
   # The files of the package other than the manifest, as {relative path,
   # source}: a file to copy or the bytes of content.json.
-  defp entries(player_dir, xsd_dir, xsd_files, content) do
+  defp entries(player_dir, xsd_dir, xsd_files, content, media) do
     player =
       for rel <- files_below(player_dir) do
         target = if rel == @player_entry, do: "index.html", else: rel
@@ -371,7 +488,9 @@ defmodule Espalier.Interop.ExportWorker do
 
     schemas = for rel <- xsd_files, do: {rel, {:copy, Path.join(xsd_dir, rel)}}
 
-    [{"content.json", {:data, JSON.encode!(content)}} | player ++ schemas]
+    staged = for rel <- media |> Map.keys() |> Enum.sort(), do: {rel, :staged}
+
+    [{"content.json", {:data, JSON.encode!(content)}} | player ++ schemas ++ staged]
   end
 
   # The paths come from EXPORT_DIR and the export id, and the relative
@@ -388,6 +507,7 @@ defmodule Espalier.Interop.ExportWorker do
       case source do
         {:copy, from} -> File.cp!(from, target)
         {:data, data} -> File.write!(target, data)
+        :staged -> :ok
       end
     end)
 
@@ -406,7 +526,8 @@ defmodule Espalier.Interop.ExportWorker do
       :zip.create(
         String.to_charlist(paths.part),
         Enum.map(["imsmanifest.xml" | files], &String.to_charlist/1),
-        cwd: String.to_charlist(paths.build)
+        cwd: String.to_charlist(paths.build),
+        uncompress: {:add, [~c".webp", ~c".webm"]}
       )
 
     File.rename!(paths.part, paths.zip)

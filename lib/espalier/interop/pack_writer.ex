@@ -59,10 +59,28 @@ defmodule Espalier.Interop.PackWriter do
 
   A lesson file holds the front matter with `title` and `position` and one
   container directive per block with the attributes `provenance`,
-  `collapsed_on`, `cite` and `key` (the `placeholder_key`) where the block
+  `collapsed_on`, `cite`, `key` (the `placeholder_key`), and for a `figure`
+  or a `video` block (task 0018) `src`, `alt`, `decorative`, `size`,
+  `title`, `embed`, `poster` and `captions`, in this order, where the block
   has them. A value of lowercase letters, digits, `_`, `,` and `-` stands
   bare, every other value in double quotes. The body follows the opening
   line unchanged.
+
+  ## Media
+
+  A `media/` reference of a block is written with its delivery path
+  (`Espalier.Catalog.Pack.MediaPath.delivery_path/1`), and the media files
+  of the payload are copied from the media store to these paths: images as
+  `.webp`, SVG files as `.svg`, videos as `.webm` and captions as `.vtt`.
+  `media_files/1` lists the image, SVG and video files and
+  `captions_files/1` the captions with their assets. `write/2` reads the
+  payload and the asset rows and copies the files inside the transaction
+  that holds the shared lock of the program, so no publish of the program
+  can run meanwhile, its `program_media` rows stay, a deletion of their
+  assets answers `asset_in_use`, and no copied file can be removed before
+  the copy ends. A pack on disk therefore holds every media file of its
+  lessons in its delivery format. A pack imported again on the same
+  installation finds its assets by the digests of the delivery files.
 
   ## YAML
 
@@ -96,9 +114,12 @@ defmodule Espalier.Interop.PackWriter do
   or a double quote. The validator of task 0008 admits no such block.
   """
 
-  alias Espalier.Catalog.Pack.Publisher
+  import Ecto.Query, only: [from: 2]
+
+  alias Espalier.Catalog.Pack.{MediaPath, Publisher}
   alias Espalier.Catalog.Program
   alias Espalier.Interop.Payload
+  alias Espalier.Media.{Asset, Store}
   alias Espalier.Repo
 
   @areas ~w(subject method self social)
@@ -152,7 +173,8 @@ defmodule Espalier.Interop.PackWriter do
   until it is read, so the payload comes from one published version. The
   `:timeout` of the transaction is `Publisher.transaction_timeout/0` plus
   one minute, because the lock waits for a publish. The files are written
-  after the transaction.
+  and the media files copied inside that transaction, while the lock is
+  held (section "Media" of the moduledoc).
 
   Returns `{:ok, version}` with the `version` of the pack it wrote, which
   can be newer than the `pack_version` of `program` when a publish ran in
@@ -162,10 +184,12 @@ defmodule Espalier.Interop.PackWriter do
   """
   @spec write(Ecto.Schema.schema(), Path.t()) :: {:ok, String.t()} | {:error, error()}
   def write(%Program{status: :published} = program, path) when is_binary(path) do
-    with {:ok, payload} <- published_payload(program),
-         :ok <- prepare(path),
-         :ok <- write_files(render(payload), path),
-         do: {:ok, payload["version"]}
+    published_payload(program, fn payload ->
+      with :ok <- prepare(path),
+           :ok <- write_files(render(payload), path),
+           :ok <- copy_media(payload, path),
+           do: {:ok, payload["version"]}
+    end)
   end
 
   def write(%Program{}, path) when is_binary(path), do: {:error, :not_published}
@@ -177,8 +201,69 @@ defmodule Espalier.Interop.PackWriter do
   """
   @spec write_payload(Payload.t(), Path.t()) :: :ok | {:error, error()}
   def write_payload(payload, path) when is_map(payload) and is_binary(path) do
-    with :ok <- prepare(path), do: write_files(render(payload), path)
+    with :ok <- prepare(path),
+         :ok <- write_files(render(payload), path),
+         do: copy_media(payload, path)
   end
+
+  @doc """
+  The image, SVG and video files of the media of `payload` as `{delivery
+  path, asset}`, ordered by path. A path whose asset no longer exists is
+  left out.
+  """
+  @spec media_files(Payload.t()) :: [{String.t(), Asset.t()}]
+  def media_files(payload), do: payload |> media_assets() |> Enum.reject(&captions?/1)
+
+  @doc """
+  The captions files of the media of `payload` as `{path, asset}`, ordered
+  by path. A path whose asset no longer exists is left out.
+  """
+  @spec captions_files(Payload.t()) :: [{String.t(), Asset.t()}]
+  def captions_files(payload), do: payload |> media_assets() |> Enum.filter(&captions?/1)
+
+  defp captions?({_path, %Asset{kind: kind}}), do: kind == :captions
+
+  defp media_assets(payload) do
+    media = Map.get(payload, "media") || []
+    ids = Enum.map(media, & &1["asset_id"])
+    assets = Map.new(Repo.all(from(a in Asset, where: a.id in ^ids)), &{&1.id, &1})
+
+    for entry <- Enum.sort_by(media, & &1["path"]),
+        %Asset{} = asset <- [Map.get(assets, entry["asset_id"])],
+        do: {MediaPath.delivery_path(entry["path"]), asset}
+  end
+
+  # The delivery files of the store at their delivery paths. A path whose
+  # asset is gone or not ready answers the error of a missing file.
+  # sobelow_skip ["Traversal.FileModule"]
+  defp copy_media(payload, path) do
+    found = media_files(payload) ++ captions_files(payload)
+
+    expected =
+      for entry <- Map.get(payload, "media") || [], do: MediaPath.delivery_path(entry["path"])
+
+    case expected -- Enum.map(found, &elem(&1, 0)) do
+      [missing | _rest] -> {:error, {:file, missing, :enoent}}
+      [] -> Enum.reduce_while(found, :ok, &copy_entry(&1, &2, path))
+    end
+  end
+
+  defp copy_entry({rel, asset}, :ok, path) do
+    case copy_asset(asset, Path.join(path, rel)) do
+      :ok -> {:cont, :ok}
+      {:error, reason} -> {:halt, {:error, {:file, rel, reason}}}
+    end
+  end
+
+  # The source comes from the store, the target from the caller's directory
+  # and a delivery path that passed MediaPath.check/1.
+  # sobelow_skip ["Traversal.FileModule"]
+  defp copy_asset(%Asset{status: :ready, sha256: sha256, ext: ext}, target) do
+    with :ok <- File.mkdir_p(Path.dirname(target)),
+         do: File.cp(Store.path(sha256, ext), target)
+  end
+
+  defp copy_asset(%Asset{}, _target), do: {:error, :enoent}
 
   @doc """
   Returns the files of the content pack of `payload` as a list of
@@ -199,22 +284,37 @@ defmodule Espalier.Interop.PackWriter do
   @spec render_program(Ecto.Schema.schema()) ::
           {:ok, [{String.t(), String.t()}]} | {:error, :not_published}
   def render_program(%Program{status: :published} = program) do
-    with {:ok, payload} <- published_payload(program), do: {:ok, render(payload)}
+    published_payload(program, &{:ok, render(&1)})
   end
 
   def render_program(%Program{}), do: {:error, :not_published}
 
+  @doc """
+  Runs `fun` with the payload of the published `program` inside the
+  transaction that holds the shared lock of the program, as `write/2`
+  reads it, and returns its result, or `{:error, :not_published}`. The
+  workbench reads the captions of a program from the store this way (task
+  0018).
+  """
+  @spec with_program_payload(Ecto.Schema.schema(), (Payload.t() ->
+                                                      {:ok, term()} | {:error, term()})) ::
+          {:ok, term()} | {:error, term()}
+  def with_program_payload(%Program{status: :published} = program, fun) when is_function(fun, 1),
+    do: published_payload(program, fun)
+
+  def with_program_payload(%Program{}, _fun), do: {:error, :not_published}
+
   ## Payload
 
   # A program keeps its slug across publishes, because the publisher upserts
-  # it by the slug.
-  defp published_payload(%Program{id: id, slug: slug}) do
+  # it by the slug. `fun` runs with the payload while the lock is held.
+  defp published_payload(%Program{id: id, slug: slug}, fun) do
     Repo.transact(
       fn ->
         Repo.query!("SELECT pg_advisory_xact_lock_shared(hashtext($1))", [slug])
 
         case Repo.get(Program, id) do
-          %Program{status: :published} = program -> {:ok, Payload.build(program)}
+          %Program{status: :published} = program -> fun.(Payload.build(program))
           _other -> {:error, :not_published}
         end
       end,
@@ -601,17 +701,42 @@ defmodule Espalier.Interop.PackWriter do
 
   defp block(block) do
     attributes =
-      [
-        {"provenance", block["provenance"]},
-        {"collapsed_on", list_attribute(block["collapsed_on"])},
-        {"cite", list_attribute(Enum.map(block["cite"], &cite!/1))},
-        {"key", block["placeholder_key"]}
-      ]
+      ([
+         {"provenance", block["provenance"]},
+         {"collapsed_on", list_attribute(block["collapsed_on"])},
+         {"cite", list_attribute(Enum.map(block["cite"], &cite!/1))},
+         {"key", block["placeholder_key"]}
+       ] ++ media_attributes(block["media"]))
       |> Enum.reject(fn {_name, value} -> is_nil(value) end)
       |> Enum.map_join(" ", &attribute/1)
 
     ":::#{block["kind"]}{#{attributes}}\n#{body!(block["body"])}\n:::\n"
   end
+
+  # The attributes of a figure or a video with the delivery paths of their
+  # media/ references.
+  defp media_attributes(%{} = media) do
+    captions =
+      for %{"src" => src, "lang" => lang} <- media["captions"] || [] do
+        delivery(src) <> ":" <> lang
+      end
+
+    [
+      {"src", delivery(media["src"])},
+      {"alt", media["alt"]},
+      {"decorative", if(media["decorative"] == true, do: "true")},
+      {"size", media["size"]},
+      {"title", media["title"]},
+      {"embed", media["embed"]},
+      {"poster", delivery(media["poster"])},
+      {"captions", list_attribute(captions)}
+    ]
+  end
+
+  defp media_attributes(_media), do: []
+
+  defp delivery("media/" <> _rest = path), do: MediaPath.delivery_path(path)
+  defp delivery(value), do: value
 
   defp list_attribute([]), do: nil
   defp list_attribute(values), do: Enum.join(values, ",")

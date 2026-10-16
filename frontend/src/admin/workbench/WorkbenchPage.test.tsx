@@ -1,6 +1,7 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, test } from "vitest";
-import type { PackDraft } from "../../api/admin/workbench";
+import { describe, expect, onTestFinished, test } from "vitest";
+import type { MediaAsset } from "../../api/admin/media";
+import type { DraftMediaEntry, PackDraft } from "../../api/admin/workbench";
 import { expectNoAxeViolations } from "../../test/axe";
 import {
   renderWithProviders,
@@ -19,7 +20,10 @@ import { WorkbenchPage } from "./WorkbenchPage";
  * "Zip archive" send their requests and move to the new draft; an archive
  * with skipped paths lists them with the link to the draft, a rejected
  * archive shows its report, and a 409 `draft_limit` names the limit and the
- * advice to delete a draft.
+ * advice to delete a draft. Task 0018: a 409 `media_limit` names the limit
+ * of media entries, a 409 `media_not_ready` names the captions files that
+ * are not ready, and a download reads the draft first and holds back with
+ * the reason of the draft page while a media entry is not `ready`.
  */
 const uuid = (n: number) =>
   `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
@@ -205,6 +209,198 @@ describe("the list of drafts", () => {
     await waitFor(() =>
       expect(screen.getByRole("heading", { name: "Drafts" })).toHaveFocus(),
     );
+  });
+});
+
+/**
+ * The list carries no media, and the download answers 409
+ * `media_not_ready` while a media entry is not `ready`. A click on a
+ * download therefore reads the draft first and follows the link only when
+ * every entry is `ready`. jsdom cannot download, so a listener on the
+ * window records each click on a download link as the browser would
+ * receive it and then cancels it.
+ */
+describe("the download of a draft", () => {
+  const DOWNLOAD = `${DRAFTS}/${demo.id}/download`;
+  const PENDING =
+    "Media files are still converted. The download becomes possible when every media file is ready.";
+  const FAILED =
+    "A media file of the draft failed. Remove its entry or replace it with a ready file, then download the draft.";
+
+  function asset(n: number, overrides: Partial<MediaAsset> = {}): MediaAsset {
+    return {
+      id: uuid(n),
+      kind: "image",
+      status: "ready",
+      failure: null,
+      failure_detail: null,
+      progress: 100,
+      title: `Asset ${n}`,
+      source_name: `asset-${n}.png`,
+      origin: "upload",
+      ext: "webp",
+      bytes: 2_048,
+      width: 640,
+      height: 480,
+      duration_ms: null,
+      has_audio: false,
+      animated: false,
+      has_alpha: false,
+      url: `/media/${String(n).repeat(64)}.webp`,
+      poster_url: null,
+      inserted_at: "2026-10-12T08:00:00Z",
+      updated_at: "2026-10-13T09:30:00Z",
+      ...overrides,
+    };
+  }
+
+  const entry = (n: number, overrides: Partial<MediaAsset> = {}) =>
+    ({
+      id: uuid(900 + n),
+      path: `media/asset-${n}.webp`,
+      asset: asset(n, overrides),
+    }) satisfies DraftMediaEntry;
+
+  const PHOTO = entry(1);
+  const CLIP = entry(2, {
+    kind: "video",
+    status: "processing",
+    progress: 40,
+    ext: null,
+    bytes: null,
+    url: null,
+  });
+  const BROKEN = entry(3, {
+    kind: "svg",
+    status: "failed",
+    failure: "invalid_svg",
+    failure_detail: "css",
+    ext: null,
+    url: null,
+  });
+
+  /** The draft view of `demo` with the media entries `media`. */
+  const view = (media: DraftMediaEntry[]) => ({
+    status: 200,
+    body: { ...demo, files: [], media },
+  });
+
+  /** The clicks on download links that reach the window, in their order. */
+  function recordDownloads() {
+    const clicks: { href: string | null; prevented: boolean }[] = [];
+    const record = (event: MouseEvent) => {
+      const link =
+        event.target instanceof Element ? event.target.closest("a") : null;
+      const href = link?.getAttribute("href") ?? null;
+      if (href === null || !href.endsWith("/download")) return;
+      clicks.push({ href, prevented: event.defaultPrevented });
+      event.preventDefault();
+    };
+    window.addEventListener("click", record);
+    onTestFinished(() => window.removeEventListener("click", record));
+    return clicks;
+  }
+
+  const downloadLink = async () =>
+    within(await rowOf("Demo pack")).getByRole("link", {
+      name: "Download Demo pack",
+    });
+
+  test.each([
+    ["converted", CLIP, PENDING],
+    ["failed", BROKEN, FAILED],
+  ] as const)(
+    "a %s media entry holds the download back with the reason of the draft page",
+    async (_state, waiting, reason) => {
+      const clicks = recordDownloads();
+      const { user, requests, container } = renderPage({
+        [`GET ${DRAFTS}/${demo.id}`]: view([PHOTO, waiting]),
+      });
+
+      const link = await downloadLink();
+      await user.click(link);
+
+      const notice = await screen.findByText(reason);
+      expect(notice.closest('[role="alert"]')).not.toBeNull();
+      expect(link).toHaveFocus();
+      expect(clicks).toEqual([{ href: DOWNLOAD, prevented: true }]);
+      expect(requestsTo(requests, "GET", `${DRAFTS}/${demo.id}`)).toHaveLength(
+        1,
+      );
+      await expectNoAxeViolations(container);
+    },
+  );
+
+  test("a draft whose media entries are ready follows the link, also from the keyboard", async () => {
+    const clicks = recordDownloads();
+    const { user, requests } = renderPage({
+      [`GET ${DRAFTS}/${demo.id}`]: view([PHOTO]),
+    });
+
+    const link = await downloadLink();
+    link.focus();
+    await user.keyboard("{Enter}");
+
+    await waitFor(() =>
+      expect(clicks).toEqual([
+        { href: DOWNLOAD, prevented: true },
+        { href: DOWNLOAD, prevented: false },
+      ]),
+    );
+    expect(requestsTo(requests, "GET", `${DRAFTS}/${demo.id}`)).toHaveLength(1);
+    for (const alert of screen.getAllByRole("alert"))
+      expect(alert).toBeEmptyDOMElement();
+  });
+
+  test("a second click while the check runs reads the draft once and downloads once", async () => {
+    const clicks = recordDownloads();
+    let answer: (value: { status: number; body: unknown }) => void = () => {};
+    const { user, requests } = renderPage({
+      [`GET ${DRAFTS}/${demo.id}`]: () =>
+        new Promise((resolve) => {
+          answer = resolve;
+        }),
+    });
+
+    const link = await downloadLink();
+    await user.click(link);
+    await user.click(link);
+    await waitFor(() =>
+      expect(requestsTo(requests, "GET", `${DRAFTS}/${demo.id}`)).toHaveLength(
+        1,
+      ),
+    );
+    answer(view([PHOTO]));
+
+    await waitFor(() => expect(clicks).toHaveLength(3));
+    expect(clicks.map((click) => click.prevented)).toEqual([true, true, false]);
+    expect(requestsTo(requests, "GET", `${DRAFTS}/${demo.id}`)).toHaveLength(1);
+  });
+
+  test("a draft that is gone names the failure and reads the list again", async () => {
+    const clicks = recordDownloads();
+    const { user, requests } = renderPage({
+      [`GET ${DRAFTS}`]: [
+        { status: 200, body: { data: [demo, untitled] } },
+        { status: 200, body: { data: [untitled] } },
+      ],
+      [`GET ${DRAFTS}/${demo.id}`]: {
+        status: 404,
+        body: { error: "not_found" },
+      },
+    });
+
+    await user.click(await downloadLink());
+
+    const notice = await screen.findByText(
+      "The entry no longer exists. Reload the page.",
+    );
+    expect(notice.closest('[role="alert"]')).not.toBeNull();
+    await waitFor(() =>
+      expect(screen.queryByRole("rowheader", { name: "Demo pack" })).toBeNull(),
+    );
+    expect(clicks).toEqual([{ href: DOWNLOAD, prevented: true }]);
+    expect(requestsTo(requests, "GET", DRAFTS)).toHaveLength(2);
   });
 });
 
@@ -432,4 +628,45 @@ describe("the starting points", () => {
       expect(view.location()).toBe(ROUTE);
     },
   );
+
+  test.each([
+    ["program", DRAFTS],
+    ["archive", UPLOADS],
+  ] as const)(
+    "a 409 media_limit on %s names the limit of media files",
+    async (start, path) => {
+      const view = renderPage({
+        [`POST ${path}`]: { status: 409, body: { error: "media_limit" } },
+      });
+      await starts[start](view);
+
+      const notice = await screen.findByText(
+        "The pack has more media files than a draft may hold. A draft holds at most 500 media files.",
+      );
+      expect(notice.closest('[role="alert"]')).not.toBeNull();
+      expect(view.location()).toBe(ROUTE);
+    },
+  );
+
+  test("a 409 media_not_ready on program names the captions files and asks to wait", async () => {
+    const view = renderPage({
+      [`POST ${DRAFTS}`]: {
+        status: 409,
+        body: {
+          error: "media_not_ready",
+          media: [
+            { path: "media/intro-en.vtt", status: "processing", failure: null },
+            { path: "media/intro-de.vtt", status: "queued", failure: null },
+          ],
+        },
+      },
+    });
+    await starts.program(view);
+
+    const notice = await screen.findByText(
+      "The draft cannot start yet, because these captions files of the pack are not ready: media/intro-en.vtt (Processing), media/intro-de.vtt (Queued). Wait until their conversion has finished, then start again. A failed or missing file has to be replaced in the pack first.",
+    );
+    expect(notice.closest('[role="alert"]')).not.toBeNull();
+    expect(view.location()).toBe(ROUTE);
+  });
 });

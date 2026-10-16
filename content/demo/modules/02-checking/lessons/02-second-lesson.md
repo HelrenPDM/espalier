@@ -26,3 +26,7 @@ A [[term:hallucination]] rarely looks different from a correct sentence. You the
 :::callout{provenance=invented}
 The release checklist ends with your initials. They record who checked the draft before it was released.
 :::
+
+:::figure{src=media/release-checks.svg alt="A diagram of four steps from left to right: generated draft, mark the statements, check each source, initials and release." provenance=invented}
+The release checks run from the generated draft to the initials of the person who releases it.
+:::

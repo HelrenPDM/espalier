@@ -41,7 +41,9 @@ defmodule Espalier.SecurityLog do
     # Operational event of Espalier.Accounts.BreachedPasswords.
     :breach_check_unavailable,
     # Operational event of the TLS probe after a failed LDAPS connect (task 0007).
-    :directory_tls_failed
+    :directory_tls_failed,
+    # A clamd finding in an uploaded or imported media file (task 0018).
+    :upload_validation
   ]
 
   # Failures and rejections log at warning, everything else at info.
@@ -57,7 +59,8 @@ defmodule Espalier.SecurityLog do
     :session_use_after_expire,
     :input_validation_fail,
     :breach_check_unavailable,
-    :directory_tls_failed
+    :directory_tls_failed,
+    :upload_validation
   ]
 
   @attributes [

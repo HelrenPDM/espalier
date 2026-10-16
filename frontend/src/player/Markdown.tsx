@@ -46,7 +46,16 @@ function Anchor({ node: _node, ...props }: ComponentProps<"a"> & ExtraProps) {
   return <a {...props} target={target} rel="noopener noreferrer" />;
 }
 
-const components: Components = { a: Anchor, span: Span };
+/**
+ * An inline Markdown image (`![alt](src)`) of older text renders as its
+ * alternative text, so no `img` element comes from Markdown (ASVS 1.3.5);
+ * a lesson places an image with a `figure` block (task 0018).
+ */
+function ImageText({ alt }: ComponentProps<"img"> & ExtraProps) {
+  return <span>{alt}</span>;
+}
+
+const components: Components = { a: Anchor, span: Span, img: ImageText };
 const remarkPlugins = [remarkGfm, remarkGlossary];
 const caseRemarkPlugins = [...remarkPlugins, remarkCaseColumns];
 
@@ -57,6 +66,7 @@ const caseRemarkPlugins = [...remarkPlugins, remarkCaseColumns];
  * text produces no element. It passes no `urlTransform`, so the default
  * transform of `react-markdown` replaces a link target with an unsafe
  * protocol, such as `javascript:`, by an empty string (ASVS 1.2.2).
+ * An inline image renders as a `<span>` with its alternative text.
  * `[[term:slug]]` and `[[term:slug|label]]` render as `GlossaryTerm`.
  * `caseColumns` lays the cases of a case comparison out in two columns. A
  * link that leaves the page opens in the target of

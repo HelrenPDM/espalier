@@ -1,7 +1,12 @@
-import { screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, test } from "vitest";
-import type { PackImport } from "../../api/admin/packs";
-import type { PackPayload, PayloadItem } from "../../runtimes/standalone";
+import { act, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, describe, expect, test } from "vitest";
+import { packQueryKey, type PackImport } from "../../api/admin/packs";
+import { forgetEmbedConsent } from "../../player/embedConsent";
+import type {
+  PackPayload,
+  PayloadBlock,
+  PayloadItem,
+} from "../../runtimes/standalone";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderWithProviders } from "../../test/render";
 import { signedInPayload } from "../../test/session";
@@ -69,6 +74,7 @@ const payload: PackPayload = {
               collapsed_on: [],
               placeholder_key: null,
               cite: [],
+              media: null,
             },
             {
               kind: "example",
@@ -77,6 +83,7 @@ const payload: PackPayload = {
               collapsed_on: [],
               placeholder_key: null,
               cite: [],
+              media: null,
             },
             {
               kind: "callout",
@@ -85,6 +92,7 @@ const payload: PackPayload = {
               collapsed_on: [],
               placeholder_key: null,
               cite: [],
+              media: null,
             },
           ],
         },
@@ -145,6 +153,8 @@ const pack = (overrides: Partial<PackImport> = {}): PackImport => ({
   payload: payload as unknown as PackImport["payload"],
   report: { errors: [], warnings: [] },
   alignment: { mode: "strict", matrix: [], errors: [], warnings: [] },
+  media: {},
+  media_policy: { external_hosts: [], embed_hosts: [], embed_consent: "click" },
   ...overrides,
 });
 
@@ -232,6 +242,242 @@ describe("PackPreviewPage", () => {
     expect(requests.map((request) => request.path)).toEqual([
       `/api/admin/packs/${ID}`,
     ]);
+  });
+
+  describe("with media (task 0018)", () => {
+    afterEach(() => {
+      forgetEmbedConsent();
+    });
+
+    const mediaBlock = (media: PayloadBlock["media"]): PayloadBlock => ({
+      kind: media !== null && "alt" in media ? "figure" : "video",
+      body: "",
+      provenance: "invented",
+      collapsed_on: [],
+      placeholder_key: null,
+      cite: [],
+      media,
+    });
+    const embed = (url: string, title: string) =>
+      mediaBlock({ src: null, embed: url, title, poster: null, captions: [] });
+
+    const [module] = payload.modules;
+    const mediaPayload: PackPayload = {
+      ...payload,
+      modules: [
+        {
+          ...module,
+          lessons: [
+            {
+              ...module.lessons[0],
+              blocks: [
+                mediaBlock({
+                  src: "media/desk.png",
+                  alt: "A desk with two screens",
+                  decorative: null,
+                  size: "medium",
+                }),
+                embed("https://player.example.org/watch/1", "Allowed talk"),
+                embed("https://videos.example.net/embed/7", "Other talk"),
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const desk = `/media/${"a".repeat(64)}.webp`;
+    const media: PackImport["media"] = {
+      "media/desk.png": {
+        kind: "image",
+        status: "ready",
+        failure: null,
+        failure_detail: null,
+        url: desk,
+        mime: "image/webp",
+        width: 1200,
+        height: 800,
+        duration_ms: null,
+        progress: 100,
+        has_audio: false,
+        has_alpha: false,
+        animated: false,
+        poster_url: null,
+      },
+    };
+
+    async function openStation(consent: "click" | "auto") {
+      const result = renderPreview(
+        pack({
+          payload: mediaPayload as unknown as PackImport["payload"],
+          media,
+          media_policy: {
+            external_hosts: [],
+            embed_hosts: ["player.example.org"],
+            embed_consent: consent,
+          },
+        }),
+        `${BASE}/programs/preview-demo/stations/2`,
+      );
+      await screen.findByRole("heading", { name: "Why claims need checks" });
+      return result;
+    }
+
+    test("resolves the media of the import and applies the allowlist of the policy", async () => {
+      const { container, requests } = await openStation("click");
+
+      expect(
+        screen.getByRole("img", { name: "A desk with two screens" }),
+      ).toHaveAttribute("src", desk);
+      expect(container.querySelector("iframe")).toBeNull();
+      expect(
+        screen.getByRole("link", { name: "Open on player.example.org" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getAllByText(
+          "This video is not available on this installation.",
+        ),
+      ).toHaveLength(1);
+      expect(requests.map((request) => request.path)).toEqual([
+        `/api/admin/packs/${ID}`,
+      ]);
+    });
+
+    test("a read with a new progress keeps the player, and a ready file renews it once", async () => {
+      const clipPayload: PackPayload = {
+        ...payload,
+        modules: [
+          {
+            ...module,
+            lessons: [
+              {
+                ...module.lessons[0],
+                blocks: [
+                  {
+                    kind: "explanation",
+                    body: "A source makes a claim checkable.",
+                    provenance: "sourced",
+                    collapsed_on: [],
+                    placeholder_key: null,
+                    cite: [],
+                    media: null,
+                  },
+                  mediaBlock({
+                    src: "media/clip.mp4",
+                    embed: null,
+                    title: "A clip",
+                    poster: null,
+                    captions: [],
+                  }),
+                ],
+              },
+            ],
+          },
+        ],
+      };
+      const clip = (
+        overrides: Partial<PackImport["media"][string]>,
+      ): PackImport["media"] => ({
+        "media/clip.mp4": {
+          kind: "video",
+          status: "processing",
+          failure: null,
+          failure_detail: null,
+          url: null,
+          mime: null,
+          width: null,
+          height: null,
+          duration_ms: null,
+          progress: 40,
+          has_audio: false,
+          has_alpha: false,
+          animated: false,
+          poster_url: null,
+          ...overrides,
+        },
+      });
+      // Every read of the import, the polling included, answers the
+      // current state of the conversion.
+      let current = pack({
+        payload: clipPayload as unknown as PackImport["payload"],
+        media: clip({}),
+      });
+      const { container, queryClient, user } = renderWithProviders(
+        <PackPreviewPage />,
+        {
+          route: `${BASE}/programs/preview-demo/stations/2`,
+          path: "/admin/packs/:id/preview/*",
+          session: author,
+          responses: {
+            [`GET /api/admin/packs/${ID}`]: () => ({
+              status: 200,
+              body: current,
+            }),
+          },
+        },
+      );
+      const read = async (media: PackImport["media"]) => {
+        current = { ...current, media };
+        await act(() =>
+          queryClient.refetchQueries({ queryKey: packQueryKey(ID) }),
+        );
+        // The load of a new runtime would end in a later task.
+        await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+      };
+
+      const heading = await screen.findByRole("heading", {
+        name: "Why claims need checks",
+      });
+      const explanation = screen.getByRole("button", { name: "Explanation" });
+      expect(explanation).toHaveAttribute("aria-expanded", "true");
+      await user.click(explanation);
+      expect(explanation).toHaveAttribute("aria-expanded", "false");
+      expect(
+        screen.getByText("This video is not available on this installation."),
+      ).toBeInTheDocument();
+
+      await read(clip({ progress: 60 }));
+
+      expect(
+        queryClient.getQueryData<PackImport>(packQueryKey(ID))?.media[
+          "media/clip.mp4"
+        ].progress,
+      ).toBe(60);
+      expect(heading).toBeInTheDocument();
+      expect(explanation).toBeInTheDocument();
+      expect(explanation).toHaveAttribute("aria-expanded", "false");
+
+      await read(
+        clip({
+          status: "ready",
+          progress: 100,
+          url: `/media/${"b".repeat(64)}.webm`,
+          mime: "video/webm",
+          width: 640,
+          height: 360,
+          duration_ms: 8000,
+          has_audio: true,
+        }),
+      );
+
+      await waitFor(() =>
+        expect(container.querySelector("video source")).toHaveAttribute(
+          "src",
+          `/media/${"b".repeat(64)}.webm`,
+        ),
+      );
+      expect(
+        screen.queryByText("This video is not available on this installation."),
+      ).toBeNull();
+    });
+
+    test("with embed_consent auto, the allowed player loads with the page", async () => {
+      const { container } = await openStation("auto");
+
+      const frames = container.querySelectorAll("iframe");
+      expect(frames).toHaveLength(1);
+      expect(frames[0]).toHaveAttribute("title", "Allowed talk");
+      expect(screen.queryByRole("button", { name: "Load video" })).toBeNull();
+    });
   });
 
   test("an import without a payload shows a notice", async () => {

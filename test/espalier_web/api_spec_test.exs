@@ -35,9 +35,22 @@ defmodule EspalierWeb.ApiSpecTest do
   create and the file update name the limits of a draft (ASVS 2.1.1, 2.1.3,
   5.1.1 and 15.3.3), and the download answers the zip as
   `application/zip`.
+
+  Task 0018 steps 15 and 16 add the operations of the five routes of the
+  media library and the three routes of the media entries of a draft:
+  every request schema of their POST and PATCH routes, the multipart schema
+  of the media upload included, sets `additionalProperties: false`, and the
+  description of the upload names the accepted types, their signatures and
+  the limits (ASVS 2.1.1, 2.1.3, 5.1.1 and 15.3.3). The pack upload counts
+  every file below `media/` against `max_pack_media`, and the archive start
+  of a draft describes its media files and the 409 `media_limit`. The
+  check and the import of a draft name the downloads of drafts, which take
+  the same two slots.
   """
   use EspalierWeb.ConnCase, async: true
 
+  alias Espalier.Catalog.Pack.Entries
+  alias Espalier.Media
   alias EspalierWeb.ApiSpec
 
   alias OpenApiSpex.{
@@ -182,7 +195,17 @@ defmodule EspalierWeb.ApiSpecTest do
     {:get, "/api/admin/pack-drafts/{id}/files/{file_id}"},
     {:put, "/api/admin/pack-drafts/{id}/files/{file_id}"},
     {:patch, "/api/admin/pack-drafts/{id}/files/{file_id}"},
-    {:delete, "/api/admin/pack-drafts/{id}/files/{file_id}"}
+    {:delete, "/api/admin/pack-drafts/{id}/files/{file_id}"},
+    # Task 0018 steps 15 and 16: the media library and the media entries of
+    # a pack draft.
+    {:get, "/api/admin/media"},
+    {:post, "/api/admin/media"},
+    {:get, "/api/admin/media/{id}"},
+    {:patch, "/api/admin/media/{id}"},
+    {:delete, "/api/admin/media/{id}"},
+    {:post, "/api/admin/pack-drafts/{id}/media"},
+    {:patch, "/api/admin/pack-drafts/{id}/media/{media_id}"},
+    {:delete, "/api/admin/pack-drafts/{id}/media/{media_id}"}
   ]
 
   # The 2xx answers that carry a file instead of JSON (tasks 0016 and
@@ -245,6 +268,18 @@ defmodule EspalierWeb.ApiSpecTest do
   }
 
   @posts_0016a for {{:post, path}, _title} <- @requests_0016a, do: path
+
+  # The POST and PATCH routes of task 0018 and the schema of their request
+  # body. The media upload is a multipart body with an inline schema, as the
+  # pack upload.
+  @requests_0018 %{
+    {:post, "/api/admin/media"} => "AdminMediaUpload",
+    {:patch, "/api/admin/media/{id}"} => "AdminMediaUpdate",
+    {:post, "/api/admin/pack-drafts/{id}/media"} => "AdminDraftMediaAttach",
+    {:patch, "/api/admin/pack-drafts/{id}/media/{media_id}"} => "AdminDraftMediaRename"
+  }
+
+  @posts_0018 for {{:post, path}, _title} <- @requests_0018, do: path
 
   defp operations do
     for {path, item} <- ApiSpec.spec().paths,
@@ -409,7 +444,9 @@ defmodule EspalierWeb.ApiSpecTest do
       for {{:post, "/api/admin/" <> _rest = path}, _operation} <- operations(), do: path
 
     assert Enum.sort(admin_posts) ==
-             Enum.sort(Map.keys(@posts_0015) ++ Map.keys(@posts_0016) ++ @posts_0016a)
+             Enum.sort(
+               Map.keys(@posts_0015) ++ Map.keys(@posts_0016) ++ @posts_0016a ++ @posts_0018
+             )
 
     for {path, title} <- @posts_0015 do
       assert %Operation{requestBody: %RequestBody{content: content}} = spec.paths[path].post
@@ -520,6 +557,150 @@ defmodule EspalierWeb.ApiSpecTest do
 
     assert [%{schema: %Schema{type: :integer, minimum: 1}, required: true}] =
              Enum.filter(delete.parameters, &(&1.in == :query and &1.name == :lock_version))
+  end
+
+  # Task 0018 steps 15 and 16, Security requirements 2.1.1, 2.1.3, 5.1.1
+  # and 15.3.3.
+  test "the request schemas of the POST and PATCH routes of task 0018 set additionalProperties false" do
+    spec = ApiSpec.spec()
+
+    for {{verb, path}, title} <- @requests_0018 do
+      label = "#{verb} #{path}"
+      item = spec.paths[path]
+
+      assert %Operation{requestBody: %RequestBody{content: content, required: true}} =
+               Map.get(item, verb),
+             label
+
+      media_type =
+        if path == "/api/admin/media", do: "multipart/form-data", else: "application/json"
+
+      assert [{^media_type, %MediaType{schema: schema}}] = Map.to_list(content), label
+      schema = resolve(spec, schema)
+      assert %Schema{title: ^title, type: :object, additionalProperties: false} = schema, label
+
+      for object <- objects(schema, spec) do
+        assert object.additionalProperties == false, "#{label} #{title}"
+      end
+
+      for {member, %Schema{} = property} <- schema.properties do
+        case member do
+          :path -> assert {property.minLength, property.maxLength} == {1, 527}, label
+          :lock_version -> assert {property.type, property.minimum} == {:integer, 1}, label
+          :title -> assert {property.minLength, property.maxLength} == {1, 255}, label
+          _other -> :ok
+        end
+      end
+    end
+
+    # The upload is described as a binary field `file`, as the pack upload,
+    # and its description names the accepted types, their signatures and
+    # the limits.
+    upload = spec.paths["/api/admin/media"].post
+    multipart = upload.requestBody.content["multipart/form-data"]
+    assert %Schema{type: :string, format: :binary} = multipart.schema.properties.file
+    assert multipart.schema.required == [:file]
+
+    for text <- [
+          ".png",
+          ".jpg",
+          ".gif",
+          ".webp",
+          ".svg",
+          ".mp4",
+          ".webm",
+          ".vtt",
+          "89 50 4E 47",
+          "1A 45 DF A3",
+          "WEBVTT",
+          "MEDIA_IMAGE_MAX_MB",
+          "MEDIA_VIDEO_MAX_MB",
+          "MEDIA_STORAGE_MAX_GB",
+          "1,048,576",
+          "524,288",
+          "40,000,000"
+        ] do
+      assert upload.description =~ text, text
+    end
+
+    # The delete of a media entry takes the lock_version in its query string.
+    delete = spec.paths["/api/admin/pack-drafts/{id}/media/{media_id}"].delete
+
+    assert [%{schema: %Schema{type: :integer, minimum: 1}, required: true}] =
+             Enum.filter(delete.parameters, &(&1.in == :query and &1.name == :lock_version))
+  end
+
+  # Task 0018 steps 10 and 16, Security requirements 2.1.1, 2.1.3 and 5.1.1.
+  test "the pack upload and the draft archive upload describe the media of the archive" do
+    spec = ApiSpec.spec()
+
+    # The loader counts every file below media/, referenced or not.
+    pack = spec.paths["/api/admin/packs"].post
+
+    assert pack.description =~
+             "at most #{Entries.number(Media.max_pack_media())} files (`max_pack_media`), " <>
+               "whether a lesson references them or not"
+
+    assert pack.description =~ "the media path rules and the size limit of its kind"
+
+    # The archive start ingests the media files into the library.
+    upload = spec.paths["/api/admin/pack-draft-uploads"].post
+
+    for text <- [
+          "the captions files `.vtt` below `media/` as text files",
+          "at most #{Entries.number(Media.max_draft_media())} (`max_draft_media`)",
+          "becomes an asset of the media library",
+          "the directives of the lessons follow the new paths",
+          "reject the archive with 422 entries",
+          "never appear in `skipped`"
+        ] do
+      assert upload.description =~ text, text
+    end
+
+    assert %Response{description: conflict} = upload.responses[409]
+    assert conflict =~ "`media_limit`"
+  end
+
+  # Task 0018 step 16: a download of a draft builds its zip in a slot of
+  # the checks and imports, so their operations name the zip builds, and
+  # the download names its own bound and the deadline of the transfer.
+  test "the check, the import and the download of a draft name their slots" do
+    spec = ApiSpec.spec()
+
+    for {verb, path} <- [
+          {:post, "/api/admin/pack-drafts/{id}/check"},
+          {:post, "/api/admin/pack-drafts/{id}/imports"}
+        ] do
+      description = Map.get(spec.paths[path], verb).description
+
+      assert description =~
+               "At most two checks, imports and zip builds of draft downloads run at once."
+
+      assert %Response{} = Map.get(spec.paths[path], verb).responses[429], "#{verb} #{path}"
+    end
+
+    download = spec.paths["/api/admin/pack-drafts/{id}/download"].get
+
+    for text <- [
+          "At most two downloads run at once, one per user",
+          "builds the archive in one of the two slots of the checks and imports and frees " <>
+            "it before the transfer",
+          "When the user runs a download already or no slot is free, the download " <>
+            "answers 429 `checks_busy` and builds nothing.",
+          "the size of the archive at 256 KiB per second and at least 60 seconds"
+        ] do
+      assert download.description =~ text, text
+    end
+
+    assert %Response{} = download.responses[429]
+  end
+
+  test "the schema of media_not_ready names the publish, the start and the download" do
+    schema = ApiSpec.spec().components.schemas["AdminMediaNotReady"]
+
+    assert schema.description =~
+             "at the publish of an import, at the start of a draft from a program or an " <>
+               "import, or at the download of a draft"
   end
 
   test "the integration operation names the bearer token, which the document declares" do

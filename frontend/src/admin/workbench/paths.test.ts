@@ -1,8 +1,11 @@
 import { describe, expect, test } from "vitest";
 import { parse } from "yaml";
 import {
+  CAPTIONS_TEMPLATE,
+  captionsPath,
   isKey,
   isLayoutPath,
+  isMediaPath,
   lessonCount,
   lessonPath,
   lessonTemplate,
@@ -11,6 +14,7 @@ import {
   moduleFilePath,
   pathLanguage,
   TOP_FILES,
+  titleSlug,
   yamlString,
 } from "./paths";
 
@@ -51,6 +55,12 @@ describe("pathLanguage", () => {
     expect(pathLanguage("modules/01-a/lessons/01-b.md")).toBe("markdown");
     expect(pathLanguage("README.txt")).toBeNull();
   });
+
+  test("names plain text for a captions file (task 0018)", () => {
+    expect(pathLanguage("media/intro-en.vtt")).toBe("text");
+    expect(pathLanguage("media/videos/intro/intro-en.vtt")).toBe("text");
+    expect(pathLanguage("media/intro.webm")).toBeNull();
+  });
 });
 
 describe("isLayoutPath", () => {
@@ -82,12 +92,81 @@ describe("isLayoutPath", () => {
     expect(isLayoutPath(path)).toBe(false);
   });
 
+  test("admits a captions file below media/ with up to three directories (task 0018)", () => {
+    expect(isLayoutPath("media/intro-en.vtt")).toBe(true);
+    expect(isLayoutPath("media/videos/intro-en.vtt")).toBe(true);
+    expect(isLayoutPath("media/a/b/c/intro-en.vtt")).toBe(true);
+  });
+
+  test.each([
+    "media/a/b/c/d/intro-en.vtt",
+    "media/intro-en.VTT",
+    "media/Intro.vtt",
+    "media/-intro.vtt",
+    "media/.vtt",
+    "media/videos/../intro.vtt",
+    "media/./intro.vtt",
+    "media//intro.vtt",
+    "media/intro.webm",
+    "media/intro.webp",
+    "media/intro en.vtt",
+    "media/Über.vtt",
+    "media",
+    "media/",
+    "/media/intro.vtt",
+  ])("rejects the media path %j as a file", (path) => {
+    expect(isLayoutPath(path)).toBe(false);
+  });
+
   test("rejects a component of more than 255 bytes", () => {
     const dir = "a".repeat(255);
     const key = "k".repeat(252);
     expect(isLayoutPath(`modules/${dir}/lessons/${key}.md`)).toBe(true);
     expect(isLayoutPath(`modules/${dir}a/module.yaml`)).toBe(false);
     expect(isLayoutPath(`modules/${dir}/lessons/${key}k.md`)).toBe(false);
+  });
+});
+
+describe("isMediaPath", () => {
+  test("admits the delivery extension it names only", () => {
+    expect(isMediaPath("media/team-photo.webp", "webp")).toBe(true);
+    expect(isMediaPath("media/figures/overview.svg", "svg")).toBe(true);
+    expect(isMediaPath("media/a/b/c/clip.webm", "webm")).toBe(true);
+    expect(isMediaPath("media/team-photo.webp", "svg")).toBe(false);
+    expect(isMediaPath("media/team-photo.png", "webp")).toBe(false);
+    expect(isMediaPath("media/a/b/c/d/clip.webm", "webm")).toBe(false);
+    expect(isMediaPath("modules/a/clip.webm", "webm")).toBe(false);
+  });
+
+  test("keeps the limits of 255 bytes per component and 527 in all", () => {
+    const key = "k".repeat(250);
+    expect(isMediaPath(`media/${key}.webp`, "webp")).toBe(true);
+    expect(isMediaPath(`media/${key}kkkkkk.webp`, "webp")).toBe(false);
+    const dir = "d".repeat(255);
+    expect(isMediaPath(`media/${dir}/${dir}/x.webp`, "webp")).toBe(true);
+    expect(isMediaPath(`media/${dir}/${dir}/${dir}/x.webp`, "webp")).toBe(
+      false,
+    );
+  });
+});
+
+describe("captions and slugs", () => {
+  test("a new captions file is media/<key>.vtt with the header WEBVTT and an empty line", () => {
+    expect(captionsPath("intro-en")).toBe("media/intro-en.vtt");
+    expect(CAPTIONS_TEMPLATE).toBe("WEBVTT\n\n");
+    expect(isLayoutPath(captionsPath("intro-en"))).toBe(true);
+  });
+
+  test.each([
+    ["Team photo", "team-photo"],
+    ["  Release checks (v2)!  ", "release-checks-v2"],
+    ["Prüfung für Straße", "prufung-fur-strasse"],
+    ["---", "media"],
+    ["", "media"],
+    ["a".repeat(120), "a".repeat(80)],
+  ])("titleSlug(%j) is %j, a key", (title, slug) => {
+    expect(titleSlug(title)).toBe(slug);
+    expect(isKey(titleSlug(title))).toBe(true);
   });
 });
 

@@ -12,9 +12,16 @@ defmodule Espalier.Workbench.DraftDir do
 
   `read_pack/1` reads the pack of an extracted archive into a list of files:
   it keeps every regular file whose path relative to the root passes the
-  path rules, and lists every other file as skipped.
+  path rules, and lists every other file as skipped, except the media files
+  that `read_media/1` returns (task 0018).
+
+  A media entry of a draft (`{path, :media}` in `with_dir/2`) becomes an
+  empty file at its path after `Espalier.Catalog.Pack.MediaPath.check/1`,
+  so that the loader sees the path; the importer then links the path to
+  its asset.
   """
 
+  alias Espalier.Catalog.Pack.MediaPath
   alias Espalier.Workbench.Paths
 
   @max_skipped 100
@@ -53,17 +60,25 @@ defmodule Espalier.Workbench.DraftDir do
   end
 
   defp write_files(dir, files) do
-    Enum.reduce_while(files, :ok, fn {path, content}, :ok ->
-      case Paths.check(path) do
-        :ok ->
-          write_file(dir, path, content)
-          {:cont, :ok}
-
-        {:error, :invalid_path} = error ->
-          {:halt, error}
-      end
-    end)
+    Enum.reduce_while(files, :ok, &write_entry(&1, &2, dir))
   end
+
+  defp write_entry({path, content}, :ok, dir) do
+    case check(path, content) do
+      :ok ->
+        write_file(dir, path, if(content == :media, do: "", else: content))
+        {:cont, :ok}
+
+      {:error, :invalid_path} = error ->
+        {:halt, error}
+    end
+  end
+
+  defp check(path, :media) do
+    if MediaPath.check(path) == :ok, do: :ok, else: {:error, :invalid_path}
+  end
+
+  defp check(path, _content), do: Paths.check(path)
 
   # The path has passed the path rules just before: a relative path of the
   # pack layout without an empty, `.` or `..` component, so the joined path
@@ -90,6 +105,7 @@ defmodule Espalier.Workbench.DraftDir do
           {:ok, [{String.t(), String.t()}], skipped()} | {:error, [entry()]}
   def read_pack(root) when is_binary(root) do
     {kept, skipped} = root |> walk("") |> Enum.split_with(&kept?/1)
+    skipped = Enum.reject(skipped, &media?/1)
 
     entries = kept |> Enum.map(&read_kept(root, &1)) |> Enum.sort_by(&elem(&1, 1))
 
@@ -139,6 +155,25 @@ defmodule Espalier.Workbench.DraftDir do
 
   defp kept?({path, :regular}), do: Paths.check(path) == :ok
   defp kept?(_entry), do: false
+
+  defp media?({path, :regular}), do: MediaPath.check(path) == :ok
+  defp media?(_entry), do: false
+
+  @doc """
+  The media files of the pack below `root` other than captions, which
+  `read_pack/1` keeps as text files: every regular file whose path passes
+  `Espalier.Catalog.Pack.MediaPath.check/1`, as `{path, absolute path}`
+  sorted by path.
+  """
+  @spec read_media(Path.t()) :: [{String.t(), Path.t()}]
+  def read_media(root) when is_binary(root) do
+    for {path, :regular} = entry <- walk(root, ""),
+        media?(entry),
+        not kept?(entry) do
+      {path, Path.join(root, path)}
+    end
+    |> Enum.sort()
+  end
 
   # The path passed the path rules, and the walk found a regular file there.
   # sobelow_skip ["Traversal.FileModule"]

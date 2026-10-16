@@ -13,8 +13,31 @@ import { requestStepUp } from "./stepUp";
 
 export type ApiClient = Client<paths>;
 
-const CSRF_HEADER = "x-csrf-token";
+/** The header that carries the CSRF token of the session (ASVS 3.5.1). */
+export const CSRF_HEADER = "x-csrf-token";
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+/**
+ * The answer to a 401 of any request. A 401 `unauthenticated` (or without
+ * a code) means the session is gone, so every other cached query leaves
+ * the cache (ASVS 14.3.1). The codes of a rejected credential
+ * (`authentication_failed`, `invalid_credentials`, `ticket_invalid`) leave
+ * the session of the browser as it was; the session query is refetched for
+ * every 401, which shows an ended pending second factor. The API client
+ * calls it for its answers, and the media upload of 0018, which sends its
+ * body with `XMLHttpRequest`, for its own.
+ */
+export async function handleUnauthenticated(
+  queryClient: QueryClient,
+  response: Response,
+): Promise<void> {
+  const code = await errorCode(response);
+  if (code === null || code === "unauthenticated")
+    queryClient.removeQueries({
+      predicate: (query) => query.queryKey[0] !== sessionQueryKey[0],
+    });
+  await queryClient.invalidateQueries({ queryKey: sessionQueryKey });
+}
 
 /**
  * The typed API client. Every POST, PUT, PATCH and DELETE request carries the
@@ -48,20 +71,8 @@ export function createApiClient(
   // repeat after a step-up. A body can be read once per clone.
   const retries = new WeakMap<Request, { csrf: Request; stepUp: Request }>();
 
-  // A 401 `unauthenticated` (or without a code) means the session is gone,
-  // so every other cached query leaves the cache. The codes of a rejected
-  // credential (`authentication_failed`, `invalid_credentials`,
-  // `ticket_invalid`) leave the session of the browser as it was; the
-  // session query is refetched for every 401, which shows an ended pending
-  // second factor.
-  const unauthenticated = async (response: Response) => {
-    const code = await errorCode(response);
-    if (code === null || code === "unauthenticated")
-      queryClient.removeQueries({
-        predicate: (query) => query.queryKey[0] !== sessionQueryKey[0],
-      });
-    await queryClient.invalidateQueries({ queryKey: sessionQueryKey });
-  };
+  const unauthenticated = (response: Response) =>
+    handleUnauthenticated(queryClient, response);
 
   const repeat = async (retry: Request, csrfToken: string | undefined) => {
     if (csrfToken) retry.headers.set(CSRF_HEADER, csrfToken);

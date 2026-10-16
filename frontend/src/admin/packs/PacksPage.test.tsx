@@ -25,6 +25,8 @@ const created: PackImport = {
   payload: null,
   report: { errors: [], warnings: [] },
   alignment: { mode: null, matrix: null, errors: [], warnings: [] },
+  media: {},
+  media_policy: { external_hosts: [], embed_hosts: [], embed_consent: "click" },
 };
 
 function renderPage(answer: { status: number; body?: unknown }) {

@@ -1,5 +1,7 @@
 defmodule Espalier.Interop.PackWriterTest do
-  use Espalier.DataCase, async: true
+  # The re-import of a written pack runs the real ingest of its media, whose
+  # advisory lock the SQL sandbox holds until the test ends (task 0018).
+  use Espalier.DataCase, async: false
 
   import Espalier.PackFixtures,
     only: [copy_pack!: 1, demo_path: 0, read!: 2, read_yaml!: 2, update_yaml!: 3]
@@ -25,6 +27,8 @@ defmodule Espalier.Interop.PackWriterTest do
   alias Espalier.Catalog.Module, as: CatalogModule
   alias Espalier.Catalog.Pack.{Importer, Loader, Publisher, Validator}
   alias Espalier.Interop.{PackWriter, Payload}
+  alias Espalier.Media.{Asset, Store}
+  alias Espalier.MediaFixtures
 
   # The tables whose rows a publish archives when the pack drops their key.
   @keyed [
@@ -43,6 +47,9 @@ defmodule Espalier.Interop.PackWriterTest do
 
   @module1 "modules/01-how-language-models-work"
   @module2 "modules/02-checking-the-output"
+
+  # The lesson of the demo pack that gains a figure in the media tests.
+  @demo_lesson "modules/02-checking/lessons/02-second-lesson.md"
 
   @workshop_objectives ["m1-self-own-responsibility", "m1-social-team-transparency"]
 
@@ -154,7 +161,9 @@ defmodule Espalier.Interop.PackWriterTest do
   ]
 
   defp import_and_publish!(path) do
-    {:ok, %PackImport{status: :validated} = pack_import} = Importer.import(path, nil)
+    {:ok, %PackImport{status: :validated} = pack_import} =
+      Importer.import(path, nil, media: MediaFixtures.media_for(path))
+
     {:ok, %PackImport{status: :published}} = Publisher.publish(pack_import)
     {pack_import.payload, Catalog.get_program_by_slug(pack_import.pack_key)}
   end
@@ -236,7 +245,7 @@ defmodule Espalier.Interop.PackWriterTest do
     refute Enum.any?(written, &Map.has_key?(&1, "position"))
 
     assert run.built == run.original
-    assert run.validated == run.original
+    assert run.validated == Map.delete(run.original, "media")
     assert run.reimported == run.original
     assert Payload.build(run.program) == run.original
     assert Enum.all?(archived_rows(), fn {_schema, count} -> count == 0 end)
@@ -250,7 +259,7 @@ defmodule Espalier.Interop.PackWriterTest do
       run = round_trip!(demo_path(), tmp_dir)
 
       assert run.built == run.original
-      assert run.validated == run.original
+      assert run.validated == Map.delete(run.original, "media")
       assert run.reimported == run.built
       assert run.reimported == run.original
 
@@ -382,8 +391,15 @@ defmodule Espalier.Interop.PackWriterTest do
                      ~w(module.yaml objectives.yaml rules.yaml items.yaml
                         lessons/01-first-lesson.md lessons/02-second-lesson.md),
                      &"#{@module2}/#{&1}"
-                   )
+                   ) ++
+                   ~w(media/assistant-demo-en.vtt media/assistant-demo.webm
+                      media/release-checks.svg)
                )
+
+      # The media files hold the bytes of their delivery files.
+      for rel <- MediaFixtures.demo_media_paths() do
+        assert read!(tmp_dir, rel) == read!(demo_path(), rel), rel
+      end
 
       assert read!(tmp_dir, "#{@module1}/lessons/01-first-lesson.md") == """
              ---
@@ -401,6 +417,10 @@ defmodule Espalier.Interop.PackWriterTest do
 
              :::placeholder{provenance=placeholder key=input-rules}
              Your organization adds its rules for inputs here.
+             :::
+
+             :::video{provenance=invented src="media/assistant-demo.webm" title="A test pattern with a tone" captions="media/assistant-demo-en.vtt:en"}
+             The video shows a moving test pattern with colour bars and a counter while a steady tone plays. It holds no speech.
              :::
              """
 
@@ -460,12 +480,14 @@ defmodule Espalier.Interop.PackWriterTest do
     test "writes the alignment of the import published last, also within one second", %{
       tmp_dir: tmp_dir
     } do
-      {:ok, first} = Importer.import(demo_path(), nil)
+      {:ok, first} =
+        Importer.import(demo_path(), nil, media: MediaFixtures.media_for(demo_path()))
+
       {:ok, %PackImport{status: :published} = first} = Publisher.publish(first)
 
       pack = copy_pack!(demo_path())
       update_yaml!(pack, "pack.yaml", &Map.put(&1, "alignment", "warn"))
-      {:ok, second} = Importer.import(pack, nil)
+      {:ok, second} = Importer.import(pack, nil, media: MediaFixtures.media_for(pack))
       {:ok, %PackImport{status: :published} = second} = Publisher.publish(second)
 
       assert DateTime.compare(second.published_at, first.published_at) == :gt
@@ -504,7 +526,8 @@ defmodule Espalier.Interop.PackWriterTest do
                "Language models, second edition"
 
       assert {:ok, loaded} = Loader.load(tmp_dir)
-      assert %{errors: [], payload: ^second} = Validator.run(loaded)
+      assert %{errors: [], payload: validated} = Validator.run(loaded)
+      assert validated == Map.delete(second, "media")
     end
 
     @tag :tmp_dir
@@ -521,9 +544,12 @@ defmodule Espalier.Interop.PackWriterTest do
   end
 
   describe "write_payload/2" do
+    # The payload of an import with the media of MediaFixtures, so that the
+    # writer copies the demo files from the store.
     setup do
-      {:ok, loaded} = Loader.load(demo_path())
-      %{payload: payload} = Validator.run(loaded)
+      {:ok, %PackImport{status: :validated, payload: payload}} =
+        Importer.import(demo_path(), nil, media: MediaFixtures.demo_media!())
+
       %{payload: payload}
     end
 
@@ -538,7 +564,24 @@ defmodule Espalier.Interop.PackWriterTest do
       assert :ok = PackWriter.write_payload(payload, tmp_dir)
       assert {:ok, loaded} = Loader.load(tmp_dir)
       assert %{errors: [], warnings: [], payload: read_back} = Validator.run(loaded)
-      assert read_back == payload
+      assert read_back == Map.delete(payload, "media")
+
+      # The media files come from the store.
+      for rel <- MediaFixtures.demo_media_paths() do
+        assert read!(tmp_dir, rel) == read!(demo_path(), rel), rel
+      end
+    end
+
+    @tag :tmp_dir
+    test "answers the error of a missing file for a media path whose asset is gone", %{
+      payload: payload,
+      tmp_dir: tmp_dir
+    } do
+      gone = %{"path" => "media/gone.png", "asset_id" => Ecto.UUID.generate(), "kind" => "image"}
+      payload = Map.update!(payload, "media", &[gone | &1])
+
+      assert PackWriter.write_payload(payload, tmp_dir) ==
+               {:error, {:file, "media/gone.webp", :enoent}}
     end
 
     @tag :tmp_dir
@@ -555,6 +598,260 @@ defmodule Espalier.Interop.PackWriterTest do
 
       assert_raise ArgumentError, ~r/:::/, fn -> PackWriter.write_payload(payload, tmp_dir) end
     end
+  end
+
+  describe "media_files/1 and captions_files/1" do
+    test "list the delivery paths with their assets by path, the captions apart" do
+      media = MediaFixtures.demo_media!()
+
+      {:ok, %PackImport{status: :validated, payload: payload}} =
+        Importer.import(demo_path(), nil, media: media)
+
+      assert ids(PackWriter.media_files(payload)) == [
+               {"media/assistant-demo.webm", media["media/assistant-demo.webm"]},
+               {"media/release-checks.svg", media["media/release-checks.svg"]}
+             ]
+
+      assert ids(PackWriter.captions_files(payload)) == [
+               {"media/assistant-demo-en.vtt", media["media/assistant-demo-en.vtt"]}
+             ]
+
+      assert [{_path, %Asset{kind: :video, status: :ready, ext: "webm"}}, _svg] =
+               PackWriter.media_files(payload)
+    end
+
+    test "give an image its delivery path and leave out a path whose asset is gone" do
+      file = Path.join(demo_path(), "media/release-checks.svg")
+      image = MediaFixtures.stored_asset!(file, :image, "webp", %{width: 720, height: 200})
+
+      payload = %{
+        "media" => [
+          %{"path" => "media/photos/photo.jpg", "asset_id" => image.id, "kind" => "image"},
+          %{"path" => "media/gone.png", "asset_id" => Ecto.UUID.generate(), "kind" => "image"}
+        ]
+      }
+
+      assert ids(PackWriter.media_files(payload)) == [{"media/photos/photo.webp", image.id}]
+      assert PackWriter.captions_files(payload) == []
+    end
+
+    test "give a payload without media no files" do
+      assert PackWriter.media_files(%{}) == []
+      assert PackWriter.captions_files(%{}) == []
+      assert PackWriter.media_files(%{"media" => []}) == []
+    end
+  end
+
+  describe "write/2 with converted media" do
+    # The real ingest converts the generated inputs with ffmpeg of the
+    # shell; the demo media come from MediaFixtures.
+
+    @tag :tmp_dir
+    test "round trip of an animated figure on the same installation and on another",
+         %{tmp_dir: tmp_dir} do
+      pack = copy_pack!(demo_path())
+
+      ffmpeg!([
+        "-f",
+        "lavfi",
+        "-i",
+        "testsrc2=size=96x64:rate=4:duration=1",
+        "-f",
+        "gif",
+        Path.join(pack, "media/animation.gif")
+      ])
+
+      append_block!(
+        pack,
+        @demo_lesson,
+        ~s(:::figure{src=media/animation.gif alt="A moving test pattern." provenance=invented}\n:::\n)
+      )
+
+      original = import_processed!(pack, MediaFixtures.media_for(pack))
+      animation = asset!(original.payload, "media/animation.gif")
+
+      assert %Asset{kind: :image, status: :ready, ext: "webp", animated: true} = animation
+      assert is_binary(animation.poster_sha256)
+
+      program = Catalog.get_program_by_slug(original.pack_key)
+      out = Path.join(tmp_dir, "pack")
+      assert {:ok, "1.0.0"} = PackWriter.write(program, out)
+
+      # The written pack holds the delivery file and references it.
+      refute File.exists?(Path.join(out, "media/animation.gif"))
+
+      assert read!(out, "media/animation.webp") ==
+               File.read!(Store.path(animation.sha256, "webp"))
+
+      assert read!(out, "#{@module2}/lessons/02-second-lesson.md") =~
+               ~s(:::figure{provenance=invented src="media/animation.webp" alt="A moving test pattern." size=full})
+
+      # The same installation: the delivery digests find the assets, so the
+      # import queues nothing and links the same asset ids.
+      expected = rename_media(original.payload, "media/animation.gif", "media/animation.webp")
+      assert {:ok, %PackImport{status: :validated} = same} = Importer.import(out, nil)
+      assert MediaFixtures.process_queued!(same) == []
+      assert same.payload == expected
+      assert Enum.sort(same.media_asset_ids) == Enum.sort(original.media_asset_ids)
+      assert {:ok, %PackImport{status: :published}} = Publisher.publish(same)
+      assert Payload.build(program) == expected
+
+      # An installation without the program and its assets: the import
+      # ingests every file again, and the structural path of animated WebP
+      # inputs accepts the animation, which keeps its bytes and its poster.
+      Repo.query!("TRUNCATE programs, media_assets CASCADE")
+
+      fresh = import_processed!(out, %{})
+      again = asset!(fresh.payload, "media/animation.webp")
+
+      assert %Asset{kind: :image, status: :ready, ext: "webp", animated: true} = again
+      assert {again.sha256, again.poster_sha256} == {animation.sha256, animation.poster_sha256}
+
+      assert Enum.map(fresh.payload["media"], &Map.delete(&1, "asset_id")) ==
+               Enum.map(expected["media"], &Map.delete(&1, "asset_id"))
+
+      assert MapSet.disjoint?(MapSet.new(fresh.media_asset_ids), MapSet.new(same.media_asset_ids))
+      assert Map.delete(fresh.payload, "media") == Map.delete(expected, "media")
+
+      republished = Catalog.get_program_by_slug(fresh.pack_key)
+      assert Payload.build(republished) == fresh.payload
+    end
+
+    @tag :tmp_dir
+    test "a JPEG photo is written as WebP and round-trips from its first export on",
+         %{tmp_dir: tmp_dir} do
+      pack = copy_pack!(demo_path())
+
+      ffmpeg!([
+        "-f",
+        "lavfi",
+        "-i",
+        "testsrc2=size=96x64",
+        "-frames:v",
+        "1",
+        "-c:v",
+        "mjpeg",
+        "-f",
+        "mjpeg",
+        Path.join(pack, "media/photo.jpg")
+      ])
+
+      append_block!(
+        pack,
+        @demo_lesson,
+        ~s(:::figure{src=media/photo.jpg alt="A test pattern." size=medium provenance=invented}\n:::\n)
+      )
+
+      first = import_processed!(pack, MediaFixtures.media_for(pack))
+      photo = asset!(first.payload, "media/photo.jpg")
+      assert %Asset{kind: :image, status: :ready, ext: "webp", animated: false} = photo
+
+      program = Catalog.get_program_by_slug(first.pack_key)
+      out1 = Path.join(tmp_dir, "first")
+      assert {:ok, _version} = PackWriter.write(program, out1)
+
+      files = contents(out1)
+      refute Map.has_key?(files, "media/photo.jpg")
+      assert files["media/photo.webp"] == File.read!(Store.path(photo.sha256, "webp"))
+
+      assert files["#{@module2}/lessons/02-second-lesson.md"] =~
+               ~s(:::figure{provenance=invented src="media/photo.webp" alt="A test pattern." size=medium})
+
+      # From the first export on the pack round-trips: its import links the
+      # same asset, and its export writes the same files.
+      assert {:ok, %PackImport{status: :validated} = second} = Importer.import(out1, nil)
+      assert MediaFixtures.process_queued!(second) == []
+      assert second.payload == rename_media(first.payload, "media/photo.jpg", "media/photo.webp")
+      assert {:ok, %PackImport{status: :published}} = Publisher.publish(second)
+
+      out2 = Path.join(tmp_dir, "second")
+      assert {:ok, _version} = PackWriter.write(program, out2)
+      assert contents(out2) == files
+
+      assert {:ok, %PackImport{status: :validated} = third} = Importer.import(out2, nil)
+      assert third.payload == second.payload
+    end
+  end
+
+  defp ids(entries), do: Enum.map(entries, fn {path, asset} -> {path, asset.id} end)
+
+  # Runs ffmpeg of the shell with `args` after the fixed options.
+  defp ffmpeg!(args) do
+    executable = System.find_executable("ffmpeg") || flunk("ffmpeg is not on the PATH")
+
+    {output, status} =
+      System.cmd(executable, ["-nostdin", "-hide_banner", "-loglevel", "error", "-y" | args],
+        stderr_to_stdout: true
+      )
+
+    assert status == 0, output
+  end
+
+  defp append_block!(pack, rel, block),
+    do: File.write!(Path.join(pack, rel), "\n" <> block, [:append])
+
+  # Imports `pack` with the mapping `media`, processes every asset that the
+  # import queued in this process, and publishes the import.
+  defp import_processed!(pack, media) do
+    assert {:ok, %PackImport{status: :validated} = pack_import} =
+             Importer.import(pack, nil, media: media)
+
+    for asset <- MediaFixtures.process_queued!(pack_import) do
+      assert asset.status == :ready,
+             "#{asset.source_name}: #{asset.failure} #{asset.failure_detail}"
+    end
+
+    assert {:ok, %PackImport{status: :published}} = Publisher.publish(pack_import)
+    pack_import
+  end
+
+  defp asset!(payload, path) do
+    %{"asset_id" => id} = Enum.find(payload["media"], &(&1["path"] == path))
+    Repo.get!(Asset, id)
+  end
+
+  # The payload with the media path `from` renamed to `to` in the media
+  # list and in the blocks, as an export writes it.
+  defp rename_media(payload, from, to) do
+    rename = fn
+      ^from -> to
+      other -> other
+    end
+
+    modules = Enum.map(payload["modules"], &rename_in_module(&1, rename))
+
+    media =
+      payload["media"]
+      |> Enum.map(&Map.update!(&1, "path", rename))
+      |> Enum.sort_by(& &1["path"])
+
+    %{payload | "modules" => modules, "media" => media}
+  end
+
+  defp rename_in_module(module, rename),
+    do:
+      Map.update!(module, "lessons", fn lessons ->
+        Enum.map(lessons, &rename_in_lesson(&1, rename))
+      end)
+
+  defp rename_in_lesson(lesson, rename),
+    do:
+      Map.update!(lesson, "blocks", fn blocks ->
+        Enum.map(blocks, &rename_in_block(&1, rename))
+      end)
+
+  defp rename_in_block(%{"media" => %{} = media} = block, rename),
+    do: %{block | "media" => %{media | "src" => rename.(media["src"])}}
+
+  defp rename_in_block(block, _rename), do: block
+
+  # The files below `dir` with their contents, keyed by relative path.
+  defp contents(dir) do
+    dir
+    |> Path.join("**")
+    |> Path.wildcard()
+    |> Enum.reject(&File.dir?/1)
+    |> Map.new(&{Path.relative_to(&1, dir), File.read!(&1)})
   end
 
   # Puts @strings into the payload: into the `unlocks` of the first

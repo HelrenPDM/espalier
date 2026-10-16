@@ -130,8 +130,8 @@ Hex registries on 2026-10-07. Lockfiles (`mix.lock`,
 | Tests | ExUnit, Vitest with Testing Library, Playwright | Playwright 1.59.1, matching `playwright-driver.browsers` in nixpkgs; passkey tests use the Chromium DevTools virtual authenticator |
 | Docs | PlantUML, Graphviz | PlantUML 1.2026.3 |
 | Container | Dockerfile from `phx.gen.release --docker` (hexpm/elixir on Debian trixie slim) plus a `node:24` stage for the frontend | |
-| Media processing | ffmpeg and ffprobe as separate processes (`ffmpeg-headless` in nix, the Debian `ffmpeg` package in the runner image); SVG through `:xmerl_sax_parser` of OTP (task 0018) | ffmpeg 8.1.2 in nix, the Debian trixie package in the image |
-| Malware scan (optional) | ClamAV `clamd` over a Unix socket (`clamav` in nix for the integration test, the `clamav/clamav` image in the compose example, task 0018) | ClamAV 1.4.6 in nix |
+| Media processing | ffmpeg and ffprobe as separate processes (`ffmpeg-headless` in nix, the Debian `ffmpeg` package in the runner image); SVG through `:xmerl_sax_parser` of OTP (task 0018) | ffmpeg 8.1.2 in nix, 7.1.5 of Debian trixie (package `7:7.1.5-0+deb13u1`) in the image |
+| Malware scan (optional) | ClamAV `clamd` over a Unix socket (`clamav` in nix for the integration test, the `clamav/clamav` image in the compose example, task 0018) | ClamAV 1.4.6 in nix, `clamav/clamav:1.5.4` in the example |
 
 `phx.new` 1.8.15 resolves `ecto_sql ~> 3.13` to Ecto 3.14.2 and ecto_sql
 3.14.0. The Cloak tests of task 0003 run on these versions and on the pinned
@@ -617,7 +617,10 @@ the account and session settings of task 0004, and every later task that adds
 an application setting outside `AUTH_*` extends that module. The connection
 and secret variables (`DATABASE_*`, `SECRET_KEY_BASE`, `CLOAK_*`, `SMTP_*`)
 stay in `config/runtime.exs`, and the boot check of task 0017 reports each
-required one that is missing. Both modules trim each value,
+required one that is missing. The media settings of task 0018 (`MEDIA_DIR`
+and the other `MEDIA_*` variables) belong to `Espalier.RuntimeConfig` as
+well; `docs/guides/media.md` lists them with their defaults and ranges, and
+in production the boot check also checks ffmpeg, ffprobe and `timeout`. Both modules trim each value,
 remove one pair of surrounding double quotes, which `docker run --env-file`
 keeps, and stop the boot with a message that names the variable.
 

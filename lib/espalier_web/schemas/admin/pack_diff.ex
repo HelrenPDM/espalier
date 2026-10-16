@@ -3,7 +3,8 @@ defmodule EspalierWeb.Schemas.Admin.PackDiff do
   The answer of `GET /api/admin/packs/{id}/diff` (task 0015): the added,
   changed and archived keys per keyed kind. Lessons appear as
   `<module number>/<lesson key>` and rules as `<module number>/<rule
-  number>`.
+  number>`. Media (task 0018) are keyed by their `media/` path, and a path
+  whose asset changed is `changed`.
   """
   require OpenApiSpex
 
@@ -79,6 +80,12 @@ defmodule EspalierWeb.Schemas.Admin.PackDiff do
             archived: Fields.strings()
           }),
         glossary_terms:
+          Fields.object(%{
+            added: Fields.strings(),
+            changed: Fields.strings(),
+            archived: Fields.strings()
+          }),
+        media:
           Fields.object(%{
             added: Fields.strings(),
             changed: Fields.strings(),

@@ -190,11 +190,14 @@ defmodule Espalier.Release do
 
   @doc """
   Imports the content pack at `path` as `mix espalier.import` does (task
-  0008, step 11), inside `Ecto.Migrator.with_repo/2` and without starting
-  the application. It prints the report in the form of
-  `mix espalier.validate` and a line with the outcome, and publishes a
-  validated import unless `draft: true` is given, which stops after the
-  draft.
+  0008, step 11). It starts the application as an eval node, which inserts
+  jobs without processing them and runs no bootstrap, so that the ingest of
+  the media of the pack finds a running Oban instance (task 0018), and
+  processes those media in the calling process before the publish
+  (`Espalier.Catalog.Pack.Report.run_import/2`). It prints the report in
+  the form of `mix espalier.validate` and a line with the outcome, and
+  publishes a validated import unless `draft: true` is given, which stops
+  after the draft and leaves the media jobs for the running server.
 
   Returns `{:ok, pack_import}` with the published import or the draft, and
   `{:error, reason}` otherwise: the failed import, the changeset of an import
@@ -211,7 +214,7 @@ defmodule Espalier.Release do
   """
   @spec import_pack(Path.t(), keyword()) :: {:ok, Ecto.Schema.schema()} | {:error, term()}
   def import_pack(path, opts \\ []) when is_binary(path) and is_list(opts) do
-    load_app()
+    start_app()
     draft? = Keyword.get(opts, :draft, false)
 
     case Ecto.Migrator.with_repo(Repo, fn _repo -> Report.run_import(path, draft: draft?) end) do

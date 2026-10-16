@@ -3,6 +3,10 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import { readFileSync, statSync } from "node:fs";
 import { parse } from "yaml";
 import { signInAsDemo } from "./support/demo.ts";
+import {
+  expectImageLoaded,
+  expectVideoPlaysWithCaptions,
+} from "./support/media.ts";
 
 const WCAG_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
 
@@ -61,6 +65,40 @@ const MODULE_1_POSITION =
     (station) => station.kind === "module" && station.module === 1,
   ) + 1;
 const MODULE_1_TITLE = STATIONS[MODULE_1_POSITION - 1].title;
+
+// The demo media of task 0018 (step 20): the video with captions and a
+// transcript in lesson 1 of module 1, and the SVG figure in lesson 2 of
+// module 2. The directive lines of the lessons give the title, the
+// alternative text and the body.
+const MODULE_2_POSITION =
+  STATIONS.findIndex(
+    (station) => station.kind === "module" && station.module === 2,
+  ) + 1;
+
+/** The front matter title and the directive block of `kind` of a lesson. */
+function mediaBlock(path: string, kind: "figure" | "video") {
+  const text = pack(path);
+  const match = new RegExp(
+    `^:::${kind}\\{(.*)\\}\\n([\\s\\S]*?)\\n:::$`,
+    "m",
+  ).exec(text);
+  if (match === null) throw new Error(`No ${kind} block in ${path}.`);
+  const attribute = (name: string) =>
+    new RegExp(`${name}="([^"]*)"`).exec(match[1])?.[1] ?? "";
+  return {
+    lesson: parse(text.split("---")[1]).title as string,
+    attribute,
+    body: match[2].trim(),
+  };
+}
+const DEMO_VIDEO = mediaBlock(
+  "modules/01-basics/lessons/01-first-lesson.md",
+  "video",
+);
+const DEMO_FIGURE = mediaBlock(
+  "modules/02-checking/lessons/02-second-lesson.md",
+  "figure",
+);
 
 const PRACTICE_ITEMS = ITEMS.filter((item) => !EXAM.items.includes(item.key));
 const EXAM_ITEMS = EXAM.items.map((key) =>
@@ -330,6 +368,73 @@ test("every station renders without console errors and fits 360 pixels", async (
       viewport,
     );
   }
+  expect(errors).toEqual([]);
+});
+
+test("the demo video plays with captions and a transcript, and the SVG figure shows", async ({
+  page,
+}) => {
+  test.setTimeout(60_000);
+  const errors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") errors.push(message.text());
+  });
+  page.on("pageerror", (error) => errors.push(error.message));
+  await signInAsDemo(page, 2);
+
+  // Module 1, lesson 1: the WebM with its poster and its English captions,
+  // and the transcript in a disclosure that starts closed.
+  await page.goto(`/programs/${SLUG}/stations/${MODULE_1_POSITION}`);
+  const first = page.getByRole("region", {
+    name: DEMO_VIDEO.lesson,
+    exact: true,
+  });
+  await expect(first).toContainText(DEMO_VIDEO.attribute("title"));
+  const video = first.locator("video");
+  await expect(video).toHaveAttribute(
+    "poster",
+    /^\/media\/[0-9a-f]{64}\.webp$/,
+  );
+  await expect(video.locator("source")).toHaveAttribute(
+    "src",
+    /^\/media\/[0-9a-f]{64}\.webm$/,
+  );
+  const track = video.locator("track");
+  await expect(track).toHaveAttribute("kind", "captions");
+  await expect(track).toHaveAttribute("srclang", "en");
+  await expect(track).toHaveAttribute("label", "English");
+  await expect(track).toHaveAttribute("src", /^\/media\/[0-9a-f]{64}\.vtt$/);
+
+  const transcript = first.getByRole("button", { name: "Transcript" });
+  const transcriptText = first.getByText(DEMO_VIDEO.body);
+  await expect(transcript).toHaveAttribute("aria-expanded", "false");
+  await expect(transcriptText).toHaveCount(0);
+  await transcript.click();
+  await expect(transcript).toHaveAttribute("aria-expanded", "true");
+  await expect(transcriptText).toBeVisible();
+
+  await expectVideoPlaysWithCaptions(video);
+  await expectNoAxeViolations(page, "module 1 with the demo video");
+
+  // Module 2, lesson 2: the SVG through an <img> with its alternative text
+  // and the body as the caption.
+  await page.goto(`/programs/${SLUG}/stations/${MODULE_2_POSITION}`);
+  const second = page.getByRole("region", {
+    name: DEMO_FIGURE.lesson,
+    exact: true,
+  });
+  const image = second.getByRole("img", {
+    name: DEMO_FIGURE.attribute("alt"),
+    exact: true,
+  });
+  await expectImageLoaded(image);
+  await expect(image).toHaveAttribute("src", /^\/media\/[0-9a-f]{64}\.svg$/);
+  await expect(
+    second.getByRole("figure").filter({
+      has: page.getByRole("img", { name: DEMO_FIGURE.attribute("alt") }),
+    }),
+  ).toContainText(DEMO_FIGURE.body);
+  await expectNoAxeViolations(page, "module 2 with the demo figure");
   expect(errors).toEqual([]);
 });
 

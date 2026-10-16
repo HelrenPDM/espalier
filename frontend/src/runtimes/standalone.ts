@@ -30,6 +30,13 @@ import {
   type Segment,
   type Station,
 } from "../player/runtime";
+import {
+  blockMediaResolver,
+  type BlockMediaResolver,
+  type MediaPolicy,
+  type PackMedia,
+  type PayloadBlockMedia,
+} from "./media";
 
 /**
  * The normalized payload of a content pack (task 0008, step 9), as
@@ -96,6 +103,11 @@ export interface PayloadBlock {
   placeholder_key: string | null;
   /** `source-key#locator` or `source-key`. */
   cite: string[];
+  /**
+   * The media attributes of a `figure` or a `video` (task 0018), `null`
+   * for the other kinds and in a payload from before that task.
+   */
+  media: PayloadBlockMedia | null;
 }
 
 export interface PayloadObjective {
@@ -333,6 +345,7 @@ function moduleView(
   sources: ReadonlyMap<string, Citation["source"]>,
   evidence: ReadonlyMap<string, ObjectiveView["evidence"]>,
   known: ReadonlySet<string>,
+  resolveMedia: BlockMediaResolver,
 ): ModuleView {
   const lessons = [...module.lessons].sort((a, b) =>
     a.position !== b.position ? a.position - b.position : byKey(a, b),
@@ -366,6 +379,7 @@ function moduleView(
         provenance: block.provenance,
         collapsed_on: block.collapsed_on,
         placeholder_key: block.placeholder_key,
+        media: resolveMedia(block.kind, block.media),
         // The preview reads no policy; a placeholder block keeps its
         // own body with the placeholder badge.
         policy: null,
@@ -423,8 +437,20 @@ function moduleView(
  * of kind `exam`, by key, with their items in exam order. Blocks carry no
  * policy text. The SCORM runtimes of 0016 reuse this mapping on the module
  * payload of `content.json`, whose `modules` hold one module.
+ *
+ * A `figure` or a `video` block carries its `BlockMedia` (task 0018): its
+ * `media/` paths resolve through `media`, the media object of
+ * `GET /api/admin/packs/:id` or of `content.json`, and `policy`, the
+ * allowlists of the installation, decides whether an external file or an
+ * embed is available; without a policy every host is (see
+ * `blockMediaResolver`).
  */
-export function payloadToProgramView(payload: PackPayload): ProgramView {
+export function payloadToProgramView(
+  payload: PackPayload,
+  media: PackMedia = {},
+  policy: MediaPolicy | null = null,
+): ProgramView {
+  const resolveMedia = blockMediaResolver(media, policy);
   const sources = new Map(
     payload.sources.map((source) => [source.key, source]),
   );
@@ -459,7 +485,9 @@ export function payloadToProgramView(payload: PackPayload): ProgramView {
     })),
     modules: [...payload.modules]
       .sort((a, b) => a.number - b.number)
-      .map((module) => moduleView(payload, module, sources, evidence, known)),
+      .map((module) =>
+        moduleView(payload, module, sources, evidence, known, resolveMedia),
+      ),
     glossary: [...payload.glossary]
       .sort((a, b) => (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0))
       .map(({ slug, label, short_text }) => ({ slug, label, short_text })),
@@ -523,7 +551,8 @@ const copyState = (state: ResumeState): ResumeState => ({
  * it implements `Runtime` on a pack payload in memory and keeps its state in
  * memory, so the preview sends nothing to the server and writes no record.
  * Items are evaluated in the browser with `src/player/evaluate.ts`, the
- * port of the evaluator and the pass rule of 0009.
+ * port of the evaluator and the pass rule of 0009. The media of the blocks
+ * resolve through `media` and `policy` (see `payloadToProgramView`).
  *
  * - `loadState` returns the state of the last `saveState` call, or `null`
  *   before the first call, always with an empty `evidencedObjectives`: the
@@ -550,9 +579,13 @@ export class StandaloneRuntime implements Runtime {
   readonly #passed = new Set<string>();
   #state: ResumeState | null = null;
 
-  constructor(payload: PackPayload) {
+  constructor(
+    payload: PackPayload,
+    media: PackMedia = {},
+    policy: MediaPolicy | null = null,
+  ) {
     this.#payload = payload;
-    this.#program = payloadToProgramView(payload);
+    this.#program = payloadToProgramView(payload, media, policy);
     for (const module of payload.modules) {
       const context: EvaluationContext = {
         rules: module.rules.map((rule) => ({

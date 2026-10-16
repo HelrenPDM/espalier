@@ -4,9 +4,12 @@ The pack workbench lets authors edit the YAML and Markdown files of a content
 pack in the admin area. A draft holds the files of one pack. The draft page
 shows them in a file tree and one file in an editor, saves a file with
 optimistic locking, and checks the draft with the loader and the validator
-that `mix espalier.validate` runs. "Create import" turns the draft into an
-import, and the pack page takes over with report, alignment, diff, preview
-and publish. A draft downloads as a zip archive in the pack layout.
+that `mix espalier.validate` runs. A draft also holds the images, SVG files
+and videos of its lessons as media entries, which name files of the media
+library, and its WebVTT captions as text files (section "Media"). "Create
+import" turns the draft into an import, and the pack page takes over with
+report, alignment, diff, preview and publish. A draft downloads as a zip
+archive in the pack layout, with its media files below `media/`.
 
 Content packs stay the only import and export format (README section 15,
 decision D18). The workbench handles the same files that
@@ -27,7 +30,8 @@ becomes `null` when that account is deleted.
 
 Every change needs a second factor from the last 10 minutes (README section
 6.4): starting a draft, uploading an archive, adding, saving, renaming and
-deleting a file, deleting a draft and creating an import. Without one, the
+deleting a file, adding, renaming and removing a media entry, deleting a
+draft and creating an import. Without one, the
 server answers 403 `reauth_required`, the step-up dialog opens, and the page
 repeats the request once after a successful step-up. The reads, the download
 and the check need no recent second factor, because they change no state.
@@ -88,12 +92,21 @@ read takes the shared lock of the export, so the draft holds one published
 version even while a publish of the same pack runs. A program that is unknown
 or not published answers 404.
 
+The draft holds one media entry per image, SVG file and video of the program,
+at the delivery path that `mix espalier.export` writes, such as
+`media/release-checks.svg`, and each captions file of the program as a text
+file, with the content of its delivery file in the media store.
+
 ### An import
 
 A `validated` or `published` import gives the files of the pack writer for
-its payload. A `failed` import holds no payload and answers 409
-`no_payload`; the author of a failed upload starts a draft from the same
-archive instead.
+its payload, with its media as for a published program. A media file of a
+`validated` import whose asset was deleted in the library, which the pack
+page lists as missing, does not become part of the draft, and the check of
+the draft reports its reference at the line of its block in the lesson until
+the draft holds a file at that path again. A `failed` import holds no
+payload and answers 409 `no_payload`; the author of a failed upload starts a
+draft from the same archive instead.
 
 ### A zip archive
 
@@ -115,6 +128,23 @@ file with the character U+0000, and with one entry at `.` when no file
 passes the path rules. The page shows the entries of a rejected archive as
 the pack page shows the archive report.
 
+The draft keeps the captions files below `media/` as text files. Every other
+file below `media/` whose path passes the rules of the folder `media/`
+([`content-packs.md`](content-packs.md), section "Media") goes into the media
+library with the origin `pack` and becomes a media entry at its delivery
+path, so `media/photo.jpg` becomes `media/photo.webp`. The opening lines of
+the directives in the lesson files follow the new paths. A file that equals
+the delivery file of an asset that the program of the pack key uses becomes a
+media entry of that asset, the asset at the same path first, as at the import
+of the pack; so the archive of an exported pack keeps the assets of its
+program also when two assets share one delivery file. The library checks
+each file as an upload (`media.md`, section "Accepted files"), and a refused
+file, a full media store and two files with the same delivery path reject the
+archive with 422 `archive_rejected` and an entry at the path of the file. The
+files below `media/` count towards `PACK_UPLOAD_MAX_MB` of the archive, so a
+video above that limit reaches a draft through the library (section
+"Media").
+
 ## Files and layout
 
 A path names one file of the pack layout. The path rules first check that a
@@ -123,13 +153,14 @@ not start with `/` or a drive letter such as `C:`, and holds no empty, `.` or
 `..` component and no component of more than 255 bytes between its `/`
 separators. 255 bytes is the longest file or directory name that common file
 systems hold, so a pack directory holds no longer name either. The path then has exactly one of
-three forms:
+four forms:
 
 | Form | Names |
 |---|---|
 | A file at the root | `pack.yaml`, `sources.yaml`, `glossary.yaml`, `segments.yaml`, `stations.yaml`, `feedback.yaml`, `qualifications.yaml`, `formats.yaml` |
 | A file of a module directory, `modules/<dir>/<name>` | `module.yaml`, `objectives.yaml`, `rules.yaml`, `items.yaml`, `assessment.yaml` |
 | A lesson, `modules/<dir>/lessons/<key>.md` | any `<key>` |
+| A captions file, `media/<key>.vtt`, with zero to three directories `<dir>/` after `media/` | any `<key>` |
 
 `<dir>` and `<key>` follow the key format of the loader: a lowercase letter
 or a digit first, then lowercase letters, digits and hyphens. The loader
@@ -138,9 +169,10 @@ reads exactly these files, so the rules admit no `README.md`, no
 `modules/a/lessons/x.txt` and no `modules/a/lessons/x/y.md`. A path outside
 the rules answers 422 `validation_failed` with `fields.path`
 `["invalid_path"]`, or `["max_length"]` from the request schema for a path
-of more than 527 characters, and a path that the draft holds already answers
-409 `path_taken`. A file that ends in `.yaml` opens as YAML and a file that
-ends in `.md` as Markdown.
+of more than 527 characters, and a path that the draft holds already, as a
+file or as a media entry, answers 409 `path_taken`. A file that ends in
+`.yaml` opens as YAML, a file that ends in `.md` as Markdown, and a captions
+file that ends in `.vtt` as plain text.
 
 ### The file tree
 
@@ -150,13 +182,52 @@ the editor. The open file is marked as current, and a file with unsaved
 changes carries the unsaved marker.
 
 "Add file" opens a dialog that builds the path from a choice: a file at the
-root, a file of a module directory, or a lesson with its key. The dialog
-shows `invalid_path` and `path_taken` at the path field. A new lesson starts
-with front matter (`title`, `position`) and one `text` block, and a new YAML
-file starts empty. Each file has "Rename" and "Delete" in its menu, each with
+root, a file of a module directory, a lesson with its key, or a captions
+file. The dialog shows `invalid_path` and `path_taken` at the path field. A
+new lesson starts with front matter (`title`, `position`) and one `text`
+block, a new captions file with the line `WEBVTT` and an empty line, and a
+new YAML file starts empty. The tree shows the media entries below `media/`
+with an icon of their kind. Each file has "Rename" and "Delete" in its menu, each with
 a dialog. A directory exists through its files, so the tree shows a module
 directory as long as it holds a file. The workbench renames one file at a
 time: to rename a module directory, rename each of its files.
+
+## Media
+
+A media entry of a draft is a path below `media/` and an image, SVG or video
+asset of the media library ([`media.md`](media.md)). The draft stores no
+bytes of the file: the entry names the asset, and the asset keeps its
+delivery file in the media store. The path follows the rules of the folder
+`media/` ([`content-packs.md`](content-packs.md), section "Media") and ends in
+the delivery extension of its asset: `.webp` for an image, `.svg` for an SVG
+file and `.webm` for a video. A lesson of the draft names the entry by this
+path in a `figure` or `video` block.
+
+"Add media" in the file tree picks an image, SVG or video asset of the
+library, or uploads a new file to the library first, and asks for the path.
+The detail dialog of an asset in the library offers the same with "Add to
+draft". Each entry has "Rename" and "Remove" in its menu; the removal takes
+the entry from the draft and leaves the asset in the library. Selecting an
+entry shows its preview, its status and facts, and the reference to copy in
+place of the editor. An entry whose asset is still `queued` or `processing`
+shows that status; the draft can be checked and imported with it, and the
+pack page holds the publish back until the file is `ready`.
+
+Captions are text files of the draft. A new captions file starts from "Add
+file", or "Add to draft" in the library copies the content of a `ready`
+captions asset into a new text file at a `.vtt` path; the server reads the
+file from the store, so the browser never downloads it for this. The editor
+opens a captions file as plain text, and the save applies the rules of every
+text file of a draft. The import checks each captions file as the library
+checks an upload (`media.md`, section "Captions files").
+
+Every change of a media entry sends the `lock_version` of the draft,
+increments it and answers 409 `stale_draft` for an older version, as a change
+of a file does. A path that does not end in the delivery extension of the
+asset or breaks the rules of the folder `media/` answers 422
+`validation_failed` with `fields.path` `["invalid_path"]`, and a captions
+asset that is not `ready` answers 422 with `fields.media_asset_id`
+`["not_ready"]`.
 
 ## Editing and saving
 
@@ -228,9 +299,13 @@ in the editor, so that it can be copied.
 "Check" runs the loader and the validator of the pack format on the files of
 the draft and stores nothing. When the open file has unsaved changes, the
 check uses its text from the editor in place of the stored content, for this
-check only. The server writes the files into a new temporary directory,
-checks them and removes the directory, also after an error. The check
-changes no row, so it runs without a recent second factor.
+check only. The server writes the files into a new temporary directory, with
+an empty file at the path of each media entry, so that the loader finds the
+path and its extension, checks them and removes the directory, also after an
+error. The check also reports every external video host and embed host
+outside the allowlists of the installation (`media.md`, section "External
+files and embeds"). The check changes no row, so it runs without a recent
+second factor.
 
 The section "Check report" lists every line that `mix espalier.validate`
 prints, the findings of the alignment checks included: the errors and then
@@ -280,10 +355,12 @@ stores no payload.
 ### Time, memory and parallel checks
 
 The check runs the loader with its budget of the pack format: 60 seconds per
-pack, and 10 seconds and 256 MiB per YAML text by default. At most two checks
-and imports from drafts run at once on a node. Another one answers 429
-`checks_busy` with `retry-after: 5` at once, without a queue; the author
-repeats the check after a few seconds.
+pack, and 10 seconds and 256 MiB per YAML text by default. At most two checks,
+imports and zip builds of draft downloads run at once on a node. A download
+frees its slot once its zip is built, so its transfer holds back no check
+and no import (section "Download and the way back into Git"). Another one
+answers 429 `checks_busy` with `retry-after: 5` at once, without a queue;
+the author repeats the check after a few seconds.
 
 ## Import and the pack page
 
@@ -293,9 +370,13 @@ author sees. It sends the `lock_version` of the draft as the page last read
 it, and a draft that changed since then answers 409 `stale_draft` and opens
 the conflict dialog. The server writes the files into a temporary directory
 and runs the importer of the pack format on them, as an upload of a zip
-archive with the same files would. The import has the status `validated` or
-`failed` with the same report and payload as that upload, and its audit
-event `pack.imported` names the draft in `pack_draft_id`.
+archive with the same files would. The media entries link their paths to
+their assets, so the import reads no media file, and the captions files go
+into the media library as the files of an uploaded pack do. The import has
+the status `validated` or `failed` with the same report and payload as that
+upload, and its audit event `pack.imported` names the draft in
+`pack_draft_id`. The pack page publishes the import once every media file is
+`ready` (`media.md`, section "Import and publish").
 
 The page then moves to `/admin/packs/:id`, the pack page of the import, which
 shows the report, the alignment, the diff against the published program, the
@@ -313,10 +394,61 @@ The download link of a draft returns a zip archive with the files of the
 draft in path order and the pack at the root of the archive. Its file name
 is `<pack key>-draft.zip`, for example `new-pack-draft.zip`, and
 `pack-draft.zip` when the pack key is missing, longer than 200 characters or
-outside the key format. The archive passes `POST /api/admin/packs`, and after
-extraction `mix espalier.validate` and `mix espalier.import`. The server
-builds the archive in memory, so a download takes one of the slots of the
-checks and imports and answers 429 `checks_busy` while every slot is taken.
+outside the key format. The archive holds the delivery file of every media
+entry at its path, so it passes `mix espalier.validate` and
+`mix espalier.import` after extraction, and `POST /api/admin/packs` while it
+stays within `PACK_UPLOAD_MAX_MB`; the archive start of the workbench has the
+same limit. A pack whose media exceed it returns to the platform through
+`mix espalier.import` or `Espalier.Release.import_pack/2`, which read a pack
+directory with the limits per file of the media library.
+
+The media files of a draft, the delivery files and the posters of its
+entries together, stay within `export_max_mb`, 1,024 MB; above it the
+download answers 409 `download_too_large`. The server stages the download in
+a new directory below `MEDIA_DIR/work/`: it writes the text files there,
+places each media file as a hard link to its file in the media store, and
+writes the zip into the same directory, with the `.webp` and `.webm` entries
+stored without compression. The zip reads every file in blocks, so a large
+video does not enter the memory of the node. The hard links keep the bytes
+when another author changes the draft or deletes an asset during the
+download. A media entry whose asset is not `ready`, or whose file is
+missing, answers 409 `media_not_ready` with the entries. The draft page
+therefore keeps "Download as zip" disabled with a sentence while a media
+entry is `queued`, `processing` or `failed`, reads the draft again
+every two seconds and offers the download once every entry is `ready`. The
+list of drafts carries no media states, so a click on its download link
+first reads the draft. While a media entry is `queued`, `processing` or
+`failed`, the list shows the same sentence in its alert and starts no
+download; once every entry is `ready`, it follows the link. The draft view
+carries no export limit, and only the server knows its free slots, so on
+both pages a 409 `download_too_large` and a 429 `checks_busy` reach the
+browser as a failed download. The directory goes after the response.
+`Espalier.Media.StaleWorker` removes every staging directory older than one
+hour that no `queued` or `processing` asset names, among them one that a
+crash left behind. A transfer that runs longer than an hour keeps sending
+from its open file after the sweep removed the directory.
+
+At most two downloads of drafts run at once on a node, and one per user
+(`max_parallel_downloads`). A download takes its slot before it builds the
+zip and keeps it until the zip is sent and its directory removed, so at most
+two zips of downloads lie below `MEDIA_DIR/work/` per node. It builds the
+zip in one of the slots of the checks and imports and frees that slot once
+the zip is written, so a slow transfer holds back no check and no import.
+When the user runs a download already, or when no slot of either kind is
+free, the download answers 429 `checks_busy` with `retry-after: 5` and
+builds nothing.
+
+The server sends the zip in blocks of 64 KiB within a deadline: the size of
+the zip at 256 KiB per second (`download_min_bytes_per_second`), about 2
+Mbit/s, and at least 60 seconds (`download_floor_seconds`). A zip with
+1,024 MB of media gets about 68 minutes. The server sends no block after
+the deadline and closes the connection, and a client that reads nothing for
+the send timeout of 30 seconds loses the connection before it. A transfer
+therefore ends at the latest 30 seconds after its deadline. In both cases
+the browser holds an incomplete zip and reports a failed download, and the
+server removes the directory and frees the slot. A client below 256 KiB per
+second receives the whole zip only when it arrives within the 60 seconds of
+the floor.
 
 A draft keeps no history. The repository of the organization keeps it. To
 take a draft back into a Git repository, replace the pack directory with the
@@ -349,15 +481,19 @@ the upload and of the file routes name them.
 
 | Limit | Value | Setting | Answer beyond it |
 |---|---|---|---|
-| Files per draft | 2,000, the entries of an archive (`max_files/0`) | none | 409 `too_many_files` |
+| Files per draft | 2,000, the entries of an archive (`max_files/0`), files and media entries together | none | 409 `too_many_files` |
+| Media entries per draft | 500 (`max_draft_media`) | `config :espalier, :media, max_draft_media:` in `config/config.exs` | 409 `media_limit` |
+| Media files of a download | 1,024 MB, the delivery files and posters of the media entries (`export_max_mb`) | `config :espalier, :media, export_max_mb:` in `config/config.exs` | 409 `download_too_large` |
 | Bytes per file | 1,048,576, the file limit of the loader (`max_file_bytes/0`) | none | 422 `validation_failed` at `fields.content` |
 | Bytes per draft, the sum of the bytes of its files | five times `PACK_UPLOAD_MAX_MB`, 104,857,600 bytes with the default of 20 (`max_draft_bytes/0`) | `PACK_UPLOAD_MAX_MB` | 409 `draft_too_large` |
 | Drafts | 50 (`max_drafts/0`) | `config :espalier, :pack_drafts, max_drafts:` in `config/config.exs` | 409 `draft_limit` |
-| Checks, imports and downloads of drafts at once per node | 2 (`max_parallel_checks/0`) | `config :espalier, :pack_drafts, max_parallel_checks:` in `config/config.exs` | 429 `checks_busy` with `retry-after: 5` |
+| Checks, imports and zip builds of draft downloads at once per node | 2 (`max_parallel_checks/0`) | `config :espalier, :pack_drafts, max_parallel_checks:` in `config/config.exs` | 429 `checks_busy` with `retry-after: 5` |
+| Downloads of drafts at once per node, from the zip build to the end of the transfer | 2, and one per user (`max_parallel_downloads/0`) | `config :espalier, :pack_drafts, max_parallel_downloads:` in `config/config.exs` | 429 `checks_busy` with `retry-after: 5` |
+| Time of the transfer of a download | the size of the zip at 262,144 bytes (256 KiB) per second (`download_min_bytes_per_second/0`), and at least 60 seconds (`download_floor_seconds/0`) | `config :espalier, :pack_drafts, download_min_bytes_per_second:` and `download_floor_seconds:` in `config/config.exs` | the server closes the connection, and the browser holds an incomplete zip |
 | Bytes per path | 527, and 255 per component | none | 422 `validation_failed` at `fields.path` |
 | Upload of an archive | `PACK_UPLOAD_MAX_MB` (default 20) | `PACK_UPLOAD_MAX_MB` | 413 `request_too_large` |
 
-The two settings of `:pack_drafts` take positive integers; any other value
+The settings of `:pack_drafts` take positive integers; any other value
 raises `ArgumentError` at the request that reads it. The limits apply to the
 draft after a change. A change that adds no file and no byte passes, so a
 draft above a lowered limit can still shrink. On a 409 `draft_limit`, the
@@ -377,7 +513,7 @@ of every route. Every answer under `/api/admin` carries
 | `GET /api/admin/pack-drafts` | `[:api, :author]` | 200 `{data: [draft]}`, newest change first |
 | `GET /api/admin/pack-drafts/:id` | `[:api, :author]` | 200 the draft with its files, without content |
 | `GET /api/admin/pack-drafts/:id/files/:file_id` | `[:api, :author]` | 200 the file with `content` and the `lock_version` of the draft |
-| `GET /api/admin/pack-drafts/:id/download` | `[:api, :author]` | 200 `application/zip` |
+| `GET /api/admin/pack-drafts/:id/download` | `[:api, :author]` | 200 `application/zip`; 409 `download_too_large` or `media_not_ready` |
 | `POST /api/admin/pack-drafts/:id/check` with `{file_id?, content?}` (both or neither) | `[:api, :author]` | 200 `lock_version`, `report` and `alignment` |
 | `POST /api/admin/pack-drafts` with `{source, name?, program_slug?, pack_import_id?}` | `[:api, :author_write]` | 201 the draft |
 | `POST /api/admin/pack-draft-uploads` with the `multipart/form-data` field `file` | `[:api, :author_write, :pack_upload]` | 201 the draft with `skipped` (`paths`, `omitted`) |
@@ -387,26 +523,35 @@ of every route. Every answer under `/api/admin` carries
 | `PATCH /api/admin/pack-drafts/:id/files/:file_id` with `{path, lock_version}` | `[:api, :author_write]` | 200 the draft |
 | `DELETE /api/admin/pack-drafts/:id/files/:file_id?lock_version=<n>` | `[:api, :author_write]` | 200 the draft |
 | `POST /api/admin/pack-drafts/:id/imports` with `{lock_version}` | `[:api, :author_write]` | 201 the import, with `location` `/api/admin/packs/:id` |
+| `POST /api/admin/pack-drafts/:id/media` with `{media_asset_id, path, lock_version}` | `[:api, :author_write]` | 201 the draft; an image, SVG or video asset becomes a media entry, and a captions asset a text file |
+| `PATCH /api/admin/pack-drafts/:id/media/:media_id` with `{path, lock_version}` | `[:api, :author_write]` | 200 the draft |
+| `DELETE /api/admin/pack-drafts/:id/media/:media_id?lock_version=<n>` | `[:api, :author_write]` | 200 the draft |
 
 `source` is `empty` with `name` (1 to 255 characters), `program` with
 `program_slug`, or `import` with `pack_import_id`. A missing member of the
 source answers 422 `validation_failed` with `["required"]`, and a member of
 another source with `["not_allowed"]`. Every request schema rejects an extra
 member with 422 `validation_failed`, and an id that is no UUID answers 422 as
-well. A draft carries its `usage` (`files`, `bytes`) and the `limits`
-(`files`, `file_bytes`, `draft_bytes`). Beyond the answers above, the routes
-answer 404 for an unknown draft, file, program or import, 409 `stale_draft`
-with `lock_version`, `path_taken`, `too_many_files`, `draft_too_large`,
+well. A draft carries its `usage` (`files`, `bytes`), the `limits`
+(`files`, `file_bytes`, `draft_bytes`) and its `media` entries, each with
+`id`, `path` and the asset in the form of the media library. Beyond the
+answers above, the routes answer 404 for an unknown draft, file, media entry,
+asset, program or import, 409 `stale_draft` with `lock_version`,
+`path_taken`, `too_many_files`, `media_limit`, `draft_too_large`,
 `draft_limit` and `no_payload`, 422 `archive_rejected` for a rejected
 archive, 413 `request_too_large` and 415 `unsupported_media_type` on the
-upload, and 429 `checks_busy` on the check and the import.
+upload, and 429 `checks_busy` on the check, the import and the download.
 
 ## Data and records
 
 A draft holds course content in the database, in the tables `pack_drafts`
 and `pack_draft_files`, as plain text, as the catalog tables and the payloads
-of imports do. A pack, like the pack repository of an organization, is
-therefore no place for personal data of learners or staff.
+of imports do. The table `pack_draft_media` holds the path and the asset of
+each media entry, and the media store holds the files. A pack, like the pack
+repository of an organization, is therefore no place for personal data of
+learners or staff; a photo or a recording of a person needs the consent of
+that person before it is published (`media.md`, section "People in images
+and videos").
 
 The workbench writes two audit events, each in the transaction of its
 change, with the acting author as actor and the draft as subject:
@@ -417,10 +562,11 @@ change, with the acting author as actor and the draft as subject:
 | `pack_draft.deleted` | `pack_key`, `file_count` |
 
 An import from a draft writes `pack.imported` with `pack_draft_id`. A save,
-a new file, a rename and the deletion of a file write no audit event: a
-draft changes no catalog row, no learner record and no account, every
-content that reaches learners passes `pack.imported` and `pack.published`
-with their actors, and an event per save would record the working rhythm of
-an author (README section 2, data minimization). `updated_at` and
-`lock_version` of the draft show that it changed.
-[`../security/logging.md`](../security/logging.md) lists every audit action.
+a new file, a rename and the deletion of a file, and a change of a media
+entry write no audit event: a draft changes no catalog row, no learner
+record and no account, every content that reaches learners passes
+`pack.imported` and `pack.published` with their actors, and an event per
+save would record the working rhythm of an author (README section 2, data
+minimization). `updated_at` and `lock_version` of the draft show that it
+changed. [`../security/logging.md`](../security/logging.md) lists every
+audit action.

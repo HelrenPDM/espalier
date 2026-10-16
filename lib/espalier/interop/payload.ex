@@ -23,7 +23,12 @@ defmodule Espalier.Interop.Payload do
   whose `pack_key` equals the slug of the program. `alignment` carries the
   default `strict` filled in, as the normalized map holds it.
 
-  `module/2` cuts the payload of one module out of a payload, in the shape
+  The media of task 0018 come from `program_media`: `"media"` lists
+  `%{"path", "asset_id", "kind"}` sorted by path, the shape of the import
+  payload, and every block carries `"media"`, so the payload of a published
+  program equals the payload of its import.
+
+  `module/3` cuts the payload of one module out of a payload, in the shape
   of `content.json` of a SCORM package without `schema` and `policies`.
   """
 
@@ -51,6 +56,10 @@ defmodule Espalier.Interop.Payload do
   }
 
   alias Espalier.Catalog.Module, as: CatalogModule
+  alias Espalier.Catalog.Pack.MediaPath
+  alias Espalier.Catalog.ProgramMedia
+  alias Espalier.Media
+  alias Espalier.Media.Asset
   alias Espalier.Repo
 
   # A glossary reference, as `Espalier.Catalog.Pack.Validator` reads it.
@@ -82,8 +91,24 @@ defmodule Espalier.Interop.Payload do
       "stations" => Enum.map(rows.stations, &station(&1, rows)),
       "qualifications" => Enum.map(rows.qualifications, &qualification(&1, rows)),
       "formats" => Enum.map(rows.formats, &format(&1, rows)),
-      "modules" => Enum.map(rows.modules, &module_payload(&1, rows))
+      "modules" => Enum.map(rows.modules, &module_payload(&1, rows)),
+      "media" => media(program_id)
     }
+  end
+
+  defp media(program_id) do
+    # Sorted by the bytes of the path, as the importer sorts the import
+    # payload; the database would sort by its collation.
+    from(m in ProgramMedia, where: m.program_id == ^program_id)
+    |> Repo.all()
+    |> Enum.sort_by(& &1.path)
+    |> Enum.map(fn row ->
+      %{
+        "path" => row.path,
+        "asset_id" => row.media_asset_id,
+        "kind" => row.path |> MediaPath.kind() |> Atom.to_string()
+      }
+    end)
   end
 
   @doc """
@@ -91,14 +116,21 @@ defmodule Espalier.Interop.Payload do
   title, locale), `module` (the module with its lessons, rules, items,
   assessments, objectives and `areas_elsewhere`), `glossary` (the terms that
   blocks of the module reference with `[[term:...]]`), `sources` (the
-  sources that the citations of its blocks, rules and items name) and
+  sources that the citations of its blocks, rules and items name),
   `formats` (the companion formats that name an objective of the module,
-  with their `objectives`), each in the shape of the full payload.
+  with their `objectives`), each in the shape of the full payload, and
+  `media` (task 0018): an object keyed by every `media/` path that a block
+  of the module references, with `url` (`media/<sha256>.<ext>`, relative to
+  `index.html` of a SCORM package), `kind`, `mime`, `width`, `height`,
+  `duration_ms`, `has_audio`, `has_alpha`, `animated` and `poster_url`, from
+  `assets`, a map of asset id to its row. External sources and embeds stay
+  URLs in the blocks.
 
   Raises `ArgumentError` when the payload has no module `number`.
   """
-  @spec module(t(), integer()) :: t()
-  def module(%{"modules" => modules} = payload, number) when is_integer(number) do
+  @spec module(t(), integer(), %{String.t() => Asset.t()}) :: t()
+  def module(%{"modules" => modules} = payload, number, assets)
+      when is_integer(number) and is_map(assets) do
     module =
       Enum.find(modules, &(&1["number"] == number)) ||
         raise ArgumentError, "the payload has no module #{number}"
@@ -119,8 +151,56 @@ defmodule Espalier.Interop.Payload do
       "formats" =>
         Enum.filter(payload["formats"], fn format ->
           Enum.any?(format["objectives"], &MapSet.member?(objective_keys, &1))
-        end)
+        end),
+      "media" => module_media(payload, module, assets)
     }
+  end
+
+  @doc """
+  The `media/` paths that the blocks of `module` (a module of a payload)
+  reference: the `src` of a figure or of a video file, the `poster` and the
+  captions of a video.
+  """
+  @spec media_paths(t()) :: [String.t()]
+  def media_paths(module) do
+    for lesson <- module["lessons"],
+        %{"media" => %{} = media} <- lesson["blocks"],
+        path <- [
+          media["src"],
+          media["poster"] | for(%{"src" => src} <- media["captions"] || [], do: src)
+        ],
+        is_binary(path) and String.starts_with?(path, "media/"),
+        uniq: true,
+        do: path
+  end
+
+  @doc "The asset ids of the media of `module`, from the media list of `payload`."
+  @spec media_asset_ids(t(), t()) :: [String.t()]
+  def media_asset_ids(payload, module) do
+    by_path = Map.new(Map.get(payload, "media") || [], &{&1["path"], &1["asset_id"]})
+    module |> media_paths() |> Enum.map(&Map.get(by_path, &1)) |> Enum.reject(&is_nil/1)
+  end
+
+  defp module_media(payload, module, assets) do
+    by_path = Map.new(Map.get(payload, "media") || [], &{&1["path"], &1["asset_id"]})
+
+    for path <- media_paths(module),
+        %Asset{status: :ready} = asset <- [Map.get(assets, Map.get(by_path, path))],
+        into: %{} do
+      {path,
+       %{
+         "url" => "media/#{asset.sha256}.#{asset.ext}",
+         "kind" => Atom.to_string(asset.kind),
+         "mime" => Media.mime(asset.ext),
+         "width" => asset.width,
+         "height" => asset.height,
+         "duration_ms" => asset.duration_ms,
+         "has_audio" => asset.has_audio,
+         "has_alpha" => asset.has_alpha,
+         "animated" => asset.animated,
+         "poster_url" => if(asset.poster_sha256, do: "media/#{asset.poster_sha256}.webp")
+       }}
+    end
   end
 
   ## Module content
@@ -432,6 +512,7 @@ defmodule Espalier.Interop.Payload do
       "provenance" => enum(block.provenance),
       "collapsed_on" => enums(block.collapsed_on),
       "placeholder_key" => block.placeholder_key,
+      "media" => block.media,
       "cite" => sorted_links(rows.cites, block.id)
     }
   end

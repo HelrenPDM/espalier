@@ -151,6 +151,20 @@ describe("the audit page", () => {
     );
   });
 
+  test("the action filter suggests the actions of the media library", async () => {
+    renderPage();
+    const field = within(await filters()).getByLabelText("Action");
+
+    const list = document.getElementById(field.getAttribute("list") ?? "");
+    const actions = Array.from(
+      list?.querySelectorAll("option") ?? [],
+      (option) => option.value,
+    );
+    expect(actions).toEqual(
+      expect.arrayContaining(["media.uploaded", "media.deleted"]),
+    );
+  });
+
   test("the filters send their query and live in the URL", async () => {
     const urls = recordRequestUrls();
     const { user, location } = renderPage();

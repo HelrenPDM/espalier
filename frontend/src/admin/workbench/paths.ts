@@ -6,7 +6,7 @@
  */
 
 /** The language of a file of a draft, as `Paths.language/1` returns it. */
-export type FileLanguage = "yaml" | "markdown";
+export type FileLanguage = "yaml" | "markdown" | "text";
 
 /**
  * The files at the root of a pack. Keep this list in sync with
@@ -49,10 +49,14 @@ const KEY = /^[a-z0-9][a-z0-9-]*$/;
 /** True for a string in the key format of module directories and lesson keys. */
 export const isKey = (value: string): boolean => KEY.test(value);
 
-/** The language of the file at `path`: `yaml` for `.yaml`, `markdown` for `.md`. */
+/**
+ * The language of the file at `path`: `yaml` for `.yaml`, `markdown` for
+ * `.md`, and `text` for the captions files `.vtt` of task 0018.
+ */
 export function pathLanguage(path: string): FileLanguage | null {
   if (path.endsWith(".yaml")) return "yaml";
   if (path.endsWith(".md")) return "markdown";
+  if (path.endsWith(".vtt")) return "text";
   return null;
 }
 
@@ -70,20 +74,57 @@ const isTopFile = (name: string) =>
 const isModuleFile = (name: string) =>
   (MODULE_FILES as readonly string[]).includes(name);
 
+/** The most directories between `media/` and the file name (`MediaPath`). */
+export const MAX_MEDIA_DIRS = 3;
+
+/** The extensions of the delivery files (`MediaPath.delivery_path/1`). */
+export type DeliveryExtension = "webp" | "svg" | "webm" | "vtt";
+
+/** The general limits: at most 527 bytes, at most 255 bytes per component. */
+function withinLimits(path: string, parts: readonly string[]): boolean {
+  return (
+    new TextEncoder().encode(path).length <= MAX_PATH_BYTES &&
+    parts.every((part) => part.length <= MAX_COMPONENT_BYTES)
+  );
+}
+
+/**
+ * True for `media/` followed by zero to three directories and
+ * `<key>.<ext>`, every directory and the key in the key format, at most 255
+ * bytes per component and 527 bytes in all: the mirror of
+ * `Espalier.Catalog.Pack.MediaPath.check/1` for one extension (task 0018,
+ * steps 9 and 16). A media entry of a draft takes the delivery extension of
+ * its asset (`webp`, `svg`, `webm`), and a captions file `vtt`.
+ */
+export function isMediaPath(path: string, ext: DeliveryExtension): boolean {
+  const parts = path.split("/");
+  if (!withinLimits(path, parts)) return false;
+  if (parts.length < 2 || parts.length > MAX_MEDIA_DIRS + 2) return false;
+  if (parts[0] !== "media") return false;
+  const name = parts[parts.length - 1];
+  const suffix = `.${ext}`;
+  return (
+    parts.slice(1, -1).every(isKey) &&
+    name.endsWith(suffix) &&
+    isKey(name.slice(0, -suffix.length))
+  );
+}
+
 /**
  * True for a path of the pack layout, as `Paths.check/1` decides: a name of
- * `TOP_FILES`, `modules/<dir>/<name>` with a name of `MODULE_FILES`, or
- * `modules/<dir>/lessons/<key>.md`, with `<dir>` and `<key>` in the key
- * format, at most 255 bytes per component and 527 bytes in all. The layout
- * admits ASCII names only,
+ * `TOP_FILES`, `modules/<dir>/<name>` with a name of `MODULE_FILES`,
+ * `modules/<dir>/lessons/<key>.md`, or a captions file
+ * `media/<dirs>/<key>.vtt` with up to three directories (task 0018), with
+ * `<dir>`, the directories and `<key>` in the key format, at most 255 bytes
+ * per component and 527 bytes in all. The layout admits ASCII names only,
  * so a path that passes holds no backslash, NUL, drive letter or empty,
  * `.` or `..` component.
  */
 export function isLayoutPath(path: string): boolean {
-  if (new TextEncoder().encode(path).length > MAX_PATH_BYTES) return false;
   const parts = path.split("/");
-  if (parts.some((part) => part.length > MAX_COMPONENT_BYTES)) return false;
+  if (!withinLimits(path, parts)) return false;
   if (parts.length === 1) return isTopFile(parts[0]);
+  if (parts[0] === "media") return isMediaPath(path, "vtt");
   if (parts[0] !== "modules" || !isKey(parts[1])) return false;
   if (parts.length === 3) return isModuleFile(parts[2]);
   return (
@@ -140,4 +181,32 @@ export function lessonTemplate(title: string, position: number): string {
     ":::",
     "",
   ].join("\n");
+}
+
+/** `media/<key>.vtt`: a captions file of the draft (task 0018, step 16). */
+export const captionsPath = (key: string): string => `media/${key}.vtt`;
+
+/**
+ * The content of a new captions file: the header `WEBVTT` and an empty
+ * line, after which the author writes the cues.
+ */
+export const CAPTIONS_TEMPLATE = "WEBVTT\n\n";
+
+/**
+ * A title in the key format: lower-case ASCII letters and digits, the
+ * words joined by single hyphens, at most 80 characters; `media` when no
+ * letter or digit remains. Letters with diacritics lose them, so "Prüfung"
+ * becomes `prufung`.
+ */
+export function titleSlug(title: string): string {
+  const slug = title
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/ß/g, "ss")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80)
+    .replace(/-+$/, "");
+  return slug === "" ? "media" : slug;
 }

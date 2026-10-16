@@ -38,7 +38,8 @@ defmodule EspalierWeb.SessionCookieTest do
              "local_accounts" => true,
              "signup" => "closed",
              "test_notes" => false,
-             "feedback_free_text" => false
+             "feedback_free_text" => false,
+             "media_embed_consent" => "click"
            }
 
     assert [cookie] = get_resp_header(conn, "set-cookie")

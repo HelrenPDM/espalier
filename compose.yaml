@@ -108,9 +108,14 @@ services:
       # connection (config/runtime.exs).
       DATABASE_CA_CERT_FILE: /etc/espalier/db-ca/ca.pem
       EXPORT_DIR: /data/exports
+      # The media store; Plug.Upload writes uploads below it, so an upload
+      # moves into the store by a rename on the same file system.
+      MEDIA_DIR: /data/media
+      PLUG_TMPDIR: /data/media/uploads
     volumes:
       - db-ca:/etc/espalier/db-ca:ro
       - exports:/data/exports
+      - media:/data/media
     restart: unless-stopped
 
 volumes:
@@ -118,3 +123,4 @@ volumes:
   db-tls:
   db-ca:
   exports:
+  media:

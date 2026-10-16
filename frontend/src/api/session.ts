@@ -11,6 +11,7 @@ export type Role = SessionPayload["roles"][number];
 export type SessionStrength = PayloadSession["strength"];
 export type AuthMethod = PayloadSession["auth_methods"][number];
 export type Signup = SessionPayload["flags"]["signup"];
+export type MediaEmbedConsent = SessionPayload["flags"]["media_embed_consent"];
 
 /**
  * A public provider entry (README section 6.12). The pages decide by `kind`
@@ -45,6 +46,11 @@ export interface SessionFlags {
   testNotes: boolean;
   /** `FEEDBACK_FREE_TEXT`: the feedback station shows free-text questions (0014). */
   feedbackFreeText: boolean;
+  /**
+   * `MEDIA_EMBED_CONSENT` (0018): `click` loads the player of a streaming
+   * service after the learner agrees, `auto` with the page.
+   */
+  mediaEmbedConsent: MediaEmbedConsent;
 }
 
 /** The client shape of the session that the query cache holds. */
@@ -56,6 +62,12 @@ export interface Session {
   authMethods: AuthMethod[];
   /** The provider of the session row; `null` for local and demo sessions. */
   providerKey: string | null;
+  /**
+   * The end of the window of the last second factor (README section 6.4),
+   * or `null` outside it. The media upload opens the step-up dialog before
+   * it sends a body when it lies in the past (0018).
+   */
+  recentAuthUntil: string | null;
   pending: PendingSecondFactor | null;
   /** The value for the `x-csrf-token` header. It lives only in the query cache. */
   csrfToken: string;
@@ -95,6 +107,7 @@ export function toSession(payload: SessionPayload): Session {
     sessionStrength: session ? session.strength : null,
     authMethods: session ? Array.from(session.auth_methods) : [],
     providerKey: session ? session.provider_key : null,
+    recentAuthUntil: session ? session.recent_auth_until : null,
     pending: pending
       ? { next: pending.next, expiresAt: pending.expires_at }
       : null,
@@ -115,6 +128,7 @@ export function toSession(payload: SessionPayload): Session {
       adminPasskeyRequired: flags.admin_passkey_required,
       testNotes: flags.test_notes,
       feedbackFreeText: flags.feedback_free_text,
+      mediaEmbedConsent: flags.media_embed_consent,
     },
   };
 }

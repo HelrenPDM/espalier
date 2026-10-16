@@ -489,10 +489,10 @@ defmodule Espalier.Catalog.LoaderTest do
         pack,
         "modules/01-basics/lessons/02-practice.md",
         ":::example{provenance=invented}",
-        ":::video{provenance=invented}"
+        ":::audio{provenance=invented}"
       )
 
-      assert [{"modules/01-basics/lessons/02-practice.md", 6, "unknown block kind `video`"}] =
+      assert [{"modules/01-basics/lessons/02-practice.md", 6, "unknown block kind `audio`"}] =
                load_errors(pack)
     end
 
@@ -507,7 +507,7 @@ defmodule Espalier.Catalog.LoaderTest do
       ---
 
       Stray text.
-      :::video{provenance=invented}
+      :::audio{provenance=invented}
       Text.
       :::
       :::text{provenance=invented colour=red}
@@ -526,7 +526,7 @@ defmodule Espalier.Catalog.LoaderTest do
       # The body starts at line 5, after the four lines of the front matter.
       assert load_errors(pack) == [
                {file, 6, "text outside a block"},
-               {file, 7, "unknown block kind `video`"},
+               {file, 7, "unknown block kind `audio`"},
                {file, 10, "unknown attribute `colour`"},
                {file, 13, "missing attribute `provenance`"},
                {file, 17, "a block cannot open inside the block opened at line 16"},
@@ -576,6 +576,188 @@ defmodule Espalier.Catalog.LoaderTest do
 
       assert %{payload: %{"modules" => [_basics, checking]}} = Validator.run(loaded)
       assert checking["objectives"] == []
+    end
+  end
+
+  describe "load/1 media files (task 0018, step 9)" do
+    # A file of `size` bytes that occupies no blocks, so that a test can pass
+    # the size limits of images and videos without writing them.
+    defp sparse!(pack, rel, size) do
+      file = path(pack, rel)
+      File.mkdir_p!(Path.dirname(file))
+      {:ok, fd} = :file.open(file, [:write, :raw, :binary])
+      if size > 0, do: :ok = :file.pwrite(fd, size - 1, <<0>>)
+      :ok = :file.close(fd)
+    end
+
+    test "keeps every regular file below media/ with its path, absolute path and size, unread" do
+      pack = copy_pack!("minimal")
+      # Bytes that are no UTF-8 text: the loader does not read media files.
+      write!(pack, "media/photo.png", <<0x89, "PNG", 0xFF, 0xFE>>)
+      sparse!(pack, "media/m1/clip.mp4", 1_000)
+      write!(pack, "media/m1/l2/3/intro-en.vtt", "WEBVTT\n")
+
+      assert {:ok, loaded} = Loader.load(pack)
+      root = Path.expand(pack)
+
+      assert loaded.media == [
+               %{
+                 path: "media/m1/clip.mp4",
+                 file: Path.join(root, "media/m1/clip.mp4"),
+                 bytes: 1_000
+               },
+               %{
+                 path: "media/m1/l2/3/intro-en.vtt",
+                 file: Path.join(root, "media/m1/l2/3/intro-en.vtt"),
+                 bytes: 7
+               },
+               %{path: "media/photo.png", file: Path.join(root, "media/photo.png"), bytes: 6}
+             ]
+    end
+
+    test "gives a pack without media/ an empty list" do
+      assert {:ok, %{media: []}} = "minimal" |> copy_pack!() |> Loader.load()
+
+      # The loader reads no media reference of a lesson; the validator
+      # checks them.
+      demo = copy_pack!(demo_path())
+      remove!(demo, "media")
+      assert {:ok, %{media: []}} = Loader.load(demo)
+    end
+
+    test "lists the media files of the demo pack with their sizes" do
+      assert {:ok, %{media: media}} = Loader.load(demo_path())
+      root = Path.expand(demo_path())
+
+      assert media ==
+               for(
+                 rel <- ~w(media/assistant-demo-en.vtt media/assistant-demo.webm
+                           media/release-checks.svg),
+                 do: %{
+                   path: rel,
+                   file: Path.join(root, rel),
+                   bytes: File.stat!(Path.join(root, rel)).size
+                 }
+               )
+    end
+
+    test "reports every path that fails MediaPath.check/1 at its path, one of 600 bytes included" do
+      pack = copy_pack!("minimal")
+      dirs = Enum.map_join(~w(a b c), "/", &String.duplicate(&1, 150))
+      long = "media/#{dirs}/" <> String.duplicate("k", 137) <> ".png"
+      assert byte_size(long) == 600
+
+      for rel <- [
+            long,
+            "media/Photo.png",
+            "media/a/b/c/d/x.png",
+            "media/notes.txt",
+            "media/X/y.png"
+          ],
+          do: write!(pack, rel, "")
+
+      write!(pack, "media/fine.png", "")
+
+      assert load_errors(pack) == [
+               {"media/Photo.png", 1,
+                "the media file name `Photo.png` must have the form `<key>.<extension>` with a " <>
+                  "key in the key format and one of the extensions `png`, `jpg`, `jpeg`, `gif`, " <>
+                  "`webp`, `svg`, `mp4`, `m4v`, `mov`, `webm`, `mkv`, `vtt`"},
+               {"media/X/y.png", 1, "the media directory `X` does not match the key format"},
+               {"media/a/b/c/d/x.png", 1,
+                "a media path has at most 3 directories below `media/`"},
+               {long, 1,
+                "a media path is valid UTF-8 of at most 527 bytes with components of at most " <>
+                  "255 bytes, and holds no backslash, no U+0000 and no empty, `.` or `..` component"},
+               {"media/notes.txt", 1,
+                "the media file name `notes.txt` must have the form `<key>.<extension>` with a " <>
+                  "key in the key format and one of the extensions `png`, `jpg`, `jpeg`, `gif`, " <>
+                  "`webp`, `svg`, `mp4`, `m4v`, `mov`, `webm`, `mkv`, `vtt`"}
+             ]
+    end
+
+    test "reports a file above the limit of its kind at its path and keeps a file at the limit" do
+      pack = copy_pack!("minimal")
+      image = Espalier.Media.max_bytes(:image)
+      video = Espalier.Media.max_bytes(:video)
+      assert {image, video} == {20 * 1_048_576, 1_024 * 1_048_576}
+
+      sparse!(pack, "media/at/photo.jpg", image)
+      sparse!(pack, "media/at/diagram.svg", 1_048_576)
+      sparse!(pack, "media/at/clip.webm", video)
+      sparse!(pack, "media/at/intro.vtt", 524_288)
+      sparse!(pack, "media/above/photo.jpg", image + 1)
+      sparse!(pack, "media/above/diagram.svg", 1_048_577)
+      sparse!(pack, "media/above/clip.webm", video + 1)
+      sparse!(pack, "media/above/intro.vtt", 524_289)
+
+      assert load_errors(pack) == [
+               {"media/above/clip.webm", 1,
+                "the file is larger than 1,073,741,824 bytes, the limit of a video (`MEDIA_VIDEO_MAX_MB`)"},
+               {"media/above/diagram.svg", 1,
+                "the file is larger than 1,048,576 bytes, the limit of an SVG file"},
+               {"media/above/intro.vtt", 1,
+                "the file is larger than 524,288 bytes, the limit of a captions file"},
+               {"media/above/photo.jpg", 1,
+                "the file is larger than 20,971,520 bytes, the limit of an image (`MEDIA_IMAGE_MAX_MB`)"}
+             ]
+
+      remove!(pack, "media/above")
+      assert {:ok, %{media: media}} = Loader.load(pack)
+
+      assert Enum.map(media, &{&1.path, &1.bytes}) ==
+               [
+                 {"media/at/clip.webm", video},
+                 {"media/at/diagram.svg", 1_048_576},
+                 {"media/at/intro.vtt", 524_288},
+                 {"media/at/photo.jpg", image}
+               ]
+    end
+
+    test "admits max_pack_media files and reports one more once at media" do
+      pack = copy_pack!("minimal")
+      max = Espalier.Media.max_pack_media()
+      assert max == 500
+
+      for n <- 1..max, do: write!(pack, "media/f-#{n}.png", "")
+      assert {:ok, %{media: media}} = Loader.load(pack)
+      assert length(media) == max
+
+      write!(pack, "media/extra/f.png", "")
+
+      assert load_errors(pack) == [
+               {"media", 1, "the directory `media` holds more than 500 files"}
+             ]
+    end
+
+    test "rejects a symbolic link below media/ and does not follow it" do
+      pack = copy_pack!("minimal")
+      File.mkdir_p!(path(pack, "media/m1"))
+      File.ln_s!("/etc/passwd", path(pack, "media/passwd.png"))
+      File.ln_s!("/etc", path(pack, "media/m1/etc"))
+
+      assert load_errors(pack) == [
+               {"media/m1/etc", 1, "symbolic links are not allowed in a pack"},
+               {"media/passwd.png", 1, "symbolic links are not allowed in a pack"}
+             ]
+    end
+
+    test "keeps modules/media/ a module directory and ignores files outside media/" do
+      pack = copy_pack!("minimal")
+      File.cp_r!(path(pack, "modules/02-checking"), path(pack, "modules/media"))
+      write!(pack, "assets/photo.png", "")
+      write!(pack, "modules/01-basics/media/photo.png", "")
+      write!(pack, "modules/media/media/photo.png", "")
+
+      assert {:ok, loaded} = Loader.load(pack)
+      assert Enum.map(loaded.modules, & &1.dir) == ["01-basics", "02-checking", "media"]
+      assert loaded.media == []
+    end
+
+    test "ignores a file named media at the root of the pack" do
+      pack = copy_pack!("minimal")
+      write!(pack, "media", "not a directory")
+      assert {:ok, %{media: []}} = Loader.load(pack)
     end
   end
 

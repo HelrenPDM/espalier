@@ -13,9 +13,11 @@ import {
   useCheckDraft,
   useDraft,
   useDraftFile,
+  useFollowDraftMedia,
   useImportDraft,
   useSaveFile,
   type DraftFileEntry,
+  type DraftMediaEntry,
   type PackDraft,
   type PackDraftCheck,
 } from "../../api/admin/workbench";
@@ -27,8 +29,10 @@ import { buttonClasses, linkClasses } from "../../app/formStyles";
 import { LoadingStatus } from "../../app/LoadingStatus";
 import { AlignmentSection } from "../packs/AlignmentSection";
 import { ReportEntryList } from "../packs/findings";
+import { mediaStatusBlock } from "../packs/packMedia";
 import { formatBytes, useDraftErrorText } from "./draftErrors";
 import { FileTree } from "./FileTree";
+import { MediaPreview } from "./MediaPreview";
 import { PackFileEditor } from "./PackFileEditor";
 import { pathLanguage } from "./paths";
 import { WorkbenchDialog } from "./WorkbenchDialog";
@@ -48,11 +52,12 @@ interface EditorText {
   saved: string;
 }
 
-/** A file to open once the unsaved changes are saved or discarded. */
-interface PendingOpen {
-  fileId: string;
-  line: number | null;
-}
+/**
+ * A file, or a media entry of task 0018, to open once the unsaved changes
+ * are saved or discarded.
+ */
+type PendingOpen =
+  { fileId: string; line: number | null } | { mediaId: string };
 
 /** A check answer and the revision of the editor text it ran on. */
 interface CheckRun {
@@ -156,6 +161,8 @@ function DraftFacts({ draft }: { draft: PackDraft }) {
           limit: number.format(draft.limits.files),
         })}
       </dd>
+      <dt className="font-medium">{t("admin.workbench.draft.mediaEntries")}</dt>
+      <dd>{number.format(draft.media?.length ?? 0)}</dd>
       <dt className="font-medium">{t("admin.workbench.draft.size")}</dt>
       <dd>
         {t("admin.workbench.draft.usage", {
@@ -184,11 +191,14 @@ function DraftView({
   const queryClient = useQueryClient();
   const editorHeadingId = useId();
   const importReasonId = useId();
+  const downloadReasonId = useId();
   const saveButton = useRef<HTMLButtonElement>(null);
   const files = draft.files ?? [];
   const errorText = useDraftErrorText(draft.limits);
 
   const [openFileId, setOpenFileId] = useState<string | null>(null);
+  // The media entry shown in place of the editor (task 0018).
+  const [openMediaId, setOpenMediaId] = useState<string | null>(null);
   const [editor, setEditor] = useState<EditorText | null>(null);
   const [cursor, setCursor] = useState({ line: 1, column: 1 });
   const [goTo, setGoTo] = useState<{ line: number } | null>(null);
@@ -227,6 +237,15 @@ function DraftView({
     });
 
   const openEntry = files.find((file) => file.id === openFileId) ?? null;
+  const openMedia: DraftMediaEntry | null =
+    (draft.media ?? []).find((entry) => entry.id === openMediaId) ?? null;
+  // The download answers 409 `media_not_ready` while an entry is not
+  // `ready`, and a plain link cannot show that answer; the page follows
+  // the conversions and offers the link once every entry is `ready`.
+  useFollowDraftMedia(draft);
+  const downloadBlock = mediaStatusBlock(
+    (draft.media ?? []).map((entry) => entry.asset.status),
+  );
   const ready = editor !== null && editor.fileId === openFileId;
   const dirty = ready && editor.text !== editor.saved;
   const path = openEntry?.path ?? (ready ? editor.path : null);
@@ -264,12 +283,31 @@ function DraftView({
 
   const openFile = (fileId: string, line: number | null) => {
     setPending(null);
+    setOpenMediaId(null);
     if (fileId !== openFileId) {
       setOpenFileId(fileId);
       setEditor(null);
       setCursor({ line: line ?? 1, column: 1 });
     }
     setGoTo(line === null ? null : { line });
+  };
+
+  /** Shows a media entry in place of the editor, which closes its file. */
+  const showMedia = (mediaId: string) => {
+    setPending(null);
+    setOpenFileId(null);
+    setEditor(null);
+    setGoTo(null);
+    setOpenMediaId(mediaId);
+  };
+
+  /** Shows a media entry, after the question on the unsaved changes of a file. */
+  const requestMedia = (mediaId: string) => {
+    if (dirty) {
+      setPending({ mediaId });
+      return;
+    }
+    showMedia(mediaId);
   };
 
   /** Opens a file, after the question on the unsaved changes of another. */
@@ -493,7 +531,9 @@ function DraftView({
 
   const proceed = (target: PendingOpen | null) => {
     if (blocker.state === "blocked") blocker.proceed();
-    else if (target !== null) openFile(target.fileId, target.line);
+    else if (target === null) return;
+    else if ("mediaId" in target) showMedia(target.mediaId);
+    else openFile(target.fileId, target.line);
   };
 
   const guardSave = async () => {
@@ -521,13 +561,20 @@ function DraftView({
     announce(t("admin.workbench.draft.deleted", { path: file.path }));
   };
 
+  const onMediaDeleted = (entry: DraftMediaEntry) => {
+    if (entry.id === openMediaId) setOpenMediaId(null);
+    announce(t("admin.workbench.media.removed", { path: entry.path }));
+  };
+
   const checkOutdated =
     checkRun !== null &&
     (checkRun.result.lock_version < draft.lock_version ||
       checkRun.revision !== revision);
 
   let editorBody;
-  if (openFileId === null)
+  if (openMedia !== null)
+    editorBody = <MediaPreview key={openMedia.id} entry={openMedia} />;
+  else if (openFileId === null)
     editorBody = (
       <p className={MUTED}>{t("admin.workbench.draft.editor.none")}</p>
     );
@@ -606,17 +653,32 @@ function DraftView({
           >
             {t("admin.workbench.draft.import.button")}
           </Button>
-          <a
-            href={draftDownloadUrl(draft.id)}
-            download
-            className={buttonClasses("secondary")}
-          >
-            {t("admin.workbench.draft.download")}
-          </a>
+          {downloadBlock === null ? (
+            <a
+              href={draftDownloadUrl(draft.id)}
+              download
+              className={buttonClasses("secondary")}
+            >
+              {t("admin.workbench.draft.download")}
+            </a>
+          ) : (
+            <Button
+              variant="secondary"
+              disabled
+              aria-describedby={downloadReasonId}
+            >
+              {t("admin.workbench.draft.download")}
+            </Button>
+          )}
         </div>
         {dirty && (
           <p id={importReasonId} className={`text-sm ${MUTED}`}>
             {t("admin.workbench.draft.import.unsaved")}
+          </p>
+        )}
+        {downloadBlock !== null && (
+          <p id={downloadReasonId} className={`text-sm ${MUTED}`}>
+            {t(`admin.workbench.draft.downloadReason.${downloadBlock}`)}
           </p>
         )}
         <StatusRegion>
@@ -631,8 +693,10 @@ function DraftView({
         <FileTree
           draft={draft}
           openFileId={openFileId}
+          openMediaId={openMedia?.id ?? null}
           unsaved={dirty}
           onOpen={(fileId) => requestOpen(fileId)}
+          onOpenMedia={requestMedia}
           onCreated={(next, created) => {
             announce(t("admin.workbench.draft.added", { path: created }));
             const entry = next.files?.find((file) => file.path === created);
@@ -642,6 +706,12 @@ function DraftView({
             announce(t("admin.workbench.draft.renamed", { from, to }))
           }
           onDeleted={onDeleted}
+          onMediaAdded={(next, added) => {
+            announce(t("admin.workbench.media.added", { path: added }));
+            const entry = next.media?.find((media) => media.path === added);
+            if (entry !== undefined && !dirty) showMedia(entry.id);
+          }}
+          onMediaDeleted={onMediaDeleted}
           onConflict={setConflict}
         />
         <section
@@ -653,9 +723,13 @@ function DraftView({
             className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xl font-semibold tracking-tight"
           >
             <span className="break-all">
-              {path === null
-                ? t("admin.workbench.draft.editor.title")
-                : editorLabel}
+              {openMedia !== null
+                ? t("admin.workbench.media.preview.title", {
+                    path: openMedia.path,
+                  })
+                : path === null
+                  ? t("admin.workbench.draft.editor.title")
+                  : editorLabel}
             </span>{" "}
             {dirty && (
               <span className={BADGE}>
@@ -747,8 +821,11 @@ function DraftView({
  * `/admin/workbench/:id`: a draft of the pack workbench (task 0016a, step
  * 13) with its file tree, the editor of one file, saving with optimistic
  * locking, the check with its report and the alignment matrix, the import
- * and the download. File content, paths and messages render as text
- * (ASVS 3.2.2).
+ * and the download. While a media entry is `queued`, `processing` or
+ * `failed` (task 0018), "Download as zip" stays disabled with a sentence
+ * that names the reason, and the page reads the draft every two seconds
+ * while an entry is converted. File content, paths and messages render as
+ * text (ASVS 3.2.2).
  */
 export function DraftPage() {
   const { t } = useTranslation();

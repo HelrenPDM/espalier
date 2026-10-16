@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
   type FormEvent,
+  type MouseEvent,
   type ReactNode,
 } from "react";
 import { useTranslation } from "react-i18next";
@@ -16,6 +17,7 @@ import {
   useCreateDraft,
   useDeleteDraft,
   useDrafts,
+  useReadDraft,
   useUploadDraft,
   type PackDraft,
 } from "../../api/admin/workbench";
@@ -35,6 +37,7 @@ import { useAdminErrorText } from "../adminErrors";
 import { RowAction, TableFrame } from "../adminParts";
 import { TABLE_CLASSES } from "../insights/reportFormat";
 import { ReportEntryList } from "../packs/findings";
+import { mediaStatusBlock } from "../packs/packMedia";
 import { useStartErrorText } from "./startErrors";
 
 const LABEL = "block text-sm font-medium text-gray-900 dark:text-gray-100";
@@ -448,17 +451,59 @@ function StartFromArchive() {
   );
 }
 
-/** The drafts, newest change first, with download and "Delete". */
+/**
+ * The drafts, newest change first, with download and "Delete". The list
+ * carries no media, and the download answers 409 `media_not_ready` while a
+ * media entry is not `ready`, which a plain link cannot show. A click on a
+ * download therefore reads the draft first: while an entry is `queued`,
+ * `processing` or `failed`, the alert names the reason of the draft page
+ * and nothing is downloaded; otherwise the link is followed.
+ */
 function DraftList() {
   const { t, i18n } = useTranslation();
   const errorText = useAdminErrorText();
   const drafts = useDrafts();
   const remove = useDeleteDraft();
+  const readDraft = useReadDraft();
   const headingId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
+  // One check of a download at a time, and the click that follows the
+  // link after a passed check goes to the browser.
+  const checking = useRef(false);
+  const following = useRef(false);
   const [deleting, setDeleting] = useState<PackDraft | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+
+  const download = (event: MouseEvent<HTMLAnchorElement>, draft: PackDraft) => {
+    if (following.current) return;
+    event.preventDefault();
+    if (checking.current) return;
+    checking.current = true;
+    const link = event.currentTarget;
+    setError(null);
+    setStatus(null);
+    void (async () => {
+      try {
+        const current = await readDraft(draft.id);
+        const block = mediaStatusBlock(
+          (current.media ?? []).map((entry) => entry.asset.status),
+        );
+        if (block !== null) {
+          setError(t(`admin.workbench.draft.downloadReason.${block}`));
+          return;
+        }
+        following.current = true;
+        link.click();
+      } catch (failure) {
+        setError(errorText(failure));
+        if (isApiError(failure, 404)) void drafts.refetch();
+      } finally {
+        following.current = false;
+        checking.current = false;
+      }
+    })();
+  };
 
   const confirm = async () => {
     const draft = deleting;
@@ -545,6 +590,7 @@ function DraftList() {
                     href={draftDownloadUrl(draft.id)}
                     download
                     className={`text-sm ${linkClasses}`}
+                    onClick={(event) => download(event, draft)}
                   >
                     {t("admin.workbench.list.download")}{" "}
                     <span className="sr-only">{draft.title}</span>
@@ -607,6 +653,8 @@ function DraftList() {
  * the link to the draft. A 409 `draft_limit` names the limit and the advice
  * to delete a draft. Every start needs a second factor from the last 10
  * minutes; the API client opens the step-up dialog and repeats the request.
+ * A download reads the draft first and names the reason in the alert while
+ * a media entry is not `ready` (task 0018).
  */
 export function WorkbenchPage() {
   const { t } = useTranslation();

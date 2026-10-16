@@ -3,7 +3,7 @@ import createClient from "openapi-fetch";
 import { useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, Navigate, Outlet, Route, Routes, useParams } from "react-router";
-import { usePackImport } from "../../api/admin/packs";
+import { usePackImport, type PackImport } from "../../api/admin/packs";
 import { ApiClientProvider } from "../../api/ApiClientProvider";
 import { ApiError } from "../../api/errors";
 import type { paths } from "../../api/paths";
@@ -13,10 +13,12 @@ import { BackToProgram } from "../../learner/BackToProgram";
 import { GlossaryPage } from "../../learner/GlossaryPage";
 import { ProgramPage } from "../../learner/ProgramPage";
 import { StationPage } from "../../learner/StationPage";
+import { EmbedConsentContext } from "../../player/embedConsent";
 import { PlayerProvider } from "../../player/PlayerProvider";
 import { ProgramBaseContext } from "../../player/programBase";
 import { RuntimeContext } from "../../player/RuntimeContext";
 import type { Provenance } from "../../player/runtime";
+import type { PackMedia } from "../../runtimes/media";
 import {
   StandaloneRuntime,
   isPackPayload,
@@ -126,6 +128,48 @@ function PreviewProgram({ runtime }: { runtime: StandaloneRuntime }) {
   );
 }
 
+/**
+ * The media of the import as the resolution of the blocks reads them
+ * (`PackMediaEntry`), in path order, as a string. It leaves out `status`
+ * and `progress`: the import is read again every two seconds while a file
+ * converts, and only a file that turns `ready` (and gets its URL) changes
+ * the key, so the runtime of the preview, and with it the answers, the
+ * path, the open explanations and a playing video, survives every other
+ * read.
+ */
+function resolvedMediaKey(media: PackImport["media"]): string {
+  const entries = Object.keys(media)
+    .sort()
+    .map((path): [string, PackMedia[string]] => {
+      const {
+        kind,
+        url,
+        width,
+        height,
+        duration_ms,
+        has_audio,
+        has_alpha,
+        animated,
+        poster_url,
+      } = media[path];
+      return [
+        path,
+        {
+          kind,
+          url,
+          width,
+          height,
+          duration_ms,
+          has_audio,
+          has_alpha,
+          animated,
+          poster_url,
+        },
+      ];
+    });
+  return JSON.stringify(Object.fromEntries(entries));
+}
+
 /** Every request of the player in the preview answers 404 without leaving the browser. */
 const offlineFetch = async () =>
   new Response(JSON.stringify({ error: "not_found" }), {
@@ -142,10 +186,34 @@ const offlineFetch = async () =>
  * a query cache of its own and an API client that sends nothing: the
  * stations that read or record platform data (self-assessment, credential,
  * companion formats, feedback) show their notices, and the preview writes
- * no record and reads no data of the live program.
+ * no record and reads no data of the live program. The media of the
+ * blocks resolve through the `media` of the import and the allowlists of
+ * `mediaPolicy`, whose `embed_consent` decides when an embed player loads
+ * (task 0018). The runtime is built again only when the resolved media
+ * change (`resolvedMediaKey`), so the progress of a conversion leaves the
+ * player as it is.
  */
-function PreviewPlayer({ id, payload }: { id: string; payload: PackPayload }) {
-  const runtime = useMemo(() => new StandaloneRuntime(payload), [payload]);
+function PreviewPlayer({
+  id,
+  payload,
+  media,
+  mediaPolicy,
+}: {
+  id: string;
+  payload: PackPayload;
+  media: PackImport["media"];
+  mediaPolicy: PackImport["media_policy"];
+}) {
+  const mediaKey = resolvedMediaKey(media);
+  const runtime = useMemo(
+    () =>
+      new StandaloneRuntime(
+        payload,
+        JSON.parse(mediaKey) as PackMedia,
+        mediaPolicy,
+      ),
+    [payload, mediaKey, mediaPolicy],
+  );
   const programBase = `/admin/packs/${encodeURIComponent(id)}/preview/programs`;
   const [queryClient] = useState(
     () =>
@@ -163,28 +231,30 @@ function PreviewPlayer({ id, payload }: { id: string; payload: PackPayload }) {
   return (
     <QueryClientProvider client={queryClient}>
       <ApiClientProvider client={client}>
-        <ProgramBaseContext.Provider value={programBase}>
-          <Routes>
-            <Route
-              path="programs/:slug"
-              element={<PreviewProgram runtime={runtime} />}
-            >
-              <Route index element={<ProgramPage />} />
-              <Route path="stations/:position" element={<StationPage />} />
-              <Route path="glossary" element={<GlossaryPage />} />
-              <Route path="handbook" element={<PreviewHandbook />} />
-            </Route>
-            <Route
-              path="*"
-              element={
-                <Navigate
-                  to={`${programBase}/${encodeURIComponent(payload.key)}`}
-                  replace
-                />
-              }
-            />
-          </Routes>
-        </ProgramBaseContext.Provider>
+        <EmbedConsentContext.Provider value={mediaPolicy.embed_consent}>
+          <ProgramBaseContext.Provider value={programBase}>
+            <Routes>
+              <Route
+                path="programs/:slug"
+                element={<PreviewProgram runtime={runtime} />}
+              >
+                <Route index element={<ProgramPage />} />
+                <Route path="stations/:position" element={<StationPage />} />
+                <Route path="glossary" element={<GlossaryPage />} />
+                <Route path="handbook" element={<PreviewHandbook />} />
+              </Route>
+              <Route
+                path="*"
+                element={
+                  <Navigate
+                    to={`${programBase}/${encodeURIComponent(payload.key)}`}
+                    replace
+                  />
+                }
+              />
+            </Routes>
+          </ProgramBaseContext.Provider>
+        </EmbedConsentContext.Provider>
       </ApiClientProvider>
     </QueryClientProvider>
   );
@@ -211,8 +281,9 @@ export function PackPreviewPage() {
 
   if (query.isPending) return <LoadingStatus text={t("admin.pack.loading")} />;
 
-  const payload = query.data?.payload;
-  if (query.isError || !isPackPayload(payload))
+  const { data } = query;
+  const payload = data?.payload;
+  if (query.isError || data === undefined || !isPackPayload(payload))
     return (
       <section className="max-w-3xl space-y-4">
         <h1 className="text-2xl font-semibold tracking-tight">
@@ -252,7 +323,12 @@ export function PackPreviewPage() {
         <p className="text-sm">{back}</p>
         <ProvenanceOverview payload={payload} />
       </section>
-      <PreviewPlayer id={id} payload={payload} />
+      <PreviewPlayer
+        id={id}
+        payload={payload}
+        media={data.media}
+        mediaPolicy={data.media_policy}
+      />
     </div>
   );
 }

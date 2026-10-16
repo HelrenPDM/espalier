@@ -50,6 +50,7 @@ const hostilePayload = () =>
       "admin_passkey_required": false,
       "test_notes": true,
       "feedback_free_text": false,
+      "media_embed_consent": "click",
       "__proto__": {"polluted": true}
     }
   }`);
@@ -67,6 +68,7 @@ test("toSession copies only the members it knows and pollutes no prototype", () 
     sessionStrength: "demo",
     authMethods: ["demo"],
     providerKey: null,
+    recentAuthUntil: null,
     pending: null,
     csrfToken: "token-1",
     providers: [
@@ -85,6 +87,7 @@ test("toSession copies only the members it knows and pollutes no prototype", () 
       adminPasskeyRequired: false,
       testNotes: true,
       feedbackFreeText: false,
+      mediaEmbedConsent: "click",
     },
   });
   expect(Object.keys(session)).toEqual([
@@ -93,6 +96,7 @@ test("toSession copies only the members it knows and pollutes no prototype", () 
     "sessionStrength",
     "authMethods",
     "providerKey",
+    "recentAuthUntil",
     "pending",
     "csrfToken",
     "providers",
@@ -117,6 +121,7 @@ test("toSession copies only the members it knows and pollutes no prototype", () 
     "adminPasskeyRequired",
     "testNotes",
     "feedbackFreeText",
+    "mediaEmbedConsent",
   ]);
 
   for (const value of [
@@ -150,7 +155,7 @@ test("toSession maps the pending state, the provider key and every flag", () => 
     strength: "mfa",
     auth_methods: ["oidc", "idp_mfa"],
     provider_key: "entra",
-    recent_auth_until: null,
+    recent_auth_until: "2026-10-12T09:10:00Z",
     expires_at: "2026-10-12T10:00:00Z",
     idle_timeout_minutes: 60,
   };
@@ -165,12 +170,14 @@ test("toSession maps the pending state, the provider key and every flag", () => 
     admin_passkey_required: true,
     test_notes: false,
     feedback_free_text: true,
+    media_embed_consent: "auto",
   };
 
   const session = toSession(payload);
 
   expect(session.authMethods).toEqual(["oidc", "idp_mfa"]);
   expect(session.providerKey).toBe("entra");
+  expect(session.recentAuthUntil).toBe("2026-10-12T09:10:00Z");
   expect(session.pending).toEqual({
     next: "second_factor",
     expiresAt: "2026-10-11T10:05:00Z",
@@ -182,6 +189,7 @@ test("toSession maps the pending state, the provider key and every flag", () => 
     adminPasskeyRequired: true,
     testNotes: false,
     feedbackFreeText: true,
+    mediaEmbedConsent: "auto",
   });
 });
 

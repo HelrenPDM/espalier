@@ -15,7 +15,8 @@ defmodule EspalierWeb.Admin.PackController do
   A publish runs for a `validated` import only (409 `not_publishable`
   otherwise) and is refused with 409 `alignment_errors` while
   `Espalier.Catalog.Alignment.check/1` reports an error on the stored
-  payload.
+  payload, and with 409 `media_not_ready` and the entries while a media
+  file of the payload is not `ready` (task 0018, step 10).
   """
   use EspalierWeb, :controller
   use OpenApiSpex.ControllerSpecs
@@ -40,7 +41,14 @@ defmodule EspalierWeb.Admin.PackController do
     summary: "Upload a content pack",
     description:
       "A zip archive of at most `PACK_UPLOAD_MAX_MB` (default 20) with at most 2,000 " <>
-        "entries and declared sizes of at most five times that limit.",
+        "entries and declared sizes of at most five times that limit. The folder `media/` " <>
+        "holds at most 500 files (`max_pack_media`), whether a lesson references them " <>
+        "or not, and each of them must pass the media path rules and the size limit of " <>
+        "its kind: images `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, SVG `.svg`, " <>
+        "videos `.mp4`, `.m4v`, `.mov`, `.webm`, `.mkv` and captions `.vtt`. Only the " <>
+        "files that a lesson references become assets of the media library. The archive " <>
+        "stays within `PACK_UPLOAD_MAX_MB`, so larger videos come through the media " <>
+        "library or an external URL.",
     security: Responses.session_and_csrf(),
     request_body:
       {"The archive", "multipart/form-data",
@@ -158,8 +166,8 @@ defmodule EspalierWeb.Admin.PackController do
         %{
           200 => {"The published import", "application/json", Admin.PackImport},
           409 =>
-            {"Error codes: `not_publishable`, `alignment_errors`", "application/json",
-             Admin.AlignmentErrors}
+            {"Error codes: `not_publishable`, `alignment_errors`, `media_not_ready`",
+             "application/json", %Schema{oneOf: [Admin.AlignmentErrors, Admin.MediaNotReady]}}
         },
         Responses.errors(
           Responses.author_write([{404, ["not_found"]}, {422, ["validation_failed"]}])

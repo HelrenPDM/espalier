@@ -10,6 +10,7 @@ defmodule Espalier.Catalog.Pack.DiffTest do
   alias Espalier.Catalog
   alias Espalier.Catalog.Pack.{Diff, Importer, Publisher}
   alias Espalier.Catalog.PackImport
+  alias Espalier.MediaFixtures
 
   @key "ai-assistant-basics-demo"
 
@@ -270,6 +271,77 @@ defmodule Espalier.Catalog.Pack.DiffTest do
         assert %{added: [], changed: [], archived: []} = diff[kind], "#{kind} is not empty"
       end
     end
+
+    test "media by path: a new path is added, another asset changed, a dropped path archived",
+         %{scope: scope} do
+      demo = demo_payload()
+      video = Ecto.UUID.generate()
+      svg = Ecto.UUID.generate()
+
+      payload =
+        Map.update!(demo, "media", fn media ->
+          media
+          |> Enum.reject(&(&1["path"] == "media/release-checks.svg"))
+          |> Enum.map(fn
+            %{"path" => "media/assistant-demo.webm"} = entry -> %{entry | "asset_id" => video}
+            entry -> entry
+          end)
+          |> Kernel.++([
+            %{"path" => "media/diagrams/new.svg", "asset_id" => svg, "kind" => "svg"}
+          ])
+        end)
+
+      diff = diff!(scope, payload)
+
+      assert diff.media == %{
+               added: ["media/diagrams/new.svg"],
+               changed: ["media/assistant-demo.webm"],
+               archived: ["media/release-checks.svg"]
+             }
+
+      # The blocks keep their media attributes, so no lesson changes.
+      for kind <- Diff.kinds() -- [:media] do
+        assert %{added: [], changed: [], archived: []} = diff[kind], "#{kind} is not empty"
+      end
+    end
+
+    test "a changed media attribute of a block marks its lesson as changed", %{scope: scope} do
+      payload =
+        update_module(demo_payload(), 2, fn module ->
+          Map.update!(module, "lessons", fn lessons ->
+            Enum.map(lessons, fn lesson ->
+              Map.update!(lesson, "blocks", fn blocks ->
+                Enum.map(blocks, fn
+                  %{"kind" => "figure"} = block -> put_in(block, ["media", "size"], "medium")
+                  block -> block
+                end)
+              end)
+            end)
+          end)
+        end)
+
+      diff = diff!(scope, payload)
+      assert diff.lessons == %{added: [], changed: ["2/02-second-lesson"], archived: []}
+      assert diff.media == %{added: [], changed: [], archived: []}
+    end
+
+    test "a payload without the key media archives the media of the program", %{scope: scope} do
+      payload = Map.delete(demo_payload(), "media")
+      diff = diff!(scope, payload)
+
+      assert diff.media == %{
+               added: [],
+               changed: [],
+               archived: Enum.sort(MediaFixtures.demo_media_paths())
+             }
+    end
+  end
+
+  test "without a program a payload without the key media holds no media", %{scope: scope} do
+    diff = diff!(scope, Map.delete(demo_payload(), "media"))
+
+    assert diff.media == %{added: [], changed: [], archived: []}
+    assert length(diff.lessons.added) == 5
   end
 
   test "without a program every key of the payload is added", %{scope: scope} do
@@ -302,6 +374,7 @@ defmodule Espalier.Catalog.Pack.DiffTest do
     assert length(diff.sources.added) == 2
     assert length(diff.segments.added) == 4
     assert length(diff.glossary_terms.added) == 8
+    assert diff.media.added == Enum.sort(MediaFixtures.demo_media_paths())
   end
 
   describe "Catalog.pack_diff/2" do
@@ -349,7 +422,9 @@ defmodule Espalier.Catalog.Pack.DiffTest do
   defp demo_payload, do: pack_payload(demo_path())
 
   defp pack_payload(path) do
-    {:ok, %PackImport{status: :validated, payload: payload}} = Importer.import(path, nil)
+    {:ok, %PackImport{status: :validated, payload: payload}} =
+      Importer.import(path, nil, media: MediaFixtures.media_for(path))
+
     payload
   end
 

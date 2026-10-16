@@ -54,6 +54,12 @@ defmodule EspalierWeb.Schemas.SessionPayload do
            feedback_free_text:
              Fields.boolean(
                "Mirrors `FEEDBACK_FREE_TEXT`: the feedback station shows free-text questions."
+             ),
+           media_embed_consent:
+             Fields.enum(
+               ~w(click auto),
+               "Mirrors `MEDIA_EMBED_CONSENT`: `click` loads the player of a streaming " <>
+                 "service after the learner agrees, `auto` with the page."
              )
          })
 

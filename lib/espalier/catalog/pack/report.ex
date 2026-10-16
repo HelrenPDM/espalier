@@ -23,8 +23,13 @@ defmodule Espalier.Catalog.Pack.Report do
   entries they return.
   """
 
+  import Ecto.Query
+
   alias Espalier.Catalog.Pack.{Entries, Importer, Publisher}
   alias Espalier.Catalog.PackImport
+  alias Espalier.Media
+  alias Espalier.Media.Asset
+  alias Espalier.Repo
 
   @matrix_columns [:module, :area, :depth, :objectives, :lessons, :evidence, :elsewhere]
 
@@ -135,6 +140,16 @@ defmodule Espalier.Catalog.Pack.Report do
   of `mix espalier.validate` and one line with the outcome, and publishes a
   validated import unless `draft: true` is given.
 
+  Before the publish, it processes every `queued` asset of the media of the
+  import in the calling process (`Espalier.Media.process_now/1`), because
+  `mix espalier.import` and the release functions run Oban without queues
+  (task 0018, step 8). A server that runs next to them may take a job
+  first, so it then waits, up to the largest job timeout of these assets,
+  until every asset is `ready` or `failed`. The publisher holds back an
+  import with a failed asset, and `finish/2` prints one line per entry
+  (`<path>: <status>`). With `draft: true` the jobs stay queued for the
+  running server.
+
   Returns `{:ok, pack_import}` with the published import, or with the draft
   for `draft: true`, and `{:error, reason}` otherwise: the failed import, the
   changeset of an import that could not be stored, or `:not_validated` when
@@ -145,7 +160,9 @@ defmodule Espalier.Catalog.Pack.Report do
     case Importer.import(path, nil) do
       {:ok, %PackImport{status: :validated} = draft} ->
         print_lines(report_lines(draft.report))
-        finish(draft, Keyword.get(opts, :draft, false))
+        draft? = Keyword.get(opts, :draft, false)
+        unless draft?, do: process_media(draft)
+        finish(draft, draft?)
 
       {:ok, %PackImport{} = failed} ->
         print_lines(report_lines(failed.report))
@@ -175,9 +192,41 @@ defmodule Espalier.Catalog.Pack.Report do
         IO.puts("Published #{describe(published)} from import #{published.id}")
         {:ok, published}
 
+      {:error, {:media_not_ready, entries}} = error ->
+        IO.puts("Import #{draft.id} was not published: media files are not ready")
+        Enum.each(entries, &IO.puts("#{&1["path"]}: #{&1["status"]}"))
+        error
+
       {:error, reason} ->
         IO.puts("Import #{draft.id} was not published: #{reason}")
         {:error, reason}
+    end
+  end
+
+  @wait_ms 500
+
+  defp process_media(%PackImport{media_asset_ids: ids}) when ids in [nil, []], do: :ok
+
+  defp process_media(%PackImport{media_asset_ids: ids}) do
+    assets = Repo.all(from a in Asset, where: a.id in ^ids)
+
+    for %Asset{status: :queued} = asset <- assets, do: Media.process_now(asset)
+
+    timeout = assets |> Enum.map(&Media.job_timeout_ms(&1.kind)) |> Enum.max(fn -> 0 end)
+    wait_media(ids, System.monotonic_time(:millisecond) + timeout)
+  end
+
+  # Another node may process an asset of the import; the publish gate holds
+  # back an asset that is not ready when the wait ends.
+  defp wait_media(ids, deadline) do
+    pending =
+      Repo.exists?(from a in Asset, where: a.id in ^ids and a.status in [:queued, :processing])
+
+    if pending and System.monotonic_time(:millisecond) < deadline do
+      Process.sleep(@wait_ms)
+      wait_media(ids, deadline)
+    else
+      :ok
     end
   end
 

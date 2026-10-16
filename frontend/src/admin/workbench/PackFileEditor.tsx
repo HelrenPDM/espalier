@@ -12,8 +12,12 @@ import { yaml, yamlFrontmatter } from "@codemirror/lang-yaml";
 import { markdown } from "@codemirror/lang-markdown";
 import { tags } from "@lezer/highlight";
 
-/** The language of a file of a draft (task 0016a, `Paths.language/1`). */
-export type PackFileLanguage = "yaml" | "markdown";
+/**
+ * The language of a file of a draft (task 0016a, `Paths.language/1`):
+ * YAML, Markdown with YAML front matter, or the plain text of a captions
+ * file (task 0018).
+ */
+export type PackFileLanguage = "yaml" | "markdown" | "text";
 
 /** A request to move the cursor to the start of a line; a new object moves it again. */
 export interface GoTo {
@@ -100,10 +104,16 @@ const highlightStyle = HighlightStyle.define([
 ]);
 
 function languageSupport(language: PackFileLanguage): Extension {
-  // A lesson starts with front matter in YAML (0008 step 5).
-  return language === "yaml"
-    ? yaml()
-    : yamlFrontmatter({ content: markdown() });
+  switch (language) {
+    case "yaml":
+      return yaml();
+    // A lesson starts with front matter in YAML (0008 step 5).
+    case "markdown":
+      return yamlFrontmatter({ content: markdown() });
+    // A WebVTT file shows as plain text, without highlighting.
+    case "text":
+      return [];
+  }
 }
 
 /** The configuration of a view that follows the props. */

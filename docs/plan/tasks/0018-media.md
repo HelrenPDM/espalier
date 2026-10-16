@@ -287,3 +287,423 @@ The media routes also rely on the controls that the rows 7.5.1, 8.2.1, 8.3.1, 14
 - The ffmpeg package of Debian is built with GPL components. The image runs it as a separate program and links none of it, and the Apache-2.0 code stays unaffected; `NOTICE` and `docs/guides/security.md` name the package, whose source Debian publishes.
 - `Archive` reads a pack upload into memory up to `PACK_UPLOAD_MAX_MB`, while a library upload streams to disk, so the guide recommends the library or an external URL for videos above that limit.
 - Block ids of the standalone and SCORM runtimes count the blocks of a lesson, so a media block added before an explanation changes the fingerprint of the suspend data of a package that was exported before (0016); a learner of the new package starts that module again.
+
+## Addendum: implementation
+The media spike of step 1 ran on 2026-10-15 against `ffmpeg-headless` 8.1.2
+of the pinned nixpkgs (libvpx 1.16.0, libwebp 1.6.0, libopus 1.6.1) and the
+`ffmpeg` package `7:7.1.5-0+deb13u1` of `debian:trixie-20261005-slim`
+(ffmpeg 7.1.5, libvpx 1.15.0, libwebp 1.5.0, libopus 1.5.2). Its scripts
+were removed before the merge. Each check gave the same result on both
+builds unless a line names a build:
+
+- Builds: both list the encoders `libvpx-vp9`, `libopus`, `libwebp` and
+  `libwebp_anim` and the demuxers `mov`, `matroska`, `png_pipe`,
+  `jpeg_pipe`, `webp_pipe`, `gif` and `apng`. `Espalier.Media.Ffmpeg.check/0`
+  reads the Debian version as 7.1.
+- Isolation: 112 runs (an HLS playlist naming `file:///etc/passwd` and a
+  local HTTP address, an ffconcat list, and MP4 files whose `dref` holds a
+  `url ` entry or an `alis` alias, each forced as `mov`, `matroska`,
+  `png_pipe`, `jpeg_pipe`, `webp_pipe`, `gif` and `apng`, through the probe
+  and the conversion) opened no network connection (a listener recorded
+  none) and, under `strace -f -e trace=openat,connect` in the shell, no
+  file outside the work directory and the input. Control runs with a wider
+  `protocol_whitelist` or `-enable_drefs 1` reached both targets.
+- Limits: a PNG of 778 kB with 10,000 by 10,000 pixels fails with
+  `-max_pixels` at a peak of 29 MiB (shell) and 49 MiB (Debian) of resident
+  memory; ffprobe exits 0 there and prints only the max-pixel message,
+  which the processor recognizes. `-threads N` among the output options
+  bounds libvpx-vp9 to N threads, so the argument order of step 5 holds.
+- Orientation: both builds apply EXIF orientation 6 while they convert; no
+  `Espalier.Media.Exif` module and no `transpose` filter exist.
+- Colour: neither build writes an `ICCP` chunk; the media guide states the
+  loss of wide-gamut colours.
+- Animation: GIF and APNG inputs of 30 frames report `nb_read_packets` 30
+  and give 30 `ANMF` frames; neither build decodes an animated WebP. The
+  first frame covers the canvas unless the first frame of the source has a
+  transparent margin, which libwebp crops even in the first frame.
+- HEIF: the `mov` demuxer of both builds opens HEIC and AVIF files, so the
+  brand check of `Espalier.Media.Sniff` is required; the Sniff tests carry
+  the brands as major and as compatible brand, also with box sizes 0 and 1.
+- Speed: a 60-second 1920x1080 clip with temporal noise took 457.4 s
+  (shell) and 497.1 s (Debian) with `MEDIA_FFMPEG_THREADS=2` on a loaded
+  machine; `video_timeout_factor` is 3 x 8.29, rounded up: 25.
+- Playback: Chromium 147 and Firefox 148 of Playwright play the converted
+  clip, load 12 cues and answer a seek with 206. WebKit 26.4 of the pinned
+  nixpkgs plays media only with the GStreamer plugins of that nixpkgs in
+  `GST_PLUGIN_SYSTEM_PATH_1_0`, and then passes too; the media specs of
+  Playwright run in Chromium. caniuse (commit 6ed49c6 of 2026-10-13): WebM
+  with VP9 and Opus plays from Safari 17.5 (18.4 and later on macOS 15.4)
+  and from iOS Safari 17.5, fully from 18.4; WebP is full from Safari 16.0
+  and iOS Safari 14.0.
+- Serving: plug 1.20.3 answers a single range with 206 and
+  `content-range`, an unsatisfiable range with 416, `If-None-Match` with
+  304, and with `cache_control_for_vsn_requests: nil` a `vsn=` query takes
+  the private ETag branch; mime 2.0.7 has no type for `.vtt`. All three
+  browsers send `Sec-Fetch-Dest: video` and `track`.
+- Zip: stdlib 7.3.0.3 reads files in blocks of 16 KiB and stores `.webm`
+  and `.webp` entries uncompressed; memory grew by 1.2 MiB for a zip of
+  503 MiB.
+- Upload: `Plug.Upload` reads `PLUG_TMPDIR` once at start and creates
+  `plug-*` directories below it.
+- ClamAV: `clamav/clamav:1.5.4` (the tag `stable` on the day) used 954 to
+  979 MiB after its start and up to 1.9 GiB during a reload; a video of
+  1024 MiB scanned in up to 73.1 s, so `MaxScanTime` is 220000 ms.
+- Image size: the production image grows from 156,019,364 to 592,914,588
+  bytes; the Debian package pulls in `libllvm19` and Mesa through
+  `libavdevice61` and `libsdl2-2.0-0`. With `procps`, which brings `kill`
+  for the stop of a job (step 8), the image of 2026-10-16 holds
+  595,556,892 bytes.
+
+The implementation departs from the steps above in the points below, and
+later tasks rely on the implemented form.
+
+- Configuration (step 2): the media variables come back from
+  `Espalier.RuntimeConfig.parse!/2` under the key `:media`, and
+  `config :espalier, :media` holds the fixed limits of step 4 in the same
+  list, so `Espalier.Media` reads both from one place. The tool check is
+  `Espalier.BootCheck.errors/3`.
+- Schema (step 3): `Asset.changeset/2` counts the length of the title in
+  code points, as the `varchar(255)` column does, so a title of at most
+  255 graphemes with more than 255 code points, such as decomposed letters
+  or emoji sequences, answers 422 `validation_failed` in place of a
+  database error.
+- Store (step 4): `put/2` is `digest/1` and `place/3`, so that the ready
+  transition computes the digests outside the locks and moves the files
+  inside them. `accept_incoming/2` takes `{:move, path}` or `{:copy, path}`,
+  and a move across file systems copies and removes the source; an `ENOSPC`
+  or an `EDQUOT` while it places a file answers `storage_full` (`full?/1`),
+  and another I/O failure raises. Each run of a job takes the work directory
+  `work/<asset id>-<run id>` (`work_dir/2`) with a new run id, so that a run
+  that ends never removes the directory of a later run of the same asset,
+  and the stale sweep keeps every such directory of a queued or processing
+  asset, whose id it reads from the name (`work_asset_id/1`). A staging
+  directory of a draft download is `work/<uuid>` and names no asset. The job
+  removes its incoming file and, after a failure, its work directory before
+  it records the status, so that a new copy of a failed asset is never
+  removed by the old job.
+- Detection (step 5): `Sniff.webp_info/1` reads the facts of a delivery
+  WebP. The JPEG walk runs over the first MiB read once. An `ftyp` box of
+  size 0 or 1 (64-bit size) is read for its brands as well. The job checks
+  the signature again under a name with an extension of the kind of its
+  asset, because the ingest checked the extension.
+- Commands (step 5): `Command` keeps the last 32 KiB of the output besides
+  the first MiB, so the tail of an error holds the last lines also after a
+  long output. An exception, a throw or an exit while a command runs, such
+  as one of the progress callback, makes `run/3` send `TERM` with `kill`,
+  as a cancel does, and wait for the exit status up to the deadline of the
+  command before the error goes on, because ffmpeg ignores the closed
+  port and would run until its deadline.
+- SVG (step 6): before the parser, one pass over the bytes answers
+  `parse_error` for a start tag with more than 1,000 attributes, for an
+  element nested deeper than 256 levels and for more than 64 namespace
+  declarations in scope, because xmerl compares the attributes of a tag
+  pairwise and looks up every prefix in the declarations in scope. The same
+  pass writes the predefined entity references `&lt;`, `&gt;`, `&amp;`,
+  `&apos;` and `&quot;` in quoted attribute values as the character
+  references `&#60;`, `&#62;`, `&#38;`, `&#39;` and `&#34;`, and the parser
+  reads the rewritten file, because xmerl copies the rest of the document
+  for every predefined reference in an attribute value and reads a character
+  reference in place. An XML declaration at the start must follow the
+  production `XMLDecl` of XML 1.0 up to the first `?>`: a `version` of the
+  form `1.` and digits, an optional `encoding` name and an optional
+  `standalone` of `yes` or `no`, each in single or double quotes. Any other
+  declaration and a start `<?xml` with white space and without `?>` answer
+  `parse_error`, because xmerl reads the values of `version` and
+  `standalone` as attribute values, also past the first `?>`, and copies the
+  rest of the document for every predefined reference in them. A declaration
+  that names another encoding answers `encoding` first. The declaration
+  check is one regular expression with possessive quantifiers and reads the
+  declaration once. The checks for `<!ENTITY` and `<!DOCTYPE` compare the
+  bytes after every `<!` with the name in any case, and the regular
+  expressions for `width`, `height` and `viewBox` use possessive
+  quantifiers, because the regular expression engine takes quadratic time on
+  a case-insensitive literal whose last letter occurs in one case only and
+  on two greedy white space quantifiers around `px`. The slowest file within
+  these bounds, 1,048,576 bytes of short start tags with six kept attributes
+  each, takes about 2.8 seconds. The CSS checks read the text through a
+  scanner that follows the CSS tokenizer: the content of a quoted string
+  counts as no CSS unless it is an internal reference `#<id>`, a comment
+  becomes a space, and an unquoted `url(` runs to its `)`. A string that
+  reaches a line break or the end of the text, a comment without `*/` and an
+  unquoted `url(` without `)` reject the file (`css`), also in a kept
+  attribute that no browser reads as CSS, such as `xlink:title="Don't"`. An
+  animation or transition property counts wherever no identifier character
+  precedes its name, so a selector such as `.transition:hover` rejects the
+  file as well. The checks run through `:re` with `report_errors`, and a
+  match limit of the engine counts as a match. An `a` element passes its
+  children to its parent as one nested list, so nested `a` elements cost no
+  copy per level. A rebuilt SVG file above `svg_max_bytes` fails with
+  `invalid_svg` and the reason `too_large`, because the rebuild writes some
+  characters as entity references and the pack loader checks the size of
+  every file below `media/`; an export or a draft download therefore never
+  carries an SVG file that its import refuses.
+- Processors (step 6): the image and video processors live in
+  `Espalier.Media.Processor`. Only a GIF or an APNG takes the animated path;
+  a JPEG or PNG stream with further images converts its first image. A video
+  without a duration in its container gets the deadline of the longest
+  admitted video, and the probe of its delivery file checks the duration. A
+  poster that ffmpeg leaves empty is taken from the first frame again, and a
+  video without a decodable frame keeps no poster. The SVG rebuild runs in a
+  task under the remaining deadline of the job. An animated WebP whose first
+  frame covers only a part of the canvas passes the structural check, and
+  its poster is an animated WebP with that single frame, which needs no
+  decoder; the reason tag `first_frame` stays in the closed list, and no
+  code path produces it.
+- Scan (step 7): the client waits 60 seconds plus one second per 4 MiB,
+  316 seconds for 1024 MiB, so that `MaxScanTime` of the example (220
+  seconds) answers first. A file that cannot be read answers the reason tag
+  `reply`. An oversized stream makes clamd close the connection; the client
+  then reads either the size-limit reply or the closed socket, and both
+  fail the asset with `scan_failed`. The test signature is copied into the
+  running service and loaded with `clamdscan --reload`: a read-only mount
+  into `/var/lib/clamav` stops the `/init` script of the image, which
+  changes the owner of that directory. The overlay runs an entrypoint that
+  hands `/run/clamav` to the user `clamav` and checks its health with
+  `clamdscan --ping`, because the health check of the image asks TCP port
+  3310.
+- Jobs (step 8): a running job sets `updated_at` of its asset every
+  `heartbeat_seconds` (60) from a process of its own, which monitors the job
+  and ends with it, and `StaleWorker` fails an asset in `processing` whose
+  `updated_at` lies more than `stale_processing_seconds` (600) back. Twice
+  the job timeout would have waited about 50 hours after an interrupted
+  video job, because the job timeout of a video counts the longest admitted
+  video. An exception in `process/1` fails the asset with
+  `conversion_failed` before it propagates. A progress update that fails,
+  for example while the database is away, skips that update, as a failed
+  heartbeat skips a beat, and the conversion goes on. A progress update or a
+  heartbeat that finds the asset no longer in `processing` (deleted, or
+  failed by the sweep) stops the job: `Command` sends `TERM` to `timeout`
+  with `kill`, which the image installs with `procps`, waits for the exit
+  and answers `{:error, :cancelled}`, because ffmpeg keeps running when the
+  port closes; a cancel between two commands stops the next one, and the job
+  changes no status and stores no file. Between two steps the job reads the
+  status of its asset (`proceed/1` and the `Processor` option `:proceed`):
+  after the scan, before each command and before it writes the output of the
+  SVG rebuild, the captions check or the check of an animated WebP, because
+  a deletion during the scan removes the incoming file, whose detection
+  would then fail with `conversion_failed`, and a job of an SVG file or
+  captions starts no command that a cancel could reach. A status write of a
+  result or a failure that changes no row logs the stop line in place of the
+  failure line. The row holds no token of the run, so one case stays open: a
+  job whose heartbeats failed for `stale_processing_seconds`, for example
+  while the database was away, is failed by the sweep while it still runs,
+  and when an ingest of the same file starts the asset again, the old job
+  can still end the new run. It removes the incoming file of the new run and
+  records its own result, the outputs of the same source from its own work
+  directory, or its failure, and the new run then stops as after a deletion.
+  A column with a token of the run, set at the claim and matched by the
+  heartbeat, the progress update and every status write, would close this
+  case and needs a migration of the table `media_assets`. The sweep removes
+  the old files below `uploads/` and keeps the `plug-*` directories:
+  `Plug.Upload` creates one directory per boot and per 2^20 seconds, shares
+  it between all request processes and keeps its path for each process, so a
+  removed directory would make the next upload of such a process raise.
+- Context (step 8): the failure log line is `media asset <id> failed:
+  <code>` with the reason tag in parentheses, because the logger
+  configuration admits no further metadata keys. `delete_asset/2` and
+  `RetentionWorker` lock with the timeout of the publisher plus one minute
+  (`Media.lock_timeout/0`). `process/1` and `process_now/1` tolerate an
+  asset deleted during the job.
+- Ingest (step 8): the ingest looks up an existing asset with `FOR NO KEY
+  UPDATE`, which waits for a deletion and passes the `FOR KEY SHARE` of a
+  publish. The title and the source name of a new asset are cut after a
+  whole grapheme within 255 code points, the unit in which PostgreSQL counts
+  a `varchar(255)` column, and the source name keeps its extension. An
+  exception while the copy is placed or the asset is recorded removes the
+  placed copy before it propagates, so no file stays in `incoming/` without
+  an asset row that counts it against the quota. A failed asset that an
+  upload or an import with an actor restarts takes that actor as
+  `created_by_id`, so that the scan of the new job names the author whose
+  copy it reads, and an upload that restarts it writes `media.uploaded`; an
+  import without an actor keeps the creator.
+- Uses (step 8): `uses/1` and the `unused` filter of `list_assets/2` match
+  the imports with `media_asset_ids @> ARRAY[id]`, a containment that the
+  GIN index of step 3 serves; the condition `id = ANY(media_asset_ids)`
+  can use no index and would read every row of `pack_imports`.
+- Pack format (step 9): the validator compares the captions languages
+  without regard to case, because BCP 47 tags are case-insensitive, so
+  `pt-BR` and `pt-br` in one `captions` value count as one language that
+  appears twice.
+- Import and publish (step 10): `Report.run_import/2` also waits for the
+  assets that another node processes. `PackJSON` adds `progress` to the
+  media entries of the pack view. Before the ingest of a referenced file
+  without a `media:` mapping, the importer compares the file with the
+  `ready` assets of the `program_media` rows of the program whose slug
+  equals the pack key (first by extension and size, then by SHA-256), and
+  a file that equals the delivery file of such an asset links to that
+  asset as a mapping does, the asset at the same path first. Two assets
+  can share one delivery file, and the ingest would take the oldest of
+  them; so a pack that `mix espalier.export` wrote imports with an empty
+  media diff. Each asset that an import links through a `media:` mapping or
+  this comparison, and each asset that the comparison links for a draft
+  archive (step 16), gets `updated_at` set to now in one update
+  (`Importer.touch_linked/1`), as the ingest of the same file does, so the
+  retention of step 8 counts its days from the last import or archive that
+  named it. An asset in `processing` keeps the time of its heartbeat.
+- Payload (step 11): `Payload.media_paths/1` and `media_asset_ids/2` list
+  the media of a module; `"media"` of a built payload is sorted by the
+  bytes of the path, as the importer sorts it. `PackWriter.write/2` copies
+  the media files inside the transaction of the shared lock without a size
+  bound; the timeout of that transaction (the publisher timeout plus one
+  minute) bounds the copy. `PackWriter.with_program_payload/2` serves the
+  start of a draft from a program.
+- Learner API (step 12): `Catalog.module_view/1` loads the assets of the
+  module in one query (`media`). `BlockMedia` is a component schema
+  referenced through `allOf` with `nullable`, and the width and height of
+  `image` are nullable for an SVG without a fixed size. An external file
+  takes its type from the lower-case extension of its path. A `poster`
+  attribute that names an animated image gives the still poster of that
+  image (`Media.poster_url/1`) with the size of the image, or the poster of
+  the video when the image has none, so that nothing moves before the
+  learner starts the video (WCAG 2.2 2.2.2).
+- Library API (step 15): `EspalierWeb.MediaMultipart` reads the body
+  itself: one part `file` with a file name, streamed to a temporary file of
+  `Plug.Upload`; every other part stays unread and answers 422, so no part
+  is held in memory, and a `before_send` callback removes the temporary
+  file on every answer, also the answers of the plugs before the action;
+  before an exception it removes the file itself. A part `file` without a
+  file name or with an empty one answers `fields.file` `["invalid_type"]`,
+  as the pack upload does. Part headers above 16 KiB answer 413, and a body
+  that `Plug.Conn` cannot read as multipart, such as an empty body or one
+  without its closing boundary, answers 400 through
+  `Plug.Parsers.ParseError`, as `Plug.Parsers.MULTIPART` does; that error
+  names only the type of the raised exception, and the stack frames lose
+  their arguments, so no log line holds the conn with its cookie, CSRF
+  token and session (ASVS 16.2.5). `File.Error` passes unchanged and
+  answers 500. An ENOSPC or an EDQUOT (an exhausted disk quota,
+  `Store.full?/1`) while the temporary file opens, takes a write or closes
+  removes the file and puts the text `"storage_full"` into `file`, which
+  the controller answers with 409 `storage_full`, because in the compose
+  layout the body fills the media volume before the rename into
+  `incoming/`, which needs no space. Before that answer the parser reads
+  the rest of the part and drops it, up to the same limit and with 413
+  above it, because Bandit drains at most 8,000,000 bytes of a body that
+  the action left unread and then closes the connection, which a browser
+  that still sends reports as a network error. The schemas `MediaInUse`
+  (409 `asset_in_use`) and `PackMedia` (the media of the pack view and
+  `media_policy`) join the list of step 15.
+- Workbench (step 16): a draft start from a program or an import whose
+  captions asset is not `ready` answers 409 `media_not_ready`, and the
+  attachment of such an asset answers 422 `fields.media_asset_id`
+  `["not_ready"]`. The entries of `media_not_ready` of the start and of the
+  download carry the failure code of a `failed` asset, as the publish gate
+  does. A draft from an archive checks the media limits and the delivery
+  collisions on the paths before any file becomes an asset. Its media files
+  pass the comparison of step 10, which `Importer.program_media/2` offers to
+  both callers: a file that equals the delivery file of a `ready` asset of
+  the program whose slug equals the pack key of the archive attaches that
+  asset without an ingest, the asset at the same path first, so an exported
+  pack uploaded as a draft archive and then imported keeps the assets of its
+  program. `download/3` takes a slot of `DownloadLimiter`, a second server
+  of `CheckLimiter` under its own name, with at most
+  `max_parallel_downloads/0` slots per node (2) and one per user, the key of
+  `CheckLimiter.run/4`. It reads the draft and builds the zip in a slot of
+  `CheckLimiter`, which it frees once the zip is written, and runs a
+  function with the zip and its staging directory in the slot of the
+  download alone; the controller sends the zip in that function. When either
+  server grants no slot, the download answers 429 `checks_busy` with
+  `retry-after: 5` and builds nothing, so the clients keep their handling of
+  that code. The context removes the directory on any failure of the build
+  and when the function returns or raises, all before the slot of the
+  download is freed, so at most `max_parallel_downloads/0` zips of downloads
+  lie below `MEDIA_DIR/work/` per node, and a slow transfer holds no slot of
+  the checks and imports. The controller sends the zip with
+  `EspalierWeb.BlockDownload.send_download/3` in blocks of 64 KiB, one
+  `Plug.Conn.chunk/2` each, with the headers of
+  `Phoenix.Controller.send_download/3`, an explicit `content-length` and,
+  over HTTP/1.1, `connection: close`, so Bandit sends the bytes of a file
+  download without chunked transfer coding and closes the connection after
+  the response. `send_download/3` of Phoenix hands `{:file, path}` to
+  `:file.sendfile/5`, which ignores the send timeout of the socket; a block
+  of `chunk/2` is one `:gen_tcp.send/2`, which answers `{:error, :timeout}`
+  when the client reads nothing for the send timeout of 30 seconds, so the
+  send stops. A block of 64 KiB drains within the send timeout at any rate
+  above about 2.1 KiB per second. A client that keeps reading slowly passes
+  the send timeout, so the transfer also has a deadline:
+  `BlockDownload.transfer_ms/3` gives the size of the zip at
+  `download_min_bytes_per_second/0` (262,144 bytes) and at least
+  `download_floor_seconds/0` (60 seconds), both in `config :espalier,
+  :pack_drafts`, and the send checks the deadline before each block and
+  sends no block after it. At 256 KiB per second, about 2 Mbit/s, a zip with
+  1,024 MB of media takes about 68 minutes, which bounds the time that the
+  slots of the downloads stay taken; a slower client receives the whole zip
+  only within the 60 seconds of the floor. A transfer ends at the latest one
+  send timeout after its deadline. The files and media entries of a check,
+  an import or a download are read under `FOR SHARE` on the draft row.
+  `DraftDir.with_dir/2` takes media entries as `{path, :media}`, and
+  `DraftDir.read_media/1` lists the media files of an archive.
+- SCORM export (step 17): a media file that cannot be staged logs `export
+  media file not staged: export <id>, <path in the package>: <POSIX
+  reason> (<description>)`. The reason `enoent` keeps the text "A media
+  file of the module is missing.", `enospc` and `edquot` give "The volume
+  of EXPORT_DIR is full; free space there and request the export again.",
+  and any other reason gives the generic text of a failed build.
+- Player (step 18): the agreements of `embedConsent.ts` also end with a
+  sign-out and a sign-in, in the tab itself and through a message of
+  another tab: `src/auth/sessionEvents.ts` calls `forgetEmbedConsent` next
+  to `resetTestNotes`, so the next person in the same tab is asked again. A
+  move to another lesson or module keeps them. `blockMediaResolver` gives a
+  `poster` attribute that names an animated image the still first frame of
+  that image (`poster_url`), so the poster of a video in the preview and
+  in a SCORM package never moves; an animated image without that frame
+  counts as a missing poster.
+- Admin UI (step 19): `useStartErrorText` translates the 409 answers
+  `media_not_ready`, with each captions path and its state, and
+  `media_limit`, with the default limit of 500, because the answer carries
+  no limit. The draft page keeps "Download as zip" disabled with a sentence
+  while a media entry is `queued`, `processing` or `failed`, as the pack
+  page does for "Publish". While an entry is `queued` or `processing`,
+  `useFollowDraftMedia` reads the draft every two seconds, one request for
+  every entry. It writes only the assets of the answer into the cache of
+  `useDraft`, so the editor keeps its text and the next save sends the
+  `lock_version` that the text belongs to, and it leaves out an answer to a
+  read that started before the cache last changed. The list of drafts
+  carries no media. A click on its download link therefore reads the draft
+  with `useReadDraft`, which shares the query and the cache entry of
+  `useDraft`, and applies `mediaStatusBlock` to the states of its entries.
+  While the check blocks, the alert of the list shows the sentence of the
+  draft page and no download starts; a passed check clicks the link again
+  and lets the browser follow it. A second activation during the read
+  starts nothing.
+- Demo pack (step 20): `release-checks.svg` is stored in the form that the
+  SVG rebuild writes, so a pack export writes it byte for byte.
+- Container (step 21): on the SVG and the WebM of the demo pack,
+  `scripts/smoke.sh` also checks the content type
+  (`image/svg+xml; charset=utf-8` and `video/webm`),
+  `content-disposition: inline` with the file name and
+  `x-content-type-options: nosniff`, which rows 3.2.1 and 4.1.1 of the
+  matrix name as evidence on the container. Every checked header line must
+  match in full.
+- Tests (step 23): `MediaFixtures.media_for/1` gives the mapping of the
+  demo media once per test process, as a second import of the same files
+  finds the same assets. The Playwright suite passes with one worker; with
+  the default number of workers on a machine with many cores, the per-IP
+  rate limits of the development configuration (`demo_ip`,
+  `passkey_options_ip`) answer 429 to some sign-ins.
+  `Espalier.Interop.MediaLockTest` holds the copy of a media file of
+  `PackWriter.write/2` and of the export worker on a named pipe in a media
+  store below `/dev/shm`, a file system of its own, so the export copies
+  across file systems as in the compose layout. While the copy waits, the
+  test checks the shared lock, the waiting publish and `asset_in_use`, and
+  after the deletion of the assets it compares the pack and the package
+  byte for byte. The draft download test deletes the asset in the function
+  of `download/3`, after the staging and before the zip is read, and reads
+  the bytes from the staged hard link and from the zip.
+  `EspalierWeb.BlockDownloadTest` and the draft controller test start
+  Bandit on an ephemeral port with `Espalier.Test.FunctionPlug` and read
+  the response with `:gen_tcp`. The first compares the raw responses of
+  `BlockDownload.send_download/3` and `Phoenix.Controller.send_download/3`
+  apart from `date` for a request with `connection: close`; in the
+  second, a client with a receive buffer of 4096 bytes stops reading a zip
+  of 32 MiB, and with a send timeout of two seconds the download frees its
+  slot within seven seconds while the slot of the checks stays free. In the
+  deadline tests, the server has a send buffer of 4096 bytes and so sends
+  at the pace of the client. In both modules, a client at a quarter of the
+  minimum rate loses the connection at the first block after a deadline of
+  3 seconds, and in the draft controller test that frees the slot of the
+  download; in the first, a client at 1.25 times the minimum rate receives
+  the whole file, and a client at 256 KiB per second without a deadline
+  receives a file of 768 KiB under a send timeout of one second, because
+  each block of 64 KiB drains within it. The check test holds two transfers
+  in functions of `download/3` while a check and an import run with
+  `max_parallel_checks` set to 1.

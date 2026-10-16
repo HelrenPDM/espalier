@@ -106,8 +106,10 @@ function withPolicies(
  * The runtime of a SCORM package (task 0016, step 4), shared by
  * `Scorm12Runtime` and `Scorm2004Runtime`, which supply the dialect of
  * their version. It implements `Runtime` on `content.json`: the program view
- * and the evaluation come from `StandaloneRuntime` on `contentPayload`, the
- * blocks of kind `placeholder` carry the entry of `policies` as their
+ * and the evaluation come from `StandaloneRuntime` on `contentPayload` and
+ * the `media` of `content.json` without a policy, so a figure or a video
+ * plays its files from the package and every external host is available,
+ * the blocks of kind `placeholder` carry the entry of `policies` as their
  * `policy`, and the progress of the learner goes to the LMS.
  *
  * - `start()` initializes the session, reads `cmi.suspend_data` and the
@@ -191,7 +193,11 @@ export class ScormRuntime implements Runtime {
   constructor(content: ScormContent, dialect: ScormDialect) {
     this.#content = content;
     this.#dialect = dialect;
-    this.#standalone = new StandaloneRuntime(contentPayload(content));
+    this.#standalone = new StandaloneRuntime(
+      contentPayload(content),
+      content.media,
+      null,
+    );
     this.#moduleId = payloadIds.module(content.module.number);
     this.#itemKeys = new Map(
       content.module.items.map((item) => [payloadIds.item(item.key), item.key]),

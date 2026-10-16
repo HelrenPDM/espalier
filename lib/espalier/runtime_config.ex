@@ -36,6 +36,18 @@ defmodule Espalier.RuntimeConfig do
   | `RETENTION_ATTEMPTS_DAYS` | `:insights`, `:retention_attempts_days` | unset |
   | `PACK_UPLOAD_MAX_MB` | `:pack_upload_max_mb` | 20 |
   | `EXPORT_DIR` | `:export_dir` | `tmp/exports` (`tmp/test-exports` in tests), required in production |
+  | `MEDIA_DIR` | `:media`, `:dir` | `tmp/media` (`tmp/test-media` in tests), required in production |
+  | `MEDIA_IMAGE_MAX_MB` | `:media`, `:image_max_mb` | 20 |
+  | `MEDIA_VIDEO_MAX_MB` | `:media`, `:video_max_mb` | 1024, at most 2047 with `MEDIA_CLAMAV_SOCKET` |
+  | `MEDIA_VIDEO_MAX_MINUTES` | `:media`, `:video_max_minutes` | 60 |
+  | `MEDIA_VIDEO_MAX_HEIGHT` | `:media`, `:video_max_height` | 1080 (240 to 2160) |
+  | `MEDIA_IMAGE_MAX_EDGE` | `:media`, `:image_max_edge` | 2560 (320 to 8192) |
+  | `MEDIA_STORAGE_MAX_GB` | `:media`, `:storage_max_gb` | 50 |
+  | `MEDIA_EXTERNAL_HOSTS` | `:media`, `:external_hosts` | none |
+  | `MEDIA_EMBED_HOSTS` | `:media`, `:embed_hosts` | none (`embed.espalier.test` in development) |
+  | `MEDIA_EMBED_CONSENT` | `:media`, `:embed_consent` | `click` (`auto`) |
+  | `MEDIA_CLAMAV_SOCKET` | `:media`, `:clamav_socket` | unset |
+  | `MEDIA_FFMPEG_THREADS` | `:media`, `:ffmpeg_threads` | 2 (1 to 16) |
 
   `TRACKING_DETAIL` and `INSIGHTS_ORG_UNIT` (README section 10) come back
   under the key `:learning`, so that `config :espalier, :learning` holds
@@ -70,6 +82,17 @@ defmodule Espalier.RuntimeConfig do
   belongs to one installation and its database: the retention of
   `Espalier.Interop.prune_exports/1` deletes the packages there that the
   database does not know, so two installations must not share it.
+
+  The media settings of task 0018 come back under the key `:media`, which
+  `config/config.exs` completes with the fixed limits of the media store
+  (`Espalier.Media`). `MEDIA_EXTERNAL_HOSTS` and `MEDIA_EMBED_HOSTS` take
+  entries in the form of `WEBHOOK_ALLOWED_HOSTS`, without IPv6 addresses,
+  which a CSP source cannot name, and `MEDIA_EMBED_HOSTS` must not name the
+  host of `PUBLIC_URL`, because a same-origin iframe with `allow-scripts`
+  and `allow-same-origin` could leave its sandbox. `MEDIA_CLAMAV_SOCKET` is
+  an absolute path of at most 107 bytes, the limit of a Unix socket
+  address, and with it `MEDIA_VIDEO_MAX_MB` stays at most 2047, because
+  clamd scans at most 2 GiB per file.
 
   `errors/2` runs the same checks as `parse!/2` and returns the message of
   every invalid value instead of raising at the first, so that the boot
@@ -148,9 +171,26 @@ defmodule Espalier.RuntimeConfig do
       credential_notice_days: positive(env, "CREDENTIAL_NOTICE_DAYS", 30),
       credential_grace_days: positive(env, "CREDENTIAL_GRACE_DAYS", 30),
       registrar_enabled: boolean(env, "REGISTRAR_ENABLED", false),
-      webhook_allowed_hosts: entries(env, "WEBHOOK_ALLOWED_HOSTS", &webhook_host/1),
+      webhook_allowed_hosts:
+        entries(env, "WEBHOOK_ALLOWED_HOSTS", &host_entry("WEBHOOK_ALLOWED_HOSTS", &1)),
       pack_upload_max_mb: positive(env, "PACK_UPLOAD_MAX_MB", 20),
       export_dir: export_dir(env, config_env),
+      media: [
+        dir: media_dir(env, config_env),
+        image_max_mb: positive(env, "MEDIA_IMAGE_MAX_MB", 20),
+        video_max_mb: video_max_mb(env),
+        video_max_minutes: positive(env, "MEDIA_VIDEO_MAX_MINUTES", 60),
+        video_max_height: integer_in(env, "MEDIA_VIDEO_MAX_HEIGHT", 240..2160, 1080),
+        image_max_edge: integer_in(env, "MEDIA_IMAGE_MAX_EDGE", 320..8192, 2560),
+        storage_max_gb: positive(env, "MEDIA_STORAGE_MAX_GB", 50),
+        external_hosts:
+          entries(env, "MEDIA_EXTERNAL_HOSTS", &media_host("MEDIA_EXTERNAL_HOSTS", &1)),
+        embed_hosts: embed_hosts(env, config_env),
+        embed_consent:
+          enum(env, "MEDIA_EMBED_CONSENT", %{"click" => :click, "auto" => :auto}, "click"),
+        clamav_socket: clamav_socket(env),
+        ffmpeg_threads: integer_in(env, "MEDIA_FFMPEG_THREADS", 1..16, 2)
+      ],
       learning: [
         tracking_detail:
           enum(
@@ -203,6 +243,19 @@ defmodule Espalier.RuntimeConfig do
         case Integer.parse(value) do
           {n, ""} when n > 0 -> {:ok, n}
           _ -> {:error, "#{name} must be a positive integer"}
+        end
+    end
+  end
+
+  defp integer_in(env, name, first..last//1, default) do
+    case value(env, name) do
+      nil ->
+        {:ok, default}
+
+      value ->
+        case Integer.parse(value) do
+          {n, ""} when n >= first and n <= last -> {:ok, n}
+          _ -> {:error, "#{name} must be an integer from #{first} to #{last}"}
         end
     end
   end
@@ -315,11 +368,13 @@ defmodule Espalier.RuntimeConfig do
   without a port.
   """
   @spec webhook_host!(String.t()) :: {String.t(), pos_integer() | nil}
-  def webhook_host!(entry), do: ok!(webhook_host(entry))
+  def webhook_host!(entry), do: ok!(host_entry("WEBHOOK_ALLOWED_HOSTS", entry))
 
-  defp webhook_host(entry) do
+  # One entry `host` or `host:port` of the host list `name`, an IPv6 address
+  # in square brackets; the messages name the variable.
+  defp host_entry(name, entry) do
     if String.contains?(entry, ["://", "/", "?", "#", "@"]) do
-      {:error, "WEBHOOK_ALLOWED_HOSTS holds an entry with a scheme or a path"}
+      {:error, "#{name} holds an entry with a scheme or a path"}
     else
       with [_entry | groups] <-
              Regex.run(
@@ -331,9 +386,46 @@ defmodule Espalier.RuntimeConfig do
            true <- port == nil or port in 1..65_535 do
         {:ok, {String.downcase(host), port}}
       else
-        _ -> {:error, "WEBHOOK_ALLOWED_HOSTS holds an invalid entry"}
+        _ -> {:error, "#{name} holds an invalid entry"}
       end
     end
+  end
+
+  # An entry of MEDIA_EXTERNAL_HOSTS or MEDIA_EMBED_HOSTS, which become CSP
+  # sources (README section 6.5); a CSP source cannot name an IPv6 address.
+  defp media_host(name, entry) do
+    case host_entry(name, entry) do
+      {:ok, {host, _port}} = ok ->
+        if String.contains?(host, ":"),
+          do: {:error, "#{name} holds an IPv6 address, which a CSP source cannot name"},
+          else: ok
+
+      error ->
+        error
+    end
+  end
+
+  defp embed_hosts(env, config_env) do
+    env =
+      if config_env == :dev and value(env, "MEDIA_EMBED_HOSTS") == nil,
+        do: Map.put(env, "MEDIA_EMBED_HOSTS", "embed.espalier.test"),
+        else: env
+
+    own_host =
+      case public_url(env, config_env) do
+        {:ok, url} -> URI.parse(url).host
+        {:error, _message} -> nil
+      end
+
+    with {:ok, hosts} <- entries(env, "MEDIA_EMBED_HOSTS", &media_host("MEDIA_EMBED_HOSTS", &1)) do
+      not_own_host(hosts, own_host)
+    end
+  end
+
+  defp not_own_host(hosts, own_host) do
+    if own_host != nil and Enum.any?(hosts, &(elem(&1, 0) == own_host)),
+      do: {:error, "MEDIA_EMBED_HOSTS must not name the host of PUBLIC_URL"},
+      else: {:ok, hosts}
   end
 
   defp ok!({:ok, value}), do: value
@@ -387,6 +479,44 @@ defmodule Espalier.RuntimeConfig do
       nil when config_env == :test -> {:ok, "tmp/test-exports"}
       nil -> {:ok, "tmp/exports"}
       dir -> {:ok, dir}
+    end
+  end
+
+  defp media_dir(env, config_env) do
+    case value(env, "MEDIA_DIR") do
+      nil when config_env == :prod -> {:error, "MEDIA_DIR is required"}
+      nil when config_env == :test -> {:ok, "tmp/test-media"}
+      nil -> {:ok, "tmp/media"}
+      dir -> {:ok, dir}
+    end
+  end
+
+  # clamd scans at most 2 GiB per file (StreamMaxLength), so a scanned video
+  # stays below 2048 MB.
+  defp video_max_mb(env) do
+    case positive(env, "MEDIA_VIDEO_MAX_MB", 1024) do
+      {:ok, mb} when mb > 2047 ->
+        if value(env, "MEDIA_CLAMAV_SOCKET") != nil,
+          do:
+            {:error, "MEDIA_VIDEO_MAX_MB must be at most 2047 while MEDIA_CLAMAV_SOCKET is set"},
+          else: {:ok, mb}
+
+      result ->
+        result
+    end
+  end
+
+  # The address of a Unix socket holds at most 107 bytes and a NUL.
+  defp clamav_socket(env) do
+    case value(env, "MEDIA_CLAMAV_SOCKET") do
+      nil ->
+        {:ok, nil}
+
+      path ->
+        if Path.type(path) == :absolute and byte_size(path) <= 107 and
+             not String.contains?(path, <<0>>),
+           do: {:ok, path},
+           else: {:error, "MEDIA_CLAMAV_SOCKET must be an absolute path of at most 107 bytes"}
     end
   end
 

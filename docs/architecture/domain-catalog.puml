@@ -87,6 +87,7 @@ package "Catalog" {
     provenance : Provenance
     collapsed_on : Path[]
     placeholder_key : string
+    media : map
   }
 
   class Rule {
@@ -157,6 +158,36 @@ package "Catalog" {
   class Citation {
     locator : string
   }
+
+  class ProgramMedia {
+    path : string
+  }
+}
+
+package "Media" {
+  class MediaAsset {
+    kind : string
+    status : string
+    failure : string
+    failure_detail : string
+    title : string
+    source_name : string
+    source_sha256 : string
+    sha256 : string
+    ext : string
+    bytes : bigint
+    width : int
+    height : int
+    duration_ms : int
+    has_audio : boolean
+    animated : boolean
+    has_alpha : boolean
+    poster_sha256 : string
+    poster_bytes : bigint
+    incoming_bytes : bigint
+    progress : int
+    origin : string
+  }
 }
 
 Program "1" *-- "0..*" Station
@@ -192,6 +223,9 @@ Item "0..*" --> "0..*" Rule : refers to
 Item "0..*" --> "0..*" Lesson : reveals on wrong answer
 
 Block "1" o-- "0..*" Citation
+Program "1" *-- "0..*" ProgramMedia
+ProgramMedia "0..*" --> "1" MediaAsset
+Block ..> ProgramMedia : media/ paths
 Rule "1" o-- "0..*" Citation
 Item "1" o-- "0..*" Citation
 Citation "0..*" --> "1" Source
@@ -249,6 +283,26 @@ note right of Block
   short path). No lesson is skipped on any path.
   placeholder_key: binds the block to a policy
   that the organization maintains (see 2/3).
+  media: the attributes of a figure or video
+  block (src, alt, decorative, size, embed,
+  title, poster, captions), null for the other
+  kinds; a media/ path resolves through
+  ProgramMedia.
+end note
+
+note bottom of MediaAsset
+  One media library per installation (task 0018).
+  kind: image, svg, video or captions.
+  status: queued, processing, ready or failed.
+  origin: upload or pack.
+  sha256 names the delivery file (WebP, SVG, WebM,
+  WebVTT) below MEDIA_DIR/files, poster_sha256 the
+  poster; source_sha256 is unique per source file.
+  The library keeps no original file.
+  A program publishes only when every asset of its
+  import is ready. ProgramMedia keys the assets of a
+  program by the media/ path of the pack; an asset
+  that a program or a draft uses cannot be deleted.
 end note
 
 note left of Module

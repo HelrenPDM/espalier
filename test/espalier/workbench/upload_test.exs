@@ -9,6 +9,15 @@ defmodule Espalier.Workbench.UploadTest do
   rejects and an archive without a file of the layout, each with entries
   of the archive report, and takes the title from `pack.yaml`, then from
   the upload file name, then "Untitled draft".
+
+  Task 0018 (step 16): the captions below `media/` stay text files, every
+  other media file becomes a queued asset of origin `pack` and a media
+  entry at its delivery path, the opening lines of the directives follow
+  the new paths, and an ingest error or two files with one delivery path
+  reject the archive. A media file that equals the delivery file of an
+  asset that the program of the pack key uses attaches that asset, also
+  when an older asset shares the delivery file, and sets the time of its
+  last change again.
   """
   # Every creation takes the advisory lock of the drafts, which the sandbox
   # transaction of a test holds until the test ends, hence async: false.
@@ -28,14 +37,17 @@ defmodule Espalier.Workbench.UploadTest do
     ]
 
   alias Espalier.Accounts.Scope
-  alias Espalier.Workbench
+  alias Espalier.Catalog.Pack.{Diff, Importer, Publisher}
+  alias Espalier.Catalog.PackImport
+  alias Espalier.Media.{Asset, ProcessWorker}
+  alias Espalier.{MediaFixtures, Workbench, ZipFixtures}
   alias Espalier.Workbench.{DraftDir, PackDraft, PackDraftFile}
-  alias Espalier.ZipFixtures
   alias EspalierWeb.PackMultipart
 
   @moduletag :tmp_dir
 
   @lesson "modules/01-basics/lessons/01-intro.md"
+  @demo_media ["media/assistant-demo.webm", "media/release-checks.svg"]
   @title_line "title: Minimal pack (test fixture)\n"
 
   setup do
@@ -56,10 +68,22 @@ defmodule Espalier.Workbench.UploadTest do
       assert {:ok, %PackDraft{} = draft, skipped} = create(scope, upload, "demo.zip")
       assert skipped == %{paths: ["README.md"], omitted: 0}
 
-      expected = disk_files(demo_path())
+      # The captions stay a text file; the WebM and the SVG become media
+      # entries of queued pack assets at their delivery paths (task 0018).
+      expected = Map.drop(disk_files(demo_path()), @demo_media)
       assert Map.has_key?(expected, "modules/02-checking/lessons/02-second-lesson.md")
+      assert Map.has_key?(expected, "media/assistant-demo-en.vtt")
       assert stored_files(draft) == expected
       assert Enum.map(draft.files, & &1.path) == expected |> Map.keys() |> Enum.sort()
+
+      assert Enum.map(draft.media, & &1.path) == @demo_media
+
+      for %{path: path, media_asset: asset} <- draft.media do
+        assert %Asset{status: :queued, origin: :pack, created_by_id: created_by} = asset
+        assert created_by == user.id
+        assert asset.source_name == Path.basename(path)
+        assert asset.incoming_bytes == byte_size(read!(demo_path(), path))
+      end
 
       assert draft.title == read_yaml!(demo_path(), "pack.yaml")["title"]
       assert draft.pack_key == "ai-assistant-basics-demo"
@@ -79,6 +103,174 @@ defmodule Espalier.Workbench.UploadTest do
       assert DraftDir.max_skipped() == 100
       assert skipped == %{paths: for(n <- 1..100, do: "notes/note-#{pad(n)}.txt"), omitted: 5}
       assert stored_files(draft) == disk_files(fixture_path("minimal"))
+    end
+  end
+
+  describe "the media of an archive (task 0018, step 16)" do
+    test "a PNG becomes a media entry at its WebP path, and the opening lines follow", %{
+      scope: scope,
+      tmp_dir: tmp_dir
+    } do
+      pack = copy_pack!("minimal")
+      ffmpeg_image!(Path.join(pack, "media/photos/photo.png"), "png", "image2pipe")
+      write!(pack, "media/Notes.txt", "not a media path\n")
+
+      write!(
+        pack,
+        @lesson,
+        read!(pack, @lesson) <>
+          """
+
+          :::figure{src=media/photos/photo.png alt="A test pattern." provenance=invented}
+          The file media/photos/photo.png shows a test pattern.
+          :::
+          """
+      )
+
+      original = read!(pack, @lesson)
+      upload = upload!(tmp_dir, ZipFixtures.zip_dir!(pack))
+
+      assert {:ok, %PackDraft{} = draft, skipped} = create(scope, upload, "minimal.zip")
+
+      # The media file is no skipped file; a file below media/ that fails the
+      # path rules is.
+      assert skipped == %{paths: ["media/Notes.txt"], omitted: 0}
+
+      assert [%{path: "media/photos/photo.webp", media_asset: asset}] = draft.media
+      assert %Asset{kind: :image, status: :queued, origin: :pack} = asset
+      assert asset.source_name == "photo.png"
+
+      # Only the opening line of the directive changes; the body keeps its
+      # text.
+      assert stored_files(draft)[@lesson] ==
+               String.replace(
+                 original,
+                 ":::figure{src=media/photos/photo.png ",
+                 ":::figure{src=media/photos/photo.webp "
+               )
+
+      assert stored_files(draft)[@lesson] =~ "The file media/photos/photo.png shows"
+      refute Map.has_key?(stored_files(draft), "media/photos/photo.png")
+
+      # The check finds the reference at the new path.
+      assert {:ok, %{report: %{"errors" => []}}} = Workbench.check_draft(scope, draft.id, nil)
+    end
+
+    test "a delivery file of an asset of the program attaches that asset", %{
+      scope: scope,
+      tmp_dir: tmp_dir
+    } do
+      # Two ready assets share the delivery file of the SVG: the older one
+      # would win the digest match of the ingest, and the program of the
+      # pack key uses the newer one.
+      svg = "media/release-checks.svg"
+      webm = "media/assistant-demo.webm"
+      pack = copy_pack!(demo_path())
+      mapping = MediaFixtures.demo_media!(pack)
+      newer = Repo.get!(Asset, mapping[svg])
+
+      older =
+        MediaFixtures.stored_asset!(Path.join(pack, svg), :svg, "svg", %{}, svg)
+        |> Ecto.Changeset.change(inserted_at: DateTime.add(newer.inserted_at, -86_400))
+        |> Repo.update!()
+
+      assert older.sha256 == newer.sha256
+
+      assert {:ok, %PackImport{status: :validated} = pack_import} =
+               Importer.import(pack, nil, media: mapping)
+
+      assert {:ok, %PackImport{status: :published}} = Publisher.publish(pack_import)
+
+      # The archive holds the delivery files of the program, as the archive
+      # of an exported pack does.
+      count = Repo.aggregate(Asset, :count)
+      upload = upload!(tmp_dir, ZipFixtures.zip_dir!(pack))
+
+      assert {:ok, %PackDraft{} = draft, _skipped} = create(scope, upload, "demo.zip")
+      assert media_assets(draft) == %{svg => newer.id, webm => mapping[webm]}
+      assert Repo.aggregate(Asset, :count) == count
+      refute_enqueued(worker: ProcessWorker)
+
+      # The import of the draft keeps the media of the program.
+      assert {:ok, %PackImport{status: :validated} = reimport} =
+               Workbench.import_draft(scope, draft.id, draft.lock_version)
+
+      assert Diff.compute(reimport.payload).media == %{added: [], changed: [], archived: []}
+
+      # Without the program, the ingest takes the oldest asset with that
+      # delivery file.
+      other = copy_pack!(demo_path())
+      replace!(other, "pack.yaml", "key: ai-assistant-basics-demo", "key: another-key")
+      upload = upload!(tmp_dir, ZipFixtures.zip_dir!(other))
+
+      assert {:ok, %PackDraft{} = draft, _skipped} = create(scope, upload, "other.zip")
+      assert media_assets(draft) == %{svg => older.id, webm => mapping[webm]}
+    end
+
+    test "an asset of the program that an archive links counts as changed now",
+         %{scope: scope, tmp_dir: tmp_dir} do
+      pack = copy_pack!(demo_path())
+      mapping = MediaFixtures.demo_media!(pack)
+
+      assert {:ok, %PackImport{status: :validated} = pack_import} =
+               Importer.import(pack, nil, media: mapping)
+
+      assert {:ok, %PackImport{status: :published}} = Publisher.publish(pack_import)
+
+      # The captions stay a text file of the draft, and an asset that the
+      # archive does not name keeps its time.
+      linked = Map.take(mapping, @demo_media)
+      other = MediaFixtures.insert_asset!(%{origin: :pack})
+      age!([other.id | Map.values(mapping)])
+      upload = upload!(tmp_dir, ZipFixtures.zip_dir!(pack))
+
+      assert {:ok, %PackDraft{} = draft, _skipped} = create(scope, upload, "demo.zip")
+      assert media_assets(draft) == linked
+      assert Enum.all?(Map.values(linked), &recent?/1)
+      refute recent?(mapping["media/assistant-demo-en.vtt"])
+      refute recent?(other.id)
+    end
+
+    test "a media file that the ingest rejects rejects the archive with an entry at its path",
+         %{scope: scope, tmp_dir: tmp_dir} do
+      pack = copy_pack!("minimal")
+      write!(pack, "media/broken.png", "a text, no PNG\n")
+      upload = upload!(tmp_dir, ZipFixtures.zip_dir!(pack))
+
+      assert create(scope, upload, "pack.zip") ==
+               {:error,
+                [
+                  %{
+                    "file" => "media/broken.png",
+                    "line" => nil,
+                    "message" => "the file is no supported media file"
+                  }
+                ]}
+
+      assert Repo.aggregate(PackDraft, :count) == 0
+    end
+
+    test "two media files with one delivery path reject the archive", %{
+      scope: scope,
+      tmp_dir: tmp_dir
+    } do
+      pack = copy_pack!("minimal")
+      ffmpeg_image!(Path.join(pack, "media/photo.jpg"), "mjpeg", "mjpeg")
+      ffmpeg_image!(Path.join(pack, "media/photo.png"), "png", "image2pipe")
+      upload = upload!(tmp_dir, ZipFixtures.zip_dir!(pack))
+
+      assert create(scope, upload, "pack.zip") ==
+               {:error,
+                [
+                  %{
+                    "file" => "media/photo.jpg",
+                    "line" => nil,
+                    "message" =>
+                      "media/photo.jpg and media/photo.png both become media/photo.webp; rename one"
+                  }
+                ]}
+
+      assert Repo.aggregate(PackDraft, :count) == 0
     end
   end
 
@@ -233,6 +425,20 @@ defmodule Espalier.Workbench.UploadTest do
 
   ## Helpers
 
+  # A still image of a test pattern, written by ffmpeg of the shell with the
+  # encoder `codec` and the muxer `format`.
+  defp ffmpeg_image!(path, codec, format) do
+    File.mkdir_p!(Path.dirname(path))
+    executable = System.find_executable("ffmpeg") || flunk("ffmpeg is not on the PATH")
+
+    args =
+      ~w(-nostdin -hide_banner -loglevel error -y -f lavfi -i testsrc2=size=96x64 -frames:v 1) ++
+        ["-c:v", codec, "-f", format, path]
+
+    {output, status} = System.cmd(executable, args, stderr_to_stdout: true)
+    assert status == 0, output
+  end
+
   defp create(scope, upload, filename),
     do: Workbench.create_from_upload(scope, upload, filename, PackMultipart.max_bytes())
 
@@ -248,6 +454,24 @@ defmodule Espalier.Workbench.UploadTest do
         into: %{},
         do: {Path.relative_to(path, dir), File.read!(path)}
   end
+
+  # Sets the time of the last change of the assets `ids` 60 days back.
+  defp age!(ids) do
+    old = DateTime.add(DateTime.utc_now(:second), -60 * 86_400)
+    count = length(ids)
+
+    {^count, _rows} =
+      Repo.update_all(from(a in Asset, where: a.id in ^ids), set: [updated_at: old])
+
+    :ok
+  end
+
+  # Whether the asset `id` changed within the last minute.
+  defp recent?(id),
+    do: DateTime.diff(DateTime.utc_now(), Repo.get!(Asset, id).updated_at) < 60
+
+  # The media entries of a draft as path => asset id.
+  defp media_assets(%PackDraft{media: media}), do: Map.new(media, &{&1.path, &1.media_asset_id})
 
   defp stored_files(%PackDraft{id: id}) do
     Repo.all(from f in PackDraftFile, where: f.pack_draft_id == ^id, select: {f.path, f.content})

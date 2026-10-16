@@ -167,6 +167,7 @@ export function scormContent({
         body: "Inputs follow the rules of the house.",
       },
     },
+    media: {},
   };
 }
 
@@ -241,6 +242,7 @@ function block(
     collapsed_on: kind === "explanation" ? ["short"] : [],
     placeholder_key: placeholderKey,
     cite: [],
+    media: null,
   };
 }
 

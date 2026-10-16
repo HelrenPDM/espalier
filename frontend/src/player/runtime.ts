@@ -45,6 +45,22 @@ export type Path = Schemas["EnrollmentView"]["path"];
 export type ExamOutcome = AttemptResult["outcome"];
 
 /**
+ * The media of a `figure` or a `video` block (task 0018, step 12), with
+ * URLs that the player sets as they are: `/media/<sha256>.<ext>` on the
+ * platform and in the admin preview, `media/<sha256>.<ext>` relative to
+ * `index.html` in a SCORM package, and the `https:` URL of an external
+ * file or an embed player. `available` is false when a host is not
+ * allowlisted or a file is missing; the block then shows a notice.
+ */
+export type BlockMedia = Schemas["BlockMedia"];
+export type MediaImage = NonNullable<BlockMedia["image"]>;
+export type MediaVideo = NonNullable<BlockMedia["video"]>;
+export type MediaPoster = NonNullable<BlockMedia["poster"]>;
+export type EmbedSource = NonNullable<BlockMedia["embed"]>;
+export type MediaCaption = BlockMedia["captions"][number];
+export type FigureSize = NonNullable<BlockMedia["size"]>;
+
+/**
  * A program with everything the player renders: the program of
  * `GET /api/programs/:slug` with its stations, segments and companion
  * formats, one `ModuleView` of `GET /api/modules/:id` per module in number

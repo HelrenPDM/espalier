@@ -1,4 +1,11 @@
-import { act, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  render,
+  renderHook,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { createElement } from "react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { sessionQueryKey, type Session } from "../api/session";
@@ -13,6 +20,13 @@ import { useSession } from "./SessionProvider";
 import { parseSessionMessage, sessionChanged } from "./sessionEvents";
 import { listenMessages } from "../app/messages";
 import { TEST_NOTES_KEY, testNotesLog } from "../learner/test-notes/store";
+import {
+  agreeToEmbed,
+  forgetEmbedConsent,
+  useEmbedAgreed,
+} from "../player/embedConsent";
+import { VideoBlock } from "../player/blocks/VideoBlock";
+import { embedMedia, mediaBlock } from "../test/media";
 
 const CHANNEL = "espalier-session";
 const securityKey = ["me", "security"] as const;
@@ -41,6 +55,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
   testNotesLog(true).clear();
+  forgetEmbedConsent();
 });
 
 /** A finished mutation in the cache, such as a TOTP setup with its secret. */
@@ -77,6 +92,30 @@ async function renderTab(responses: StubResponses = {}) {
 
 const sessionGets = (requests: RecordedRequest[]) =>
   requestsTo(requests, "GET", "/api/session");
+
+/** A page with the sign-out of `SessionProvider`. */
+function SignOutButton() {
+  const { signOut } = useSession();
+  return createElement(
+    "button",
+    { type: "button", onClick: () => void signOut() },
+    "Sign out",
+  );
+}
+
+/** Renders the sign-out of this tab at /account/security. */
+async function renderSignOut() {
+  const result = renderWithProviders(createElement(SignOutButton), {
+    route: "/account/security",
+    session: signedInPayload("mfa"),
+    responses: {
+      "DELETE /api/session": { status: 204 },
+      "GET /api/session": { status: 200, body: sessionPayload() },
+    },
+  });
+  await screen.findByRole("button", { name: "Sign out" });
+  return result;
+}
 
 describe("parseSessionMessage", () => {
   test.each(["signed-in", "renewed", "signed-out"] as const)(
@@ -297,29 +336,8 @@ describe("the test session notes", () => {
     ]);
   }
 
-  /** A page with the sign-out of `SessionProvider`. */
-  function SignOutButton() {
-    const { signOut } = useSession();
-    return createElement(
-      "button",
-      { type: "button", onClick: () => void signOut() },
-      "Sign out",
-    );
-  }
-
   test("end with the sign-out of this tab", async () => {
-    const { user, location } = renderWithProviders(
-      createElement(SignOutButton),
-      {
-        route: "/account/security",
-        session: signedInPayload("mfa"),
-        responses: {
-          "DELETE /api/session": { status: 204 },
-          "GET /api/session": { status: 200, body: sessionPayload() },
-        },
-      },
-    );
-    await screen.findByRole("button", { name: "Sign out" });
+    const { user, location } = await renderSignOut();
     recordNotes();
 
     await user.click(screen.getByRole("button", { name: "Sign out" }));
@@ -377,5 +395,109 @@ describe("the test session notes", () => {
 
     expect(notes.notes()).toHaveLength(2);
     expect(sessionStorage.getItem(TEST_NOTES_KEY)).not.toBeNull();
+  });
+});
+
+/**
+ * Task 0018 step 18: the agreements to load the player of a streaming
+ * service hold for the life of the page and end with a sign-out and a
+ * sign-in, so an embed asks the next person in the same tab again. A
+ * renewed session keeps them.
+ */
+describe("the embed agreements", () => {
+  const HOST = "player.example.org";
+
+  /** Whether an embed of HOST loads at once, as `VideoBlock` reads it. */
+  const agreement = () => renderHook(() => useEmbedAgreed(HOST)).result;
+
+  /** A lesson with an embed of HOST, outside the routes of the tab. */
+  const renderEmbed = () =>
+    render(
+      createElement(VideoBlock, { block: mediaBlock("video", embedMedia()) }),
+    );
+
+  test("a sign-out and a sign-in in the same tab make the notice ask again", async () => {
+    const { user, location, queryClient, client } = await renderSignOut();
+    const first = renderEmbed();
+    await user.click(
+      within(first.container).getByRole("button", { name: "Load video" }),
+    );
+    expect(first.container.querySelector("iframe")).not.toBeNull();
+    first.unmount();
+
+    await user.click(screen.getByRole("button", { name: "Sign out" }));
+    await waitFor(() => expect(location()).toBe("/sign-in"));
+    await act(() => sessionChanged("signed-in", queryClient, client));
+
+    const next = renderEmbed();
+    expect(next.container.querySelector("iframe")).toBeNull();
+    expect(
+      within(next.container).getByRole("button", { name: "Load video" }),
+    ).toBeInTheDocument();
+  });
+
+  test("end with the sign-out of this tab", async () => {
+    const { user, location } = await renderSignOut();
+    const agreed = agreement();
+    act(() => agreeToEmbed(HOST));
+    expect(agreed.current).toBe(true);
+
+    await user.click(screen.getByRole("button", { name: "Sign out" }));
+
+    await waitFor(() => expect(location()).toBe("/sign-in"));
+    expect(agreed.current).toBe(false);
+  });
+
+  test.each(["signed-out", "signed-in"] as const)(
+    "end with sessionChanged %s",
+    async (kind) => {
+      const { queryClient, client } = await renderTab({
+        "GET /api/session": {
+          status: 200,
+          body:
+            kind === "signed-out" ? sessionPayload() : signedInPayload("mfa"),
+        },
+      });
+      const agreed = agreement();
+      act(() => agreeToEmbed(HOST));
+
+      await act(() => sessionChanged(kind, queryClient, client));
+
+      expect(agreed.current).toBe(false);
+    },
+  );
+
+  test.each(["signed-out", "signed-in"] as const)(
+    "end with a %s message of another tab",
+    async (kind) => {
+      const { requests } = await renderTab({
+        "GET /api/session": {
+          status: 200,
+          body:
+            kind === "signed-out" ? sessionPayload() : signedInPayload("mfa"),
+        },
+      });
+      const agreed = agreement();
+      act(() => agreeToEmbed(HOST));
+
+      otherTab().channel.postMessage({ kind });
+
+      await waitFor(() => expect(sessionGets(requests)).toHaveLength(1));
+      expect(agreed.current).toBe(false);
+    },
+  );
+
+  test("stay with a renewed session", async () => {
+    const { queryClient, client, requests } = await renderTab({
+      "GET /api/session": { status: 200, body: signedInPayload("mfa") },
+    });
+    const agreed = agreement();
+    act(() => agreeToEmbed(HOST));
+
+    await act(() => sessionChanged("renewed", queryClient, client));
+    otherTab().channel.postMessage({ kind: "renewed" });
+    await waitFor(() => expect(sessionGets(requests)).toHaveLength(2));
+
+    expect(agreed.current).toBe(true);
   });
 });

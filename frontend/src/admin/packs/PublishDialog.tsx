@@ -2,14 +2,17 @@ import { Dialog, DialogPanel, DialogTitle } from "@headlessui/react";
 import { useTranslation } from "react-i18next";
 import {
   alignmentErrorFindings,
+  mediaNotReadyEntries,
   usePackDiff,
   usePublishPack,
+  type MediaNotReadyEntry,
   type PackDiff,
   type PackImport,
 } from "../../api/admin/packs";
 import { ApiError } from "../../api/errors";
 import { AlertRegion, Button } from "../../app/forms";
 import { LoadingStatus } from "../../app/LoadingStatus";
+import { useMediaFailureText } from "../media/mediaText";
 import { CheckFindingList } from "./findings";
 
 /** The keyed kinds of the diff, in the order of the publisher (0008 step 10). */
@@ -25,6 +28,7 @@ const KINDS = [
   "sources",
   "segments",
   "glossary_terms",
+  "media",
 ] as const satisfies readonly (keyof PackDiff)[];
 
 const CHANGES = ["added", "changed", "archived"] as const;
@@ -32,6 +36,33 @@ const CHANGES = ["added", "changed", "archived"] as const;
 const Keys = ({ keys }: { keys: readonly string[] }) => (
   <span className="font-mono text-xs break-words">{keys.join(", ")}</span>
 );
+
+/**
+ * The media files of a 409 `media_not_ready` answer (task 0018, step 10):
+ * path, state and, for a failed file, the failure text. Paths and codes
+ * render as text.
+ */
+function MediaNotReadyList({ entries }: { entries: MediaNotReadyEntry[] }) {
+  const { t } = useTranslation();
+  const failureText = useMediaFailureText();
+  return (
+    <ul className="list-disc space-y-1 pl-5">
+      {entries.map((entry) => (
+        <li key={entry.path}>
+          <code className="font-mono text-xs break-all">{entry.path}</code>
+          {": "}
+          {t(`admin.media.status.${entry.status}`)}
+          {entry.status === "failed" && entry.failure !== null && (
+            <>
+              {", "}
+              {failureText(entry.failure, null)}
+            </>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 /**
  * The added, changed and archived keys per kind. A changed learning
@@ -98,8 +129,9 @@ function DiffSummary({ diff }: { diff: PackDiff }) {
  * The confirmation of a publication (task 0015, step 11): the changes of
  * `GET /api/admin/packs/:id/diff` per kind with the changed fields of each
  * changed learning objective, and the number of alignment warnings. A 409
- * `alignment_errors` answer shows its findings here, and the import stays
- * unpublished. "Publish" waits for the diff, so the author sees every
+ * `alignment_errors` answer shows its findings here, a 409
+ * `media_not_ready` answer the media files that are not ready (task 0018),
+ * and the import stays unpublished. "Publish" waits for the diff, so the author sees every
  * change before the publication.
  */
 export function PublishDialog({
@@ -138,12 +170,23 @@ export function PublishDialog({
     error instanceof ApiError && error.status === 409
       ? alignmentErrorFindings(error.body)
       : null;
+  const notReady =
+    error instanceof ApiError && error.status === 409
+      ? mediaNotReadyEntries(error.body)
+      : null;
   let failure = null;
   if (findings !== null)
     failure = (
       <div className="space-y-2">
         <p>{t("admin.pack.publish.refused")}</p>
         <CheckFindingList findings={findings} />
+      </div>
+    );
+  else if (notReady !== null)
+    failure = (
+      <div className="space-y-2">
+        <p>{t("admin.pack.publish.mediaNotReady")}</p>
+        <MediaNotReadyList entries={notReady} />
       </div>
     );
   else if (error instanceof ApiError && error.status === 409)

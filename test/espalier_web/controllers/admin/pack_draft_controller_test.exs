@@ -3,7 +3,13 @@ defmodule EspalierWeb.Admin.PackDraftControllerTest do
   The draft routes of the pack workbench (task 0016a, steps 9 and 14,
   bullet "Routes"): the list, the single view, the four starting points,
   the delete, the check, the import and the download, each with the answers
-  of step 9.
+  of step 9. Task 0018 (step 16) adds the media entries and the captions
+  file of the starting points, and the media files of the download, its
+  staging directory, 409 `download_too_large` and 429 `checks_busy` for a
+  second download of the same author. Served by Bandit on a real socket, a
+  download to a client that stops reading frees its slot within the send
+  timeout, while the slot of the checks stays free, and a client below the
+  minimum rate loses the connection at the deadline.
 
   Every POST and DELETE request carries a CSRF token of its session
   (`json_request/5` and `upload_request/4` fetch it with
@@ -12,7 +18,8 @@ defmodule EspalierWeb.Admin.PackDraftControllerTest do
   `reauth_required` for every route.
   """
   # put_setting/2 changes the application environment, and the check of
-  # the slots uses the one CheckLimiter of the node, hence async: false.
+  # the slots uses the one CheckLimiter and the one DownloadLimiter of the
+  # node, hence async: false.
   use EspalierWeb.ConnCase, async: false
 
   import Ecto.Query
@@ -24,12 +31,18 @@ defmodule EspalierWeb.Admin.PackDraftControllerTest do
   alias Espalier.Catalog
   alias Espalier.Catalog.PackImport
   alias Espalier.Interop.PackWriter
-  alias Espalier.{Repo, Workbench, ZipFixtures}
-  alias Espalier.Workbench.{CheckLimiter, PackDraft, PackDraftFile}
-  alias EspalierWeb.Admin.PackJSON
+  alias Espalier.Media.Store
+  alias Espalier.{MediaFixtures, Repo, Workbench, ZipFixtures}
+  alias Espalier.Test.FunctionPlug
+  alias Espalier.Workbench.{CheckLimiter, DownloadLimiter, PackDraft, PackDraftFile}
+  alias EspalierWeb.Admin.{PackDraftController, PackJSON}
   alias EspalierWeb.PackMultipart
 
   @demo_key "ai-assistant-basics-demo"
+
+  # The media files of the demo pack that a draft holds as media entries;
+  # its captions stay a text file (task 0018, step 16).
+  @demo_media_files ["media/assistant-demo.webm", "media/release-checks.svg"]
 
   # The six files of the skeleton for the name "New pack" (step 5).
   @skeleton_paths [
@@ -171,7 +184,8 @@ defmodule EspalierWeb.Admin.PackDraftControllerTest do
     end
 
     test "starts a draft from a published program", %{conn: conn, scope: scope, author: author} do
-      {:ok, pack_import} = Catalog.import_pack(scope, demo_path())
+      media = MediaFixtures.media_for(demo_path())
+      {:ok, pack_import} = Catalog.import_pack(scope, demo_path(), media: media)
       {:ok, _published} = Catalog.publish_pack(scope, pack_import)
       program = Catalog.get_program_by_slug(@demo_key)
       {:ok, rendered} = PackWriter.render_program(program)
@@ -187,12 +201,16 @@ defmodule EspalierWeb.Admin.PackDraftControllerTest do
       assert body["pack_key"] == @demo_key
       assert body["title"] == program.title
 
+      # The files of the writer and the captions as a text file, and a media
+      # entry per image, SVG and video file (task 0018, step 16).
+      files = Enum.sort(rendered ++ [demo_captions()])
       paths = Enum.map(body["files"], & &1["path"])
-      assert paths == rendered |> Enum.map(&elem(&1, 0)) |> Enum.sort()
+      assert paths == Enum.map(files, &elem(&1, 0))
       # The module directories of the writer (0016 addendum).
       assert "modules/01-how-language-models-work/module.yaml" in paths
 
-      assert stored_pairs(id) == Enum.sort(rendered)
+      assert stored_pairs(id) == files
+      assert media_entries(body) == demo_media_entries(media)
 
       assert [event] = events("pack_draft.created")
       assert {event.actor_id, event.subject_id} == {author.id, id}
@@ -201,13 +219,15 @@ defmodule EspalierWeb.Admin.PackDraftControllerTest do
                "source" => "program",
                "program_slug" => @demo_key,
                "pack_key" => @demo_key,
-               "file_count" => length(rendered)
+               "file_count" => length(files)
              }
     end
 
     test "starts a draft from an import with a payload", %{conn: conn, scope: scope} do
+      media = MediaFixtures.media_for(demo_path())
+
       {:ok, %PackImport{status: :validated} = pack_import} =
-        Catalog.import_pack(scope, demo_path())
+        Catalog.import_pack(scope, demo_path(), media: media)
 
       conn =
         json_request(conn, :post, ~p"/api/admin/pack-drafts", %{
@@ -218,7 +238,11 @@ defmodule EspalierWeb.Admin.PackDraftControllerTest do
       assert %{"id" => id} = body = json_response(conn, 201)
       assert get_resp_header(conn, "location") == ["/api/admin/pack-drafts/#{id}"]
       assert body["pack_key"] == @demo_key
-      assert stored_pairs(id) == Enum.sort(PackWriter.render(pack_import.payload))
+
+      assert stored_pairs(id) ==
+               Enum.sort(PackWriter.render(pack_import.payload) ++ [demo_captions()])
+
+      assert media_entries(body) == demo_media_entries(media)
 
       assert [event] = events("pack_draft.created")
 
@@ -343,9 +367,20 @@ defmodule EspalierWeb.Admin.PackDraftControllerTest do
       assert body["pack_key"] == @demo_key
       assert body["lock_version"] == 1
 
-      demo = demo_files()
+      # The captions stay a text file; the other media files become media
+      # entries of queued assets at their delivery paths (task 0018, step 16).
+      demo = Enum.reject(demo_files(), &(elem(&1, 0) in @demo_media_files))
       assert Enum.map(body["files"], & &1["path"]) == Enum.map(demo, &elem(&1, 0))
       assert stored_pairs(id) == demo
+
+      assert [
+               %{"path" => "media/assistant-demo.webm", "asset" => %{"kind" => "video"} = video},
+               %{"path" => "media/release-checks.svg", "asset" => %{"kind" => "svg"} = svg}
+             ] = body["media"]
+
+      for asset <- [video, svg] do
+        assert %{"status" => "queued", "origin" => "pack", "url" => nil} = asset
+      end
 
       assert [event] = events("pack_draft.created")
       assert {event.actor_id, event.subject_id} == {author.id, id}
@@ -764,6 +799,167 @@ defmodule EspalierWeb.Admin.PackDraftControllerTest do
       conn = json_request(conn, :get, ~p"/api/admin/pack-drafts/#{Ecto.UUID.generate()}/download")
       assert json_response(conn, 404) == %{"error" => "not_found"}
     end
+
+    test "sends the media files with the text files and removes its staging directory", %{
+      conn: conn,
+      scope: scope
+    } do
+      media = MediaFixtures.media_for(demo_path())
+      {:ok, pack_import} = Catalog.import_pack(scope, demo_path(), media: media)
+      {:ok, draft} = Workbench.create_from_import(scope, pack_import.id)
+      staged = staging_dirs()
+
+      conn = json_request(conn, :get, ~p"/api/admin/pack-drafts/#{draft.id}/download")
+      assert conn.status == 200
+
+      assert get_resp_header(conn, "content-disposition") == [
+               ~s(attachment; filename="#{@demo_key}-draft.zip")
+             ]
+
+      media_files = for path <- @demo_media_files, do: {path, read!(demo_path(), path)}
+      assert unzip!(conn.resp_body) == Enum.sort(stored_pairs(draft.id) ++ media_files)
+      assert staging_dirs() == staged
+    end
+
+    test "answers 409 download_too_large above export_max_mb and stages nothing", %{
+      conn: conn,
+      scope: scope
+    } do
+      config = Application.fetch_env!(:espalier, :media)
+      Application.put_env(:espalier, :media, Keyword.put(config, :export_max_mb, 1))
+      on_exit(fn -> Application.put_env(:espalier, :media, config) end)
+
+      draft = skeleton!(scope)
+      dir = Path.join(System.tmp_dir!(), "espalier-large-#{System.unique_integer([:positive])}")
+      File.mkdir_p!(dir)
+      on_exit(fn -> File.rm_rf!(dir) end)
+      file = Path.join(dir, "large.webm")
+      File.write!(file, :binary.copy("v", 1_100_000))
+      video = MediaFixtures.stored_asset!(file, :video, "webm", %{width: 640, height: 360})
+
+      {:ok, _draft} =
+        Workbench.attach_media(
+          scope,
+          draft.id,
+          %{media_asset_id: video.id, path: "media/large.webm"},
+          1
+        )
+
+      staged = staging_dirs()
+      conn = json_request(conn, :get, ~p"/api/admin/pack-drafts/#{draft.id}/download")
+      assert json_response(conn, 409) == %{"error" => "download_too_large"}
+      assert staging_dirs() == staged
+    end
+
+    test "a second download of the same author answers 429 checks_busy and builds nothing", %{
+      conn: conn,
+      scope: scope
+    } do
+      draft = skeleton!(scope)
+      parent = self()
+
+      transfer =
+        Task.async(fn ->
+          Workbench.download(scope, draft.id, fn %{dir: dir} ->
+            send(parent, {:sending, self(), dir})
+
+            receive do
+              :sent -> {:ok, dir}
+            end
+          end)
+        end)
+
+      assert_receive {:sending, pid, dir}, 5_000
+      staged = staging_dirs()
+
+      conn = json_request(conn, :get, ~p"/api/admin/pack-drafts/#{draft.id}/download")
+      assert json_response(conn, 429) == %{"error" => "checks_busy"}
+      assert get_resp_header(conn, "retry-after") == ["5"]
+      assert staging_dirs() == staged
+
+      send(pid, :sent)
+      assert Task.await(transfer) == {:ok, dir}
+
+      conn = json_request(conn, :get, ~p"/api/admin/pack-drafts/#{draft.id}/download")
+      assert conn.status == 200
+    end
+
+    # Bandit serves the action on an ephemeral port with a send timeout of
+    # two seconds in place of 30 seconds, and a client with a receive buffer
+    # of 4096 bytes reads the status line and then nothing more. The zip
+    # holds a video of 32 MiB without compression, more than the socket
+    # buffers of both ends take.
+    test "a client that stops reading frees the slot within the send timeout", %{scope: scope} do
+      put_setting(:pack_drafts, max_drafts: 50, max_parallel_checks: 1, max_parallel_downloads: 1)
+      send_timeout = 2_000
+      draft = skeleton!(scope)
+      video = large_video!(32 * 1_048_576)
+      attach_video!(scope, draft, video)
+      staged = staging_dirs()
+      port = serve_download(scope, draft, send_timeout: send_timeout)
+
+      {:ok, socket} =
+        :gen_tcp.connect(~c"127.0.0.1", port, [:binary, active: false, recbuf: 4_096], 5_000)
+
+      on_exit(fn -> :gen_tcp.close(socket) end)
+      :ok = :gen_tcp.send(socket, "GET /download HTTP/1.1\r\nhost: localhost\r\n\r\n")
+      assert {:ok, "HTTP/1.1 200 OK\r\n" <> _rest} = :gen_tcp.recv(socket, 0, 5_000)
+
+      # The download holds the only slot of the downloads while its send
+      # waits, and the only slot of the checks is free.
+      assert DownloadLimiter.run(Ecto.UUID.generate(), fn -> :free end) == {:error, :checks_busy}
+      assert CheckLimiter.run(fn -> :free end) == :free
+
+      # The send of a block ends after the send timeout, and the download
+      # removes its staging directory and frees the slot.
+      assert_receive {:download_returned, :chunked, _at}, send_timeout + 5_000
+      assert DownloadLimiter.run(Ecto.UUID.generate(), fn -> :free end) == :free
+      assert staging_dirs() == staged
+    end
+
+    # Bandit serves the action with a send buffer of 4096 bytes and the
+    # default send timeout of 30 seconds, and a client with a receive buffer
+    # of 4096 bytes reads at a quarter of the minimum rate of 1 MiB per
+    # second, so the server sends at the pace of the client. The zip holds a
+    # video of 3 MiB, so its deadline lies about 3 seconds after the start
+    # of the transfer.
+    test "a client below the minimum rate loses the connection at the deadline and frees the slot",
+         %{scope: scope} do
+      min_rate = 1_048_576
+
+      put_setting(:pack_drafts,
+        max_drafts: 50,
+        max_parallel_downloads: 1,
+        download_min_bytes_per_second: min_rate,
+        download_floor_seconds: 1
+      )
+
+      draft = skeleton!(scope)
+      video = large_video!(3 * 1_048_576)
+      attach_video!(scope, draft, video)
+      staged = staging_dirs()
+      port = serve_download(scope, draft, sndbuf: 4_096)
+
+      {:ok, socket} =
+        :gen_tcp.connect(~c"127.0.0.1", port, [:binary, active: false, recbuf: 4_096], 5_000)
+
+      on_exit(fn -> :gen_tcp.close(socket) end)
+      started = System.monotonic_time(:millisecond)
+      :ok = :gen_tcp.send(socket, "GET /download HTTP/1.1\r\nhost: localhost\r\n\r\n")
+      {received, reason} = read_paced(socket, div(min_rate, 4), started, 0)
+
+      # The send stopped at the first block after the deadline, and Bandit
+      # closed the connection: the client holds less than the zip. The margin
+      # of 3 seconds covers a client that a loaded machine wakes late; the
+      # whole zip would take 12 seconds at this rate.
+      assert_received {:download_returned, :chunked, at}
+      assert at - started >= 3_000
+      assert at - started < 6_000
+      assert reason in [:closed, :econnreset]
+      assert received < 3 * 1_048_576
+      assert DownloadLimiter.run(Ecto.UUID.generate(), fn -> :free end) == :free
+      assert staging_dirs() == staged
+    end
   end
 
   ## Helpers
@@ -815,6 +1011,112 @@ defmodule EspalierWeb.Admin.PackDraftControllerTest do
     |> Enum.map(&{Path.relative_to(&1, demo_path()), File.read!(&1)})
     |> Enum.sort()
   end
+
+  # The directories below MEDIA_DIR/work, among them the staging directories
+  # of the draft downloads.
+  defp staging_dirs, do: Store.work_root() |> Path.join("*") |> Path.wildcard() |> Enum.sort()
+
+  # A ready video asset of `bytes` bytes: zeros after 16 random bytes, so
+  # that its store file belongs to this test, which removes it on exit.
+  defp large_video!(bytes) do
+    dir = Path.join(System.tmp_dir!(), "espalier-large-#{System.unique_integer([:positive])}")
+    File.mkdir_p!(dir)
+    on_exit(fn -> File.rm_rf!(dir) end)
+    file = Path.join(dir, "large.webm")
+    File.write!(file, [:crypto.strong_rand_bytes(16), :binary.copy(<<0>>, bytes - 16)])
+    video = MediaFixtures.stored_asset!(file, :video, "webm", %{width: 640, height: 360})
+    on_exit(fn -> File.rm(Store.path(video.sha256, "webm")) end)
+    video
+  end
+
+  # Attaches `video` to the skeleton `draft` at media/large.webm.
+  defp attach_video!(scope, draft, video) do
+    {:ok, _draft} =
+      Workbench.attach_media(
+        scope,
+        draft.id,
+        %{media_asset_id: video.id, path: "media/large.webm"},
+        1
+      )
+  end
+
+  # Serves the download of `draft` for `scope` through Bandit; the plug
+  # tells the test when the action returned.
+  defp serve_download(scope, draft, transport_options) do
+    test = self()
+
+    serve(
+      fn conn ->
+        conn =
+          conn
+          |> assign(:current_scope, scope)
+          |> PackDraftController.download(%{id: draft.id})
+
+        send(test, {:download_returned, conn.state, System.monotonic_time(:millisecond)})
+        conn
+      end,
+      transport_options
+    )
+  end
+
+  # Reads at `rate` bytes per second until the action returns and then at
+  # full speed until the connection ends. Returns the bytes received and
+  # the reason of the end.
+  defp read_paced(socket, rate, started, received) do
+    case :gen_tcp.recv(socket, 0, 5_000) do
+      {:ok, data} ->
+        received = received + byte_size(data)
+        if not returned?(), do: wait_until(started + div(received * 1_000, rate))
+        read_paced(socket, rate, started, received)
+
+      {:error, reason} when reason in [:closed, :econnreset] ->
+        {received, reason}
+
+      {:error, reason} ->
+        flunk("the connection stayed open: #{inspect(reason)}")
+    end
+  end
+
+  defp wait_until(at) do
+    wait = at - System.monotonic_time(:millisecond)
+    if wait > 0, do: Process.sleep(wait)
+  end
+
+  # Whether the action has returned, without taking its message.
+  defp returned? do
+    {:messages, messages} = Process.info(self(), :messages)
+    Enum.any?(messages, &match?({:download_returned, _state, _at}, &1))
+  end
+
+  # Starts Bandit on an ephemeral port of the loopback interface with `fun`
+  # as the plug and returns the port. `send_timeout` replaces the default of
+  # ThousandIsland.
+  defp serve(fun, transport_options) do
+    options = [
+      plug: {FunctionPlug, fun},
+      ip: :loopback,
+      port: 0,
+      startup_log: false,
+      thousand_island_options: [transport_options: transport_options]
+    ]
+
+    pid = start_supervised!({Bandit, options})
+    {:ok, {_address, port}} = ThousandIsland.listener_info(pid)
+    port
+  end
+
+  # The captions of the demo pack as {path, content}.
+  defp demo_captions do
+    path = "media/assistant-demo-en.vtt"
+    {path, read!(demo_path(), path)}
+  end
+
+  # The media entries of a draft view as {path, asset id}.
+  defp media_entries(body), do: Enum.map(body["media"], &{&1["path"], &1["asset"]["id"]})
+
+  # The media entries that a draft of the demo pack holds for the mapping
+  # of MediaFixtures.
+  defp demo_media_entries(media), do: for(path <- @demo_media_files, do: {path, media[path]})
 
   defp unzip!(archive) do
     {:ok, entries} = :zip.unzip(archive, [:memory])

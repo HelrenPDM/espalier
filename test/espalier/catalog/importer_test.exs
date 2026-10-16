@@ -15,9 +15,10 @@ defmodule Espalier.Catalog.ImporterTest do
       write!: 3
     ]
 
-  alias Espalier.Catalog.Pack.{Entries, Importer, Loader, Publisher, Report, Validator}
+  alias Espalier.Catalog.Pack.{Diff, Entries, Importer, Loader, Publisher, Report, Validator}
   alias Espalier.Catalog.PackImport
-  alias Espalier.Release
+  alias Espalier.Media.{Asset, ProcessWorker}
+  alias Espalier.{MediaFixtures, Release}
   alias Mix.Tasks.Espalier, as: Tasks
 
   # The front matter of an extra lesson; its body starts at line 5.
@@ -106,7 +107,9 @@ defmodule Espalier.Catalog.ImporterTest do
       assert changeset.valid?
       refute Map.has_key?(changeset.changes, :imported_by_id)
 
-      assert {:ok, pack_import} = Importer.import(demo_path(), actor_id)
+      assert {:ok, pack_import} =
+               Importer.import(demo_path(), actor_id, media: MediaFixtures.media_for(demo_path()))
+
       assert Repo.get!(PackImport, pack_import.id).imported_by_id == actor_id
     end
   end
@@ -178,7 +181,9 @@ defmodule Espalier.Catalog.ImporterTest do
     test "a validated import stores pack_key, pack_version and the actor id" do
       actor_id = Ecto.UUID.generate()
 
-      assert {:ok, pack_import} = Importer.import(demo_path(), actor_id)
+      assert {:ok, pack_import} =
+               Importer.import(demo_path(), actor_id, media: MediaFixtures.media_for(demo_path()))
+
       stored = Repo.get!(PackImport, pack_import.id)
 
       assert stored.status == :validated
@@ -194,7 +199,7 @@ defmodule Espalier.Catalog.ImporterTest do
       assert %{errors: [], warnings: [], payload: %{} = payload} = Validator.run(loaded)
 
       assert {:ok, pack_import} = Importer.import(demo_path(), nil)
-      assert pack_import.payload == payload
+      assert Map.delete(pack_import.payload, "media") == payload
 
       stored = Repo.get!(PackImport, pack_import.id)
       assert stored.payload == pack_import.payload
@@ -805,6 +810,324 @@ defmodule Espalier.Catalog.ImporterTest do
 
   # Imports `pack` and returns the payload of the import read back from the
   # database, asserting that the import is validated without findings.
+  describe "import/3 with media (task 0018, step 10)" do
+    @lesson2 "modules/02-checking/lessons/02-second-lesson.md"
+
+    test "ingests every referenced media file as a queued asset of origin pack" do
+      user = Espalier.AccountsFixtures.user_fixture()
+
+      assert {:ok, %PackImport{status: :validated} = pack_import} =
+               Importer.import(demo_path(), user.id)
+
+      assert [
+               %{"path" => "media/assistant-demo-en.vtt", "kind" => "captions"},
+               %{"path" => "media/assistant-demo.webm", "kind" => "video"},
+               %{"path" => "media/release-checks.svg", "kind" => "svg"}
+             ] = media = pack_import.payload["media"]
+
+      ids = Enum.map(media, & &1["asset_id"])
+      assert Enum.sort(pack_import.media_asset_ids) == Enum.sort(ids)
+      assert Repo.get!(PackImport, pack_import.id).media_asset_ids == pack_import.media_asset_ids
+
+      for %{"path" => path, "asset_id" => id, "kind" => kind} <- media do
+        asset = Repo.get!(Asset, id)
+        assert asset.kind == String.to_existing_atom(kind), path
+        assert {asset.status, asset.origin, asset.created_by_id} == {:queued, :pack, user.id}
+        assert asset.source_name == Path.basename(path)
+        assert asset.title == Path.rootname(Path.basename(path))
+        assert asset.incoming_bytes == File.stat!(Path.join(demo_path(), path)).size
+
+        queue = if kind == "video", do: "media_video", else: "media"
+        assert_enqueued(worker: ProcessWorker, args: %{"asset_id" => id}, queue: queue)
+      end
+    end
+
+    test "links the paths of the option media to existing assets without reading the files" do
+      media = MediaFixtures.demo_media!()
+      count = Repo.aggregate(Asset, :count)
+
+      assert {:ok, %PackImport{status: :validated} = pack_import} =
+               Importer.import(demo_path(), nil, media: media)
+
+      assert Repo.aggregate(Asset, :count) == count
+      assert Map.new(pack_import.payload["media"], &{&1["path"], &1["asset_id"]}) == media
+      assert Enum.sort(pack_import.media_asset_ids) == Enum.sort(Map.values(media))
+      refute_enqueued(worker: ProcessWorker)
+    end
+
+    test "ingests no file that no block references" do
+      pack = copy_pack!(demo_path())
+      write!(pack, "media/unused.png", "not an image")
+      media = MediaFixtures.media_for(pack)
+      count = Repo.aggregate(Asset, :count)
+
+      assert {:ok, %PackImport{status: :validated} = pack_import} =
+               Importer.import(pack, nil, media: media)
+
+      assert Repo.aggregate(Asset, :count) == count
+      refute Enum.any?(pack_import.payload["media"], &(&1["path"] == "media/unused.png"))
+    end
+
+    test "an ingest error is an error at the path of the file and fails the import" do
+      pack = copy_pack!(demo_path())
+      write!(pack, "media/release-checks.svg", "a text without the signature of an SVG")
+      write!(pack, "media/assistant-demo.webm", <<0x89, "PNG", 0x0D, 0x0A, 0x1A, 0x0A, 0::64>>)
+
+      media =
+        pack
+        |> MediaFixtures.media_for()
+        |> Map.drop(["media/release-checks.svg", "media/assistant-demo.webm"])
+
+      count = Repo.aggregate(Asset, :count)
+
+      assert {:ok, %PackImport{status: :failed, payload: nil} = pack_import} =
+               Importer.import(pack, nil, media: media)
+
+      assert Repo.aggregate(Asset, :count) == count
+      assert pack_import.media_asset_ids == []
+
+      assert pack_import.report == %{
+               "errors" => [
+                 %{
+                   "file" => "media/assistant-demo.webm",
+                   "line" => 1,
+                   "message" => "the content of the file does not fit its extension"
+                 },
+                 %{
+                   "file" => "media/release-checks.svg",
+                   "line" => 1,
+                   "message" => "the file is no supported media file"
+                 }
+               ],
+               "warnings" => []
+             }
+    end
+
+    test "two paths with one delivery path fail the import and ingest nothing" do
+      pack = copy_pack!(demo_path())
+      write!(pack, "media/photo.jpg", "a stand-in of a JPEG photo")
+      write!(pack, "media/photo.png", "a stand-in of a PNG image")
+
+      write!(
+        pack,
+        @lesson2,
+        read!(pack, @lesson2) <>
+          """
+
+          :::figure{src=media/photo.jpg alt="A photo." provenance=invented}
+          :::
+
+          :::figure{src=media/photo.png alt="An image." provenance=invented}
+          :::
+          """
+      )
+
+      media = MediaFixtures.media_for(pack)
+      count = Repo.aggregate(Asset, :count)
+
+      assert {:ok, %PackImport{status: :failed, payload: nil} = pack_import} =
+               Importer.import(pack, nil, media: media)
+
+      assert Repo.aggregate(Asset, :count) == count
+
+      assert pack_import.report["errors"] == [
+               %{
+                 "file" => "media/photo.jpg",
+                 "line" => 1,
+                 "message" =>
+                   "media/photo.jpg and media/photo.png both become media/photo.webp; rename one"
+               }
+             ]
+    end
+
+    test "checks external files and embeds against the hosts of the option hosts, with file and line" do
+      pack = copy_pack!(demo_path())
+
+      write!(
+        pack,
+        @lesson2,
+        read!(pack, @lesson2) <>
+          """
+
+          :::video{src=https://cdn.example.org/clips/intro.webm title="An external clip" provenance=invented}
+          The transcript of the external clip.
+          :::
+
+          :::video{embed=https://player.example.net:8443/embed/1 title="An embedded clip" provenance=invented}
+          The transcript of the embedded clip.
+          :::
+          """
+      )
+
+      src_line = line_of!(pack, @lesson2, "cdn.example.org")
+      embed_line = line_of!(pack, @lesson2, "player.example.net")
+      media = MediaFixtures.media_for(pack)
+
+      changeset =
+        Importer.prepare(pack, nil, media: media, hosts: %{external: [], embed: []})
+
+      stored = Ecto.Changeset.apply_changes(changeset)
+      assert {stored.status, stored.payload} == {:failed, nil}
+
+      assert stored.report["errors"] == [
+               %{
+                 "file" => @lesson2,
+                 "line" => src_line,
+                 "message" => "host cdn.example.org is not in MEDIA_EXTERNAL_HOSTS"
+               },
+               %{
+                 "file" => @lesson2,
+                 "line" => embed_line,
+                 "message" => "host player.example.net:8443 is not in MEDIA_EMBED_HOSTS"
+               }
+             ]
+
+      # The installation of the test configuration lists no host either.
+      assert {:ok, %PackImport{status: :failed} = pack_import} =
+               Importer.import(pack, nil, media: media)
+
+      assert pack_import.report["errors"] == stored.report["errors"]
+
+      # An embed host without a port admits port 443 only.
+      hosts = %{external: [{"cdn.example.org", nil}], embed: [{"player.example.net", nil}]}
+
+      stored =
+        pack
+        |> Importer.prepare(nil, media: media, hosts: hosts)
+        |> Ecto.Changeset.apply_changes()
+
+      assert stored.report["errors"] == [
+               %{
+                 "file" => @lesson2,
+                 "line" => embed_line,
+                 "message" => "host player.example.net:8443 is not in MEDIA_EMBED_HOSTS"
+               }
+             ]
+
+      hosts = %{external: [{"cdn.example.org", nil}], embed: [{"player.example.net", 8443}]}
+
+      stored =
+        pack
+        |> Importer.prepare(nil, media: media, hosts: hosts)
+        |> Ecto.Changeset.apply_changes()
+
+      assert stored.status == :validated
+      assert stored.report == %{"errors" => [], "warnings" => []}
+
+      # External sources and embeds stay URLs and name no asset.
+      assert Enum.map(stored.payload["media"], & &1["path"]) ==
+               MediaFixtures.demo_media_paths() |> Enum.sort()
+    end
+
+    test "a file that equals the delivery file of an asset of the program links to that asset" do
+      # Two ready assets share the delivery file of the SVG: the older one
+      # would win the digest match of the ingest, and the program uses the
+      # newer one.
+      svg = "media/release-checks.svg"
+      pack = copy_pack!(demo_path())
+      mapping = MediaFixtures.demo_media!(pack)
+      newer = Repo.get!(Asset, mapping[svg])
+
+      older =
+        MediaFixtures.stored_asset!(Path.join(pack, svg), :svg, "svg", %{}, svg)
+        |> Ecto.Changeset.change(inserted_at: DateTime.add(newer.inserted_at, -86_400))
+        |> Repo.update!()
+
+      assert older.sha256 == newer.sha256
+
+      assert {:ok, %PackImport{status: :validated} = first} =
+               Importer.import(pack, nil, media: mapping)
+
+      assert {:ok, %PackImport{status: :published}} = Publisher.publish(first)
+
+      # The pack as `mix espalier.export` writes it: the SVG comes without a
+      # mapping, as on the CLI and in the admin upload.
+      count = Repo.aggregate(Asset, :count)
+
+      assert {:ok, %PackImport{status: :validated} = second} =
+               Importer.import(pack, nil, media: Map.delete(mapping, svg))
+
+      assert Enum.find(second.payload["media"], &(&1["path"] == svg))["asset_id"] == newer.id
+      assert Repo.aggregate(Asset, :count) == count
+      refute_enqueued(worker: ProcessWorker)
+      assert Diff.compute(second.payload).media == %{added: [], changed: [], archived: []}
+
+      # Without the program the ingest takes the oldest asset with that
+      # delivery file.
+      other = copy_pack!(demo_path())
+      update_yaml!(other, "pack.yaml", &Map.put(&1, "key", "another-key"))
+
+      assert {:ok, %PackImport{status: :validated} = third} =
+               Importer.import(other, nil, media: Map.delete(mapping, svg))
+
+      assert Enum.find(third.payload["media"], &(&1["path"] == svg))["asset_id"] == older.id
+    end
+
+    test "an asset that the import links without an ingest gets the time of its last change set again" do
+      svg = "media/release-checks.svg"
+      webm = "media/assistant-demo.webm"
+      pack = copy_pack!(demo_path())
+      mapping = MediaFixtures.demo_media!(pack)
+
+      assert {:ok, %PackImport{status: :validated} = first} =
+               Importer.import(pack, nil, media: mapping)
+
+      assert {:ok, %PackImport{status: :published}} = Publisher.publish(first)
+
+      # The SVG links through the program of the pack key, the video
+      # through the option media, and an asset that the pack does not name
+      # keeps its time.
+      other = MediaFixtures.insert_asset!(%{origin: :pack})
+      age!([mapping[svg], mapping[webm], other.id])
+
+      assert {:ok, %PackImport{status: :validated} = second} =
+               Importer.import(pack, nil, media: Map.delete(mapping, svg))
+
+      assert Enum.find(second.payload["media"], &(&1["path"] == svg))["asset_id"] == mapping[svg]
+      assert recent?(mapping[svg])
+      assert recent?(mapping[webm])
+      refute recent?(other.id)
+
+      # An asset in processing keeps the time that the heartbeat of its job
+      # sets.
+      age!([mapping[svg], mapping[webm]])
+
+      {1, _rows} =
+        Repo.update_all(from(a in Asset, where: a.id == ^mapping[webm]),
+          set: [status: :processing]
+        )
+
+      assert {:ok, %PackImport{status: :validated}} =
+               Importer.import(pack, nil, media: Map.delete(mapping, svg))
+
+      assert recent?(mapping[svg])
+      refute recent?(mapping[webm])
+    end
+
+    test "a pack without media references gives an empty media list and no asset ids" do
+      assert {:ok, %PackImport{status: :validated} = pack_import} =
+               Importer.import(copy_pack!("minimal"), nil)
+
+      assert pack_import.payload["media"] == []
+      assert pack_import.media_asset_ids == []
+    end
+  end
+
+  # Sets the time of the last change of the assets `ids` 60 days back.
+  defp age!(ids) do
+    old = DateTime.add(DateTime.utc_now(:second), -60 * 86_400)
+    count = length(ids)
+
+    {^count, _rows} =
+      Repo.update_all(from(a in Asset, where: a.id in ^ids), set: [updated_at: old])
+
+    :ok
+  end
+
+  # Whether the asset `id` changed within the last minute.
+  defp recent?(id),
+    do: DateTime.diff(DateTime.utc_now(), Repo.get!(Asset, id).updated_at) < 60
+
   defp stored_payload!(pack) do
     assert {:ok, pack_import} = Importer.import(pack, nil)
     stored = Repo.get!(PackImport, pack_import.id)

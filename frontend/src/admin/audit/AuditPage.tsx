@@ -48,6 +48,9 @@ const KNOWN_ACTIONS = [
   "pack_draft.created",
   "pack_draft.deleted",
   "export.requested",
+  // The media library (0018) names the kind of the asset.
+  "media.uploaded",
+  "media.deleted",
 ] as const;
 
 interface Filters {

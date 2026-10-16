@@ -39,7 +39,9 @@ defmodule EspalierWeb.SessionController do
     summary: "Sign out",
     description:
       "Answers 200 with `logout_url` for an OIDC session whose provider has an " <>
-        "end-session endpoint on its allowed hosts, and 204 otherwise.",
+        "end-session endpoint on its allowed hosts, and 204 otherwise. Both answers " <>
+        "carry `Clear-Site-Data: \"cache\"`, so the browser drops the media files " <>
+        "that it cached during the session.",
     security: Responses.csrf(),
     responses:
       Map.merge(
@@ -50,9 +52,15 @@ defmodule EspalierWeb.SessionController do
         Responses.errors([{403, ["csrf", "cross_site_request"]}])
       )
 
+  # The media route answers with `cache-control: private` and a long
+  # max-age (task 0018, ASVS 14.3.1), so the sign-out clears the cache.
   def delete(conn, _params) do
     logout_url = rp_logout_url(conn.assigns[:current_scope])
-    conn = UserAuth.log_out_user(conn)
+
+    conn =
+      conn
+      |> UserAuth.log_out_user()
+      |> put_resp_header("clear-site-data", ~s("cache"))
 
     case logout_url do
       nil -> send_resp(conn, :no_content, "")
