@@ -135,7 +135,7 @@ lists every key, algorithm and protected column.
 
 ### Ignored advisories
 
-`mix.exs` lists three advisories under `hex: [ignore_advisories: [...]]`,
+`mix.exs` lists two advisories under `hex: [ignore_advisories: [...]]`,
 each with its reason in a comment. `mix hex.audit` honors the list from Hex
 2.5.1 on.
 
@@ -143,7 +143,6 @@ each with its reason in a comment. `mix hex.audit` honors the list from Hex
 |---|---|---|---|
 | EEF-CVE-2026-95105 (HIGH) | `cloak` 1.1.4 | `Cloak.Ciphers.AES.CTR` and `Cloak.Ciphers.Deprecated.AES.CTR`, which store no MAC | Espalier uses neither module: the vault holds only `Espalier.Crypto.StrictAESGCM` over `Cloak.Ciphers.AES.GCM`, and `test/espalier/crypto/cipher_allowlist_test.exs` fails if another cipher is configured or if `lib/` or `config/` names an affected module. No release fixes the advisory. |
 | EEF-CVE-2026-94206 (MEDIUM) | `cloak_ecto` 1.3.0 | `Cloak.Ecto.PBKDF2`, whose `dump/1` runs 32 rounds where 600,000 are configured | Espalier uses no PBKDF2 type; lookups use `Cloak.Ecto.HMAC`, and the same test fails if that changes. No release fixes the advisory. |
-| EEF-CVE-2026-105659 | `bandit` 1.12.5 | the HTTP/2 stack, in which a peer that sends small `WINDOW_UPDATE` frames keeps HTTP/2 stream processes alive | `config/config.exs` turns HTTP/2 off for the endpoint (`http_2_options: [enabled: false]`), and `test/espalier_web/endpoint_http2_test.exs` fails if that changes. The entry leaves `mix.exs` with the update to a release that fixes the advisory. |
 
 `key-management.md` holds the watch list, the triggers and the fallback plan
 for `cloak` and `cloak_ecto`.
