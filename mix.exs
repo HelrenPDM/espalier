@@ -23,12 +23,7 @@ defmodule Espalier.MixProject do
         # Espalier.Crypto.StrictAESGCM over Cloak.Ciphers.AES.GCM, and lookups use
         # Cloak.Ecto.HMAC. test/espalier/crypto/cipher_allowlist_test.exs fails if
         # that changes. Review rules: docs/security/key-management.md.
-        # bandit 1.12.5 has no release that fixes EEF-CVE-2026-105659, which
-        # concerns its HTTP/2 stack. config/config.exs turns HTTP/2 off for the
-        # endpoint, and test/espalier_web/endpoint_http2_test.exs fails if that
-        # changes. Remove the entry with the update to a fixed release
-        # (CONTRIBUTING.md, "Dependencies and the release cooldown").
-        ignore_advisories: ["EEF-CVE-2026-95105", "EEF-CVE-2026-94206", "EEF-CVE-2026-105659"]
+        ignore_advisories: ["EEF-CVE-2026-95105", "EEF-CVE-2026-94206"]
       ]
     ]
   end

@@ -397,6 +397,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   qualifications in code order and publishes them in that order; a new
   import of the pack applies the order of the file.
 
+- `bandit` 1.13.1 replaces 1.12.5, which carries EEF-CVE-2026-105660
+  (CVE-2026-105660, GHSA-v53v-9hvg-37jf: an unvalidated HTTP/1 request-target
+  authority lets a client choose `conn.host` and `conn.port`) and
+  EEF-CVE-2026-105659 (below); `thousand_island` follows with 1.6.0. `mix.exs`
+  ignores no `bandit` advisory, and the endpoint keeps serving no HTTP/2,
+  because Espalier serves HTTP/1.1 behind its reverse proxy.
+
 - The endpoint serves no HTTP/2 (`http_2_options: [enabled: false]`), because
   `bandit` 1.12.5 carries EEF-CVE-2026-105659 (CVE-2026-105659,
   GHSA-69m6-wcv4-rwcf: a peer that drips small `WINDOW_UPDATE` frames keeps

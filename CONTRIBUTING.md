@@ -161,12 +161,6 @@ carries CVE-2026-104844. The entry for the plugin in `overrides` of
 `frontend/package.json` lifts the pin to 7.1.6 or later. Remove the entry when
 a release of `@tailwindcss/typography` depends on 7.1.6 or later.
 
-`bandit` 1.12.5 carries EEF-CVE-2026-105659 in its HTTP/2 stack, and no
-release fixes it yet. `config/config.exs` turns HTTP/2 off for the endpoint,
-and `mix.exs` lists the advisory under `ignore_advisories`. When a release of
-`bandit` carries the fix, update it with
-`nix-shell --run "mix deps.update bandit"` and remove the entry.
-
 ## Secret scanning
 
 `make secrets-scan` runs `gitleaks detect` over the whole history with the
