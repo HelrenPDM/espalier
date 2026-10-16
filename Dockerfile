@@ -104,9 +104,12 @@ RUN mix release \
 # the compiled release and other runtime necessities
 FROM ${RUNNER_IMAGE} AS final
 
-# curl serves the health check below.
+# curl serves the health check below. ffmpeg, with ffprobe, converts the
+# uploaded and imported media (Espalier.Media.Ffmpeg); the release starts it
+# as a separate program and links none of it. procps provides kill, with
+# which Espalier.Media.Command stops the conversion of a deleted asset.
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends libstdc++6 openssl libncurses6 locales ca-certificates curl \
+  && apt-get install -y --no-install-recommends libstdc++6 openssl libncurses6 locales ca-certificates curl ffmpeg procps \
   && rm -rf /var/lib/apt/lists/*
 
 # Set the locale
@@ -138,6 +141,11 @@ COPY --chmod=0644 LICENSE NOTICE ./
 # The group root may write as well, for a container that runs with another
 # uid and the gid 0.
 RUN mkdir -p /data/exports && chown nobody:0 /data/exports && chmod 0770 /data/exports
+
+# The media store (MEDIA_DIR=/data/media in compose.yaml) with the uploads
+# of Plug.Upload below it (PLUG_TMPDIR=/data/media/uploads), owned and
+# writable as /data/exports.
+RUN mkdir -p /data/media && chown nobody:0 /data/media && chmod 0770 /data/media
 
 EXPOSE 4000
 

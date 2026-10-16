@@ -32,6 +32,7 @@ import {
   GlossaryPage,
   HandbookPage,
   InsightsPage,
+  MediaPage,
   PackPage,
   PackPreviewPage,
   PacksPage,
@@ -132,6 +133,14 @@ export const appRoutes: RouteObject[] = [
               { index: true, element: <WorkbenchPage /> },
               { path: ":id", element: <DraftPage /> },
             ],
+          },
+          {
+            path: "media",
+            element: (
+              <RequireRole anyOf={["author"]}>
+                <MediaPage />
+              </RequireRole>
+            ),
           },
           {
             path: "exports",

@@ -28,6 +28,7 @@ export function scormContent(): ScormContent {
               collapsed_on: [],
               placeholder_key: null,
               cite: [],
+              media: null,
             },
           ],
         },
@@ -73,5 +74,6 @@ export function scormContent(): ScormContent {
     sources: [],
     formats: [],
     policies: {},
+    media: {},
   };
 }

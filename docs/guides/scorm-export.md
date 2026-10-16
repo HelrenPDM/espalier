@@ -66,8 +66,10 @@ audit event in one transaction. The job runs in the Oban queue `exports`,
 which has one slot, so concurrent requests wait in status `queued` and run one
 after the other. The worker sets the status `running` and reads the content in
 one transaction: it checks that the program and the module are still
-published and builds the content with `Payload.build/1`, `Payload.module/2`
-and the current policy versions. The transaction first reads the program slug
+published and builds the content with `Payload.build/1`, `Payload.module/3`
+and the current policy versions. In the same transaction it places the media
+files of the module into the build directory (section "Media in the
+package"). The transaction first reads the program slug
 and takes `pg_advisory_xact_lock_shared(hashtext(<program slug>))`. The slug
 is the pack key, so this lock conflicts with the exclusive lock
 `pg_advisory_xact_lock(hashtext(<pack key>))` that the publisher holds during
@@ -125,8 +127,18 @@ below sets it to `failed` and removes them.
 | "The schema files of SCORM 1.2 are missing. Run `mix espalier.scorm_xsd` and request the export again." (or SCORM 2004 4th edition) | The schema directory of the version holds no file. |
 | "The module is no longer published." | The program left the status `published`, or the module was archived, between the request and the job. |
 | "Two files of the package would share the path ..." | Two files of the player and schema directories, or one of them and `imsmanifest.xml` or `content.json`, map to the same path in the package. |
-| "The package could not be built; the server log names the cause." | Any other error. The server log holds the exception with the export id. |
+| "The media of this module exceed 1024 MB; link large videos with an external URL." | The delivery files and posters of the module together exceed `export_max_mb` (section "Media in the package"); the text names the configured value. |
+| "A media file of the module is missing." | A media file of the module is not `ready`, or its file is gone from the media store. |
+| "The volume of EXPORT_DIR is full; free space there and request the export again." | A media file could not be copied into the build directory because the volume of `EXPORT_DIR` is full (`enospc`) or over its quota (`edquot`). |
+| "The package could not be built; the server log names the cause." | Any other error. The server log holds the exception, or the POSIX reason of a media file that could not be placed in the build directory, with the export id. |
 | "The build was interrupted; request the export again." | The sweep of interrupted exports found the export `queued` or `running` longer than its limit, one hour, after its last change. |
+
+When the worker cannot place a media file in the build directory, it logs
+`export media file not staged: export <id>, media/<sha256>.<ext>: <POSIX
+reason> (<description>)` before the failure line. The reason `enoent` gives
+"A media file of the module is missing.", `enospc` and `edquot` give the
+text of the full volume, and any other reason, such as `eacces`, gives the
+generic text.
 
 #### Interrupted exports
 
@@ -218,6 +230,7 @@ Every file lies at the path below, relative to the root of the zip.
 | `assets/player.js`, `assets/player.css` | The player in one script and one stylesheet without hashes, loaded with relative URLs. |
 | `LICENSE`, `NOTICE` | The license and the attribution notice of Espalier, copied from the repository root by the player build. |
 | `content.json` | The content of the module (see below). |
+| `media/<sha256>.<ext>` | The delivery files and posters of the images, SVG files, videos and captions that the blocks of the module name, each once, named by the SHA-256 digest of its bytes (section "Media in the package"). |
 | The schema files of the version | The XML schema files that the manifest names, at the package root (see below). |
 
 ### The manifest
@@ -255,6 +268,7 @@ The worker writes `content.json` with `JSON.encode!/1`. Its top-level keys are:
 | `sources` | The sources that the citations of the blocks, rules and items of the module name |
 | `formats` | The companion formats that name an objective of the module, with their `objectives` |
 | `policies` | For each `placeholder_key` of a block of the module whose policy has a published version: `key`, `number`, `effective_from` and `body` of the version current at the time of the export |
+| `media` | One object per media path that a block of the module names, keyed by that path, with `url` (`media/<sha256>.<ext>`, relative to `index.html`), `kind`, `mime`, `width`, `height`, `duration_ms`, `has_audio`, `has_alpha`, `animated` and `poster_url`; external files and embeds stay URLs in their blocks |
 
 The player renders a block of kind `placeholder` with the policy text of its
 entry in `policies`, as the platform does. A key without a published version
@@ -304,6 +318,35 @@ The content in `content.json` stays under the license that `pack.yaml` of the
 pack declares as an SPDX identifier; the demo pack declares `CC0-1.0`.
 `content.json` does not carry that identifier. The schema files keep the terms
 that `priv/scorm/xsd/SOURCE.md` lists.
+
+### Media in the package
+
+The package holds every delivery file and poster that the blocks of the
+module name, below `media/` and named `<sha256>.<ext>` by the digest of its
+bytes, so two paths or two assets that share a file put it into the package
+once. The worker places the files in the build directory while it holds the
+shared lock of the program: as hard links to the files of the media store,
+or as copies when `EXPORT_DIR` and `MEDIA_DIR` lie on different file systems,
+as the volumes `exports` and `media` of `compose.yaml` do. A link and a copy
+both keep the bytes, so a publish or a deletion of media after the lock is
+released takes no file from the package. The zip stores the `.webp` and
+`.webm` entries without compression and reads every file in blocks, and the
+manifest lists the media files with the other files.
+
+The media of one module, delivery files and posters together, stay within
+`export_max_mb` of `config :espalier, :media`, 1,024 MB. Above it, the export
+fails with "The media of this module exceed 1024 MB; link large videos with
+an external URL.", with the configured value in the text. A large video
+reaches learners in an LMS as an external file on a host of
+`MEDIA_EXTERNAL_HOSTS` or through the player of a streaming service, which
+the package names by URL. A build needs space in `EXPORT_DIR` for the copied
+media and for the zip, up to twice that limit, next to the packages that the
+retention keeps.
+
+The files of a package carry no access control of their own: whoever has the
+package reads its images, videos and captions, as with its answer keys
+(section "Answer keys and records in the LMS"). The media route of the
+platform plays no part in a package.
 
 ## Run-time behaviour
 
@@ -371,6 +414,30 @@ their links open in the current tab: a source link carries
 neither attribute. An LMS that runs the SCO in a sandboxed iframe without
 `allow-popups` blocks these links, so a click does nothing; the LMS session
 stays open.
+
+### Media in the player
+
+The player of the package loads the images, SVG files, videos, posters and
+captions of the module from `media/` relative to `index.html`, as the
+`media` object of `content.json` names them. Figures, animated images with
+their play button, videos with their captions and the transcripts work as on
+the platform ([`media.md`](media.md)). The player records no playback data:
+no view, progress or completion of a video reaches the LMS.
+
+An external video file loads from its host in the browser of the learner
+once the learner presses play. An embed always shows the click-to-load
+notice, because the package has no setting for it; "Load video" loads the
+player of that host for the life of the page, and "Open on <host>" opens it
+in a new tab. The CSP of the platform does not travel with the package: the
+headers of the LMS that serves the package decide whether the browser loads
+external files and embeds.
+
+The fullscreen mode of a video and of an embedded player needs the
+permission of every frame around it. An LMS that shows the package in an
+iframe without `allow="fullscreen"` keeps the videos and the embedded
+players out of fullscreen when the package runs on another origin than the
+LMS page; they play within the frame. The test harness
+`frontend/e2e/scorm/lms.html` sets `allow="fullscreen"` on its iframe.
 
 ### Data model
 
@@ -484,17 +551,19 @@ runtimes encodes as `2.AUWWl7.s.0.B.D.B.2e`.
 
 The layout fingerprint binds the string to the lists that its bitsets and
 assessment fields refer to. It is the 32-bit FNV-1a hash (offset basis
-`0x811c9dc5`, prime `0x01000193`) of the UTF-8 bytes of a layout string. That
-string lists the item keys in payload order, the ids of the explanation blocks
-in the order of the bitset of the opened explanations (`explanationBlockIds`)
-and the assessment keys in payload order; the members of a list are joined by
-`,` and the three lists by `;`. The hash is written as six base64url digits,
-the most significant first. A block id (`block-<module>-<lesson key>-<n>`)
-holds the position of the block in its lesson, counted from 1. A module change that alters one of the three lists changes the
-fingerprint, for example an item inserted before an existing item, a renamed
-or reordered assessment key, or a block inserted before an explanation. A
-change that leaves the three lists as they are, such as a new title or stem or
-a block after the last explanation of a lesson, keeps the fingerprint.
+`0x811c9dc5`, prime `0x01000193`) of the UTF-8 bytes of a layout string.
+That string lists the item keys in payload order, the ids of the explanation
+blocks in the order of the bitset of the opened explanations
+(`explanationBlockIds`) and the assessment keys in payload order; the
+members of a list are joined by `,` and the three lists by `;`. The hash is
+written as six base64url digits, the most significant first. A block id
+(`block-<module>-<lesson key>-<n>`) holds the position of the block in its
+lesson, counted from 1. A module change that alters one of the three lists
+changes the fingerprint, for example an item inserted before an existing
+item, a renamed or reordered assessment key, or a block inserted before an
+explanation, also a `figure` or `video` block. A change that leaves the
+three lists as they are, such as a new title or stem or a block after the
+last explanation of a lesson, keeps the fingerprint.
 
 A string that does not decode for the module restores nothing: another
 version, a fingerprint that differs from that of the module, another number of
@@ -553,7 +622,9 @@ program, because the publisher creates the program row.
 `Espalier.Interop.PackWriter.write/2` reads the program again and builds its
 payload from the stored row in one transaction, under the same shared lock
 and with the same timeout as the export job (see "The export job"), and it
-writes the files after the transaction. A publish of the pack that is running
+writes the files and copies the media files inside that transaction, so no
+publish of the program and no deletion of its media assets can run during
+the copy. A publish of the pack that is running
 ends before the read, and a program read before a later publish gives the
 version published last. A program whose stored status is no longer
 `published` answers `{:error, :not_published}` without touching the target
@@ -571,6 +642,10 @@ tmp/pack-out/
   feedback.yaml
   qualifications.yaml
   formats.yaml
+  media/
+    assistant-demo.webm
+    assistant-demo-en.vtt
+    release-checks.svg
   modules/
     01-how-language-models-work/
       module.yaml
@@ -602,7 +677,18 @@ tmp/pack-out/
   `objectives` when the list is not empty, in ascending key order.
 - A lesson file holds the front matter with `title` and `position` and one
   container directive per block with the attributes `provenance`,
-  `collapsed_on`, `cite` and `key` where the block has them.
+  `collapsed_on`, `cite`, `key`, `src`, `alt`, `decorative`, `size`,
+  `title`, `embed`, `poster` and `captions`, in this order, where the block
+  has them.
+- `media/` holds every image, SVG file, video and captions file of the
+  program in its delivery format, copied from the media store under the
+  shared lock of the program, and the directives name the delivery paths. A
+  pack whose source held `media/photo.jpg` and `media/clip.mp4` is written
+  with `media/photo.webp` and `media/clip.webm`, and from that export on its
+  import on the same installation finds the same media assets
+  ([`media.md`](media.md), section "Export"). The copy applies no size
+  limit and runs inside the transaction of the read, so the timeout of that
+  transaction (section "The export job") bounds the copy as well.
 - A field without value and an empty optional list are left out, and the
   importer fills in the same value. An import of the output therefore gives the
   payload of the program again, and its publish archives no row.
@@ -627,6 +713,14 @@ it commits, and `test/espalier/interop/stale_export_worker_test.exs` covers
 the sweep of interrupted exports and the relation of its limit to the job
 timeout. The worker test also plays the sweep during a build with a database
 trigger and checks that the build sets no status and leaves no file.
+The worker test also exports a module with media and finds each delivery
+file and poster once below `media/` of the zip, in the manifest and in the
+`media` object of `content.json`. `Espalier.Interop.MediaLockTest` in
+`test/espalier/interop/media_lock_test.exs` holds the copy of a media file
+of an export and of a pack write on a named pipe, checks that a publish that
+drops the media waits for the shared lock and that the deletion of the asset
+answers `asset_in_use`, and finds every media file in the package and in the
+pack byte for byte after the assets are deleted.
 `test/espalier/interop/retention_test.exs` covers the age rule, the count
 rule, the orphan step and the conditional status changes, and
 `EspalierWeb.Admin.ExportRetentionControllerTest` checks the 404 of both
@@ -641,7 +735,8 @@ page `frontend/e2e/scorm/lms.html` and serves the directory over HTTP. The
 harness loads the LMS API implementation of the npm package `scorm-again`,
 creates `window.API` or `window.API_1484_11` according to a query parameter,
 records every value that the package sets and embeds `index.html` in an
-iframe. The spec walks through module 1 and module 2 for both versions and
+iframe with `allow="fullscreen"`. Its static server sends the media files
+with the types `image/webp`, `image/svg+xml`, `video/webm` and `text/vtt`. The spec walks through module 1 and module 2 for both versions and
 asserts the recorded status, score and objective values, and a second run
 preloads the saved data and checks the resume.
 

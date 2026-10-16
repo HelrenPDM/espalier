@@ -32,6 +32,7 @@ export function sessionValue(overrides: Overrides = {}): SessionContextValue {
       adminPasskeyRequired: false,
       testNotes: false,
       feedbackFreeText: false,
+      mediaEmbedConsent: "click",
       ...flags,
     },
   };
@@ -87,6 +88,7 @@ export function sessionPayload(
       admin_passkey_required: false,
       test_notes: false,
       feedback_free_text: false,
+      media_embed_consent: "click",
       ...flags,
     },
   };

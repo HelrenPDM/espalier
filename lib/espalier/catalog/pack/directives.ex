@@ -10,19 +10,28 @@ defmodule Espalier.Catalog.Pack.Directives do
   Attributes are `key=value` or `key="value with spaces"`, separated by
   spaces:
 
-  | Attribute | Value |
-  |---|---|
-  | `provenance` | required, except on `placeholder`, whose provenance is `placeholder` |
-  | `collapsed_on` | paths, separated by commas |
-  | `cite` | `source-key#locator`, several separated by commas |
-  | `key` | `placeholder` only; becomes `placeholder_key` and is required there |
+  | Attribute | Kinds | Value |
+  |---|---|---|
+  | `provenance` | every kind | required, except on `placeholder`, whose provenance is `placeholder` |
+  | `collapsed_on` | every kind | paths, separated by commas |
+  | `cite` | every kind | `source-key#locator`, several separated by commas |
+  | `key` | `placeholder` | becomes `placeholder_key` and is required there |
+  | `src`, `alt`, `decorative`, `size` | `figure` | the image and its text alternative (task 0018) |
+  | `src`, `embed`, `title`, `poster`, `captions` | `video` | the video, its title, poster and captions (task 0018) |
+
+  The attributes of a `figure` or a `video` block other than `provenance`,
+  `collapsed_on` and `cite` go into `media`, a map from the attribute name
+  to its raw value; `media` is `nil` for the other kinds. A `figure` or a
+  `video` block may have an empty body, the caption or the transcript.
 
   Each of the following is an error with its line number: an unknown kind,
-  an unknown attribute, a duplicate attribute, a malformed attribute list, a
-  missing `provenance`, a `placeholder` block with another provenance or
-  without `key`, an opening line inside an open block, a line that starts
-  with `:::` but neither opens nor closes a block, an unclosed block, and
-  non-blank text outside a block.
+  an unknown attribute, an attribute on a kind that does not admit it
+  (`attribute <name> is allowed on <kinds> blocks only`), a duplicate
+  attribute, a malformed attribute list, a missing `provenance`, a
+  `placeholder` block with another provenance or without `key`, an opening
+  line inside an open block, a line that starts with `:::` but neither
+  opens nor closes a block, an unclosed block, and non-blank text outside a
+  block.
 
   The splitter keeps the first 100 errors of a body and counts the further
   ones, so that a body of many faulty lines holds no more memory than one of
@@ -33,12 +42,28 @@ defmodule Espalier.Catalog.Pack.Directives do
 
   The splitter checks the syntax only. The validator checks the values of
   the attributes (`Espalier.Catalog.Pack.Schema.Block`).
+
+  `rename_media/2` rewrites the media paths in the opening lines of a
+  lesson file, which the pack workbench needs when it stores the media of
+  an archive under their delivery paths (task 0018, step 16).
   """
 
   alias Espalier.Catalog.Pack.Entries
 
-  @kinds ~w(text explanation example case_comparison quote callout placeholder)
-  @attributes ~w(provenance collapsed_on cite key)
+  @kinds ~w(text explanation example case_comparison quote callout placeholder figure video)
+
+  # The attributes of every kind, and those that a kind admits on top.
+  @common ~w(provenance collapsed_on cite)
+  @own %{
+    "placeholder" => ~w(key),
+    "figure" => ~w(src alt decorative size),
+    "video" => ~w(src embed title poster captions)
+  }
+  @attributes @common ++ (@own |> Map.values() |> List.flatten() |> Enum.uniq())
+  @media_kinds ~w(figure video)
+
+  # The attributes whose values name media paths, for rename_media/2.
+  @path_attributes ~w(src poster)
 
   @open_regex ~r/^:::([a-z_]+)(\{.*\})?\s*$/
   @close_regex ~r/^:::\s*$/
@@ -53,6 +78,7 @@ defmodule Espalier.Catalog.Pack.Directives do
           collapsed_on: [String.t()],
           cite: [String.t()],
           placeholder_key: String.t() | nil,
+          media: %{String.t() => String.t()} | nil,
           body: String.t(),
           line: pos_integer()
         }
@@ -67,9 +93,13 @@ defmodule Espalier.Catalog.Pack.Directives do
           optional(:omitted) => pos_integer()
         }
 
-  @doc "The seven block kinds."
+  @doc "The nine block kinds."
   @spec kinds() :: [String.t()]
   def kinds, do: @kinds
+
+  @doc "The attributes that a block of `kind` admits."
+  @spec attributes(String.t()) :: [String.t()]
+  def attributes(kind), do: @common ++ Map.get(@own, kind, [])
 
   @doc "The largest number of errors that `split/2` keeps for one body."
   @spec max_errors() :: pos_integer()
@@ -92,6 +122,109 @@ defmodule Espalier.Catalog.Pack.Directives do
     case state.errors do
       [] -> {:ok, Enum.reverse(state.blocks)}
       errors -> {:error, errors |> Enum.reverse() |> Enum.sort_by(& &1.line) |> close(state)}
+    end
+  end
+
+  @doc """
+  Rewrites the media paths in the opening lines of `text`, a lesson file or
+  a lesson body, with `mapping` from old to new paths: the values of `src`
+  and `poster`, and the path of each entry `<path>:<language>` of
+  `captions`. Only lines that match the opening pattern change; every other
+  line, every other attribute and the quoting and spacing of a changed line
+  stay as they are. An opening line whose attribute list is malformed stays
+  unchanged, and so does a value that a new path cannot replace without a
+  double quote inside it.
+  """
+  @spec rename_media(String.t(), %{String.t() => String.t()}) :: String.t()
+  def rename_media(text, mapping) when is_binary(text) and is_map(mapping) do
+    if map_size(mapping) == 0 do
+      text
+    else
+      text
+      |> String.split(~r/\r?\n/, include_captures: true)
+      |> Enum.map_join(&rename_line(&1, mapping))
+    end
+  end
+
+  defp rename_line(line, mapping) do
+    with [_line, _kind, {start, length}] when length > 0 <-
+           Regex.run(@open_regex, line, return: :index),
+         {:ok, braces} <- rename_braces(binary_part(line, start, length), mapping) do
+      binary_part(line, 0, start) <>
+        braces <> binary_part(line, start + length, byte_size(line) - start - length)
+    else
+      _ -> line
+    end
+  end
+
+  defp rename_braces(braces, mapping) do
+    inner = binary_part(braces, 1, byte_size(braces) - 2)
+    trimmed = String.trim_leading(inner)
+    lead = binary_part(inner, 0, byte_size(inner) - byte_size(trimmed))
+
+    case rename_attributes(trimmed, mapping, []) do
+      {:ok, renamed} -> {:ok, IO.iodata_to_binary(["{", lead, renamed, "}"])}
+      :error -> :error
+    end
+  end
+
+  defp rename_attributes("", _mapping, acc), do: {:ok, Enum.reverse(acc)}
+
+  defp rename_attributes(text, mapping, acc) do
+    case Regex.run(@attribute_regex, text) do
+      [match, name, quoted] ->
+        part = rename_attribute(match, name, quoted, true, mapping)
+        rename_attributes(rest(text, match), mapping, [part | acc])
+
+      [match, name, "", plain] ->
+        part = rename_attribute(match, name, plain, false, mapping)
+        rename_attributes(rest(text, match), mapping, [part | acc])
+
+      nil ->
+        :error
+    end
+  end
+
+  defp rename_attribute(match, name, value, quoted?, mapping) do
+    renamed = renamed_value(name, value, mapping)
+
+    if renamed == value do
+      match
+    else
+      raw = if quoted?, do: ~s("#{value}"), else: value
+      prefix_bytes = byte_size(name) + 1 + byte_size(raw)
+      spacing = binary_part(match, prefix_bytes, byte_size(match) - prefix_bytes)
+      name <> "=" <> written_value(renamed, raw, quoted?) <> spacing
+    end
+  end
+
+  defp renamed_value(name, value, mapping) when name in @path_attributes,
+    do: Map.get(mapping, value, value)
+
+  defp renamed_value("captions", value, mapping) do
+    value
+    |> String.split(",")
+    |> Enum.map_join(",", &rename_caption(&1, mapping))
+  end
+
+  defp renamed_value(_name, value, _mapping), do: value
+
+  # One entry `<path>:<language>` of `captions` with its spacing.
+  defp rename_caption(entry, mapping) do
+    with [_entry, lead, path, lang, trail] <-
+           Regex.run(~r/\A(\s*)(.*):([^:]*?)(\s*)\z/s, entry),
+         {:ok, renamed} <- Map.fetch(mapping, path) do
+      lead <> renamed <> ":" <> lang <> trail
+    else
+      _ -> entry
+    end
+  end
+
+  defp written_value(value, raw, quoted?) do
+    cond do
+      String.contains?(value, "\"") -> raw
+      not quoted? and Regex.match?(~r/\A[^\s"]+\z/, value) -> value
+      true -> ~s("#{value}")
     end
   end
 
@@ -192,11 +325,15 @@ defmodule Espalier.Catalog.Pack.Directives do
       provenance: Map.get(attrs, "provenance", if(kind == "placeholder", do: "placeholder")),
       collapsed_on: list_value(attrs, "collapsed_on"),
       cite: list_value(attrs, "cite"),
-      placeholder_key: Map.get(attrs, "key")
+      placeholder_key: Map.get(attrs, "key"),
+      media: media(kind, attrs)
     }
 
     {header, errors}
   end
+
+  defp media(kind, attrs) when kind in @media_kinds, do: Map.take(attrs, Map.fetch!(@own, kind))
+  defp media(_kind, _attrs), do: nil
 
   defp kind_errors(kind) when kind in @kinds, do: []
   defp kind_errors(kind), do: ["unknown block kind `#{kind}`"]
@@ -211,17 +348,30 @@ defmodule Espalier.Catalog.Pack.Directives do
   end
 
   defp attribute_errors(kind, pairs) do
-    Enum.flat_map(pairs, fn
-      {"key", _value} when kind != "placeholder" ->
-        ["attribute `key` is allowed on `placeholder` blocks only"]
+    allowed = attributes(kind)
 
-      {name, _value} when name in @attributes ->
-        []
-
-      {name, _value} ->
-        ["unknown attribute `#{name}`"]
+    Enum.flat_map(pairs, fn {name, _value} ->
+      cond do
+        name in allowed -> []
+        name in @attributes -> ["attribute `#{name}` is allowed on #{owners(name)} blocks only"]
+        true -> ["unknown attribute `#{name}`"]
+      end
     end)
   end
+
+  # The kinds that admit the attribute `name` beyond the common ones, such as
+  # "`figure` and `video`".
+  defp owners(name) do
+    @own
+    |> Enum.filter(fn {_kind, names} -> name in names end)
+    |> Enum.map(&elem(&1, 0))
+    |> Enum.sort_by(&Enum.find_index(@kinds, fn kind -> kind == &1 end))
+    |> Enum.map(&"`#{&1}`")
+    |> join_and()
+  end
+
+  defp join_and([one]), do: one
+  defp join_and(names), do: Enum.join(Enum.drop(names, -1), ", ") <> " and " <> List.last(names)
 
   defp provenance_errors("placeholder", pairs) do
     provenance =

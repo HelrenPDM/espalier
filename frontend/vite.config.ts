@@ -28,11 +28,13 @@ export default defineConfig(({ command }) => ({
     port: 5173,
     strictPort: true,
     // The SPA route /auth/finish stays with Vite; every other path below
-    // /auth belongs to Phoenix (README section 5).
+    // /auth belongs to Phoenix (README section 5), as do the media files
+    // below /media (task 0018, step 13).
     proxy: {
       "/api": "http://localhost:4000",
       "^/auth/(?!finish)": "http://localhost:4000",
       "/health": "http://localhost:4000",
+      "/media": "http://localhost:4000",
     },
     // The suspend-data test of task 0016 reads the demo pack with
     // `import.meta.glob`; the pack holds only public demo content.

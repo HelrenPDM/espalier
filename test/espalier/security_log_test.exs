@@ -49,7 +49,7 @@ defmodule Espalier.SecurityLogTest do
 
     for name <- SecurityLog.events() -- operational do
       assert Atom.to_string(name) =~
-               ~r/\A(authn|authz|input|privilege|excess|malicious|session|user)_[a-z_]+\z/
+               ~r/\A(authn|authz|input|privilege|excess|malicious|session|upload|user)_[a-z_]+\z/
     end
   end
 end

@@ -98,7 +98,8 @@ defmodule Espalier.RuntimeConfigTest do
           "TRUSTED_PROXIES" => "10.0.0.0/8,192.0.2.1",
           "MAIL_FROM" => ~s("Espalier <noreply@example.org>"),
           "PUBLIC_URL" => "https://app.example.org/",
-          "EXPORT_DIR" => ~s("/data/exports")
+          "EXPORT_DIR" => ~s("/data/exports"),
+          "MEDIA_DIR" => "/data/media"
         },
         :prod
       )
@@ -163,7 +164,7 @@ defmodule Espalier.RuntimeConfigTest do
     end
 
     test "production stops the boot without EXPORT_DIR" do
-      base = %{"PUBLIC_URL" => "https://app.example.org"}
+      base = %{"PUBLIC_URL" => "https://app.example.org", "MEDIA_DIR" => "/data/media"}
 
       for env <- [base, Map.put(base, "EXPORT_DIR", ""), Map.put(base, "EXPORT_DIR", ~s(""))] do
         assert_raise ArgumentError, "EXPORT_DIR is required", fn ->
@@ -392,7 +393,12 @@ defmodule Espalier.RuntimeConfigTest do
       RuntimeConfig.parse!(%{"EXPORT_DIR" => "/data/exports"}, :prod)
     end
 
-    base = %{"PUBLIC_URL" => "https://app.example.org", "EXPORT_DIR" => "/data/exports"}
+    base = %{
+      "PUBLIC_URL" => "https://app.example.org",
+      "EXPORT_DIR" => "/data/exports",
+      "MEDIA_DIR" => "/data/media"
+    }
+
     assert RuntimeConfig.parse!(base, :prod)[:mail_from] == {"Espalier", "noreply@localhost"}
 
     assert_raise ArgumentError, ~r/MAIL_FROM/, fn ->

@@ -9,9 +9,19 @@ defmodule EspalierWeb.CatalogJSON do
 
   `Espalier.Catalog` returns only published programs and only rows without
   `archived_at`, so the views render what they receive.
+
+  A `figure` or a `video` block carries `media` (task 0018, step 12),
+  resolved from the media of the published program into URLs below
+  `/media/`; the other kinds carry `null`. The view names no asset id, no
+  source name or digest and no file path of the store. `available` is false
+  when an external file or an embed names a host that has left
+  `MEDIA_EXTERNAL_HOSTS` or `MEDIA_EMBED_HOSTS` since the publish, or when
+  a media file is missing.
   """
 
   alias Espalier.Catalog.{Block, Citation, CompanionFormat, Item, Lesson, Rule, Station}
+  alias Espalier.Media
+  alias Espalier.Media.Asset
 
   @doc "Renders the list of published programs."
   def index(%{programs: programs}) do
@@ -105,7 +115,7 @@ defmodule EspalierWeb.CatalogJSON do
       summary: module.summary,
       phases: module.phases,
       single_path: module.single_path,
-      lessons: Enum.map(view.lessons, &lesson(&1, policies)),
+      lessons: Enum.map(view.lessons, &lesson(&1, policies, Map.get(view, :media, %{}))),
       rules: Enum.map(view.rules, &rule/1),
       practice_items: Enum.map(view.practice_items, &item(&1, keys)),
       exams:
@@ -123,17 +133,17 @@ defmodule EspalierWeb.CatalogJSON do
     }
   end
 
-  defp lesson(%Lesson{} = lesson, policies) do
+  defp lesson(%Lesson{} = lesson, policies, media) do
     %{
       id: lesson.id,
       key: lesson.key,
       position: lesson.position,
       title: lesson.title,
-      blocks: Enum.map(lesson.blocks, &block(&1, policies))
+      blocks: Enum.map(lesson.blocks, &block(&1, policies, media))
     }
   end
 
-  defp block(%Block{} = block, policies) do
+  defp block(%Block{} = block, policies, media) do
     %{
       id: block.id,
       kind: block.kind,
@@ -142,8 +152,178 @@ defmodule EspalierWeb.CatalogJSON do
       collapsed_on: block.collapsed_on,
       placeholder_key: block.placeholder_key,
       policy: block_policy(block, policies),
+      media: block_media(block, media),
       citations: Enum.map(block.citations, &citation/1)
     }
+  end
+
+  @doc """
+  The media of a `figure` or a `video` block (schema `BlockMedia`), from
+  the block attributes and `media`, a map of `media/` path to its asset;
+  `nil` for the other kinds.
+  """
+  def block_media(%Block{kind: :figure, media: %{} = attrs}, media) do
+    asset = ready(media, attrs["src"])
+    decorative = attrs["decorative"] == true
+
+    %{
+      image: image(asset),
+      video: nil,
+      poster: if(asset && asset.animated, do: poster(nil, asset)),
+      embed: nil,
+      captions: [],
+      alt: if(decorative, do: nil, else: attrs["alt"]),
+      decorative: decorative,
+      size: attrs["size"] || "full",
+      title: nil,
+      available: asset != nil
+    }
+  end
+
+  def block_media(%Block{kind: :video, media: %{} = attrs}, media) do
+    {video, embed, available} = video_source(attrs, media)
+    file = ready(media, attrs["src"])
+    poster_asset = ready(media, attrs["poster"])
+
+    captions =
+      for %{"src" => src, "lang" => lang} <- attrs["captions"] || [],
+          %Asset{} = asset <- [ready(media, src)],
+          do: %{url: Media.url(asset), lang: lang}
+
+    %{
+      image: nil,
+      video: video,
+      poster: if(embed == nil, do: poster(poster_asset, file)),
+      embed: embed,
+      captions: captions,
+      alt: nil,
+      decorative: false,
+      size: nil,
+      title: attrs["title"],
+      available: available
+    }
+  end
+
+  def block_media(%Block{}, _media), do: nil
+
+  defp video_source(%{"embed" => embed}, _media) when is_binary(embed) do
+    {nil, %{url: embed, host: url_host(embed)}, allowed?(embed, Media.embed_hosts())}
+  end
+
+  defp video_source(%{"src" => "media/" <> _rest = path}, media) do
+    case ready(media, path) do
+      %Asset{} = asset ->
+        video = %{
+          url: Media.url(asset),
+          mime: "video/webm",
+          width: asset.width,
+          height: asset.height,
+          duration_ms: asset.duration_ms,
+          has_audio: asset.has_audio,
+          external: false
+        }
+
+        {video, nil, true}
+
+      nil ->
+        {nil, nil, false}
+    end
+  end
+
+  defp video_source(%{"src" => src}, _media) when is_binary(src) do
+    video = %{
+      url: src,
+      mime: external_mime(src),
+      width: nil,
+      height: nil,
+      duration_ms: nil,
+      has_audio: nil,
+      external: true
+    }
+
+    {video, nil, allowed?(src, Media.external_hosts())}
+  end
+
+  defp video_source(_attrs, _media), do: {nil, nil, false}
+
+  defp external_mime(url) do
+    path = url |> URI.parse() |> Map.get(:path) |> to_string() |> String.downcase()
+
+    if String.ends_with?(path, ".mp4"),
+      do: "video/mp4",
+      else: "video/webm"
+  end
+
+  defp ready(media, path) when is_binary(path) do
+    case Map.get(media, path) do
+      %Asset{status: :ready} = asset -> asset
+      _missing -> nil
+    end
+  end
+
+  defp ready(_media, _path), do: nil
+
+  defp image(nil), do: nil
+
+  defp image(%Asset{} = asset) do
+    %{
+      url: Media.url(asset),
+      mime: Media.mime(asset.ext),
+      width: asset.width,
+      height: asset.height,
+      has_alpha: asset.has_alpha,
+      animated: asset.animated
+    }
+  end
+
+  # A poster attribute names an image asset, and an animated image gives its
+  # still first frame, so that nothing moves before the learner starts the
+  # video (WCAG 2.2 2.2.2); otherwise a video or an animated image shows its
+  # own poster with its own size.
+  defp poster(%Asset{animated: true} = image, fallback) do
+    case Media.poster_url(image) do
+      nil -> poster(nil, fallback)
+      url -> %{url: url, width: image.width, height: image.height}
+    end
+  end
+
+  defp poster(%Asset{} = image, _fallback),
+    do: %{url: Media.url(image), width: image.width, height: image.height}
+
+  defp poster(nil, %Asset{poster_sha256: sha256} = asset) when is_binary(sha256),
+    do: %{url: Media.poster_url(asset), width: asset.width, height: asset.height}
+
+  defp poster(_image, _fallback), do: nil
+
+  # Host and port as Espalier.Credentials.Webhook compares them: an entry
+  # without a port admits the default port of https.
+  defp allowed?(url, hosts) do
+    case URI.parse(url) do
+      %URI{scheme: "https", host: host, port: port} when is_binary(host) ->
+        host = String.downcase(host)
+
+        Enum.any?(hosts, fn
+          {^host, nil} -> port == 443
+          {^host, ^port} -> true
+          _entry -> false
+        end)
+
+      _other ->
+        false
+    end
+  end
+
+  defp url_host(url) do
+    case URI.parse(url) do
+      %URI{host: host, port: port} when is_binary(host) and port not in [nil, 443] ->
+        "#{String.downcase(host)}:#{port}"
+
+      %URI{host: host} when is_binary(host) ->
+        String.downcase(host)
+
+      _other ->
+        ""
+    end
   end
 
   defp block_policy(%Block{kind: :placeholder, placeholder_key: key}, policies)

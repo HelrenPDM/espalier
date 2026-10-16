@@ -2,8 +2,9 @@
 
 This guide sets up Espalier on one host with Docker Compose: the image, the
 environment file, PostgreSQL with TLS, the reverse proxy, the first admin,
-the content, backups and upgrades. The commands for a running instance (logs,
-health, background jobs, sessions, keys and the release functions) are in
+the content and the media store, backups and upgrades. The commands for a
+running instance (logs, health, background jobs, sessions, keys, the backup
+of the media store and the release functions) are in
 [`operations.md`](operations.md). A demo instance with demo sign-in is in
 [`demo-instance.md`](demo-instance.md), sign-in through the identity
 provider or the directory of an organization in
@@ -19,6 +20,8 @@ with every outgoing connection in [`security.md`](security.md).
   host, and port 443 of the host reachable from the internet.
 - For mail, an SMTP server that offers STARTTLS and authentication (section
   "Mail").
+- Disk space for the media store: the quota `MEDIA_STORAGE_MAX_GB` (default
+  50 GB) and the temporary files beyond it (section "The media store").
 - To build the image, a checkout of the repository. The build downloads its
   base images, the Hex and npm packages and the SCORM schema files.
 
@@ -67,13 +70,15 @@ ESPALIER_IMAGE=registry.example.org/team/espalier:latest
 comes from `mix.exs`, and `<env>` is `RELEASE_ENV`, by default `prod`.
 
 The image holds the release in `/app`, the license text in `/app/LICENSE`,
-the attribution notices in `/app/NOTICE` and the demo pack. It runs
-`/app/bin/server` as the user `nobody`, listens on port 4000 and defines a
-health check ([`operations.md`](operations.md), section "Health"). The
-release and both files belong to `root`, so the user `nobody` can change
-none of them. The image holds no secret, no env file, no cookie of the
-Erlang distribution, no `.git` directory and no development route;
-`scripts/check-release.sh` checks this on a running container.
+the attribution notices in `/app/NOTICE`, the demo pack, and `ffmpeg` and
+`ffprobe` of the Debian package `ffmpeg`, which convert the media files and
+run as programs of their own. It runs `/app/bin/server` as the user
+`nobody`, listens on port 4000 and defines a health check
+([`operations.md`](operations.md), section "Health"). The release and both
+files belong to `root`, so the user `nobody` can change none of them. The
+image holds no secret, no env file, no cookie of the Erlang distribution, no
+`.git` directory and no development route; `scripts/check-release.sh` checks
+this on a running container.
 
 ## The environment file
 
@@ -127,6 +132,7 @@ first admin (section "The first admin").
 | `PHX_HOST`, `PUBLIC_URL` | section "Host name" |
 | `DATABASE_CA_CERT_FILE` | a file that exists; `compose.yaml` sets it |
 | `EXPORT_DIR` | the directory of the SCORM packages; `compose.yaml` sets `/data/exports` |
+| `MEDIA_DIR` | the root of the media store; `compose.yaml` sets `/data/media` |
 | `POSTGRES_PASSWORD` | read by Docker Compose for the service `db` |
 | a sign-in pathway | `LOCAL_ACCOUNTS=true` (the default), a provider in `AUTH_PROVIDERS`, or `AUTH_DEMO=true` |
 
@@ -139,19 +145,22 @@ in `.env`.
 `config/runtime.exs` reads the connection and secret variables
 (`DATABASE_URL`, `DATABASE_CA_CERT_FILE`, `SECRET_KEY_BASE`, `PHX_HOST`,
 `CLOAK_*`, `SMTP_*`, `PORT`, `POOL_SIZE`) through
-`Espalier.RuntimeConfig.value/2`.
-`Espalier.RuntimeConfig` of task 0004 parses the account and session
-variables (`SESSION_*`, `LOCAL_ACCOUNTS`, `SIGNUP`, `SIGNUP_DOMAINS`,
-`PASSWORD_BREACH_CHECK`, `AUTH_DEMO`, `BOOTSTRAP_ADMIN_EMAILS`,
-`TRUSTED_PROXIES`, `PUBLIC_URL`, `MAIL_FROM`, `ADMIN_REQUIRE_PASSKEY`) and the
-application settings of the later tasks (learning records, insights,
-retention, credentials, webhooks, `PACK_UPLOAD_MAX_MB`, `EXPORT_DIR`); its
-module documentation lists every variable with its default.
-`Espalier.Identity.Config` parses the `AUTH_*` variables of the providers.
-Each of these values is trimmed, and one pair of surrounding double quotes is
-removed, so `Espalier.BootCheck` checks the value that the configuration
-uses. `ECTO_IPV6`, `DNS_CLUSTER_QUERY` and `PHX_SERVER` are read as they
-stand.
+`Espalier.RuntimeConfig.value/2`. `Espalier.RuntimeConfig` of task 0004
+parses the account and session variables (`SESSION_*`, `LOCAL_ACCOUNTS`,
+`SIGNUP`, `SIGNUP_DOMAINS`, `PASSWORD_BREACH_CHECK`, `AUTH_DEMO`,
+`BOOTSTRAP_ADMIN_EMAILS`, `TRUSTED_PROXIES`, `PUBLIC_URL`, `MAIL_FROM`,
+`ADMIN_REQUIRE_PASSKEY`) and the application settings of the later tasks
+(learning records, insights, retention, credentials, webhooks,
+`PACK_UPLOAD_MAX_MB`, `EXPORT_DIR`, and `MEDIA_DIR` with the other `MEDIA_*`
+variables); its module documentation lists every variable with its default,
+and [`media.md`](media.md), section "Settings", the media variables with
+their ranges. In production, the boot check also finds `ffmpeg`, `ffprobe`
+and `timeout` and checks the release, the encoders and the demuxers of
+ffmpeg. `Espalier.Identity.Config` parses the `AUTH_*` variables of the
+providers. Each of these values is trimmed, and one pair of surrounding
+double quotes is removed, so `Espalier.BootCheck` checks the value that the
+configuration uses. `ECTO_IPV6`, `DNS_CLUSTER_QUERY` and `PHX_SERVER` are
+read as they stand.
 
 `Espalier.BootCheck` runs before the configuration is built and collects
 every missing or invalid setting, so one boot names every gap. Two checks
@@ -551,6 +560,49 @@ describes the format and the import. The SCORM export writes its packages to
 `exports`; [`scorm-export.md`](scorm-export.md) describes the export and its
 prerequisites. The directory belongs to one installation and its database.
 
+## The media store
+
+The media library keeps its files below `MEDIA_DIR`, which `compose.yaml`
+sets to `/data/media` in the volume `media`. The image creates the directory
+for the user `nobody`, as it does for `/data/exports`. `compose.yaml` also
+sets `PLUG_TMPDIR=/data/media/uploads`, so `Plug.Upload` writes the body of a
+media upload into the same volume, and the upload moves into the store with a
+rename and without a copy. Without that setting, an upload of up to
+`MEDIA_VIDEO_MAX_MB` lands in the temporary directory of the container
+first. The directory belongs to one installation and its database, because
+the sweep of the media store deletes stored files that no asset of its
+database names.
+
+The volume needs the quota `MEDIA_STORAGE_MAX_GB` plus space for the uploads
+in progress, the outputs of the running conversions and the staging of draft
+downloads ([`media.md`](media.md), section "Space beyond the quota"). The
+conversions run in the container of `app`: two image jobs and one video job
+at a time, each ffmpeg process with `MEDIA_FFMPEG_THREADS` threads (default
+2) and no single allocation above 512 MiB, so a host that serves videos plans
+CPU time and memory for them next to the application
+([`security.md`](security.md), section "Resource-demanding functions").
+
+### The optional malware scan
+
+`docs/guides/examples/compose.clamav.yaml` adds a service `clamav` that runs
+clamd of the image `clamav/clamav:1.5.4`, and sets
+`MEDIA_CLAMAV_SOCKET=/run/clamav/clamd.sock` for `app`. The two services share
+the socket in the volume `clamd-socket`, so clamd opens no network port, and
+`app` starts once clamd answers. With the file, every uploaded and imported
+media file passes a scan before the conversion; without it, no scan runs,
+which the ASVS matrix records as a deviation (decision D19). The file joins
+the file list of the instance (section "One file list for every command"):
+
+```sh
+COMPOSE_FILE=compose.yaml:docs/guides/examples/compose.caddy.yaml:docs/guides/examples/compose.clamav.yaml
+```
+
+clamd keeps its signatures in memory: the service used 954 to 979 MiB after its start, and up to 1.9 GiB while clamd loaded new signatures after an update.
+freshclam in the same container fetches new signatures from
+`database.clamav.net` once a day. [`media.md`](media.md), section "Malware
+scan", describes the settings of `clamd.conf`, the limits that must cover
+`MEDIA_VIDEO_MAX_MB`, and a test with the test signature of the example.
+
 ## Backups
 
 ```sh
@@ -588,6 +640,13 @@ holds both the database and the keys protects nothing
 deletes later from the live tables, and the earlier order of the anonymous
 tables (README section 10). An external PostgreSQL server is backed up with
 the means of its operator.
+
+The database names every media file by its digest and every queued source
+file by the id of its asset, so the directories `files/` and `incoming/` of
+the media store belong to the same backup: a restored database without them
+lists assets whose files are missing. [`operations.md`](operations.md),
+section "Backup and restore of the media store", saves and restores both
+together.
 
 ## Upgrades
 

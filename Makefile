@@ -144,14 +144,14 @@ scorm-xsd: ## Fetch and check the XML schema files of the SCORM packages into pr
 	$(NIX) 'mix espalier.scorm_xsd'
 
 .PHONY: test-integration
-test-integration: ## Run the LDAP and mail tests against the dev services
-	$(NIX) "DATABASE_PORT=$(DATABASE_PORT) mix test --only ldap --only mail"
+test-integration: ## Run the LDAP, mail and ClamAV tests against the dev services and the clamd of the shell
+	$(NIX) "DATABASE_PORT=$(DATABASE_PORT) mix test --only ldap --only mail --only clamav"
 
 .PHONY: argon2-bench
-# The eval opens no database connection; the two variables stand in for the
+# The eval opens no database connection; the three variables stand in for the
 # values that compose.yaml sets for the service app.
 argon2-bench: ## Benchmark Argon2 parameters inside the production image
-	docker run --rm --env-file $${ENV_FILE:-.env} -e DATABASE_CA_CERT_FILE=/etc/ssl/certs/ca-certificates.crt -e EXPORT_DIR=/tmp -v "$(PWD)/scripts:/scripts:ro" $(IMAGE):$(TAG) /app/bin/espalier eval 'Code.eval_file("/scripts/argon2_bench.exs")'
+	docker run --rm --env-file $${ENV_FILE:-.env} -e DATABASE_CA_CERT_FILE=/etc/ssl/certs/ca-certificates.crt -e EXPORT_DIR=/tmp -e MEDIA_DIR=/tmp -v "$(PWD)/scripts:/scripts:ro" $(IMAGE):$(TAG) /app/bin/espalier eval 'Code.eval_file("/scripts/argon2_bench.exs")'
 
 .PHONY: gen-keys
 gen-keys: ## print new CLOAK_KEY_V1 and CLOAK_HMAC_SECRET values for .env

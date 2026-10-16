@@ -22,16 +22,24 @@ defmodule Espalier.LearningFixtures do
 
   alias Espalier.Catalog.Module, as: CatalogModule
   alias Espalier.Catalog.Pack.{Importer, Publisher}
-  alias Espalier.{Learning, PackFixtures, Repo}
+  alias Espalier.{Learning, MediaFixtures, PackFixtures, Repo}
 
   @slug "ai-assistant-basics-demo"
 
   @doc "The slug of the demo program."
   def demo_slug, do: @slug
 
-  @doc "Imports and publishes the pack at `path` (default: the demo pack) and returns its program."
+  @doc """
+  Imports and publishes the pack at `path` (default: the demo pack) and
+  returns its program. The media of the demo pack come from
+  `Espalier.MediaFixtures.media_for/1`, so no ffmpeg runs.
+  """
   def publish_demo!(path \\ PackFixtures.demo_path()) do
-    {:ok, %PackImport{status: :validated} = pack_import} = Importer.import(path, nil)
+    media = MediaFixtures.media_for(path)
+
+    {:ok, %PackImport{status: :validated} = pack_import} =
+      Importer.import(path, nil, media: media)
+
     {:ok, %PackImport{status: :published}} = Publisher.publish(pack_import)
     Catalog.get_program_by_slug(@slug)
   end

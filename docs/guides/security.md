@@ -24,11 +24,11 @@ against the task specs in `make check`.
 
 | Chapter | What the matrix covers | Rows that do not apply |
 |---|---|---|
-| V1 Encoding and Sanitization | Ecto queries with bound parameters, output encoding by React and in the SCORM manifests, LDAP filters from the `:eldap` constructors, Markdown without raw HTML, and pack files parsed without atoms and within size, depth and time limits | 1.2.5, 1.2.7 to 1.2.9, 1.3.1, 1.3.4, 1.3.8 to 1.3.10, 1.4.1 to 1.4.3, 1.5.1 |
+| V1 Encoding and Sanitization | Ecto queries with bound parameters, output encoding by React and in the SCORM manifests, LDAP filters from the `:eldap` constructors, Markdown without raw HTML, pack files parsed without atoms and within size, depth and time limits, the rebuild of every SVG file from an allowlist, the XML parser of the SVG rebuild without entities and external DTDs, and the ffmpeg and ffprobe processes, started with an argument list and without a shell | 1.2.7 to 1.2.9, 1.3.1, 1.3.8 to 1.3.10, 1.4.1 to 1.4.3 |
 | V2 Validation and Business Logic | OpenAPI request schemas and changesets, the cross-file and alignment checks of the pack validator, the documented business limits, transactions and anti-automation limits | 2.3.4 |
 | V3 Web Frontend Security | cookie attributes and `__Host-` names, the CSP and the other headers of README section 6.5, HSTS from the reverse proxy, a dedicated host name, `Cross-Origin-Opener-Policy` and Fetch Metadata (both Level 3) | none |
 | V4 API and Web Service | content types with `charset=utf-8`, no plain HTTP from other hosts, the client address from trusted proxies only, and the request framing probes | 4.3.1 and 4.3.2 (no GraphQL), 4.4.1 to 4.4.4 (no WebSocket) |
-| V5 File Handling | the pack upload with its size, entry and path checks, the drafts of the pack workbench, and the SCORM export downloads | 5.3.1, 5.4.3 |
+| V5 File Handling | the pack upload with its size, entry and path checks, the drafts of the pack workbench, the SCORM export downloads, the media upload with its signature, size and pixel checks and the conversion into new files, the malware scan with clamd, and the media route with fixed content types and a `sandbox` CSP | none |
 | V6 Authentication | passwords, passkeys, TOTP and recovery codes, failure counters, notifications, admin resets, and the sign-in through OIDC and LDAP | 6.6.1, 6.8.3 |
 | V7 Session Management | server-side sessions with inactivity and absolute limits, a new token at every sign-in and step-up, termination by users and admins, and the concurrent session limit | none |
 | V8 Authorization | role checks per route and the documented field access of learners and admins | 8.4.1 |
@@ -37,19 +37,20 @@ against the task specs in `make check`.
 | V11 Cryptography | AES-256-GCM through Cloak, keyed hashes with HMAC-SHA256, Argon2id, random values from a CSPRNG, the key lifecycle and the cryptographic inventory | 11.4.4 |
 | V12 Secure Communication | TLS of the reverse proxy example, of the database connection, of SMTP and of the directory, and the certificate check of every TLS client | 12.1.3 |
 | V13 Configuration | the documented connections, secrets from the environment, and no repository metadata, debug mode, directory listing or `TRACE` in production | none |
-| V14 Data Protection | protection levels of the account data, `Cache-Control: no-store` on the session, account, admin and credential routes, and client storage cleared at sign-out | none |
+| V14 Data Protection | protection levels of the account data, `Cache-Control: no-store` on the session, account, admin and credential routes, `private` caching of media files, and client storage and the HTTP cache cleared at sign-out | none |
 | V15 Secure Coding and Architecture | the dependency policy and audits, the resource-demanding functions, no extraneous functionality, mass assignment and parameter pollution defenses, outbound calls without redirects | none |
 | V16 Security Logging and Error Handling | security events as JSON lines on standard output, log forwarding over TLS, error answers without internals, and a sign-in that fails closed | none |
 | V17 WebRTC | nothing: the platform uses no WebRTC | every row |
 
 ### Deviations
 
-The platform deviates on purpose from eight requirements, from 11.4.1 in two
+The platform deviates on purpose from nine requirements, from 11.4.1 in two
 places. The section "Deviations" of the matrix holds each entry with its rule
 and reason, and README section 15 holds the decision.
 
 | Requirement | Rule | Reason | Decision |
 |---|---|---|---|
+| 5.4.3 Untrusted files scanned for malware | With `MEDIA_CLAMAV_SOCKET` set, every uploaded and imported media file passes a clamd `INSTREAM` scan before ffprobe, ffmpeg, the XML parser or the WebVTT check reads it, and a finding, an exceeded scan limit or a failed scan rejects the file. Without the setting, no scan runs. | A scan needs a clamd service with current signatures and the memory for them, which not every installation runs; `docs/guides/examples/compose.clamav.yaml` provides one. Without it, only authors with a recent second factor upload, the signature allowlist admits eight formats, ffmpeg writes every still image, every GIF and APNG and every converted video anew, an animated WebP is written anew in the BEAM without its metadata chunks while its frame bitstreams pass unchanged, a remuxed video passes its VP9 and Opus streams unchanged into a new WebM container, every SVG file is rebuilt, every WebVTT file is checked, no file is executed, and the media route serves files to signed-in users only, with a `sandbox` CSP and `nosniff`. | D19 |
 | 6.2.8 Passwords verified exactly as received | Every password is normalized to Unicode NFC (`Espalier.Accounts.PasswordPolicy.prepare/1`) before the length check, the blocklist checks, the breached-password check, the Argon2id hash and the verification. Directory passwords go to the LDAP server unchanged. | NIST SP 800-63B-4 section 3.1.1.2 asks verifiers that accept Unicode to apply NFC before hashing, so that a password verifies in the same way on every keyboard and device. | D12 |
 | 6.5.5 Lifetime of TOTP | TOTP accepts the code of the current and of the previous 30-second step, so a code is accepted for up to 60 seconds, and each code works once. | RFC 6238 section 5.2 recommends that a verifier accepts one past time step as transmission delay. E-mail links keep the limit of 10 minutes. | D15 |
 | 11.4.1 HMAC-SHA-1 in TOTP | TOTP codes are HMAC-SHA-1 values with 6 digits and 30-second steps (`nimble_totp` 1.0.0). | RFC 6238 builds TOTP on HOTP with HMAC-SHA-1, the key URI format of Google Authenticator states that its implementations ignore the algorithm parameter, and `nimble_totp` 1.0.0 offers no other algorithm. ASVS Appendix C rates HMAC-SHA-1 as legacy. | D14 |
@@ -135,7 +136,7 @@ lists every key, algorithm and protected column.
 
 ### Ignored advisories
 
-`mix.exs` lists three advisories under `hex: [ignore_advisories: [...]]`,
+`mix.exs` lists two advisories under `hex: [ignore_advisories: [...]]`,
 each with its reason in a comment. `mix hex.audit` honors the list from Hex
 2.5.1 on.
 
@@ -143,7 +144,6 @@ each with its reason in a comment. `mix hex.audit` honors the list from Hex
 |---|---|---|---|
 | EEF-CVE-2026-95105 (HIGH) | `cloak` 1.1.4 | `Cloak.Ciphers.AES.CTR` and `Cloak.Ciphers.Deprecated.AES.CTR`, which store no MAC | Espalier uses neither module: the vault holds only `Espalier.Crypto.StrictAESGCM` over `Cloak.Ciphers.AES.GCM`, and `test/espalier/crypto/cipher_allowlist_test.exs` fails if another cipher is configured or if `lib/` or `config/` names an affected module. No release fixes the advisory. |
 | EEF-CVE-2026-94206 (MEDIUM) | `cloak_ecto` 1.3.0 | `Cloak.Ecto.PBKDF2`, whose `dump/1` runs 32 rounds where 600,000 are configured | Espalier uses no PBKDF2 type; lookups use `Cloak.Ecto.HMAC`, and the same test fails if that changes. No release fixes the advisory. |
-| EEF-CVE-2026-105659 | `bandit` 1.12.5 | the HTTP/2 stack, in which a peer that sends small `WINDOW_UPDATE` frames keeps HTTP/2 stream processes alive | `config/config.exs` turns HTTP/2 off for the endpoint (`http_2_options: [enabled: false]`), and `test/espalier_web/endpoint_http2_test.exs` fails if that changes. The entry leaves `mix.exs` with the update to a release that fixes the advisory. |
 
 `key-management.md` holds the watch list, the triggers and the fallback plan
 for `cloak` and `cloak_ecto`.
@@ -221,6 +221,7 @@ logs a warning at boot.
 | Application to a webhook receiver | HTTPS only: the `Espalier.Credentials.Webhook` changeset admits no `http` URL in production | the default TLS options of Req: the certificate and the host name against the CA store of the operating system | `Espalier.Credentials.Webhook`, `Espalier.Credentials.WebhookWorker` |
 | Application to the Pwned Passwords range API | HTTPS (`https://api.pwnedpasswords.com/range/`) | the default TLS options of Req, as for webhooks | `Espalier.Accounts.BreachedPasswords` |
 | Docker daemon to a syslog receiver | `tcp+tls` to port 6514 | the certificate of the receiver against the CA of `syslog-tls-ca-cert` | `docs/guides/examples/compose.logging.yaml` |
+| Application to clamd | the Unix socket of `MEDIA_CLAMAV_SOCKET` in the volume `clamd-socket`, which only the containers of `app` and `clamav` mount; no network connection, so no TLS | none; the file system of the host decides who reaches the socket | `docs/guides/examples/compose.clamav.yaml`, `docs/guides/examples/clamd.conf` |
 
 ### Cipher suites of the reverse proxy example
 
@@ -328,6 +329,7 @@ request of the application follows no redirect.
 | Pwned Passwords range API | `api.pwnedpasswords.com` | 443 | only with `PASSWORD_BREACH_CHECK=hibp`; the default is `off` |
 | Other Espalier nodes (Erlang distribution) | the addresses that `DNS_CLUSTER_QUERY` resolves to | 4369 (epmd) and the distribution port of each node, which the runtime chooses at start unless `inet_dist_listen_min` and `inet_dist_listen_max` set a range | only with `DNS_CLUSTER_QUERY` and a `RELEASE_DISTRIBUTION` other than `none`; plain TCP without TLS unless the operator configures `-proto_dist inet_tls`, authenticated by `RELEASE_COOKIE` |
 | Syslog receiver, from the Docker daemon | `SYSLOG_HOST` | 6514 | with `docs/guides/examples/compose.logging.yaml` |
+| clamd | the Unix socket of `MEDIA_CLAMAV_SOCKET`, `/run/clamav/clamd.sock` in the example | none, a local socket | only with `MEDIA_CLAMAV_SOCKET`, for the scan of every uploaded and imported media file (`docs/guides/examples/compose.clamav.yaml`) |
 
 With `RELEASE_DISTRIBUTION=none`, the default, `DNS_CLUSTER_QUERY` leads to
 DNS lookups and opens no connection. In a cluster, each node also accepts
@@ -343,6 +345,17 @@ other local users needs the TLS distribution with `verify_peer` and
 distribution and without `RELEASE_COOKIE`
 ([`key-management.md`](../security/key-management.md), section "Memory of
 the running node").
+
+The server fetches no external media. A `video` block with an external file
+or an embed names a host of `MEDIA_EXTERNAL_HOSTS` or `MEDIA_EMBED_HOSTS`, and
+the browsers of the learners load the file or the player from that host; the
+CSP of the application admits exactly these hosts in `media-src` and
+`frame-src` ([`media.md`](media.md), section "External files and embeds").
+ffmpeg and ffprobe read their input with `-protocol_whitelist file`, so no
+media file makes them open a network connection. In the clamd example,
+freshclam in the container `clamav` fetches signatures from
+`database.clamav.net` once a day; the application has no part in
+that connection.
 
 [`identity-providers.md`](identity-providers.md), section "Outbound
 connections", gives the source of the provider hosts and explains why the
@@ -361,8 +374,10 @@ These functions demand memory, CPU time or disk beyond a common request
 |---|---|---|---|
 | Password hashing and verification | Argon2id with `t_cost: 2`, `m_cost: 16` (64 MiB) and `parallelism: 1`; one hash took 0.09 seconds on 2026-10-08 on a host with 16 CPU cores. Concurrent hashes run on the dirty CPU schedulers, one per core, so memory peaks at about their number times 64 MiB, 1 GiB on that host. | the rate limits of the sign-in and account routes (section "Rate limits, failure counters and the session limit"); the container memory limit, which must leave room for the peak plus the memory of the node | `config/config.exs`; `make argon2-bench` measures the parameters on the production image ([`authentication.md`](../security/authentication.md), section "Argon2 parameters") |
 | Pack import: the upload of the pack page, `mix espalier.import` and `Espalier.Release.import_pack/2` | reading, extracting and parsing a pack | the upload: at most `PACK_UPLOAD_MAX_MB` (default 20, 413 above it), at most 2,000 entries, declared uncompressed sizes of at most five times the upload limit, no symbolic links, absolute names, backslashes or `..` components, and the role `author` with a second factor in the last 10 minutes; the loader: 1 MiB per file, 32 MiB of decoded data per pack, 20,000 entries and 32 levels per pack directory, 50,000 YAML nodes and 32 levels of nesting per file, 10 seconds and 256 MiB per YAML parse, and 60 seconds per pack | `PACK_UPLOAD_MAX_MB`; [`content-packs.md`](content-packs.md) |
-| Check and import of a draft of the pack workbench | the loader of the pack import on the files of a draft | 2,000 files, 1,048,576 bytes per file, five times `PACK_UPLOAD_MAX_MB` per draft (104,857,600 bytes with the default) and 50 drafts; at most two checks, imports and downloads of drafts at once per node, and another one answers 429 `checks_busy`; the loader budget as above | `config :espalier, :pack_drafts` in `config/config.exs`; [`pack-workbench.md`](pack-workbench.md), section "Limits" |
+| Check and import of a draft of the pack workbench | the loader of the pack import on the files of a draft | 2,000 files, 1,048,576 bytes per file, five times `PACK_UPLOAD_MAX_MB` per draft (104,857,600 bytes with the default) and 50 drafts; at most two checks, imports and zip builds of draft downloads at once per node, and another one answers 429 `checks_busy`; the loader budget as above | `config :espalier, :pack_drafts` in `config/config.exs`; [`pack-workbench.md`](pack-workbench.md), section "Limits" |
 | SCORM export | building one zip package per module and SCORM version, disk in `EXPORT_DIR` | the Oban queue `exports` with one slot, so a node builds one package at a time while further requests wait in status `queued`; one attempt and a timeout of 30 minutes per job; a sweep every 15 minutes ends an export that has stayed `queued` or `running` for more than one hour; at most 100 packages of `done` exports, and a `done` or `failed` export is deleted with its files 7 days after its last change; the role `author` with a second factor in the last 10 minutes | `config/config.exs` (queue `exports`, `:export_retention`); [`scorm-export.md`](scorm-export.md) |
+| Media processing: the conversion of uploaded and imported media files with ffmpeg and ffprobe, the SVG rebuild, the WebVTT check and the malware scan | decoding and encoding of images and videos with CPU time, memory and disk in the container of `app`; ffmpeg runs as a program of its own | two image jobs (queue `media: 2`) and one video job (queue `media_video: 1`) at a time in the server, plus one inline job of an import that `mix espalier.import` or `Espalier.Release.import_pack/2` runs next to it; `MEDIA_FFMPEG_THREADS` threads per ffmpeg and ffprobe process (default 2, at most 16) through `-threads` and `-filter_threads`; `-max_alloc 536870912` per allocation; a deadline per job through `timeout --kill-after=10`: `image_timeout_seconds` (120) for an image, SVG or captions job, and `max(video_timeout_floor_seconds, video_timeout_factor * duration) + image_timeout_seconds` for a video job, with `video_timeout_floor_seconds` 600 and `video_timeout_factor` 25; a clamd scan timeout of 60 seconds plus one second per 4 MiB; the sizes `MEDIA_IMAGE_MAX_MB` (default 20), 1,048,576 bytes per SVG file, 524,288 bytes per WebVTT file and `MEDIA_VIDEO_MAX_MB` (default 1024); 40,000,000 pixels per image, checked in the header before any decoder and passed as `-max_pixels`; 3840 by 2160 pixels per video frame; 1,000 frames per animated image; `MEDIA_VIDEO_MAX_MINUTES` (default 60); `MEDIA_VIDEO_MAX_HEIGHT` (default 1080) and `MEDIA_IMAGE_MAX_EDGE` (default 2560) for the output; 10,000 cues per WebVTT file; the quota `MEDIA_STORAGE_MAX_GB` (default 50); at most 500 media files per pack and 500 media entries per draft; the upload only for the role `author` with a second factor in the last 10 minutes | the `MEDIA_*` variables; `config :espalier, :media` and the queues in `config/config.exs`; [`media.md`](media.md), sections "Settings", "Limits and quota" and "Failures and timeouts" |
+| Media downloads: the media route, a draft download with media and a SCORM export with media | reading and zipping media files | the media route serves files with byte ranges through `Plug.Static`; a draft download and the media of one SCORM package stay within `export_max_mb` (1,024 MB), write `.webp` and `.webm` entries without compression and read every file in blocks; a draft download builds its zip below `MEDIA_DIR/work/` in one of the two slots of the checks and imports and frees that slot once the zip is written; at most two draft downloads run at once per node and one per user (`max_parallel_downloads`), each from the zip build until its zip is sent and removed, and another one answers 429 `checks_busy` and builds nothing; it sends the zip in blocks of 64 KiB within a deadline of the size of the zip at 256 KiB per second and at least 60 seconds, and a client that stops reading for the send timeout of 30 seconds loses the connection earlier; either end frees the slot | `config :espalier, :media` and `config :espalier, :pack_drafts` in `config/config.exs`; [`pack-workbench.md`](pack-workbench.md), [`scorm-export.md`](scorm-export.md) |
 | Reports of task 0014 | six GET routes under `/api/insights` for the role `analyst`; each request reads the aggregated anonymous tables of one program, and the credential report the credentials of the program per qualification and status | no limit of their own: no queue and no rate limit bucket | none |
 
 ## Rate limits, failure counters and the session limit
@@ -422,6 +437,18 @@ nix-shell -p jq --run "jq '[.. | objects | select(has(\"resolved\")) | .resolved
 ```
 
 The first two commands print the same number, and the third prints `0`.
+
+The media processing adds three components outside these lock files:
+
+| Component | Version | Where | Update path |
+|---|---|---|---|
+| ffmpeg and ffprobe, the Debian package `ffmpeg` | 7.1.5 (package `7:7.1.5-0+deb13u1`) on 2026-10-15 | the runner image, installed with `apt-get install --no-install-recommends ffmpeg` on `debian:trixie-20261005-slim` | `apt-get update` at every image build fetches the current package of trixie and of its security archive, so `make docker-build` takes a security update of Debian; the monthly update moves `DEBIAN_VERSION` in the `Dockerfile` to a newer image. The package is built with GPL components; the release starts ffmpeg as a program of its own and links none of it, and `NOTICE` names the package. |
+| `ffmpeg-headless` of nixpkgs | 8.1.2 | `shell.nix`, for development, the tests and CI | the nixpkgs revision that `shell.nix` pins; the monthly update moves the pin |
+| ClamAV in the image `clamav/clamav` | `clamav/clamav:1.5.4` | `docs/guides/examples/compose.clamav.yaml`, optional | the tag in the example file, which the monthly update moves to the current stable release; freshclam in the container updates the signatures once a day. The development shell carries ClamAV 1.4.6 of nixpkgs for the integration test. |
+
+The boot check of a production instance refuses an ffmpeg older than 7.1 and
+one without the encoders and demuxers of the conversion
+([`media.md`](media.md), section "Settings").
 
 `make check` audits the dependencies (ASVS 15.2.1): `mix hex.audit` with
 Hex 2.5.1 or later, which `scripts/check-hex-version.sh` checks first,

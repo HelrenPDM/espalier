@@ -33,6 +33,13 @@
     break-before: page;
   }
 
+  /* A video and an embed player do not print; the video block keeps its
+     title and prints the line "Video: see the online lesson" (0018). */
+  video,
+  iframe {
+    display: none;
+  }
+
   /* A credential prints on one A4 page at the full width of the page. */
   .credential-sheet {
     max-width: none;

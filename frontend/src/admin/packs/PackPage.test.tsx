@@ -30,7 +30,9 @@ import { PackPage } from "./PackPage";
  *
  * Task 0016a step 12: "Edit in the workbench" appears for a `validated` or
  * `published` import, creates a draft from the import and moves to it; a
- * 409 `draft_limit` names the limit and the advice to delete a draft.
+ * 409 `draft_limit` names the limit and the advice to delete a draft. Task
+ * 0018: a 409 `media_not_ready` names the captions files with their state,
+ * and a 409 `media_limit` names the limit of media files.
  */
 const ID = "00000000-0000-4000-8000-000000000501";
 const PATH = `/api/admin/packs/${ID}`;
@@ -101,6 +103,12 @@ function pack(overrides: Partial<PackImport> = {}): PackImport {
       ],
       warnings: [warning],
     },
+    media: {},
+    media_policy: {
+      external_hosts: [],
+      embed_hosts: [],
+      embed_consent: "click",
+    },
     alignment: {
       mode: "strict",
       matrix: matrix(),
@@ -144,6 +152,7 @@ const diff: PackDiff = {
   sources: emptyKind,
   segments: emptyKind,
   glossary_terms: emptyKind,
+  media: emptyKind,
 };
 
 function renderPage(body: PackImport, responses: StubResponses = {}) {
@@ -501,5 +510,53 @@ describe("Edit in the workbench", () => {
       ).toBe(true),
     );
     expect(location()).toBe(`/admin/packs/${ID}`);
+  });
+
+  test("a 409 media_not_ready names the captions files with their state and asks to wait", async () => {
+    const { user, location, container } = renderPage(publishable(), {
+      "POST /api/admin/pack-drafts": {
+        status: 409,
+        body: {
+          error: "media_not_ready",
+          media: [
+            { path: "media/intro-en.vtt", status: "processing", failure: null },
+            {
+              path: "media/intro-de.vtt",
+              status: "failed",
+              failure: "invalid_captions",
+            },
+          ],
+        },
+      },
+    });
+
+    await user.click(
+      await screen.findByRole("button", { name: "Edit in the workbench" }),
+    );
+
+    const notice = await screen.findByText(
+      "The draft cannot start yet, because these captions files of the pack are not ready: media/intro-en.vtt (Processing), media/intro-de.vtt (Failed). Wait until their conversion has finished, then start again. A failed or missing file has to be replaced in the pack first.",
+    );
+    expect(notice.closest('[role="alert"]')).not.toBeNull();
+    expect(location()).toBe(`/admin/packs/${ID}`);
+    await expectNoAxeViolations(container);
+  });
+
+  test("a 409 media_limit names the limit of media files", async () => {
+    const { user } = renderPage(publishable(), {
+      "POST /api/admin/pack-drafts": {
+        status: 409,
+        body: { error: "media_limit" },
+      },
+    });
+
+    await user.click(
+      await screen.findByRole("button", { name: "Edit in the workbench" }),
+    );
+
+    const notice = await screen.findByText(
+      "The pack has more media files than a draft may hold. A draft holds at most 500 media files.",
+    );
+    expect(notice.closest('[role="alert"]')).not.toBeNull();
   });
 });

@@ -12,13 +12,23 @@ defmodule EspalierWeb.Admin.PackDraftController do
   `PACK_UPLOAD_MAX_MB` (ASVS 5.2.1).
 
   `Espalier.Workbench.CheckLimiter` admits at most
-  `Espalier.Workbench.max_parallel_checks/0` checks and imports at once;
+  `Espalier.Workbench.max_parallel_checks/0` checks, imports and zip builds
+  of downloads at once, and `Espalier.Workbench.DownloadLimiter` at most
+  `Espalier.Workbench.max_parallel_downloads/0` downloads, one per user;
   another one answers 429 `checks_busy` with `retry-after: 5`. A request
   with a `lock_version` that differs from the stored one answers 409
   `stale_draft` with the stored version, which this controller renders
   itself. The download sends the zip with the generated name
-  `<pack key>-draft.zip` through `Phoenix.Controller.send_download/3`, so no
-  request parameter names a file (ASVS 5.4.1 and 5.4.2).
+  `<pack key>-draft.zip` through `EspalierWeb.BlockDownload.send_download/3`,
+  which sets the headers of `Phoenix.Controller.send_download/3`, so no
+  request parameter names a file (ASVS 5.4.1 and 5.4.2). It sends the zip
+  after its build has freed the slot of the checks, in blocks of 64 KiB,
+  and keeps its slot of the downloads until the transfer has ended and the
+  staging directory is removed. The transfer ends at its deadline, the time
+  of the zip at `Espalier.Workbench.download_min_bytes_per_second/0` and at
+  least `Espalier.Workbench.download_floor_seconds/0`, and a client that
+  reads nothing for the send timeout of the socket, 30 seconds, loses the
+  connection before it.
   """
   use EspalierWeb, :controller
   use OpenApiSpex.ControllerSpecs
@@ -26,7 +36,7 @@ defmodule EspalierWeb.Admin.PackDraftController do
   alias Espalier.Workbench
   alias EspalierWeb.Admin.{PackDraftJSON, PackJSON}
   alias EspalierWeb.ApiSpec.Responses
-  alias EspalierWeb.PackMultipart
+  alias EspalierWeb.{BlockDownload, PackMultipart}
   alias EspalierWeb.Schemas.{Admin, Fields}
   alias OpenApiSpex.Schema
 
@@ -94,8 +104,10 @@ defmodule EspalierWeb.Admin.PackDraftController do
         %{
           201 => {"The draft", "application/json", Admin.PackDraft},
           409 =>
-            {"Error codes: `draft_limit`, `no_payload`, `too_many_files`, `draft_too_large`",
-             "application/json", Admin.StaleDraft}
+            {"Error codes: `draft_limit`, `no_payload`, `too_many_files`, `draft_too_large`, " <>
+               "`media_limit`, and `media_not_ready` with the captions files that are not " <>
+               "ready yet", "application/json",
+             %Schema{oneOf: [Admin.StaleDraft, Admin.MediaNotReady]}}
         },
         Responses.errors(
           Responses.author_write([{404, ["not_found"]}, {422, ["validation_failed"]}])
@@ -148,8 +160,15 @@ defmodule EspalierWeb.Admin.PackDraftController do
         "pack layout (`pack.yaml`, `sources.yaml`, `glossary.yaml`, `segments.yaml`, " <>
         "`stations.yaml`, `feedback.yaml`, `qualifications.yaml`, `formats.yaml`, " <>
         "`modules/<dir>/{module,objectives,rules,items,assessment}.yaml` and " <>
-        "`modules/<dir>/lessons/<key>.md`) and lists every other file in `skipped`. " <>
-        "Each kept file is UTF-8 text without U+0000 of at most 1,048,576 bytes. " <> @limits,
+        "`modules/<dir>/lessons/<key>.md`) and the captions files `.vtt` below `media/` " <>
+        "as text files; each kept file is UTF-8 text without U+0000 of at most " <>
+        "1,048,576 bytes. Every other file below `media/` whose path passes the media " <>
+        "path rules, at most 500 (`max_draft_media`), becomes an asset of the media " <>
+        "library and a media entry of the draft at its delivery path (`.webp`, `.svg` or " <>
+        "`.webm`), and the directives of the lessons follow the new paths. A media file " <>
+        "that the library refuses and two media files with one delivery path reject the " <>
+        "archive with 422 entries at their paths. These media files never appear in " <>
+        "`skipped`, which lists every other file of the archive. " <> @limits,
     security: Responses.session_and_csrf(),
     request_body:
       {"The archive", "multipart/form-data",
@@ -165,8 +184,9 @@ defmodule EspalierWeb.Admin.PackDraftController do
         %{
           201 => {"The draft with the skipped paths", "application/json", Admin.PackDraft},
           409 =>
-            {"Error codes: `draft_limit`, `too_many_files`, `draft_too_large`",
-             "application/json", Admin.StaleDraft},
+            {"Error codes: `draft_limit`, `too_many_files`, `draft_too_large`, and " <>
+               "`media_limit` for more than 500 media files below `media/` other than " <>
+               "captions (`max_draft_media`)", "application/json", Admin.StaleDraft},
           422 => {"The rejected archive", "application/json", Admin.ArchiveRejected}
         },
         Responses.errors(
@@ -234,7 +254,8 @@ defmodule EspalierWeb.Admin.PackDraftController do
     description:
       "Runs the loader and the validator of the pack format on the files of the draft, " <>
         "with the unsaved `content` of the file `file_id` when both are given, and " <>
-        "changes no state. At most two checks and imports run at once.",
+        "changes no state. At most two checks, imports and zip builds of draft downloads " <>
+        "run at once.",
     security: Responses.session_and_csrf(),
     parameters: @id,
     request_body:
@@ -273,7 +294,8 @@ defmodule EspalierWeb.Admin.PackDraftController do
     description:
       "Validates the files of the draft as an upload of the same files would and stores " <>
         "the import; the pack page continues with report, diff, preview and publish. " <>
-        "The draft stays. At most two checks and imports run at once.",
+        "The draft stays. At most two checks, imports and zip builds of draft downloads " <>
+        "run at once.",
     security: Responses.session_and_csrf(),
     parameters: @id,
     request_body:
@@ -317,10 +339,18 @@ defmodule EspalierWeb.Admin.PackDraftController do
   operation :download,
     summary: "Download a draft as a zip archive",
     description:
-      "Sends the files in the pack layout at the root of a zip archive named " <>
-        "`<pack key>-draft.zip`, or `pack-draft.zip` without a usable pack key. " <>
-        "The archive is built in memory, so a download takes one of the two slots " <>
-        "of the checks and imports.",
+      "Sends the files and the media files in the pack layout at the root of a zip " <>
+        "archive named `<pack key>-draft.zip`, or `pack-draft.zip` without a usable " <>
+        "pack key. The media of a draft stay within `export_max_mb` (1,024 MB; 409 " <>
+        "`download_too_large`), and a media file that is not ready answers 409 " <>
+        "`media_not_ready`. At most two downloads run at once, one per user; a " <>
+        "download builds the archive in one of the two slots of the checks and " <>
+        "imports and frees it before the transfer. When the user runs a download " <>
+        "already or no slot is free, the download answers 429 `checks_busy` and " <>
+        "builds nothing. The transfer ends at its deadline, the size of the archive " <>
+        "at 256 KiB per second and at least 60 seconds, or when the client reads " <>
+        "nothing for 30 seconds; the client then holds fewer bytes than " <>
+        "`content-length`.",
     security: Responses.session(),
     parameters: @id,
     responses:
@@ -329,15 +359,27 @@ defmodule EspalierWeb.Admin.PackDraftController do
         Responses.errors(
           Responses.author_read([
             {404, ["not_found"]},
+            {409, ["download_too_large", "media_not_ready"]},
             {422, ["validation_failed"]},
             {429, ["checks_busy"]}
           ])
         )
       )
 
+  # The zip and its staging directory come from
+  # Espalier.Media.Store.staging_dir/0; the name follows the key format. The
+  # send runs inside the slot of the download and ends at its deadline or at
+  # the first block that the client does not take within the send timeout,
+  # and the context removes the directory after it, also when the send
+  # fails.
   def download(conn, %{id: id}) do
-    with {:ok, %{name: name, zip: zip}} <- Workbench.download(conn.assigns.current_scope, id) do
-      send_download(conn, {:binary, zip}, filename: name, content_type: "application/zip")
-    end
+    Workbench.download(conn.assigns.current_scope, id, fn %{name: name, path: path} ->
+      BlockDownload.send_download(conn, path,
+        filename: name,
+        content_type: "application/zip",
+        min_rate: Workbench.download_min_bytes_per_second(),
+        floor_ms: Workbench.download_floor_seconds() * 1_000
+      )
+    end)
   end
 end

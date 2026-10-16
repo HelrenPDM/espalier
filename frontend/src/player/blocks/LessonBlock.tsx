@@ -3,11 +3,16 @@ import { CalloutBlock } from "./CalloutBlock";
 import { CaseComparisonBlock } from "./CaseComparisonBlock";
 import { ExampleBlock } from "./ExampleBlock";
 import { ExplanationBlock } from "./ExplanationBlock";
+import { FigureBlock } from "./FigureBlock";
 import { PlaceholderBlock } from "./PlaceholderBlock";
 import { QuoteBlock } from "./QuoteBlock";
 import { TextBlock } from "./TextBlock";
+import { VideoBlock } from "./VideoBlock";
 
-/** Renders a block by its kind. */
+/**
+ * Renders a block by its kind. The switch ends with an exhaustiveness
+ * check, so a kind of the API without a component fails `tsc`.
+ */
 export function LessonBlock({
   block,
   defaultOpen,
@@ -40,5 +45,14 @@ export function LessonBlock({
       return <CalloutBlock block={block} />;
     case "placeholder":
       return <PlaceholderBlock block={block} />;
+    case "figure":
+      return <FigureBlock block={block} />;
+    case "video":
+      return <VideoBlock block={block} />;
+    default: {
+      const unknown: never = block.kind;
+      void unknown;
+      return null;
+    }
   }
 }

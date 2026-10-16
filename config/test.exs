@@ -27,7 +27,12 @@ config :espalier, Espalier.Repo,
   port: database_port,
   database: "espalier_test#{System.get_env("MIX_TEST_PARTITION")}",
   pool: Ecto.Adapters.SQL.Sandbox,
-  pool_size: System.schedulers_online() * 2
+  pool_size: System.schedulers_online() * 2,
+  # Tasks of one test share its sandbox connection and wait for each other.
+  # With the defaults (50 and 1,000 ms) a busy machine, for example while
+  # the media tests run ffmpeg, drops such a wait after about one second.
+  queue_target: 5_000,
+  queue_interval: 10_000
 
 # We don't run a server during test. If one is required,
 # you can enable the server option below.

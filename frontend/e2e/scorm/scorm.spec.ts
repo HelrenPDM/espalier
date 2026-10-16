@@ -5,7 +5,7 @@ import {
   type Locator,
   type Page,
 } from "@playwright/test";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import {
   copyFile,
   mkdir,
@@ -21,6 +21,10 @@ import { dirname, extname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { unzipSync } from "fflate";
 import { parse } from "yaml";
+import {
+  expectImageLoaded,
+  expectVideoPlaysWithCaptions,
+} from "../support/media.ts";
 import { createStaffUser, type StaffUser } from "../support/staff.ts";
 
 // An author exports modules 1 and 2 of the demo pack as SCORM 1.2 and SCORM
@@ -48,6 +52,27 @@ const objectiveKeys = (number: number): string[] =>
   (
     parse(pack(`${MODULE_DIRS[number]}/objectives.yaml`)) as { key: string }[]
   ).map((objective) => objective.key);
+
+/**
+ * The `media/` paths that the lessons of module `number` reference (task
+ * 0018, step 20): the `src` of a figure or video and each file of
+ * `captions`. Module 1 holds the demo video and its captions, module 2 the
+ * SVG figure.
+ */
+const mediaPaths = (number: number): string[] => {
+  const dir = `${MODULE_DIRS[number]}/lessons`;
+  const files = readdirSync(
+    new URL(`../../../content/demo/${dir}`, import.meta.url),
+  );
+  const paths = files.flatMap((file) =>
+    [
+      ...pack(`${dir}/${file}`).matchAll(
+        /\b(?:src|captions)="?(media\/[a-z0-9/-]+\.[a-z0-9]+)/g,
+      ),
+    ].map((match) => match[1]),
+  );
+  return [...new Set(paths)].sort();
+};
 
 // The objectives of module 1 that the exam items name, and those whose only
 // evidence is the companion format `workshop`.
@@ -149,7 +174,15 @@ interface ClassificationConfig {
 interface ChecklistDrillConfig {
   checks: { key: string; label: string; required: boolean }[];
 }
+/** A media file of a package: its delivery file below `media/`. */
+interface ContentMedia {
+  kind: "image" | "svg" | "video" | "captions";
+  url: string;
+  mime: string;
+  poster_url: string | null;
+}
 interface Content {
+  media: Record<string, ContentMedia>;
   module: {
     number: number;
     title: string;
@@ -211,6 +244,10 @@ const CONTENT_TYPES: Record<string, string> = {
   ".json": "application/json",
   ".xml": "application/xml",
   ".xsd": "application/xml",
+  ".webp": "image/webp",
+  ".svg": "image/svg+xml; charset=utf-8",
+  ".webm": "video/webm",
+  ".vtt": "text/vtt; charset=utf-8",
 };
 
 /** Serves the files below `dir` on a free port of 127.0.0.1. */
@@ -576,12 +613,68 @@ test("an author exports modules 1 and 2 in both versions and downloads the packa
       await readFile(join(root, dir, "content.json"), "utf8"),
     ) as Content;
     expect(content.module.number).toBe(number);
+    // The media of the lessons (task 0018, step 17): every `media/` path
+    // of the module maps to a delivery file of the package, named after
+    // its digest, and the package holds that file and the poster of a
+    // video.
+    expect(Object.keys(content.media).sort()).toEqual(mediaPaths(number));
+    for (const [path, entry] of Object.entries(content.media)) {
+      const ext = { image: "webp", svg: "svg", video: "webm", captions: "vtt" }[
+        entry.kind
+      ];
+      expect(entry.url, path).toMatch(
+        new RegExp(`^media/[0-9a-f]{64}\\.${ext}$`),
+      );
+      expect(names, path).toContain(entry.url);
+      if (entry.kind === "video") {
+        expect(entry.poster_url, path).toMatch(/^media\/[0-9a-f]{64}\.webp$/);
+        expect(names, `${path} poster`).toContain(entry.poster_url);
+      }
+    }
+    expect(
+      Object.values(content.media)
+        .map((entry) => entry.kind)
+        .sort(),
+    ).toEqual(number === 1 ? ["captions", "video"] : ["svg"]);
     // The objectives of the module in position order.
     expect(content.module.objectives.map((objective) => objective.key)).toEqual(
       objectiveKeys(number),
     );
     packages.set(`${number}-${version.key}`, { dir, content });
   }
+});
+
+test("the packages play the demo video with captions and show the SVG figure", async ({
+  page,
+}) => {
+  test.setTimeout(60_000);
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  const version = VERSIONS[1];
+
+  // Module 1: the video of lesson 1 with its English captions, served by
+  // the stand-in LMS from the files of the package.
+  const first = await launch(page, 1, version);
+  const video = first.sco.locator("video");
+  await expect(video.locator("source")).toHaveAttribute(
+    "src",
+    /^media\/[0-9a-f]{64}\.webm$/,
+  );
+  await expect(video.locator("track")).toHaveAttribute(
+    "src",
+    /^media\/[0-9a-f]{64}\.vtt$/,
+  );
+  await expectVideoPlaysWithCaptions(video);
+  await endSession(first);
+
+  // Module 2: the SVG figure of lesson 2 through an <img>.
+  const second = await launch(page, 2, version);
+  const image = second.sco.locator("figure img");
+  await expect(image).toHaveCount(1);
+  await expect(image).toHaveAttribute("src", /^media\/[0-9a-f]{64}\.svg$/);
+  await expectImageLoaded(image);
+  await endSession(second);
+  expect(errors).toEqual([]);
 });
 
 for (const version of VERSIONS) {

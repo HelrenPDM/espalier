@@ -148,6 +148,14 @@ for path in / /api/session /health; do
   esac
 done
 
+# The media route without a session (task 0018, step 13): 401 with the
+# CSP of the media route in place of the CSP of the application.
+media_csp="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'; sandbox"
+zeros=0000000000000000000000000000000000000000000000000000000000000000
+status=$(fetch "$work/h" "$work/b" "$base/media/$zeros.webp")
+expect "GET /media/<64 zeros>.webp: status" "$status" "401"
+expect "GET /media/<64 zeros>.webp: content-security-policy" "$(values "$work/h" content-security-policy)" "$media_csp"
+
 # The session cookie and the CSRF token of GET /api/session.
 fetch "$work/session-h" "$work/session-b" "$base/api/session" >/dev/null
 session_cookie=$(cookie_line "$work/session-h" __Host-espalier)

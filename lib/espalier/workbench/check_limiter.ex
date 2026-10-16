@@ -1,14 +1,20 @@
 defmodule Espalier.Workbench.CheckLimiter do
   @moduledoc """
-  Bounds the checks and the imports from drafts that run at once on a node
-  (task 0016a, step 6; ASVS 15.2.2).
+  Bounds the checks, the imports and the zip builds of draft downloads that
+  run at once on a node (task 0016a, step 6, and task 0018, step 16; ASVS
+  15.2.2). A download builds its zip inside `run/1` and frees the slot once
+  the zip is written; it sends the zip under
+  `Espalier.Workbench.DownloadLimiter`, a second server of this module, so a
+  transfer takes no slot of the checks and imports.
 
   `run/1` asks this server for a slot. While fewer than
   `Espalier.Workbench.max_parallel_checks/0` slots are taken (2 by default),
   the server grants one and monitors the caller, so that a caller that dies
   frees its slot; otherwise `run/1` answers `{:error, :checks_busy}` at once,
   without a queue. The setting is read at each request, so a changed value
-  applies to the next one.
+  applies to the next one. `run/4` asks another server of this module with
+  its own bound and a key, such as the user of a download: the server
+  grants no second slot to a key that holds one.
 
   `await/1` runs the work of a slot in a task of
   `Espalier.Workbench.TaskSupervisor` and waits for the time budget of the
@@ -27,29 +33,44 @@ defmodule Espalier.Workbench.CheckLimiter do
   @task_supervisor Espalier.Workbench.TaskSupervisor
   @margin_ms 10_000
 
-  @doc "Starts the server under the name of the module."
-  def start_link(opts \\ []), do: GenServer.start_link(__MODULE__, :ok, opts)
+  @doc """
+  Starts a server under the name `name` of `opts`, the name of the module by
+  default.
+  """
+  def start_link(opts \\ []),
+    do: GenServer.start_link(__MODULE__, :ok, Keyword.put_new(opts, :name, __MODULE__))
 
   @doc false
   def child_spec(opts) do
-    %{
-      id: __MODULE__,
-      start: {__MODULE__, :start_link, [Keyword.put_new(opts, :name, __MODULE__)]}
-    }
+    opts = Keyword.put_new(opts, :name, __MODULE__)
+    %{id: Keyword.fetch!(opts, :name), start: {__MODULE__, :start_link, [opts]}}
   end
 
   @doc """
-  Runs `fun` in a slot and frees the slot afterwards. Returns the result of
-  `fun`, or `{:error, :checks_busy}` when every slot is taken.
+  Runs `fun` in a slot of the checks and imports and frees the slot
+  afterwards. Returns the result of `fun`, or `{:error, :checks_busy}` when
+  every slot is taken.
   """
   @spec run((-> result)) :: result | {:error, :checks_busy} when result: term()
-  def run(fun) when is_function(fun, 0) do
-    case GenServer.call(__MODULE__, {:acquire, Workbench.max_parallel_checks()}) do
+  def run(fun) when is_function(fun, 0),
+    do: run(__MODULE__, Workbench.max_parallel_checks(), nil, fun)
+
+  @doc """
+  Runs `fun` in a slot of the server `server`, which grants at most `max`
+  slots at once and, unless `key` is `nil`, at most one to `key`, and frees
+  the slot afterwards. Returns the result of `fun`, or
+  `{:error, :checks_busy}` when no slot is granted.
+  """
+  @spec run(GenServer.server(), pos_integer(), term(), (-> result)) ::
+          result | {:error, :checks_busy}
+        when result: term()
+  def run(server, max, key, fun) when is_integer(max) and max > 0 and is_function(fun, 0) do
+    case GenServer.call(server, {:acquire, max, key}) do
       {:ok, ref} ->
         try do
           fun.()
         after
-          GenServer.call(__MODULE__, {:release, ref})
+          GenServer.call(server, {:release, ref})
         end
 
       :busy ->
@@ -112,11 +133,12 @@ defmodule Espalier.Workbench.CheckLimiter do
   @impl GenServer
   def init(:ok), do: {:ok, %{}}
 
+  # The slots map the monitor of each holder to its key.
   @impl GenServer
-  def handle_call({:acquire, max}, {pid, _tag}, slots) do
-    if map_size(slots) < max do
+  def handle_call({:acquire, max, key}, {pid, _tag}, slots) do
+    if map_size(slots) < max and not held?(slots, key) do
       ref = Process.monitor(pid)
-      {:reply, {:ok, ref}, Map.put(slots, ref, pid)}
+      {:reply, {:ok, ref}, Map.put(slots, ref, key)}
     else
       {:reply, :busy, slots}
     end
@@ -130,4 +152,7 @@ defmodule Espalier.Workbench.CheckLimiter do
   @impl GenServer
   def handle_info({:DOWN, ref, :process, _pid, _reason}, slots),
     do: {:noreply, Map.delete(slots, ref)}
+
+  defp held?(_slots, nil), do: false
+  defp held?(slots, key), do: Enum.any?(slots, fn {_ref, held} -> held == key end)
 end

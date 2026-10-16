@@ -17,7 +17,13 @@ defmodule Espalier.WorkbenchTest do
     * the download of step 8 at context level;
     * the audit events of step 10 (ASVS 2.3.3): `pack_draft.created` and
       `pack_draft.deleted` with actor, subject and details, and no event for
-      a file change.
+      a file change;
+    * the media of task 0018 (step 16; ASVS 2.3.2 and 2.3.3): the media
+      entries with their `lock_version`, path rules and limits, a captions
+      asset as a text file, the media of the starting points, the check
+      and the import with the mapping of the entries, and the staged
+      download with hard links to the store, an asset deleted during the
+      download, `download_too_large` and `media_not_ready`.
   """
   # The tests change application settings, which every process reads.
   use Espalier.DataCase, async: false
@@ -26,11 +32,13 @@ defmodule Espalier.WorkbenchTest do
   import Espalier.PackFixtures, only: [demo_path: 0]
 
   alias Espalier.Accounts.Scope
-  alias Espalier.{AccountsFixtures, Catalog, Workbench}
+  alias Espalier.{AccountsFixtures, Catalog, Media, MediaFixtures, Workbench}
   alias Espalier.Audit.AuditEvent
+  alias Espalier.Catalog.Pack.{Loader, Validator}
   alias Espalier.Catalog.{PackImport, Program}
   alias Espalier.Interop.{PackWriter, Payload}
-  alias Espalier.Workbench.{PackDraft, PackDraftFile}
+  alias Espalier.Media.{Asset, Store}
+  alias Espalier.Workbench.{PackDraft, PackDraftFile, PackDraftMedia}
   alias EspalierWeb.PackMultipart
 
   # The six files of the skeleton for the name "New pack" (step 5).
@@ -133,6 +141,10 @@ defmodule Espalier.WorkbenchTest do
 
   @lesson_dir "modules/01-first-module/lessons/"
 
+  # The media entries of a draft of the demo pack; its captions are a text
+  # file (task 0018, step 16).
+  @demo_entry_paths ["media/assistant-demo.webm", "media/release-checks.svg"]
+
   setup do
     author = user_with_role_fixture(:author)
     %{author: author, scope: author_scope(author)}
@@ -181,15 +193,107 @@ defmodule Espalier.WorkbenchTest do
     Repo.all(from e in AuditEvent, where: e.action == ^action, order_by: e.inserted_at)
   end
 
+  # The import of the demo pack with the media of MediaFixtures, which needs
+  # no ffmpeg (task 0018, step 23).
+  defp import_demo!(scope) do
+    {:ok, %PackImport{status: :validated} = pack_import} =
+      Catalog.import_pack(scope, demo_path(), media: demo_media())
+
+    pack_import
+  end
+
   defp publish_demo!(scope) do
-    {:ok, %PackImport{status: :validated} = pack_import} = Catalog.import_pack(scope, demo_path())
+    pack_import = import_demo!(scope)
     {:ok, %PackImport{status: :published}} = Catalog.publish_pack(scope, pack_import)
     %Program{status: :published} = Catalog.get_program_by_slug(pack_import.pack_key)
   end
 
-  defp unzip!(zip) do
-    {:ok, entries} = :zip.unzip(zip, [:memory])
+  defp demo_media, do: MediaFixtures.media_for(demo_path())
+
+  # The captions of the demo pack as {path, content}: a draft of the demo
+  # pack holds them as a text file.
+  defp demo_captions do
+    path = "media/assistant-demo-en.vtt"
+    {path, File.read!(Path.join(demo_path(), path))}
+  end
+
+  # The media entries that a draft of the demo pack holds, as {path, asset
+  # id}.
+  defp demo_entries do
+    media = demo_media()
+    for path <- @demo_entry_paths, do: {path, media[path]}
+  end
+
+  defp media_pairs(%PackDraft{media: media}), do: Enum.map(media, &{&1.path, &1.media_asset_id})
+
+  # Downloads the draft and reads the zip in the function of the download,
+  # where the controller sends it; the staging directory is gone afterwards.
+  defp download!(scope, draft_id) do
+    assert {:ok, {name, entries, dir}} =
+             Workbench.download(scope, draft_id, fn %{name: name, path: path, dir: dir} ->
+               assert Path.dirname(path) == dir
+               {:ok, {name, unzip!(path), dir}}
+             end)
+
+    refute File.exists?(dir)
+    {name, entries}
+  end
+
+  # The function of a download that must not build a zip.
+  defp no_zip(_zip), do: flunk("the download built a zip")
+
+  defp unzip!(path) do
+    {:ok, entries} = :zip.unzip(String.to_charlist(path), [:memory])
     Enum.map(entries, fn {name, content} -> {List.to_string(name), content} end)
+  end
+
+  # The directories below MEDIA_DIR/work, among them the staging directories
+  # of the downloads.
+  defp work_dirs, do: Store.work_root() |> Path.join("*") |> Path.wildcard() |> Enum.sort()
+
+  # A ready asset of `kind` whose delivery file holds `content`, unique per
+  # call unless `content` is given.
+  defp asset!(kind, content \\ nil) do
+    ext = Media.delivery_ext(kind)
+    content = content || "#{kind} #{System.unique_integer([:positive])} #{random()}"
+    file = Path.join(System.tmp_dir!(), "espalier-asset-#{random()}.#{ext}")
+    File.write!(file, content)
+    on_exit(fn -> File.rm(file) end)
+    MediaFixtures.stored_asset!(file, kind, ext, %{width: 64, height: 48})
+  end
+
+  defp queued_asset!(kind) do
+    Repo.insert!(%Asset{
+      kind: kind,
+      status: :queued,
+      title: "A queued asset",
+      source_sha256: MediaFixtures.random_sha256(),
+      incoming_bytes: 1,
+      progress: 0,
+      origin: :upload
+    })
+  end
+
+  # Sets the asset to failed with the failure code `failure`.
+  defp fail!(%Asset{id: id}, failure) do
+    {1, _rows} =
+      Repo.update_all(from(a in Asset, where: a.id == ^id),
+        set: [status: :failed, failure: failure]
+      )
+  end
+
+  defp random, do: 8 |> :crypto.strong_rand_bytes() |> Base.encode16(case: :lower)
+
+  defp attach!(scope, draft, asset, path) do
+    assert {:ok, %PackDraft{} = draft} =
+             Workbench.attach_media(
+               scope,
+               draft.id,
+               %{media_asset_id: asset.id, path: path},
+               draft.lock_version
+             )
+
+    draft
   end
 
   describe "limits" do
@@ -198,6 +302,12 @@ defmodule Espalier.WorkbenchTest do
       assert Workbench.max_file_bytes() == 1_048_576
       assert Workbench.max_drafts() == 50
       assert Workbench.max_parallel_checks() == 2
+    end
+
+    test "the download limits of task 0018 carry their values" do
+      assert Workbench.max_parallel_downloads() == 2
+      assert Workbench.download_min_bytes_per_second() == 262_144
+      assert Workbench.download_floor_seconds() == 60
     end
 
     test "max_draft_bytes/0 is five times the upload limit with the default" do
@@ -214,16 +324,22 @@ defmodule Espalier.WorkbenchTest do
       assert Workbench.max_draft_bytes() == 5_242_880
     end
 
-    test "max_drafts/0 and max_parallel_checks/0 raise for a value that is no positive integer" do
+    test "the settings of :pack_drafts raise for a value that is no positive integer" do
+      keys = [
+        :max_drafts,
+        :max_parallel_checks,
+        :max_parallel_downloads,
+        :download_min_bytes_per_second,
+        :download_floor_seconds
+      ]
+
       for value <- [0, -1, "50", nil, 1.5] do
-        put_setting(:pack_drafts, max_drafts: value, max_parallel_checks: value)
+        put_setting(:pack_drafts, Enum.map(keys, &{&1, value}))
 
-        assert_raise ArgumentError, ~r/max_drafts must be a positive integer/, fn ->
-          Workbench.max_drafts()
-        end
-
-        assert_raise ArgumentError, ~r/max_parallel_checks must be a positive integer/, fn ->
-          Workbench.max_parallel_checks()
+        for key <- keys do
+          assert_raise ArgumentError, ~r/#{key} must be a positive integer/, fn ->
+            apply(Workbench, key, [])
+          end
         end
       end
     end
@@ -233,6 +349,9 @@ defmodule Espalier.WorkbenchTest do
 
       assert Workbench.max_drafts() == 50
       assert Workbench.max_parallel_checks() == 2
+      assert Workbench.max_parallel_downloads() == 2
+      assert Workbench.download_min_bytes_per_second() == 262_144
+      assert Workbench.download_floor_seconds() == 60
     end
 
     test "a file of max_file_bytes/0 bytes is stored, and one byte more answers file_too_large",
@@ -563,7 +682,7 @@ defmodule Espalier.WorkbenchTest do
 
         assert Workbench.check_draft(denied, draft.id, nil) == {:error, :forbidden}
         assert Workbench.import_draft(denied, draft.id, 1) == {:error, :forbidden}
-        assert Workbench.download(denied, draft.id) == {:error, :forbidden}
+        assert Workbench.download(denied, draft.id, &no_zip/1) == {:error, :forbidden}
       end
 
       assert %PackDraft{lock_version: 1} = Repo.get!(PackDraft, draft.id)
@@ -597,7 +716,7 @@ defmodule Espalier.WorkbenchTest do
         assert Workbench.create_from_import(scope, bad) == {:error, :not_found}
         assert Workbench.check_draft(scope, bad, nil) == {:error, :not_found}
         assert Workbench.import_draft(scope, bad, 1) == {:error, :not_found}
-        assert Workbench.download(scope, bad) == {:error, :not_found}
+        assert Workbench.download(scope, bad, &no_zip/1) == {:error, :not_found}
       end
 
       assert lock_version(draft.id) == 1
@@ -622,7 +741,7 @@ defmodule Espalier.WorkbenchTest do
       assert Workbench.delete_draft(scope, unknown) == {:error, :not_found}
       assert Workbench.check_draft(scope, unknown, nil) == {:error, :not_found}
       assert Workbench.import_draft(scope, unknown, 1) == {:error, :not_found}
-      assert Workbench.download(scope, unknown) == {:error, :not_found}
+      assert Workbench.download(scope, unknown, &no_zip/1) == {:error, :not_found}
       assert lock_version(draft.id) == 1
     end
   end
@@ -940,17 +1059,26 @@ defmodule Espalier.WorkbenchTest do
 
       assert {:ok, %PackDraft{} = draft} = Workbench.create_from_program(scope, program.slug)
 
-      assert stored(draft.id) == Map.new(files)
-      assert draft.file_count == length(files)
+      # The captions become a text file with the content of the store, the
+      # other media files media entries (task 0018, step 16).
+      assert stored(draft.id) == Map.new([demo_captions() | files])
+      assert draft.file_count == length(files) + 1
+      assert media_pairs(draft) == demo_entries()
       assert draft.pack_key == program.slug
       assert draft.title == program.title
       assert Map.has_key?(stored(draft.id), "modules/01-how-language-models-work/module.yaml")
+
+      # The import passes the entries as the media mapping; the captions
+      # file is ingested and finds the asset of its delivery digest.
+      assets = Repo.aggregate(Asset, :count)
 
       assert {:ok, %PackImport{status: :validated} = pack_import} =
                Workbench.import_draft(scope, draft.id, draft.lock_version)
 
       assert pack_import.payload == Payload.build(program)
       assert Repo.get!(PackImport, pack_import.id).payload == Payload.build(program)
+      assert Enum.sort(pack_import.media_asset_ids) == Enum.sort(Map.values(demo_media()))
+      assert Repo.aggregate(Asset, :count) == assets
 
       # The draft stays after the import.
       assert {:ok, %PackDraft{lock_version: 1}} = Workbench.get_draft(scope, draft.id)
@@ -971,24 +1099,78 @@ defmodule Espalier.WorkbenchTest do
     end
 
     test "the start from a validated import holds render/1 of its payload", %{scope: scope} do
-      {:ok, %PackImport{status: :validated} = pack_import} =
-        Catalog.import_pack(scope, demo_path())
+      pack_import = import_demo!(scope)
 
       {:ok, %PackImport{payload: %{} = payload}} = Catalog.get_pack_import(scope, pack_import.id)
 
       assert {:ok, %PackDraft{} = draft} = Workbench.create_from_import(scope, pack_import.id)
 
-      assert stored(draft.id) == Map.new(PackWriter.render(payload))
+      assert stored(draft.id) == Map.new([demo_captions() | PackWriter.render(payload)])
+      assert media_pairs(draft) == demo_entries()
       assert draft.pack_key == pack_import.pack_key
       assert draft.title == payload["title"]
     end
 
     test "the start from a published import holds render/1 of its payload", %{scope: scope} do
-      {:ok, pack_import} = Catalog.import_pack(scope, demo_path())
+      pack_import = import_demo!(scope)
       {:ok, %PackImport{status: :published}} = Catalog.publish_pack(scope, pack_import)
 
       assert {:ok, %PackDraft{} = draft} = Workbench.create_from_import(scope, pack_import.id)
-      assert stored(draft.id) == Map.new(PackWriter.render(pack_import.payload))
+
+      assert stored(draft.id) ==
+               Map.new([demo_captions() | PackWriter.render(pack_import.payload)])
+
+      assert media_pairs(draft) == demo_entries()
+    end
+
+    test "the start from an import whose captions are not ready answers media_not_ready", %{
+      scope: scope
+    } do
+      captions = queued_asset!(:captions)
+      media = Map.put(demo_media(), "media/assistant-demo-en.vtt", captions.id)
+
+      {:ok, %PackImport{status: :validated} = pack_import} =
+        Catalog.import_pack(scope, demo_path(), media: media)
+
+      assert Workbench.create_from_import(scope, pack_import.id) ==
+               {:error,
+                {:media_not_ready,
+                 [
+                   %{
+                     "path" => "media/assistant-demo-en.vtt",
+                     "status" => "queued",
+                     "failure" => nil
+                   }
+                 ]}}
+
+      # A failed captions asset carries its failure code, as at the publish.
+      fail!(captions, :invalid_captions)
+
+      assert Workbench.create_from_import(scope, pack_import.id) ==
+               {:error,
+                {:media_not_ready,
+                 [
+                   %{
+                     "path" => "media/assistant-demo-en.vtt",
+                     "status" => "failed",
+                     "failure" => "invalid_captions"
+                   }
+                 ]}}
+
+      assert Repo.aggregate(PackDraft, :count) == 0
+    end
+
+    test "the start from a payload without the key media holds no media entry", %{scope: scope} do
+      pack_import = import_demo!(scope)
+      payload = Map.delete(pack_import.payload, "media")
+
+      Repo.update_all(from(i in PackImport, where: i.id == ^pack_import.id),
+        set: [payload: payload]
+      )
+
+      assert {:ok, %PackDraft{} = draft} = Workbench.create_from_import(scope, pack_import.id)
+      assert stored(draft.id) == Map.new(PackWriter.render(payload))
+      assert draft.media == []
     end
 
     @tag :tmp_dir
@@ -1006,16 +1188,15 @@ defmodule Espalier.WorkbenchTest do
     end
   end
 
-  describe "download/2" do
+  describe "download/3" do
     test "the zip lists exactly the paths of the files with their contents", %{scope: scope} do
       draft = draft!(scope)
 
       {:ok, draft} =
         Workbench.create_file(scope, draft.id, %{path: "glossary.yaml", content: "[]\n"}, 1)
 
-      assert {:ok, %{name: "new-pack-draft.zip", zip: zip}} = Workbench.download(scope, draft.id)
+      assert {"new-pack-draft.zip", entries} = download!(scope, draft.id)
 
-      entries = unzip!(zip)
       assert Map.new(entries) == stored(draft.id)
       assert length(entries) == 7
       assert Enum.map(entries, &elem(&1, 0)) == Enum.map(draft.files, & &1.path)
@@ -1030,25 +1211,521 @@ defmodule Espalier.WorkbenchTest do
       assert {:ok, %PackDraft{pack_key: "New-Pack"}} =
                Workbench.update_file(scope, draft.id, pack.id, upper, 1)
 
-      assert {:ok, %{name: "pack-draft.zip"}} = Workbench.download(scope, draft.id)
+      assert {"pack-draft.zip", _entries} = download!(scope, draft.id)
 
       long = String.replace(@skeleton["pack.yaml"], "new-pack", String.duplicate("k", 201))
 
       assert {:ok, %PackDraft{}} = Workbench.update_file(scope, draft.id, pack.id, long, 2)
-      assert {:ok, %{name: "pack-draft.zip"}} = Workbench.download(scope, draft.id)
+      assert {"pack-draft.zip", _entries} = download!(scope, draft.id)
 
       at_bound = String.replace(@skeleton["pack.yaml"], "new-pack", String.duplicate("k", 200))
       assert {:ok, %PackDraft{}} = Workbench.update_file(scope, draft.id, pack.id, at_bound, 3)
       expected = String.duplicate("k", 200) <> "-draft.zip"
-      assert {:ok, %{name: ^expected}} = Workbench.download(scope, draft.id)
+      assert {^expected, _entries} = download!(scope, draft.id)
 
       missing = String.replace(@skeleton["pack.yaml"], "key: new-pack\n", "")
 
       assert {:ok, %PackDraft{pack_key: nil}} =
                Workbench.update_file(scope, draft.id, pack.id, missing, 4)
 
-      assert {:ok, %{name: "pack-draft.zip", zip: zip}} = Workbench.download(scope, draft.id)
-      assert Map.new(unzip!(zip)) == stored(draft.id)
+      assert {"pack-draft.zip", entries} = download!(scope, draft.id)
+      assert Map.new(entries) == stored(draft.id)
+    end
+  end
+
+  describe "media entries (task 0018, step 16)" do
+    test "attach, rename and delete take the lock_version, and the asset stays", %{scope: scope} do
+      draft = draft!(scope)
+      svg = asset!(:svg)
+
+      assert {:ok, %PackDraft{lock_version: 2} = draft} =
+               Workbench.attach_media(
+                 scope,
+                 draft.id,
+                 %{media_asset_id: svg.id, path: "media/diagram.svg"},
+                 1
+               )
+
+      assert [%PackDraftMedia{path: "media/diagram.svg", media_asset: %Asset{id: id}} = entry] =
+               draft.media
+
+      assert id == svg.id
+      assert draft.file_count == 6
+      assert stored(draft.id) == @skeleton
+
+      assert {:ok, %PackDraft{lock_version: 3} = draft} =
+               Workbench.rename_media(scope, draft.id, entry.id, "media/diagrams/checks.svg", 2)
+
+      assert media_pairs(draft) == [{"media/diagrams/checks.svg", svg.id}]
+
+      assert {:ok, %PackDraft{lock_version: 4, media: []}} =
+               Workbench.delete_media(scope, draft.id, entry.id, 3)
+
+      assert Repo.get!(Asset, svg.id).status == :ready
+      assert Workbench.delete_media(scope, draft.id, entry.id, 4) == {:error, :not_found}
+      assert lock_version(draft.id) == 4
+    end
+
+    test "an old lock_version answers stale_draft and changes nothing", %{scope: scope} do
+      draft = draft!(scope)
+      draft = attach!(scope, draft, asset!(:svg), "media/a.svg")
+      [entry] = draft.media
+      other = asset!(:svg)
+
+      assert Workbench.attach_media(
+               scope,
+               draft.id,
+               %{media_asset_id: other.id, path: "media/b.svg"},
+               1
+             ) == {:error, {:stale_draft, 2}}
+
+      assert Workbench.rename_media(scope, draft.id, entry.id, "media/c.svg", 1) ==
+               {:error, {:stale_draft, 2}}
+
+      assert Workbench.delete_media(scope, draft.id, entry.id, 1) == {:error, {:stale_draft, 2}}
+
+      assert {:ok, draft} = Workbench.get_draft(scope, draft.id)
+      assert {draft.lock_version, Enum.map(draft.media, & &1.path)} == {2, ["media/a.svg"]}
+    end
+
+    test "a path outside media/ or without the delivery extension of the asset answers invalid_path",
+         %{scope: scope} do
+      draft = draft!(scope)
+
+      for {kind, path} <- [
+            {:svg, "media/diagram.webp"},
+            {:svg, "diagram.svg"},
+            {:image, "media/photo.png"},
+            {:image, "media/Photo.webp"},
+            {:image, "media/a/b/c/d/photo.webp"},
+            {:video, "media/clip.mp4"},
+            {:video, "modules/01-first-module/clip.webm"}
+          ] do
+        assert Workbench.attach_media(
+                 scope,
+                 draft.id,
+                 %{media_asset_id: asset!(kind).id, path: path},
+                 1
+               ) == {:error, :invalid_path},
+               "#{kind} #{path}"
+      end
+
+      draft = attach!(scope, draft, asset!(:video), "media/clip.webm")
+      [entry] = draft.media
+
+      assert Workbench.rename_media(scope, draft.id, entry.id, "media/clip.webp", 2) ==
+               {:error, :invalid_path}
+
+      assert lock_version(draft.id) == 2
+    end
+
+    test "a path that a file or another entry holds answers path_taken", %{scope: scope} do
+      draft = draft!(scope)
+      draft = attach!(scope, draft, asset!(:image), "media/photo.webp")
+      draft = attach!(scope, draft, asset!(:image), "media/other.webp")
+      [other, photo] = draft.media
+
+      assert Workbench.attach_media(
+               scope,
+               draft.id,
+               %{media_asset_id: asset!(:image).id, path: "media/photo.webp"},
+               3
+             ) == {:error, :path_taken}
+
+      assert Workbench.rename_media(scope, draft.id, other.id, photo.path, 3) ==
+               {:error, :path_taken}
+
+      # A rename to its own path changes nothing but the version.
+      assert {:ok, %PackDraft{lock_version: 4}} =
+               Workbench.rename_media(scope, draft.id, photo.id, photo.path, 3)
+
+      # A captions file holds its path against a captions asset, and an
+      # entry holds its path against a file.
+      {:ok, draft} =
+        Workbench.create_file(scope, draft.id, %{path: "media/en.vtt", content: "WEBVTT\n"}, 4)
+
+      captions = asset!(:captions, "WEBVTT\n\n00:00.000 --> 00:01.000\nA tone.\n")
+
+      assert Workbench.attach_media(
+               scope,
+               draft.id,
+               %{media_asset_id: captions.id, path: "media/en.vtt"},
+               5
+             ) == {:error, :path_taken}
+
+      assert Workbench.create_file(
+               scope,
+               draft.id,
+               %{path: "media/photo.webp", content: "x"},
+               5
+             ) == {:error, :invalid_path}
+
+      assert {draft.lock_version, lock_version(draft.id)} == {5, 5}
+    end
+
+    test "the entry beyond max_draft_media answers media_limit", %{scope: scope} do
+      put_setting(
+        :media,
+        Keyword.put(Application.fetch_env!(:espalier, :media), :max_draft_media, 2)
+      )
+
+      assert Media.max_draft_media() == 2
+
+      draft = draft!(scope)
+      draft = attach!(scope, draft, asset!(:svg), "media/a.svg")
+      draft = attach!(scope, draft, asset!(:svg), "media/b.svg")
+
+      assert Workbench.attach_media(
+               scope,
+               draft.id,
+               %{media_asset_id: asset!(:svg).id, path: "media/c.svg"},
+               3
+             ) == {:error, :media_limit}
+
+      # A captions asset becomes a file and counts no entry.
+      captions = asset!(:captions, "WEBVTT\n")
+      assert %PackDraft{lock_version: 4} = attach!(scope, draft, captions, "media/en.vtt")
+
+      # A rename adds no entry and passes at the limit.
+      [entry | _rest] = draft.media
+
+      assert {:ok, %PackDraft{}} =
+               Workbench.rename_media(scope, draft.id, entry.id, "media/z.svg", 4)
+    end
+
+    test "max_files counts the files and the entries together", %{scope: scope} do
+      draft = draft!(scope)
+      now = DateTime.utc_now(:second)
+
+      # The skeleton holds six files; 1,992 more and one entry give 1,999.
+      rows =
+        for n <- 1..1_992 do
+          %{
+            id: Ecto.UUID.generate(),
+            pack_draft_id: draft.id,
+            path: lesson("filler-#{n}"),
+            content: "",
+            inserted_at: now,
+            updated_at: now
+          }
+        end
+
+      {1_992, nil} = Repo.insert_all(PackDraftFile, rows)
+      draft = attach!(scope, draft, asset!(:image), "media/first.webp")
+      draft = attach!(scope, draft, asset!(:image), "media/second.webp")
+      assert {draft.file_count, length(draft.media)} == {1_998, 2}
+
+      assert Workbench.attach_media(
+               scope,
+               draft.id,
+               %{media_asset_id: asset!(:image).id, path: "media/third.webp"},
+               3
+             ) == {:error, :too_many_files}
+
+      assert Workbench.create_file(scope, draft.id, %{path: lesson("last"), content: ""}, 3) ==
+               {:error, :too_many_files}
+
+      captions = asset!(:captions, "WEBVTT\n")
+
+      assert Workbench.attach_media(
+               scope,
+               draft.id,
+               %{media_asset_id: captions.id, path: "media/en.vtt"},
+               3
+             ) == {:error, :too_many_files}
+
+      assert lock_version(draft.id) == 3
+    end
+
+    test "an unknown asset and an unknown entry answer not_found", %{scope: scope} do
+      draft = draft!(scope)
+
+      for id <- [Ecto.UUID.generate(), "not-a-uuid"] do
+        assert Workbench.attach_media(
+                 scope,
+                 draft.id,
+                 %{media_asset_id: id, path: "media/a.svg"},
+                 1
+               ) ==
+                 {:error, :not_found}
+
+        assert Workbench.rename_media(scope, draft.id, id, "media/a.svg", 1) ==
+                 {:error, :not_found}
+
+        assert Workbench.delete_media(scope, draft.id, id, 1) == {:error, :not_found}
+      end
+
+      assert lock_version(draft.id) == 1
+    end
+
+    test "a ready captions asset becomes a text file with the content of the store", %{
+      scope: scope
+    } do
+      draft = draft!(scope)
+      {path, content} = demo_captions()
+      captions = Repo.get!(Asset, demo_media()[path])
+      assert captions.status == :ready
+
+      assert {:ok, %PackDraft{lock_version: 2, media: []} = draft} =
+               Workbench.attach_media(
+                 scope,
+                 draft.id,
+                 %{media_asset_id: captions.id, path: "media/captions/demo-en.vtt"},
+                 1
+               )
+
+      assert stored(draft.id)["media/captions/demo-en.vtt"] == content
+      assert draft.file_count == 7
+
+      # Only a .vtt path below media/ takes captions.
+      for path <- ["media/captions/demo-en.webm", "captions.vtt", "media/Demo.vtt"] do
+        assert Workbench.attach_media(
+                 scope,
+                 draft.id,
+                 %{media_asset_id: captions.id, path: path},
+                 2
+               ) == {:error, :invalid_path},
+               path
+      end
+    end
+
+    test "a captions asset that is not ready answers not_ready", %{scope: scope} do
+      draft = draft!(scope)
+      queued = queued_asset!(:captions)
+
+      assert Workbench.attach_media(
+               scope,
+               draft.id,
+               %{media_asset_id: queued.id, path: "media/en.vtt"},
+               1
+             ) == {:error, {:validation_failed, "media_asset_id", "not_ready"}}
+
+      # An image, SVG or video asset may still be converting.
+      assert %PackDraft{lock_version: 2} =
+               attach!(scope, draft, queued_asset!(:image), "media/later.webp")
+    end
+
+    test "a captions file stays within the bytes of a draft", %{scope: scope} do
+      put_setting(:pack_upload_max_mb, 1)
+      max = Workbench.max_draft_bytes()
+      draft = draft!(scope)
+      captions = asset!(:captions, "WEBVTT\n\n00:00.000 --> 00:01.000\nA tone.\n")
+      now = DateTime.utc_now(:second)
+      used = stored(draft.id) |> Map.values() |> Enum.map(&byte_size/1) |> Enum.sum()
+
+      Repo.insert_all(PackDraftFile, [
+        %{
+          id: Ecto.UUID.generate(),
+          pack_draft_id: draft.id,
+          path: lesson("filler"),
+          content: String.duplicate("a", max - used - 10),
+          inserted_at: now,
+          updated_at: now
+        }
+      ])
+
+      assert Workbench.attach_media(
+               scope,
+               draft.id,
+               %{media_asset_id: captions.id, path: "media/en.vtt"},
+               1
+             ) == {:error, :draft_too_large}
+
+      assert lock_version(draft.id) == 1
+    end
+
+    test "a draft with an entry checks and imports with the mapping of its entries", %{
+      scope: scope
+    } do
+      draft = draft!(scope)
+      svg = asset!(:svg)
+      draft = attach!(scope, draft, svg, "media/diagram.svg")
+      file = file!(draft, lesson("01-first-lesson"))
+
+      content =
+        @skeleton[lesson("01-first-lesson")] <>
+          """
+
+          :::figure{src=media/diagram.svg alt="A diagram." provenance=invented}
+          :::
+          """
+
+      {:ok, draft} = Workbench.update_file(scope, draft.id, file.id, content, 2)
+
+      assert {:ok, %{report: %{"errors" => [], "warnings" => []}}} =
+               Workbench.check_draft(scope, draft.id, nil)
+
+      assets = Repo.aggregate(Asset, :count)
+
+      assert {:ok, %PackImport{status: :validated} = pack_import} =
+               Workbench.import_draft(scope, draft.id, 3)
+
+      assert pack_import.payload["media"] == [
+               %{"path" => "media/diagram.svg", "asset_id" => svg.id, "kind" => "svg"}
+             ]
+
+      assert pack_import.media_asset_ids == [svg.id]
+      assert Repo.aggregate(Asset, :count) == assets
+    end
+  end
+
+  describe "download/3 with media (task 0018, step 16)" do
+    test "stages the text files and hard links of the media files, WebP and WebM uncompressed",
+         %{scope: scope} do
+      draft = draft!(scope)
+      image = asset!(:image, "RIFF a stand-in of a WebP image #{random()}")
+      video = asset!(:video, "a stand-in of a WebM video #{random()}")
+      svg = asset!(:svg)
+      draft = attach!(scope, draft, image, "media/photo.webp")
+      draft = attach!(scope, draft, video, "media/clips/clip.webm")
+      draft = attach!(scope, draft, svg, "media/diagram.svg")
+
+      assert {:ok, {zip_listing, entries, dir}} =
+               Workbench.download(scope, draft.id, fn %{name: name, path: zip, dir: dir} ->
+                 assert name == "new-pack-draft.zip"
+                 assert Path.dirname(dir) == Store.work_root()
+
+                 # Each media file of the staging directory is a hard link to
+                 # its store file, which keeps the bytes when the store file is
+                 # removed meanwhile.
+                 for {path, asset} <- [
+                       {"media/photo.webp", image},
+                       {"media/clips/clip.webm", video},
+                       {"media/diagram.svg", svg}
+                     ] do
+                   staged = File.stat!(Path.join([dir, "pack", path]))
+                   stored = File.stat!(Store.path(asset.sha256, asset.ext))
+
+                   assert {staged.inode, staged.major_device} ==
+                            {stored.inode, stored.major_device},
+                          path
+                 end
+
+                 {:ok, listing} = :zip.list_dir(String.to_charlist(zip))
+                 {:ok, {listing, unzip!(zip), dir}}
+               end)
+
+      refute File.exists?(dir)
+
+      media =
+        for {path, asset} <- [
+              {"media/clips/clip.webm", video},
+              {"media/diagram.svg", svg},
+              {"media/photo.webp", image}
+            ],
+            do: {path, File.read!(Store.path(asset.sha256, asset.ext))}
+
+      assert entries == Enum.sort(Map.to_list(stored(draft.id)) ++ media)
+
+      sizes =
+        for {:zip_file, name, info, _comment, _offset, compressed} <- zip_listing,
+            into: %{},
+            do: {List.to_string(name), {compressed, elem(info, 1)}}
+
+      for path <- ["media/photo.webp", "media/clips/clip.webm"] do
+        assert {size, size} = sizes[path], path
+      end
+    end
+
+    test "an asset deleted during the download keeps its bytes in the staging directory and the zip",
+         %{scope: scope} do
+      content = "a stand-in of a WebM video #{random()}"
+      video = asset!(:video, content)
+      draft = attach!(scope, draft!(scope), video, "media/clip.webm")
+      [entry] = draft.media
+      store = Store.path(video.sha256, "webm")
+
+      assert {:ok, entries} =
+               Workbench.download(scope, draft.id, fn %{path: zip, dir: dir} ->
+                 # The staging is done and the zip not yet sent: the entry
+                 # leaves the draft, and the asset goes with its store file.
+                 assert {:ok, _draft} =
+                          Workbench.delete_media(scope, draft.id, entry.id, draft.lock_version)
+
+                 assert Media.delete_asset(scope, video.id) == :ok
+                 refute File.exists?(store)
+
+                 assert File.read!(Path.join([dir, "pack", "media/clip.webm"])) == content
+                 {:ok, unzip!(zip)}
+               end)
+
+      assert {"media/clip.webm", content} in entries
+      assert Repo.get(Asset, video.id) == nil
+    end
+
+    test "the zip of a draft from the demo program unzips to a pack that the validator accepts",
+         %{scope: scope} do
+      tmp_dir = Path.join(System.tmp_dir!(), "espalier-unzip-#{random()}")
+      File.mkdir_p!(tmp_dir)
+      on_exit(fn -> File.rm_rf!(tmp_dir) end)
+      program = publish_demo!(scope)
+      {:ok, draft} = Workbench.create_from_program(scope, program.slug)
+
+      assert {:ok, _files} =
+               Workbench.download(scope, draft.id, fn %{path: zip} ->
+                 :zip.unzip(String.to_charlist(zip), cwd: String.to_charlist(tmp_dir))
+               end)
+
+      for path <- MediaFixtures.demo_media_paths() do
+        assert File.read!(Path.join(tmp_dir, path)) == File.read!(Path.join(demo_path(), path))
+      end
+
+      assert {:ok, loaded} = Loader.load(tmp_dir)
+
+      assert %{errors: [], warnings: [], payload: payload} =
+               Validator.run(loaded)
+
+      assert payload == Map.delete(Payload.build(program), "media")
+    end
+
+    test "media above export_max_mb answer download_too_large and stage nothing", %{scope: scope} do
+      put_setting(
+        :media,
+        Keyword.put(Application.fetch_env!(:espalier, :media), :export_max_mb, 1)
+      )
+
+      draft = draft!(scope)
+      draft = attach!(scope, draft, asset!(:video, :binary.copy("v", 600_000)), "media/a.webm")
+      draft = attach!(scope, draft, asset!(:video, :binary.copy("w", 600_000)), "media/b.webm")
+      staged = work_dirs()
+
+      assert Workbench.download(scope, draft.id, &no_zip/1) == {:error, :download_too_large}
+      assert work_dirs() == staged
+
+      # Within the limit, the download passes.
+      [first, _second] = draft.media
+      {:ok, _draft} = Workbench.delete_media(scope, draft.id, first.id, 3)
+      assert {"new-pack-draft.zip", [_ | _]} = download!(scope, draft.id)
+    end
+
+    test "an entry whose asset is not ready or whose file is missing answers media_not_ready",
+         %{scope: scope} do
+      draft = draft!(scope)
+      draft = attach!(scope, draft, queued_asset!(:image), "media/later.webp")
+      gone = asset!(:svg)
+      draft = attach!(scope, draft, gone, "media/gone.svg")
+      File.rm!(Store.path(gone.sha256, "svg"))
+      broken = queued_asset!(:video)
+      draft = attach!(scope, draft, broken, "media/broken.webm")
+      fail!(broken, :conversion_failed)
+      staged = work_dirs()
+
+      # A failed asset carries its failure code, as at the publish.
+      assert Workbench.download(scope, draft.id, &no_zip/1) ==
+               {:error,
+                {:media_not_ready,
+                 [
+                   %{
+                     "path" => "media/broken.webm",
+                     "status" => "failed",
+                     "failure" => "conversion_failed"
+                   },
+                   %{"path" => "media/gone.svg", "status" => "missing", "failure" => nil},
+                   %{"path" => "media/later.webp", "status" => "queued", "failure" => nil}
+                 ]}}
+
+      assert work_dirs() == staged
+      assert draft.lock_version == 4
     end
   end
 
@@ -1083,7 +1760,7 @@ defmodule Espalier.WorkbenchTest do
                "source" => "program",
                "program_slug" => program.slug,
                "pack_key" => program.slug,
-               "file_count" => length(files)
+               "file_count" => length(files) + 1
              }
     end
 
@@ -1091,7 +1768,7 @@ defmodule Espalier.WorkbenchTest do
       author: author,
       scope: scope
     } do
-      {:ok, pack_import} = Catalog.import_pack(scope, demo_path())
+      pack_import = import_demo!(scope)
       {:ok, draft} = Workbench.create_from_import(scope, pack_import.id)
 
       assert [event] = audit_events("pack_draft.created")
@@ -1131,7 +1808,7 @@ defmodule Espalier.WorkbenchTest do
       {:ok, _draft} = Workbench.update_file(scope, draft.id, file.id, "[]\n", 2)
       {:ok, _draft} = Workbench.rename_file(scope, draft.id, file.id, "glossary.yaml", 3)
       {:ok, _draft} = Workbench.delete_file(scope, draft.id, file.id, 4)
-      {:ok, _zip} = Workbench.download(scope, draft.id)
+      {_name, _entries} = download!(scope, draft.id)
       {:ok, _drafts} = Workbench.list_drafts(scope)
 
       assert lock_version(draft.id) == 5

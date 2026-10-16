@@ -7,7 +7,8 @@ defmodule EspalierWeb.Router do
   @api_session EspalierWeb.TransactionCookie.main_session_options()
   @transaction_session EspalierWeb.TransactionCookie.session_options()
 
-  # The function plug :protect_api_from_forgery checks the x-csrf-token header on every mutating request.
+  # The function plug :protect_api_from_forgery checks the x-csrf-token header
+  # on every mutating request.
   # sobelow_skip ["Config.CSRF"]
   pipeline :api do
     plug :accepts, ["json"]
@@ -81,6 +82,29 @@ defmodule EspalierWeb.Router do
     plug Plug.Parsers, parsers: [EspalierWeb.PackMultipart], pass: []
   end
 
+  # The media upload (task 0018, step 15): read only here, behind
+  # :author_write and up to the largest per-kind limit (ASVS 5.2.1).
+  pipeline :media_upload do
+    plug :require_multipart
+    plug Plug.Parsers, parsers: [EspalierWeb.MediaMultipart], pass: []
+  end
+
+  # The media route (task 0018, step 13). The flag comes first, so that
+  # EspalierWeb.Plugs.SecurityHeaders sets the media CSP on every answer of
+  # the route, also on the 401 and 404 answers before the controller. The
+  # Fetch Metadata plug runs without a cross-site allowlist, and the session
+  # check answers 401 without a session and 403 for an enrollment session.
+  # The pipeline serves GET requests only, which change nothing.
+  # sobelow_skip ["Config.CSRF"]
+  pipeline :media do
+    plug :put_media_flag
+    plug EspalierWeb.Plugs.FetchMetadata
+    plug Plug.Session, @api_session
+    plug :fetch_session
+    plug :fetch_current_scope_for_user
+    plug :require_authenticated_user
+  end
+
   # REGISTRAR_ENABLED (task 0013): runs before the role check of :registrar,
   # so a disabled list answers 404 to every caller.
   pipeline :registrar_enabled do
@@ -99,7 +123,8 @@ defmodule EspalierWeb.Router do
     plug EspalierWeb.Plugs.ApiClientAuth, scope: "credentials:read"
   end
 
-  # This pipeline serves GET navigations only; state, nonce and PKCE bind each OIDC flow (task 0006).
+  # This pipeline serves GET navigations only; state, nonce and PKCE bind each
+  # OIDC flow (task 0006).
   # sobelow_skip ["Config.CSRF"]
   pipeline :oidc_transaction do
     plug EspalierWeb.Plugs.FetchMetadata,
@@ -126,6 +151,12 @@ defmodule EspalierWeb.Router do
 
   scope "/", EspalierWeb do
     get "/health", HealthController, :index
+  end
+
+  scope "/media", EspalierWeb do
+    pipe_through :media
+
+    get "/:file", MediaController, :show
   end
 
   scope "/auth", EspalierWeb do
@@ -354,6 +385,8 @@ defmodule EspalierWeb.Router do
     get "/pack-drafts/:id/download", PackDraftController, :download
     post "/pack-drafts/:id/check", PackDraftController, :check
     get "/pack-drafts/:id/files/:file_id", PackDraftFileController, :show
+    get "/media", MediaController, :index
+    get "/media/:id", MediaController, :show
   end
 
   scope "/api/admin", EspalierWeb.Admin do
@@ -368,6 +401,17 @@ defmodule EspalierWeb.Router do
     put "/pack-drafts/:id/files/:file_id", PackDraftFileController, :update
     patch "/pack-drafts/:id/files/:file_id", PackDraftFileController, :rename
     delete "/pack-drafts/:id/files/:file_id", PackDraftFileController, :delete
+    post "/pack-drafts/:id/media", PackDraftMediaController, :create
+    patch "/pack-drafts/:id/media/:media_id", PackDraftMediaController, :rename
+    delete "/pack-drafts/:id/media/:media_id", PackDraftMediaController, :delete
+    patch "/media/:id", MediaController, :update
+    delete "/media/:id", MediaController, :delete
+  end
+
+  scope "/api/admin", EspalierWeb.Admin do
+    pipe_through [:api, :author_write, :media_upload]
+
+    post "/media", MediaController, :create
   end
 
   scope "/api/admin", EspalierWeb.Admin do
@@ -396,4 +440,6 @@ defmodule EspalierWeb.Router do
   scope "/", EspalierWeb do
     get "/*path", SpaController, :index
   end
+
+  defp put_media_flag(conn, _opts), do: put_private(conn, :espalier_media, true)
 end

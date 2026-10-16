@@ -11,9 +11,14 @@
 # untouched. It waits for /health, runs bin/migrate and
 # Espalier.Release.seed_demo(), checks the line of the effective settings in
 # the log of the boot, runs scripts/check-headers.sh and
-# scripts/check-release.sh, signs in as a demo person, checks that
-# GET /api/policies lists usage-policy, loads the demo program, answers one
-# item, and removes the instance with its volumes.
+# scripts/check-release.sh, checks ffmpeg and its encoders in the container,
+# signs in as a demo person, checks that GET /api/policies lists
+# usage-policy, loads the demo program, answers one item, waits until the
+# media of the demo pack are ready and checks the media route on the SVG and
+# the WebM of the demo (task 0018): the content type, the media CSP,
+# content-disposition, nosniff, cache-control, accept-ranges and the etag,
+# 206 for a range and 404 for Sec-Fetch-Dest: script. It then removes the
+# instance with its volumes.
 #
 # --proxy adds the Caddy example of docs/guides/examples/compose.caddy.yaml
 # with SITE_ADDRESS=localhost and local accounts, runs
@@ -252,6 +257,22 @@ expect_status() {
   fail "$label: status $status, body $(head -c 300 "$work/b")"
 }
 
+step "ffmpeg in the container"
+if compose exec -T app ffmpeg -hide_banner -version >"$work/ffmpeg.txt" 2>&1; then
+  ok "$(head -n 1 "$work/ffmpeg.txt")"
+else
+  fail "ffmpeg -version: $(head -c 300 "$work/ffmpeg.txt")"
+fi
+
+compose exec -T app ffmpeg -hide_banner -encoders >"$work/encoders.txt" 2>&1 || true
+for encoder in libvpx-vp9 libopus libwebp libwebp_anim; do
+  if grep -q " $encoder " "$work/encoders.txt"; then
+    ok "ffmpeg has the encoder $encoder"
+  else
+    fail "ffmpeg lacks the encoder $encoder"
+  fi
+done
+
 step "demo sign-in and the demo program"
 expect_status "GET /api/session" "$(request GET /api/session)" 200
 keep_session
@@ -306,6 +327,72 @@ if [ -n "$item" ]; then
 else
   fail "the module holds no single_choice item"
 fi
+
+# The media of the demo pack (task 0018): the import of seed_demo processes
+# them, and the module views name them once they are ready.
+step "the media route on the media of the demo pack"
+modules=$(request GET "/api/programs/$slug" >/dev/null && grep -o '"id":"[0-9a-f-]*","number":[0-9]*' "$work/b" | sed 's/"id":"\([0-9a-f-]*\)".*/\1/')
+media=
+tries=0
+while [ -z "$media" ] && [ "$tries" -lt 60 ]; do
+  found=
+  for id in $modules; do
+    request GET "/api/modules/$id" >/dev/null
+    found="$found $(grep -o '/media/[0-9a-f]\{64\}\.\(svg\|webm\)' "$work/b" | sort -u | tr '\n' ' ')"
+  done
+  case $found in
+    *.svg*.webm* | *.webm*.svg*) media=$found ;;
+    *) tries=$((tries + 1)); sleep 2 ;;
+  esac
+done
+
+if [ -z "$media" ]; then
+  fail "the module views name no ready SVG and WebM of the demo pack"
+fi
+
+media_csp="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'; sandbox"
+
+for url in $media; do
+  case $url in
+    *.svg)
+      dest=image
+      media_type="image/svg+xml; charset=utf-8"
+      ;;
+    *)
+      dest=video
+      media_type=video/webm
+      ;;
+  esac
+
+  expect_status "GET $url" "$(request GET "$url")" 200
+  headers=$(tr -d '\r' <"$work/h")
+
+  # Each header line must match in full, so a type with a missing or an
+  # extra parameter fails.
+  for wanted in "content-type: $media_type" "content-security-policy: $media_csp" \
+    "content-disposition: inline; filename=\"${url##*/}\"" "x-content-type-options: nosniff" \
+    "cache-control: private, max-age=31536000, immutable" "accept-ranges: bytes"; do
+    if printf '%s\n' "$headers" | grep -qixF "$wanted"; then
+      ok "GET $url: $wanted"
+    else
+      fail "GET $url lacks '$wanted'"
+    fi
+  done
+
+  if printf '%s\n' "$headers" | grep -qi '^etag: "[0-9a-f]\{64\}"$'; then
+    ok "GET $url: a quoted etag"
+  else
+    fail "GET $url: no quoted etag"
+  fi
+
+  status=$(curl -sS --max-time 20 -o /dev/null -w '%{http_code}' -H "Cookie: $cookie" \
+    -H "Range: bytes=0-99" -H "Sec-Fetch-Dest: $dest" "$base$url")
+  expect_status "GET $url with Range: bytes=0-99" "$status" 206
+
+  status=$(curl -sS --max-time 20 -o /dev/null -w '%{http_code}' -H "Cookie: $cookie" \
+    -H "Sec-Fetch-Dest: script" "$base$url")
+  expect_status "GET $url with Sec-Fetch-Dest: script" "$status" 404
+done
 
 if [ "$proxy" = true ]; then
   step "behind the Caddy example at $public_url"

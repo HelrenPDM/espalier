@@ -22,7 +22,8 @@ defmodule EspalierWeb.SessionJSON do
         local_accounts: Application.get_env(:espalier, :local_accounts, true),
         signup: Atom.to_string(Application.get_env(:espalier, :signup, :closed)),
         test_notes: Espalier.Insights.test_notes?(),
-        feedback_free_text: Espalier.Insights.feedback_free_text?()
+        feedback_free_text: Espalier.Insights.feedback_free_text?(),
+        media_embed_consent: Atom.to_string(Espalier.Media.embed_consent())
       }
     }
   end

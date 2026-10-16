@@ -41,7 +41,7 @@ defmodule EspalierWeb.Insights.ReportRoutesTest do
   import Espalier.LearningFixtures
   import OpenApiSpex.TestAssertions
 
-  alias Espalier.{Accounts, Catalog, PackFixtures}
+  alias Espalier.{Accounts, Catalog, MediaFixtures, PackFixtures}
   alias Espalier.Accounts.Scope
   alias Espalier.Catalog.Pack.{Importer, Publisher}
   alias Espalier.Catalog.{PackImport, Segment}
@@ -124,7 +124,10 @@ defmodule EspalierWeb.Insights.ReportRoutesTest do
     pack = PackFixtures.copy_pack!(PackFixtures.demo_path())
     PackFixtures.update_yaml!(pack, "pack.yaml", &Map.put(&1, "key", "qualification-order"))
     PackFixtures.write_yaml!(pack, "qualifications.yaml", entries)
-    {:ok, %PackImport{status: :validated} = pack_import} = Importer.import(pack, nil)
+
+    {:ok, %PackImport{status: :validated} = pack_import} =
+      Importer.import(pack, nil, media: MediaFixtures.media_for(pack))
+
     {:ok, %PackImport{status: :published}} = Publisher.publish(pack_import)
     Catalog.get_program_by_slug("qualification-order")
   end

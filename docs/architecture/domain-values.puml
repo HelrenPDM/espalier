@@ -64,6 +64,8 @@ package "Content structure" {
     quote
     callout
     placeholder
+    figure
+    video
   }
 
   enum ItemKind {

@@ -14,7 +14,10 @@ import { useCurrentPlayer } from "../player/usePlayer";
 /**
  * A lesson of the module station: its blocks and its practice items. The
  * section carries the id `lesson-<lesson id>`, and its heading takes focus
- * from the lesson links of the objectives panel.
+ * from the lesson links of the objectives panel. An explanation is keyed
+ * by its id, the path and the reveal count, so it takes its new start
+ * state; every other block by its id alone, so a path switch or a reveal
+ * does not reset a playing video or a loaded embed player.
  */
 export function LessonSection({
   lesson,
@@ -62,7 +65,11 @@ export function LessonSection({
       <div className="mt-4 space-y-6">
         {lesson.blocks.map((block) => (
           <LessonBlock
-            key={`${block.id}:${state.path}:${revealCount}`}
+            key={
+              block.kind === "explanation"
+                ? `${block.id}:${state.path}:${revealCount}`
+                : block.id
+            }
             block={block}
             defaultOpen={
               startsOpen(block, state.path, module) ||

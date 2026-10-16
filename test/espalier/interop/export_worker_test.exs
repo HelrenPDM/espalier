@@ -8,12 +8,22 @@ defmodule Espalier.Interop.ExportWorkerTest do
   directory below `2004/`), and every test writes to a fresh `EXPORT_DIR`.
 
   - The package of module 1 holds the player, `LICENSE`, `NOTICE`,
-    `content.json` and exactly the schema files of its version at the root;
+    `content.json` and exactly the schema files of its version at the root,
+    and the media files of the module below `media/` (task 0018, step 17);
     the license files equal the fixtures byte for byte (Apache-2.0 section
-    4).
+    4), and the media files the store byte for byte, a WebM without
+    compression.
+  - Two paths of one asset and two videos with one poster give one file
+    each in the package, and media above `export_max_mb` fail the export
+    with a text that names the limit.
+  - A media file that cannot be staged fails the export with "A media file
+    of the module is missing." when its store file is gone, with the
+    generic text when the build directory denies the write, and with a
+    text that names the full volume for `enospc` and `edquot`; the log
+    names the export, the path in the package and the POSIX reason.
   - The manifest parses, and its `file` elements and the zip entries other
     than `imsmanifest.xml` correspond one to one (ASVS 1.2.1 and 1.3.7).
-  - `content.json` holds exactly the keys of `Payload.module/2` plus
+  - `content.json` holds exactly the keys of `Payload.module/3` plus
     `schema` and `policies` (ASVS 1.2.3), with answer keys, the objectives
     and companion formats of the module, and the current version of a
     placeholder's policy.
@@ -40,9 +50,13 @@ defmodule Espalier.Interop.ExportWorkerTest do
   require Record
 
   alias Espalier.Accounts.Scope
+  alias Espalier.Catalog
   alias Espalier.Catalog.Module, as: CatalogModule
-  alias Espalier.{Interop, LearningFixtures, PackFixtures}
+  alias Espalier.Catalog.Pack.{Importer, Publisher}
+  alias Espalier.Catalog.PackImport
+  alias Espalier.{Interop, LearningFixtures, MediaFixtures, PackFixtures}
   alias Espalier.Interop.{Export, ExportWorker, Payload}
+  alias Espalier.Media.{Asset, Store}
 
   Record.defrecordp(
     :xml_text,
@@ -162,6 +176,48 @@ defmodule Espalier.Interop.ExportWorkerTest do
   # The value as JSON gives it back.
   defp json(value), do: value |> JSON.encode!() |> JSON.decode!()
 
+  # The media files of module 1 of the demo pack, the WebM and its captions,
+  # as `{package path, demo file}`: each delivery file once at
+  # `media/<sha256>.<ext>` (task 0018, step 17). The demo assets have no
+  # poster.
+  defp module1_media do
+    for {rel, ext} <- [
+          {"media/assistant-demo.webm", "webm"},
+          {"media/assistant-demo-en.vtt", "vtt"}
+        ] do
+      file = Path.join(PackFixtures.demo_path(), rel)
+      {sha256, _bytes} = Store.digest(file)
+      {"media/#{sha256}.#{ext}", file}
+    end
+  end
+
+  # The files of every package of module 1 of the demo pack, besides the
+  # schema files.
+  defp package_files, do: @package_files ++ Enum.map(module1_media(), &elem(&1, 0))
+
+  # The content of module `number` of the published `program` as
+  # content.json holds it, without `schema` and `policies`: the payload cut
+  # by `Payload.module/3` with the asset rows of the media of the module.
+  defp module_content(program, number) do
+    payload = Payload.build(program)
+    module = Enum.find(payload["modules"], &(&1["number"] == number))
+    ids = Payload.media_asset_ids(payload, module)
+    assets = Map.new(Repo.all(from a in Asset, where: a.id in ^ids), &{&1.id, &1})
+    payload |> Payload.module(number, assets) |> json()
+  end
+
+  # The zip entries below media/ with their compressed and uncompressed
+  # sizes.
+  defp media_entries(zip) do
+    {:ok, entries} = :zip.list_dir(String.to_charlist(zip))
+
+    for {:zip_file, name, info, _comment, _offset, comp_size} <- entries,
+        name = List.to_string(name),
+        String.starts_with?(name, "media/"),
+        into: %{},
+        do: {name, {comp_size, elem(info, 1)}}
+  end
+
   # Makes every row operation `event` on `table` that matches `condition`
   # fail. The rollback of the sandbox transaction removes the trigger.
   defp fail_on!(table, event, condition) do
@@ -254,12 +310,23 @@ defmodule Espalier.Interop.ExportWorkerTest do
         assert export.error == nil
 
         zip = zip_path(export)
-        assert Enum.sort(entries(zip)) == Enum.sort(@package_files ++ schema_files(version))
+        assert Enum.sort(entries(zip)) == Enum.sort(package_files() ++ schema_files(version))
 
         assert read_entry!(zip, "LICENSE") == File.read!(Path.join(@player, "LICENSE"))
         assert read_entry!(zip, "NOTICE") == File.read!(Path.join(@player, "NOTICE"))
         assert read_entry!(zip, "index.html") == File.read!(Path.join(@player, "scorm.html"))
         refute "scorm.html" in entries(zip)
+
+        # The media files hold the bytes of the store, and the WebM is
+        # stored without compression.
+        for {rel, file} <- module1_media() do
+          assert read_entry!(zip, rel) == File.read!(file), rel
+        end
+
+        [{webm, _file}, {vtt, _vtt_file}] = module1_media()
+        sizes = media_entries(zip)
+        assert {size, size} = sizes[webm]
+        assert {_compressed, 288} = sizes[vtt]
       end
 
       # The worker leaves the two packages and no build directory or
@@ -276,7 +343,7 @@ defmodule Espalier.Interop.ExportWorkerTest do
         other = if version == :scorm12, do: :scorm2004, else: :scorm12
         entries = scope |> export!(program, 1, version) |> zip_path() |> entries()
 
-        assert Enum.sort(entries -- @package_files) == schema_files(version)
+        assert Enum.sort(entries -- package_files()) == schema_files(version)
         assert Enum.filter(schema_files(other), &(&1 in entries)) == []
       end
     end
@@ -307,12 +374,12 @@ defmodule Espalier.Interop.ExportWorkerTest do
       content = content!(export!(scope, program, 1, :scorm12))
 
       assert content |> Map.keys() |> Enum.sort() ==
-               ~w(formats glossary module policies program schema sources)
+               ~w(formats glossary media module policies program schema sources)
 
       assert content["schema"] == 1
       assert content["policies"] == %{}
 
-      expected = program |> Payload.build() |> Payload.module(1) |> json()
+      expected = module_content(program, 1)
       assert Map.drop(content, ["schema", "policies"]) == expected
 
       module = content["module"]
@@ -394,6 +461,279 @@ defmodule Espalier.Interop.ExportWorkerTest do
 
       assert content["formats"] == []
     end
+
+    test "holds the SVG of its figure and no media of module 1", %{scope: scope} do
+      program = LearningFixtures.publish_demo!()
+      export = export!(scope, program, 2, :scorm12)
+      zip = zip_path(export)
+      content = content!(export)
+
+      svg = Path.join(PackFixtures.demo_path(), "media/release-checks.svg")
+      {sha256, _bytes} = Store.digest(svg)
+
+      assert Map.keys(media_entries(zip)) == ["media/#{sha256}.svg"]
+      assert read_entry!(zip, "media/#{sha256}.svg") == File.read!(svg)
+
+      assert %{"media/release-checks.svg" => %{"url" => url, "kind" => "svg"}} =
+               content["media"]
+
+      assert url == "media/#{sha256}.svg"
+      assert Map.drop(content, ["schema", "policies"]) == module_content(program, 2)
+    end
+  end
+
+  describe "the media of a module" do
+    # A copy of the demo pack whose first lesson of module 1 gains a second
+    # video and two figures that name one SVG asset under two paths. The
+    # loader needs a file at every referenced path; the mapping of the
+    # importer links the paths to the assets.
+    defp media_pack! do
+      pack = PackFixtures.copy_pack!(PackFixtures.demo_path())
+      PackFixtures.write!(pack, "media/second-clip.webm", "a stand-in of a second video")
+
+      File.cp!(
+        PackFixtures.path(pack, "media/release-checks.svg"),
+        Path.join(pack, "media/checks-copy.svg")
+      )
+
+      PackFixtures.write!(
+        pack,
+        "modules/01-basics/lessons/01-first-lesson.md",
+        PackFixtures.read!(pack, "modules/01-basics/lessons/01-first-lesson.md") <>
+          """
+
+          :::video{src=media/second-clip.webm title="A second clip" captions="media/assistant-demo-en.vtt:en" provenance=invented}
+          :::
+
+          :::figure{src=media/release-checks.svg alt="The release checks." provenance=invented}
+          :::
+
+          :::figure{src=media/checks-copy.svg alt="The release checks again." provenance=invented}
+          :::
+          """
+      )
+
+      pack
+    end
+
+    defp publish_with!(pack, media) do
+      {:ok, %PackImport{status: :validated} = pack_import} =
+        Importer.import(pack, nil, media: media)
+
+      {:ok, %PackImport{status: :published}} = Publisher.publish(pack_import)
+      Catalog.get_program_by_slug(pack_import.pack_key)
+    end
+
+    # A file in `dir` with `content`, for an asset of the test store.
+    defp file!(dir, name, content) do
+      path = Path.join(dir, name)
+      File.write!(path, content)
+      path
+    end
+
+    test "two paths of one asset and two videos with one poster give one file each",
+         %{scope: scope} do
+      dir = tmp_dir!("media")
+      demo = MediaFixtures.media_for(PackFixtures.demo_path())
+
+      # One poster that both videos name, as two videos with the same black
+      # first frame share one.
+      poster = file!(dir, "poster.webp", "RIFF\x04\x00\x00\x00WEBP a stand-in poster")
+      {poster_sha256, poster_bytes} = Store.digest(poster)
+      File.mkdir_p!(Path.dirname(Store.path(poster_sha256, "webp")))
+      File.cp!(poster, Store.path(poster_sha256, "webp"))
+
+      facts = %{
+        width: 640,
+        height: 360,
+        duration_ms: 8_008,
+        has_audio: true,
+        poster_sha256: poster_sha256,
+        poster_bytes: poster_bytes
+      }
+
+      first =
+        MediaFixtures.stored_asset!(
+          Path.join(PackFixtures.demo_path(), "media/assistant-demo.webm"),
+          :video,
+          "webm",
+          facts
+        )
+
+      second =
+        MediaFixtures.stored_asset!(
+          file!(dir, "second.webm", "a stand-in of a second video"),
+          :video,
+          "webm",
+          facts
+        )
+
+      media =
+        Map.merge(demo, %{
+          "media/assistant-demo.webm" => first.id,
+          "media/second-clip.webm" => second.id,
+          "media/checks-copy.svg" => demo["media/release-checks.svg"]
+        })
+
+      program = publish_with!(media_pack!(), media)
+      export = export!(scope, program, 1, :scorm2004)
+      assert export.status == :done
+      zip = zip_path(export)
+
+      svg = Repo.get!(Asset, demo["media/release-checks.svg"])
+      vtt = Repo.get!(Asset, demo["media/assistant-demo-en.vtt"])
+
+      expected = [
+        "media/#{first.sha256}.webm",
+        "media/#{second.sha256}.webm",
+        "media/#{poster_sha256}.webp",
+        "media/#{svg.sha256}.svg",
+        "media/#{vtt.sha256}.vtt"
+      ]
+
+      assert Enum.sort(Map.keys(media_entries(zip))) == Enum.sort(expected)
+      assert entries(zip) == Enum.uniq(entries(zip))
+      assert read_entry!(zip, "media/#{poster_sha256}.webp") == File.read!(poster)
+      assert {size, size} = media_entries(zip)["media/#{poster_sha256}.webp"]
+
+      # The manifest lists every media file once.
+      files = attributes(manifest!(export), "//*[local-name()='file']/@href")
+      assert Enum.filter(files, &String.starts_with?(&1, "media/")) == Enum.sort(expected)
+
+      # content.json resolves both paths of the SVG to one file, and both
+      # videos to one poster.
+      content = content!(export)
+      assert content["media"]["media/release-checks.svg"]["url"] == "media/#{svg.sha256}.svg"
+      assert content["media"]["media/checks-copy.svg"]["url"] == "media/#{svg.sha256}.svg"
+
+      for path <- ["media/assistant-demo.webm", "media/second-clip.webm"] do
+        assert content["media"][path]["poster_url"] == "media/#{poster_sha256}.webp", path
+      end
+
+      assert Map.drop(content, ["schema", "policies"]) == module_content(program, 1)
+    end
+
+    test "media above export_max_mb fail the export with a text that names the limit",
+         %{scope: scope} do
+      put_env(:media, Keyword.put(Application.fetch_env!(:espalier, :media), :export_max_mb, 1))
+      dir = tmp_dir!("media")
+
+      # A delivery file of 1.1 MB in the place of the demo video.
+      large =
+        MediaFixtures.stored_asset!(
+          file!(dir, "large.webm", :binary.copy("v", 1_100_000)),
+          :video,
+          "webm",
+          %{width: 640, height: 360, duration_ms: 8_008, has_audio: true}
+        )
+
+      pack = PackFixtures.copy_pack!(PackFixtures.demo_path())
+
+      media =
+        pack
+        |> MediaFixtures.media_for()
+        |> Map.put("media/assistant-demo.webm", large.id)
+
+      program = publish_with!(pack, media)
+      export = request!(scope, program, 1, :scorm12)
+
+      capture_log(fn ->
+        assert {:error, message} = perform_job(ExportWorker, %{export_id: export.id})
+        assert message =~ "exceed 1 MB"
+      end)
+
+      failed = Repo.get!(Export, export.id)
+      assert failed.status == :failed
+
+      assert failed.error ==
+               "The media of this module exceed 1 MB; link large videos with an external URL."
+
+      assert failed.file_name == nil
+      assert File.ls!(Interop.export_dir()) == []
+
+      # Module 2 holds one small SVG and stays within the limit.
+      assert export!(scope, program, 2, :scorm12).status == :done
+    end
+
+    # The demo pack with a video of its own in place of the demo video, so
+    # that a test may remove or block its store file.
+    defp own_video!(dir) do
+      video =
+        MediaFixtures.stored_asset!(
+          file!(dir, "clip.webm", "a stand-in of a video #{System.unique_integer([:positive])}"),
+          :video,
+          "webm",
+          %{width: 640, height: 360, duration_ms: 8_008, has_audio: true}
+        )
+
+      pack = PackFixtures.copy_pack!(PackFixtures.demo_path())
+      media = pack |> MediaFixtures.media_for() |> Map.put("media/assistant-demo.webm", video.id)
+      {publish_with!(pack, media), video}
+    end
+
+    # Runs the job of `export`, which fails, and returns the failed export
+    # and the log.
+    defp failed_export!(export) do
+      log =
+        capture_log(fn ->
+          assert {:error, _message} = perform_job(ExportWorker, %{export_id: export.id})
+        end)
+
+      failed = Repo.get!(Export, export.id)
+      assert failed.status == :failed
+      assert failed.file_name == nil
+      assert File.ls!(Interop.export_dir()) == []
+      {failed, log}
+    end
+
+    test "a store file that is gone fails the export as a missing media file, and the log names it",
+         %{scope: scope} do
+      {program, video} = own_video!(tmp_dir!("media"))
+      File.rm!(Store.path(video.sha256, "webm"))
+      export = request!(scope, program, 1, :scorm12)
+
+      {failed, log} = failed_export!(export)
+
+      assert failed.error == "A media file of the module is missing."
+
+      assert log =~
+               "export media file not staged: export #{export.id}, media/#{video.sha256}.webm: " <>
+                 "enoent (no such file or directory)"
+    end
+
+    test "a media file that cannot be written fails the export with the generic text, and the log names the reason",
+         %{scope: scope} do
+      {program, _video} = own_video!(tmp_dir!("media"))
+      export = request!(scope, program, 1, :scorm2004)
+
+      # The media directory of the build exists without write permission, so
+      # neither a link nor a copy can place a file there.
+      media_dir = Path.join(Interop.export_paths(export.id).build, "media")
+      File.mkdir_p!(media_dir)
+      File.chmod!(media_dir, 0o555)
+      on_exit(fn -> File.chmod(media_dir, 0o755) end)
+
+      {failed, log} = failed_export!(export)
+
+      assert failed.error == "The package could not be built; the server log names the cause."
+
+      assert log =~
+               ~r/export media file not staged: export #{export.id}, media\/[0-9a-f]{64}\.(webm|vtt): eacces \(permission denied\)/
+    end
+
+    test "a full export volume fails the staging with a text that names it, and the log names the reason" do
+      for reason <- [:enospc, :edquot] do
+        log =
+          capture_log(fn ->
+            assert ExportWorker.staging_error("an-export", "media/clip.webm", reason) ==
+                     {:error,
+                      "The volume of EXPORT_DIR is full; free space there and request the export again."}
+          end)
+
+        assert log =~
+                 "export media file not staged: export an-export, media/clip.webm: #{reason} ("
+      end
+    end
   end
 
   describe "the manifest of a module title with markup" do
@@ -442,7 +782,7 @@ defmodule Espalier.Interop.ExportWorkerTest do
       content = content!(Repo.get!(Export, export.id))
 
       assert content["module"]["title"] == "Language models, second edition"
-      expected = program |> Payload.build() |> Payload.module(1) |> json()
+      expected = module_content(program, 1)
       assert Map.drop(content, ["schema", "policies"]) == expected
     end
   end

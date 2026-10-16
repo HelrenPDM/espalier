@@ -29,9 +29,13 @@ defmodule Espalier.BootCheck do
       variables;
     * a missing sign-in pathway: `LOCAL_ACCOUNTS=false`, `AUTH_DEMO` not
       `true` and no provider in `AUTH_PROVIDERS` (README section 6.11);
+    * in production, the messages of the tool check of the media processing
+      (task 0018, `Espalier.Media.Ffmpeg.check/0`): a missing `ffmpeg`,
+      `ffprobe` or `timeout`, an ffmpeg older than 7.1, and a missing
+      encoder or demuxer;
     * the messages of `Espalier.RuntimeConfig.errors/2`, which validates
       every application setting outside `AUTH_*`, among them a missing
-      `PUBLIC_URL` or `EXPORT_DIR` in production.
+      `PUBLIC_URL`, `EXPORT_DIR` or `MEDIA_DIR` in production.
 
   Every value passes `Espalier.RuntimeConfig.value/2`, which trims it and
   removes one pair of surrounding double quotes. The production block of
@@ -41,6 +45,7 @@ defmodule Espalier.BootCheck do
   """
 
   alias Espalier.Identity.{Config, ConfigError}
+  alias Espalier.Media.Ffmpeg
   alias Espalier.RuntimeConfig
 
   @typep env :: %{optional(String.t()) => String.t()}
@@ -49,14 +54,22 @@ defmodule Espalier.BootCheck do
 
   @doc """
   Returns the message of every gap in `env` (the map of `System.get_env/0`)
-  for the Mix environment `config_env`, or `[]`.
+  for the Mix environment `config_env`, or `[]`. In production it calls
+  `tools`, the tool check of the media processing; the tests pass a stub,
+  so that they start no process.
   """
-  @spec errors(env(), atom()) :: [String.t()]
-  def errors(env, config_env) when is_map(env) do
+  @spec errors(env(), atom(), (-> [String.t()])) :: [String.t()]
+  def errors(env, config_env, tools \\ &Ffmpeg.check/0) when is_map(env) do
     port(env, "PORT") ++
       production(env, config_env) ++
+      media_tools(config_env, tools) ++
       identity(env, config_env) ++ RuntimeConfig.errors(env, config_env)
   end
+
+  # In development and tests the shell provides ffmpeg, and the check does
+  # not run.
+  defp media_tools(:prod, tools), do: tools.()
+  defp media_tools(_config_env, _tools), do: []
 
   defp production(env, :prod) do
     missing =

@@ -28,6 +28,14 @@ defmodule Espalier.Catalog.Pack.Normalizer do
       `rules` of an item by number, and the `reveals`,
       `objectives`, `taught_in` and `cite` lists by value.
 
+  A block holds `"media"` (task 0018, step 9): for a `figure` the map of
+  `"src"`, `"alt"`, `"decorative"` (`true`, or `nil` when absent) and
+  `"size"` (`"full"` when absent), for a `video` the map of `"src"`,
+  `"embed"`, `"title"`, `"poster"` and `"captions"`, a list of
+  `%{"src", "lang"}` in the order of the attribute (`[]` when absent), and
+  `nil` for every other kind. Every key of these maps is present, with `nil`
+  for an absent value. The empty body of a `figure` or a `video` is `""`.
+
   Two packs that differ only in the order of the sorted lists give equal
   maps.
   """
@@ -39,6 +47,7 @@ defmodule Espalier.Catalog.Pack.Normalizer do
     ChecklistDrillConfig,
     ClassificationConfig,
     Feedback,
+    FigureMedia,
     Format,
     GlossaryTerm,
     Item,
@@ -49,7 +58,8 @@ defmodule Espalier.Catalog.Pack.Normalizer do
     Segment,
     SlotBuilderConfig,
     Source,
-    Station
+    Station,
+    VideoMedia
   }
 
   @typedoc "The cast pack of the validator."
@@ -209,13 +219,45 @@ defmodule Espalier.Catalog.Pack.Normalizer do
   defp block(%Block{} = block) do
     %{
       "kind" => enum(block.kind),
-      "body" => block.body,
+      "body" => block.body || "",
       "provenance" => enum(block.provenance),
       "collapsed_on" => enums(block.collapsed_on),
       "placeholder_key" => block.placeholder_key,
-      "cite" => sorted(block.cite)
+      "cite" => sorted(block.cite),
+      "media" => media(block.media)
     }
   end
+
+  defp media(%FigureMedia{} = figure) do
+    %{
+      "src" => figure.src,
+      "alt" => figure.alt,
+      "decorative" => if(FigureMedia.decorative?(figure), do: true),
+      "size" => enum(figure.size || :full)
+    }
+  end
+
+  defp media(%VideoMedia{} = video) do
+    tracks =
+      case video.captions do
+        nil ->
+          []
+
+        captions ->
+          {:ok, tracks} = VideoMedia.tracks(captions)
+          Enum.map(tracks, &%{"src" => &1.src, "lang" => &1.lang})
+      end
+
+    %{
+      "src" => video.src,
+      "embed" => video.embed,
+      "title" => video.title,
+      "poster" => video.poster,
+      "captions" => tracks
+    }
+  end
+
+  defp media(nil), do: nil
 
   defp objective(%Objective{} = objective) do
     %{

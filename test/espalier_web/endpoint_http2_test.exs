@@ -1,7 +1,7 @@
 defmodule EspalierWeb.EndpointHttp2Test do
-  # bandit 1.12.5 carries EEF-CVE-2026-105659 in its HTTP/2 stack, and mix.exs
-  # ignores the advisory only while the endpoint serves no HTTP/2. Each test
-  # starts its own Bandit on an ephemeral port with the endpoint's options.
+  # The endpoint serves no HTTP/2 (config/config.exs), which keeps the HTTP/2
+  # stack of Bandit out of reach. Each test starts its own Bandit on an
+  # ephemeral port with the endpoint's options.
   use ExUnit.Case, async: true
 
   alias Espalier.Test.CountingPlug
@@ -9,6 +9,10 @@ defmodule EspalierWeb.EndpointHttp2Test do
   # Over plain TCP, Bandit picks HTTP/2 when a connection opens with this
   # preface (prior knowledge, RFC 9113 section 3.3).
   @preface "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"
+
+  # recv/3 returns as soon as the answer or the close arrives; the bound only
+  # leaves room for a loaded machine, on which 2 seconds were too short.
+  @recv_timeout 10_000
 
   test "the endpoint configuration turns HTTP/2 off" do
     assert endpoint_http()[:http_2_options][:enabled] == false
@@ -18,7 +22,7 @@ defmodule EspalierWeb.EndpointHttp2Test do
     {port, counter} = start_bandit(endpoint_http())
     socket = connect(port)
     :ok = :gen_tcp.send(socket, @preface)
-    assert :gen_tcp.recv(socket, 0, 2_000) == {:error, :closed}
+    assert :gen_tcp.recv(socket, 0, @recv_timeout) == {:error, :closed}
     assert :counters.get(counter, 1) == 0
   end
 
@@ -26,7 +30,7 @@ defmodule EspalierWeb.EndpointHttp2Test do
     {port, counter} = start_bandit(endpoint_http())
     socket = connect(port)
     :ok = :gen_tcp.send(socket, "GET / HTTP/1.1\r\nhost: localhost\r\n\r\n")
-    assert {:ok, "HTTP/1.1 200 OK\r\n" <> _rest} = :gen_tcp.recv(socket, 0, 2_000)
+    assert {:ok, "HTTP/1.1 200 OK\r\n" <> _rest} = :gen_tcp.recv(socket, 0, @recv_timeout)
     assert :counters.get(counter, 1) == 1
   end
 
@@ -41,7 +45,7 @@ defmodule EspalierWeb.EndpointHttp2Test do
     :ok = :gen_tcp.send(socket, @preface)
 
     assert {:ok, <<_length::24, 4::8, _flags::8, 0::1, 0::31, _rest::binary>>} =
-             :gen_tcp.recv(socket, 9, 2_000)
+             :gen_tcp.recv(socket, 9, @recv_timeout)
   end
 
   defp endpoint_http do

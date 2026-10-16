@@ -7,9 +7,16 @@ defmodule EspalierWeb.Admin.PackJSON do
   `mode` and `matrix` from the stored payload (`nil` without one) and the
   report entries of `Espalier.Catalog.Alignment.check/1` with file and line,
   split into `errors` and `warnings`.
+
+  `media` (task 0018, step 10) holds the media of the payload keyed by path
+  with the state and the facts of their assets (`missing` for a deleted
+  asset), and `media_policy` the media settings of the installation, which
+  the preview applies.
   """
 
   alias Espalier.Catalog.{Alignment, PackImport}
+  alias Espalier.Media
+  alias Espalier.Media.Asset
 
   @finding_members ~w(file line check module key message)
 
@@ -29,7 +36,59 @@ defmodule EspalierWeb.Admin.PackJSON do
       published_at: pack_import.published_at,
       report: %{errors: errors, warnings: warnings},
       payload: if(pack_import.status == :validated, do: payload),
-      alignment: alignment(payload, report)
+      alignment: alignment(payload, report),
+      media: media(payload),
+      media_policy: Media.policy()
+    }
+  end
+
+  @doc "The media of a payload keyed by path, with the state and facts of their assets."
+  def media(%{} = payload) do
+    entries = Map.get(payload, "media") || []
+    assets = entries |> Enum.map(& &1["asset_id"]) |> Media.assets_by_id()
+
+    Map.new(entries, fn entry ->
+      {entry["path"], media_entry(entry, Map.get(assets, entry["asset_id"]))}
+    end)
+  end
+
+  def media(_payload), do: %{}
+
+  defp media_entry(entry, nil) do
+    %{
+      kind: entry["kind"],
+      status: "missing",
+      failure: nil,
+      failure_detail: nil,
+      url: nil,
+      mime: nil,
+      width: nil,
+      height: nil,
+      duration_ms: nil,
+      progress: 0,
+      has_audio: false,
+      has_alpha: false,
+      animated: false,
+      poster_url: nil
+    }
+  end
+
+  defp media_entry(_entry, %Asset{} = asset) do
+    %{
+      kind: asset.kind,
+      status: asset.status,
+      failure: asset.failure,
+      failure_detail: asset.failure_detail,
+      url: Media.url(asset),
+      mime: Media.mime(Media.delivery_ext(asset.kind)),
+      width: asset.width,
+      height: asset.height,
+      duration_ms: asset.duration_ms,
+      progress: asset.progress,
+      has_audio: asset.has_audio,
+      has_alpha: asset.has_alpha,
+      animated: asset.animated,
+      poster_url: Media.poster_url(asset)
     }
   end
 

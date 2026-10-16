@@ -6,6 +6,7 @@ defmodule Espalier.Catalog.AlignmentMatrixTest do
   alias Espalier.Catalog
   alias Espalier.Catalog.{Alignment, LearningObjective, PackImport}
   alias Espalier.Catalog.Pack.{Importer, Publisher}
+  alias Espalier.MediaFixtures
 
   @slug "ai-assistant-basics-demo"
   @areas ~w(subject method self social)
@@ -241,7 +242,9 @@ defmodule Espalier.Catalog.AlignmentMatrixTest do
   ## Import and publish
 
   defp import!(pack) do
-    assert {:ok, %PackImport{status: :validated} = pack_import} = Importer.import(pack, nil)
+    assert {:ok, %PackImport{status: :validated} = pack_import} =
+             Importer.import(pack, nil, media: MediaFixtures.media_for(pack))
+
     assert pack_import.report == %{"errors" => [], "warnings" => []}
     pack_import
   end

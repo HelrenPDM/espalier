@@ -58,6 +58,25 @@ describe("Markdown without raw HTML (ASVS 1.3.5)", () => {
     expect(container.querySelector("[onerror]")).toBeNull();
   });
 
+  test("an inline Markdown image renders its alternative text in a span and no img element (task 0018)", () => {
+    const { container } = render(
+      <Markdown>
+        {
+          "Before ![A chart of the checks](https://example.org/chart.png) after.\n\n![](media/photo.webp)\n\n![Reference image][ref]\n\n[ref]: https://example.org/ref.png"
+        }
+      </Markdown>,
+    );
+
+    expect(container.querySelector("img")).toBeNull();
+    expect(container.querySelector("[src]")).toBeNull();
+    const text = screen.getByText("A chart of the checks");
+    expect(text.tagName).toBe("SPAN");
+    expect(text.parentElement).toHaveTextContent(
+      "Before A chart of the checks after.",
+    );
+    expect(screen.getByText("Reference image").tagName).toBe("SPAN");
+  });
+
   test("other raw HTML tags produce no element", () => {
     const { container } = render(
       <Markdown>

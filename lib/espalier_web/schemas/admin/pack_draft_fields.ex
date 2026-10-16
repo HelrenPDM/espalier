@@ -14,8 +14,22 @@ defmodule EspalierWeb.Schemas.Admin.PackDraftFields do
       minLength: 1,
       maxLength: 527,
       description:
-        "A path of the pack layout: a top-level YAML file, `modules/<dir>/<name>.yaml` " <>
-          "or `modules/<dir>/lessons/<key>.md`, with at most 255 bytes per component."
+        "A path of the pack layout: a top-level YAML file, `modules/<dir>/<name>.yaml`, " <>
+          "`modules/<dir>/lessons/<key>.md` or a captions file `media/<dirs>/<key>.vtt`, " <>
+          "with at most 255 bytes per component."
+    }
+  end
+
+  @doc "A path of a media entry (task 0018, step 16)."
+  def media_path do
+    %Schema{
+      type: :string,
+      minLength: 1,
+      maxLength: 527,
+      description:
+        "`media/` followed by at most three directories and `<key>.<ext>`, where the " <>
+          "extension is the delivery extension of the asset (`webp`, `svg`, `webm`), or " <>
+          "`vtt` for a captions asset, which becomes a text file."
     }
   end
 

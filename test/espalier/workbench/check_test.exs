@@ -9,7 +9,13 @@ defmodule Espalier.Workbench.CheckTest do
   `Espalier.Workbench.DraftDir.with_dir/2` removes its directory in every
   outcome and writes nothing outside it, and
   `Espalier.Workbench.CheckLimiter` answers `checks_busy` at once while
-  every slot is taken.
+  every slot is taken. A download builds its zip in a slot of
+  `CheckLimiter` and sends it in a slot of
+  `Espalier.Workbench.DownloadLimiter` (task 0018, step 16): a check and an
+  import run while two transfers are in progress, a third download and a
+  second download of the same author answer `checks_busy` without a zip,
+  and the staging directory goes before the slot of the download is freed,
+  also when the transfer raises.
 
   Each test points `TMPDIR` at its own `tmp_dir`, so that the directories
   that a check leaves behind are the ones of this test only, also while
@@ -37,7 +43,7 @@ defmodule Espalier.Workbench.CheckTest do
   alias Espalier.Catalog.{Alignment, PackImport}
   alias Espalier.Catalog.Pack.{Loader, Report, Validator}
   alias Espalier.Workbench
-  alias Espalier.Workbench.{CheckLimiter, DraftDir, PackDraft, PackDraftFile}
+  alias Espalier.Workbench.{CheckLimiter, DownloadLimiter, DraftDir, PackDraft, PackDraftFile}
   alias Espalier.ZipFixtures
   alias EspalierWeb.Admin.PackJSON
   alias EspalierWeb.PackMultipart
@@ -63,6 +69,17 @@ defmodule Espalier.Workbench.CheckTest do
     } do
       draft = draft!(scope, demo_path())
 
+      # The WebM and the SVG are media entries and the captions a text file
+      # (task 0018, step 16); the check writes an empty file at the path of
+      # each entry, so the loader and the validator find every reference.
+      assert Enum.map(draft.media, & &1.path) == [
+               "media/assistant-demo.webm",
+               "media/release-checks.svg"
+             ]
+
+      assert "media/assistant-demo-en.vtt" in Enum.map(draft.files, & &1.path)
+      refute Enum.any?(draft.files, &(&1.path in Enum.map(draft.media, fn m -> m.path end)))
+
       assert {:ok, check} = Workbench.check_draft(scope, draft.id, nil)
       assert validate_lines(demo_path()) == []
       assert Report.report_lines(check.report) == validate_lines(demo_path())
@@ -70,6 +87,58 @@ defmodule Espalier.Workbench.CheckTest do
       assert check.lock_version == 1
       assert %{"key" => "ai-assistant-basics-demo", "alignment" => "strict"} = check.payload
       assert draft_dirs() == []
+    end
+
+    test "names a media reference without a media entry at the line of its block", %{
+      scope: scope
+    } do
+      draft = draft!(scope, demo_path())
+      svg = Enum.find(draft.media, &(&1.path == "media/release-checks.svg"))
+      {:ok, draft} = Workbench.delete_media(scope, draft.id, svg.id, draft.lock_version)
+
+      lesson = "modules/02-checking/lessons/02-second-lesson.md"
+      line = line_of!(demo_path(), lesson, ":::figure")
+
+      assert {:ok, check} = Workbench.check_draft(scope, draft.id, nil)
+
+      assert [%{"file" => ^lesson, "line" => ^line, "message" => message}] =
+               check.report["errors"]
+
+      assert message =~ "media/release-checks.svg"
+      assert check.payload == nil
+      assert draft_dirs() == []
+    end
+
+    test "adds the host check of the installation to the report", %{scope: scope} do
+      pack = copy_pack!(demo_path())
+      lesson = "modules/02-checking/lessons/02-second-lesson.md"
+
+      write!(
+        pack,
+        lesson,
+        read!(pack, lesson) <>
+          """
+
+          :::video{src=https://cdn.example.org/clips/intro.webm title="An external clip" provenance=invented}
+          The transcript of the external clip.
+          :::
+          """
+      )
+
+      draft = draft!(scope, pack)
+      line = line_of!(pack, lesson, "cdn.example.org")
+
+      assert {:ok, check} = Workbench.check_draft(scope, draft.id, nil)
+
+      assert check.report["errors"] == [
+               %{
+                 "file" => lesson,
+                 "line" => line,
+                 "message" => "host cdn.example.org is not in MEDIA_EXTERNAL_HOSTS"
+               }
+             ]
+
+      assert check.payload == nil
     end
 
     test "equals the loader errors of a pack with a YAML syntax error, without a payload", %{
@@ -341,11 +410,14 @@ defmodule Espalier.Workbench.CheckTest do
     end
 
     test "a download answers checks_busy while a holder takes the slot, and a stale import needs no slot",
-         %{scope: scope} do
+         %{scope: scope, user: user} do
       draft = draft!(scope, copy_pack!("minimal"))
       holder = hold_slot!()
 
-      assert Workbench.download(scope, draft.id) == {:error, :checks_busy}
+      # The download takes its slot of the downloads, finds no slot for the
+      # build, builds nothing and frees its slot of the downloads.
+      assert Workbench.download(scope, draft.id, &no_zip/1) == {:error, :checks_busy}
+      assert DownloadLimiter.run(user.id, fn -> :free end) == :free
 
       # The version check runs before the slot, so a stale import answers
       # stale_draft also while every slot is taken.
@@ -355,8 +427,70 @@ defmodule Espalier.Workbench.CheckTest do
       assert Workbench.import_draft(scope, Ecto.UUID.generate(), 1) == {:error, :not_found}
 
       release!(holder)
-      assert {:ok, %{zip: zip}} = Workbench.download(scope, draft.id)
-      assert {:ok, [_ | _]} = :zip.unzip(zip, [:memory])
+
+      assert {:ok, [_ | _]} =
+               Workbench.download(scope, draft.id, fn %{path: zip} ->
+                 :zip.unzip(String.to_charlist(zip), [:memory])
+               end)
+    end
+
+    test "two transfers hold no slot of the checks, and a third download answers checks_busy",
+         %{scope: scope} do
+      draft = draft!(scope, copy_pack!("minimal"))
+      transfers = for scope <- [scope, author_scope!()], do: start_transfer!(scope, draft)
+
+      # Both zips lie on disk while they are sent, and the one slot of the
+      # checks is free: a check and an import run.
+      for {_task, _pid, zip, _dir} <- transfers, do: assert(File.regular?(zip))
+      assert {:ok, %{report: %{"errors" => []}}} = Workbench.check_draft(scope, draft.id, nil)
+
+      assert {:ok, %PackImport{status: :validated}} =
+               Workbench.import_draft(scope, draft.id, draft.lock_version)
+
+      # Both slots of the downloads are taken, so a third author builds no
+      # zip.
+      assert Workbench.download(author_scope!(), draft.id, &no_zip/1) == {:error, :checks_busy}
+
+      for {task, pid, _zip, dir} <- transfers do
+        send(pid, :sent)
+        assert Task.await(task, 5_000) == {:ok, dir}
+        refute File.exists?(dir)
+      end
+
+      assert [_ | _] = download!(author_scope!(), draft.id)
+    end
+
+    test "a user runs one download at a time", %{scope: scope} do
+      draft = draft!(scope, copy_pack!("minimal"))
+      {task, pid, _zip, dir} = start_transfer!(scope, draft)
+
+      # One of the two slots of the downloads is free, yet the second
+      # download of the same author answers at once and builds nothing,
+      # while another author downloads.
+      assert Workbench.download(scope, draft.id, &no_zip/1) == {:error, :checks_busy}
+      assert [_ | _] = download!(author_scope!(), draft.id)
+
+      send(pid, :sent)
+      assert Task.await(task, 5_000) == {:ok, dir}
+      assert [_ | _] = download!(scope, draft.id)
+    end
+
+    test "a transfer that raises removes the staging directory and frees both slots",
+         %{scope: scope, user: user} do
+      draft = draft!(scope, copy_pack!("minimal"))
+      test = self()
+
+      assert_raise RuntimeError, "the transfer failed", fn ->
+        Workbench.download(scope, draft.id, fn %{dir: dir} ->
+          send(test, {:dir, dir})
+          raise "the transfer failed"
+        end)
+      end
+
+      assert_received {:dir, dir}
+      refute File.exists?(dir)
+      assert DownloadLimiter.run(user.id, fn -> :free end) == :free
+      assert CheckLimiter.run(fn -> :free end) == :free
     end
 
     test "a holder that dies frees its slot", %{scope: scope} do
@@ -432,6 +566,46 @@ defmodule Espalier.Workbench.CheckTest do
   end
 
   defp draft_dirs, do: Path.wildcard(Path.join(System.tmp_dir!(), "espalier-draft-*"))
+
+  # The function of a download that must not build a zip.
+  defp no_zip(_zip), do: flunk("the download built a zip")
+
+  # The entries of the zip of a download.
+  defp download!(scope, draft_id) do
+    assert {:ok, entries} =
+             Workbench.download(scope, draft_id, fn %{path: zip} ->
+               :zip.unzip(String.to_charlist(zip), [:memory])
+             end)
+
+    entries
+  end
+
+  # The scope of another author.
+  defp author_scope! do
+    user = user_with_role_fixture(:author)
+    %{Scope.for_user(user) | roles: [:learner, :author]}
+  end
+
+  # Starts a download of `draft` for `scope` in a task whose transfer waits
+  # for :sent, as a slow transfer would. Returns the task, the process that
+  # waits, the zip and its staging directory.
+  defp start_transfer!(scope, draft) do
+    test = self()
+
+    task =
+      Task.async(fn ->
+        Workbench.download(scope, draft.id, fn %{path: zip, dir: dir} ->
+          send(test, {:sending, self(), zip, dir})
+
+          receive do
+            :sent -> {:ok, dir}
+          end
+        end)
+      end)
+
+    assert_receive {:sending, pid, zip, dir}, 5_000
+    {task, pid, zip, dir}
+  end
 
   # A process that takes a slot of the CheckLimiter and holds it until it
   # receives :release. The test supervises it, so that ExUnit stops it, and

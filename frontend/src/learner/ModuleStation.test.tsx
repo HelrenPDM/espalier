@@ -1,12 +1,14 @@
 import { screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test } from "vitest";
 import {
   AssessmentsOpenError,
   emptyResumeState,
   type ProgramView,
   type ResumeState,
 } from "../player/runtime";
+import { forgetEmbedConsent } from "../player/embedConsent";
 import { expectNoAxeViolations } from "../test/axe";
+import { embedMedia, mediaBlock, videoMedia } from "../test/media";
 import {
   fakeRuntime,
   IDS,
@@ -397,5 +399,64 @@ describe("ModuleStation reveal and path", () => {
         expect.objectContaining({ path: "full" }),
       ),
     );
+  });
+
+  describe("with media blocks (task 0018)", () => {
+    afterEach(() => {
+      forgetEmbedConsent();
+    });
+
+    /** The fixture with a video and an embed player in lesson 1. */
+    function mediaProgram() {
+      const program = programFixture();
+      program.modules[0].lessons[0].blocks.push(
+        mediaBlock("video", videoMedia(), {
+          id: "00000000-0000-4000-8000-000000000091",
+        }),
+        mediaBlock("video", embedMedia(), {
+          id: "00000000-0000-4000-8000-000000000092",
+        }),
+      );
+      return program;
+    }
+
+    test("a path switch and a reveal keep the video element and the loaded embed player", async () => {
+      const program = mediaProgram();
+      const runtime = fakeRuntime({
+        program,
+        state: emptyResumeState("full"),
+      });
+      runtime.submitItem.mockResolvedValueOnce({
+        item_id: IDS.singleChoice,
+        correct: false,
+        option_feedback: [],
+        rules: [],
+        reveals: [IDS.lesson1],
+      });
+      const { user } = renderStation({ program, runtime });
+      await completeButton();
+
+      await user.click(
+        within(lessonOne()).getByRole("button", { name: "Load video" }),
+      );
+      const video = lessonOne().querySelector("video");
+      const frame = lessonOne().querySelector("iframe");
+      expect(video).not.toBeNull();
+      expect(frame).not.toBeNull();
+
+      await user.click(screen.getByRole("radio", { name: "Short path" }));
+      await waitFor(() =>
+        expect(explanationButton()).toHaveAttribute("aria-expanded", "false"),
+      );
+      expect(lessonOne().querySelector("video")).toBe(video);
+      expect(lessonOne().querySelector("iframe")).toBe(frame);
+
+      await answerWrong(user);
+      await waitFor(() =>
+        expect(explanationButton()).toHaveAttribute("aria-expanded", "true"),
+      );
+      expect(lessonOne().querySelector("video")).toBe(video);
+      expect(lessonOne().querySelector("iframe")).toBe(frame);
+    });
   });
 });

@@ -13,7 +13,8 @@ defmodule EspalierWeb.Admin.PackControllerTest do
   alias Espalier.Catalog
   alias Espalier.Catalog.{Alignment, PackImport, Program}
   alias Espalier.Catalog.Pack.Importer
-  alias Espalier.{Repo, ZipFixtures}
+  alias Espalier.Media.Asset
+  alias Espalier.{MediaFixtures, Repo, ZipFixtures}
 
   @key "ai-assistant-basics-demo"
   @items1 "modules/01-basics/items.yaml"
@@ -256,6 +257,7 @@ defmodule EspalierWeb.Admin.PackControllerTest do
 
       assert length(body["alignment"]["matrix"]) == 24
 
+      process_media!(id)
       conn = json_request(conn, :post, ~p"/api/admin/packs/#{id}/publish")
       assert %{"id" => ^id, "status" => "published"} = json_response(conn, 200)
       assert %Program{status: :published} = Repo.get_by(Program, slug: @key)
@@ -299,6 +301,7 @@ defmodule EspalierWeb.Admin.PackControllerTest do
                }
              ] = body["alignment"]["warnings"]
 
+      process_media!(id)
       conn = json_request(conn, :post, ~p"/api/admin/packs/#{id}/publish")
       assert %{"status" => "published"} = json_response(conn, 200)
     end
@@ -366,6 +369,86 @@ defmodule EspalierWeb.Admin.PackControllerTest do
     end
   end
 
+  describe "the media of an uploaded pack (task 0018, step 10)" do
+    test "are queued, hold the publish back with 409 media_not_ready and publish once ready", %{
+      conn: conn
+    } do
+      {conn, id} = upload!(conn, copy_pack!(demo_path()))
+      paths = Enum.sort(MediaFixtures.demo_media_paths())
+
+      conn = json_request(conn, :get, ~p"/api/admin/packs/#{id}")
+      body = json_response(conn, 200)
+      assert body["media"] |> Map.keys() |> Enum.sort() == paths
+
+      for {path, entry} <- body["media"] do
+        assert %{"status" => "queued", "url" => nil, "poster_url" => nil, "failure" => nil} =
+                 entry,
+               path
+      end
+
+      assert %{"kind" => "video"} = body["media"]["media/assistant-demo.webm"]
+      assert %{"kind" => "svg"} = body["media"]["media/release-checks.svg"]
+      assert %{"kind" => "captions"} = body["media"]["media/assistant-demo-en.vtt"]
+
+      assert body["media_policy"] == %{
+               "external_hosts" => [],
+               "embed_hosts" => [],
+               "embed_consent" => "click"
+             }
+
+      # A video in processing and the queued files hold the publish back.
+      %PackImport{payload: payload} = Repo.get!(PackImport, id)
+      ids = Map.new(payload["media"], &{&1["path"], &1["asset_id"]})
+      video = ids["media/assistant-demo.webm"]
+      Repo.update_all(from(a in Asset, where: a.id == ^video), set: [status: :processing])
+
+      conn = json_request(conn, :post, ~p"/api/admin/packs/#{id}/publish")
+      assert %{"error" => "media_not_ready", "media" => entries} = json_response(conn, 409)
+
+      assert Enum.sort_by(entries, & &1["path"]) == [
+               %{"path" => "media/assistant-demo-en.vtt", "status" => "queued", "failure" => nil},
+               %{
+                 "path" => "media/assistant-demo.webm",
+                 "status" => "processing",
+                 "failure" => nil
+               },
+               %{"path" => "media/release-checks.svg", "status" => "queued", "failure" => nil}
+             ]
+
+      assert Repo.aggregate(Program, :count) == 0
+      assert events("pack.published") == []
+      assert Repo.get!(PackImport, id).status == :validated
+
+      Repo.update_all(from(a in Asset, where: a.id == ^video), set: [status: :queued])
+      process_media!(id)
+
+      conn = json_request(conn, :get, ~p"/api/admin/packs/#{id}")
+      media = json_response(conn, 200)["media"]
+
+      assert %{
+               "status" => "ready",
+               "mime" => "video/webm",
+               "width" => 640,
+               "height" => 360,
+               "has_audio" => true,
+               "progress" => 100
+             } = media["media/assistant-demo.webm"]
+
+      assert media["media/assistant-demo.webm"]["url"] =~ ~r"\A/media/[0-9a-f]{64}\.webm\z"
+      assert media["media/assistant-demo.webm"]["poster_url"] =~ ~r"\A/media/[0-9a-f]{64}\.webp\z"
+
+      assert %{"status" => "ready", "mime" => "image/svg+xml", "url" => "/media/" <> _svg} =
+               media["media/release-checks.svg"]
+
+      assert %{"status" => "ready", "mime" => "text/vtt", "url" => "/media/" <> _vtt} =
+               media["media/assistant-demo-en.vtt"]
+
+      conn = json_request(conn, :post, ~p"/api/admin/packs/#{id}/publish")
+      assert %{"status" => "published"} = json_response(conn, 200)
+      assert [_event] = events("pack.published")
+    end
+  end
+
   describe "audit events in the transaction of the change" do
     # The trigger lives in the sandbox transaction of the test; the module
     # runs alone (async: false), so it blocks no other test.
@@ -381,7 +464,9 @@ defmodule EspalierWeb.Admin.PackControllerTest do
 
     test "a publish whose audit event fails leaves the import validated and the catalog empty",
          %{author: author} do
-      {:ok, %PackImport{status: :validated} = pack_import} = Importer.import(demo_path(), nil)
+      {:ok, %PackImport{status: :validated} = pack_import} =
+        Importer.import(demo_path(), nil, media: MediaFixtures.media_for(demo_path()))
+
       fail_on!("audit_events", "INSERT", "NEW.action = 'pack.published'")
 
       assert_raise Postgrex.Error, ~r/forced failure/, fn ->
@@ -408,6 +493,7 @@ defmodule EspalierWeb.Admin.PackControllerTest do
       conn = json_request(conn, :get, ~p"/api/admin/packs/#{failed}")
       assert json_response(conn, 200)["payload"] == nil
 
+      process_media!(validated)
       conn = json_request(conn, :post, ~p"/api/admin/packs/#{validated}/publish")
       assert json_response(conn, 200)["status"] == "published"
 
@@ -439,6 +525,7 @@ defmodule EspalierWeb.Admin.PackControllerTest do
       author: author
     } do
       {conn, id} = upload!(conn, copy_pack!(demo_path()))
+      process_media!(id)
       conn = json_request(conn, :post, ~p"/api/admin/packs/#{id}/publish")
       assert json_response(conn, 200)["status"] == "published"
 
@@ -465,7 +552,7 @@ defmodule EspalierWeb.Admin.PackControllerTest do
 
       assert diff |> Map.keys() |> Enum.sort() ==
                Enum.sort(~w(modules lessons learning_objectives items rules assessments
-                            qualifications formats sources segments glossary_terms))
+                            qualifications formats sources segments glossary_terms media))
 
       assert %{"added" => [], "archived" => [], "changed" => changed, "changed_fields" => fields} =
                diff["learning_objectives"]
@@ -580,6 +667,16 @@ defmodule EspalierWeb.Admin.PackControllerTest do
 
   defp without_objectives(%{"key" => key} = item, key), do: Map.put(item, "objectives", [])
   defp without_objectives(item, _key), do: item
+
+  # Processes the media that the import `id` queued, in the test process,
+  # as a running media queue would (task 0018, step 23).
+  defp process_media!(id) do
+    for asset <- MediaFixtures.process_queued!(Repo.get!(PackImport, id)) do
+      assert %Asset{status: :ready} = asset, "#{asset.source_name}: #{asset.failure}"
+    end
+
+    :ok
+  end
 
   defp author_scope(author), do: %{Scope.for_user(author) | roles: [:learner, :author]}
 

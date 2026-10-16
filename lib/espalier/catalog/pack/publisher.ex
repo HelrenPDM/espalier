@@ -48,6 +48,17 @@ defmodule Espalier.Catalog.Pack.Publisher do
   within one second (task 0016: `Espalier.Interop.Payload` reads the fields
   of `pack.yaml` from the import published last).
 
+  The publish checks the media of the payload (task 0018, step 10) after
+  the lock on the import: it selects the assets of `payload["media"]` (none
+  for a payload without the key) ordered by id with `FOR KEY SHARE` and
+  answers `{:error, {:media_not_ready, entries}}` before it changes a row
+  when an asset is missing or not `ready`, with one entry `%{"path",
+  "status", "failure"}` per such path. These locks make a deletion of an
+  asset and the retention of imported media, which lock the asset with
+  `FOR UPDATE`, wait for the publish and then see the new `program_media`
+  rows. The publish replaces the `program_media` rows of the program with
+  one row per entry of `payload["media"]`, and blocks carry their `media`.
+
   Every keyed row of the program whose key the payload no longer holds
   receives `archived_at`, so records that reference it keep their target. A
   row that is already archived keeps its first `archived_at`. Finally the
@@ -72,6 +83,7 @@ defmodule Espalier.Catalog.Pack.Publisher do
     Option,
     PackImport,
     Program,
+    ProgramMedia,
     Qualification,
     Requirement,
     Rule,
@@ -81,6 +93,7 @@ defmodule Espalier.Catalog.Pack.Publisher do
   }
 
   alias Espalier.Catalog.Module, as: CatalogModule
+  alias Espalier.Media.Asset
   alias Espalier.Repo
 
   @program_fields [:slug, :title, :locale, :pack_version]
@@ -115,7 +128,7 @@ defmodule Espalier.Catalog.Pack.Publisher do
     :phases,
     :position
   ]
-  @block_fields [:position, :kind, :body, :provenance, :collapsed_on, :placeholder_key]
+  @block_fields [:position, :kind, :body, :provenance, :collapsed_on, :placeholder_key, :media]
   @option_fields [:key, :label, :correct, :feedback, :position]
   @station_fields [:position, :kind, :title, :config]
   @requirement_fields [:kind, :target_key]
@@ -145,9 +158,13 @@ defmodule Espalier.Catalog.Pack.Publisher do
   Publishes a `validated` import and returns `{:ok, pack_import}` with the
   import in status `published`. Answers `{:error, :not_validated}` for an
   import in any other status, also when the import was published or changed
-  after the caller read it.
+  after the caller read it, and `{:error, {:media_not_ready, entries}}`
+  while a media file of the payload is missing or not `ready`.
   """
-  @spec publish(pack_import()) :: {:ok, pack_import()} | {:error, :not_validated}
+  @spec publish(pack_import()) ::
+          {:ok, pack_import()}
+          | {:error, :not_validated}
+          | {:error, {:media_not_ready, [%{String.t() => String.t() | nil}]}}
   def publish(%PackImport{status: :validated, pack_key: pack_key, id: id})
       when is_binary(pack_key) do
     Repo.transact(
@@ -156,7 +173,7 @@ defmodule Espalier.Catalog.Pack.Publisher do
 
         case Repo.one(from i in PackImport, where: i.id == ^id, lock: "FOR UPDATE") do
           %PackImport{status: :validated, payload: %{} = payload} = locked ->
-            {:ok, apply_payload(locked, payload)}
+            publish_locked(locked, payload)
 
           _other ->
             {:error, :not_validated}
@@ -167,6 +184,10 @@ defmodule Espalier.Catalog.Pack.Publisher do
   end
 
   def publish(%PackImport{}), do: {:error, :not_validated}
+
+  defp publish_locked(pack_import, payload) do
+    with :ok <- media_ready(payload), do: {:ok, apply_payload(pack_import, payload)}
+  end
 
   @doc """
   The `:timeout` of the publish transaction in milliseconds: 600,000 (ten
@@ -186,6 +207,7 @@ defmodule Espalier.Catalog.Pack.Publisher do
     ids = upsert_rows(program.id, payload)
 
     replace_children(ids, payload, now)
+    replace_program_media(program.id, Map.get(payload, "media", []), now)
     archive_missing(ids, now)
 
     program
@@ -200,6 +222,52 @@ defmodule Espalier.Catalog.Pack.Publisher do
     pack_import
     |> Changeset.change(status: :published, published_at: now)
     |> Repo.update!()
+  end
+
+  # The assets of the media of the payload, locked with FOR KEY SHARE in the
+  # order of their ids, and an entry for every path whose asset is missing
+  # or not ready.
+  defp media_ready(payload) do
+    media = Map.get(payload, "media") || []
+    ids = media |> Enum.map(& &1["asset_id"]) |> Enum.uniq() |> Enum.sort()
+
+    assets =
+      from(a in Asset, where: a.id in ^ids, order_by: a.id, lock: "FOR KEY SHARE")
+      |> Repo.all()
+      |> Map.new(&{&1.id, &1})
+
+    entries =
+      for entry <- media,
+          status = media_status(Map.get(assets, entry["asset_id"])),
+          status != nil do
+        Map.put(status, "path", entry["path"])
+      end
+
+    if entries == [], do: :ok, else: {:error, {:media_not_ready, entries}}
+  end
+
+  defp media_status(nil), do: %{"status" => "missing", "failure" => nil}
+  defp media_status(%Asset{status: :ready}), do: nil
+
+  defp media_status(%Asset{status: status, failure: failure}),
+    do: %{"status" => Atom.to_string(status), "failure" => failure && Atom.to_string(failure)}
+
+  defp replace_program_media(program_id, media, now) do
+    Repo.delete_all(from(m in ProgramMedia, where: m.program_id == ^program_id))
+
+    rows =
+      for entry <- media do
+        %{
+          id: Ecto.UUID.generate(),
+          program_id: program_id,
+          path: entry["path"],
+          media_asset_id: entry["asset_id"],
+          inserted_at: {:placeholder, :now},
+          updated_at: {:placeholder, :now}
+        }
+      end
+
+    insert_rows(ProgramMedia, rows, now)
   end
 
   # The current second, or one second after the last publish of the same

@@ -3,10 +3,13 @@ defmodule EspalierWeb.Schemas.Admin.PackImport do
   The answer of the pack routes of task 0015. `payload` is the normalized
   pack with its answer keys for a `validated` import (authors only), and
   `alignment` holds the matrix of the stored payload and the alignment
-  entries of the report.
+  entries of the report. `media` holds the media of the payload with the
+  state of their assets, and `media_policy` the media settings that the
+  preview applies (task 0018, step 10).
   """
   require OpenApiSpex
 
+  alias EspalierWeb.Schemas.Admin.PackMedia
   alias EspalierWeb.Schemas.Fields
   alias OpenApiSpex.Schema
 
@@ -30,7 +33,9 @@ defmodule EspalierWeb.Schemas.Admin.PackImport do
           additionalProperties: true,
           description: "The normalized pack of a validated import."
         },
-        alignment: EspalierWeb.Schemas.Admin.PackAlignment
+        alignment: EspalierWeb.Schemas.Admin.PackAlignment,
+        media: PackMedia.media(),
+        media_policy: PackMedia.policy()
       }),
       %{title: "AdminPackImport", description: "A content pack import."}
     ),

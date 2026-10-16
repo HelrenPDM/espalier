@@ -74,31 +74,48 @@ exception only by its module in `exception`, never by its message.
 | `input_validation_fail` | warning | `Espalier.Accounts.Passkeys.ClientData` (rejected `clientDataJSON`), `Espalier.Accounts.Passkeys.WaxCall` (rescued `wax_` exception) | `reason`, `exception` (the module name) |
 | `breach_check_unavailable` | warning | `Espalier.Accounts.BreachedPasswords` | none |
 | `directory_tls_failed` | warning | the TLS probe of `LdapSignIn` after a failed LDAPS connect, at most once per provider and minute (`Espalier.Identity.Ldap.tls_probe/1`) | `provider`, `reason` (the TLS alert name, such as `unknown_ca` or `handshake_failure`, or the atom of another error) |
+| `upload_validation` | warning | the processing of a media file of task 0018 when the clamd scan (`Espalier.Media.Clamd.scan/2`) finds a signature in an uploaded or imported file; the asset fails with `malware_found` and its incoming file is deleted | `user_id` (the uploader, or the author who imported the pack of the file, also when that upload or import restarted a failed asset of the same file; absent for a new asset from a pack file that `mix espalier.import` or the release functions added, and a restart by them keeps the earlier uploader), `reason` (`malware_found:` and the signature name from `Espalier.Media.Clamd.signature_reason/1`) |
 
 `authz_change` and `session_use_after_expire` belong to the vocabulary and
 are written by later tasks. Task 0006 adds the attribute keys `purpose` and
 `trigger` to the allowlists of `Espalier.SecurityLog` and of the production
-formatter (`config/prod.exs`); every value of them is a fixed word. Task 0007
-adds the operational event `directory_tls_failed` to the names and to the
-warning events, and no attribute key: its events use `provider`, `factor`,
-`ip`, `purpose`, `reason`, `count`, `change` and `user_id` or `account_hash`.
-A directory event carries the user id when the directory identity is known,
-and otherwise the `account_hash` of the `ldap_account` identifier (provider
-key and normalized username), as an unknown address does on the password
-pathway. Task 0013 adds no event name and no attribute key: the integration
-API writes `authn_login_fail` and `authz_fail` with the factor `api_token`,
-and a machine client appears by `ip` only, because its token never reaches
-the log. Task 0015 adds no event name and no attribute key either: the
-passkey gate writes `authz_fail` with the reason `passkey_required`, the
-two admin resets write `user_updated` with the `change` values
-`factors_reset` and `failure_counters_reset`, and `resend_invitation/2`
-writes `user_updated` with the `change` value `invitation_resent`, also for
-the new invitation that the reset of decision D11 sends to an active local
-account. Both resets also delete the
-directory counters of the user's LDAP identities through
-`reset_directory_for_user/2`, which writes one `user_updated` event with
-the reason `directory_counter_reset` for each identity whose counter it
-deletes.
+formatter (`config/prod.exs`); every value of them is a fixed word. Task
+0007 adds the operational event `directory_tls_failed` to the names and to
+the warning events, and no attribute key: its events use `provider`,
+`factor`, `ip`, `purpose`, `reason`, `count`, `change` and `user_id` or
+`account_hash`. A directory event carries the user id when the directory
+identity is known, and otherwise the `account_hash` of the `ldap_account`
+identifier (provider key and normalized username), as an unknown address
+does on the password pathway. Task 0013 adds no event name and no attribute
+key: the integration API writes `authn_login_fail` and `authz_fail` with the
+factor `api_token`, and a machine client appears by `ip` only, because its
+token never reaches the log. Task 0015 adds no event name and no attribute
+key either: the passkey gate writes `authz_fail` with the reason
+`passkey_required`, the two admin resets write `user_updated` with the
+`change` values `factors_reset` and `failure_counters_reset`, and
+`resend_invitation/2` writes `user_updated` with the `change` value
+`invitation_resent`, also for the new invitation that the reset of decision
+D11 sends to an active local account. Both resets also delete the directory
+counters of the user's LDAP identities through `reset_directory_for_user/2`,
+which writes one `user_updated` event with the reason
+`directory_counter_reset` for each identity whose counter it deletes.
+
+Task 0018 adds the event name `upload_validation` of the OWASP Logging
+Vocabulary to the names and to the warning events, and no attribute key. A
+clamd finding in an uploaded or imported media file writes it once, with the
+uploader or the author who imported the pack in `user_id` (none for a new
+asset from a pack file of `mix espalier.import` or the release functions)
+and `reason` set to `malware_found:` and the signature name, in which every
+character outside `[A-Za-z0-9._-]` becomes `_`, the whole cut to 100
+characters, so a signature name of the scanner cannot start a new log line
+or carry markup. An upload or an import by an author that restarts a failed
+asset of the same file makes that author the uploader, so the scan of the
+new copy names the author who brought it; an import without an actor keeps
+the earlier uploader. The event names no file name, no title and no path. A
+scan that fails without a finding (an exceeded scan limit, a timeout, a
+closed socket, a failed connect or an unexpected reply) is no security
+event: the asset fails with `scan_failed` and the reason tag in
+`failure_detail`.
 
 An oidcc error term can hold a token or the claims of an ID token, so the log
 carries only its reason tag, the first atom of the term
@@ -137,12 +154,15 @@ starts to lock and the `failed_attempts` mail goes out.
 | LDAP providers at boot | one line per LDAP provider with key, host, port, TLS mode, directory profile and the number of mapped groups (`Espalier.Identity.Ldap.log_providers/0`) | info |
 | Failed webhook delivery | `webhook failed: webhook <id>, event <event>, status <code>` for an answer outside 200 to 299, or `transport <exception module>` in place of the status for a transport error, from `Espalier.Credentials.WebhookWorker` (task 0013); Oban retries the job up to ten attempts. A delivered event logs `webhook delivered: webhook <id>, event <event>, status <code>` at `info`. No line carries the body, the secret, the signature or an address | warning |
 | Cancelled webhook delivery | `webhook cancelled: webhook <id>, event <event>, <reason>` from `Espalier.Credentials.WebhookWorker`, with the reason `webhook_inactive`, `secret_unset`, `host_not_allowed` or `credential_missing` | warning |
-| Failed SCORM export | `export failed: export <id>, <error text>` for a known cause, or `export failed: export <id>` followed by the formatted exception with its stack trace, from `Espalier.Interop.ExportWorker` (task 0016); the export gets the status `failed`. When that status change fails as well, the worker also logs `export status not set to failed: export <id>` followed by the formatted cause, and the export stays `queued` or `running` until `Espalier.Interop.StaleExportWorker` ends it | error |
+| Failed SCORM export | `export failed: export <id>, <error text>` for a known cause, preceded by `export media file not staged: export <id>, media/<sha256>.<ext>: <POSIX reason> (<description>)` when the worker cannot place a media file in the build directory (task 0018), or `export failed: export <id>` followed by the formatted exception with its stack trace, from `Espalier.Interop.ExportWorker` (task 0016); the export gets the status `failed`. When that status change fails as well, the worker also logs `export status not set to failed: export <id>` followed by the formatted cause, and the export stays `queued` or `running` until `Espalier.Interop.StaleExportWorker` ends it | error |
 | SCORM export ended by the sweep during its build | `export status not set to done: export <id> is no longer running, package removed` from `Espalier.Interop.ExportWorker` (task 0016) when the change to `done` finds the export no longer `running`; the worker has removed the zip and its partial files, and the job is cancelled. `export status not set to failed: export <id> is no longer queued or running` when the change to `failed` finds the export ended; the export keeps its status, and the worker removes the files of its build. `export status not set to failed: export <id> is done, package kept` when the change to `failed` finds the export `done`, because the change to `done` committed although the worker lost its answer; the export keeps its package, and the job ends without an error | warning |
 | Interrupted SCORM export | `export interrupted: export <id> set to failed` from `Espalier.Interop.StaleExportWorker` (task 0016), once for each export that it sets to `failed` after longer than its limit (twice the job timeout of 30 minutes, at least one hour) in `queued` or `running` | warning |
 | Deleted SCORM export | `export deleted: export <id>, older than <n> days` or `export deleted: export <id>, beyond the newest <n> packages` from `Espalier.Interop.prune_exports/1` (task 0016), once for each export that the retention deletes, and `export file without export removed: <name>` for each file below `EXPORT_DIR` without an export row that it removes | info |
 | SCORM export file not removed | `export file not removed: <name>, <reason>` from `Espalier.Interop.remove_export_files/2` (task 0016), with the path relative to `EXPORT_DIR`, which can name a directory that still holds entries, and the reason term of `File.rm_rf/1`; the orphan step of the next sweep removes a file whose row is gone | warning |
 | SCORM export retention not applied | `export retention not applied` followed by the formatted cause, from `Espalier.Interop.ExportWorker` (task 0016) when the count rule after a change to `done` fails; the export stays `done`, and the sweep applies the rule again | error |
+| Failed media processing | `media asset <id> failed: <code>` or `media asset <id> failed: <code> (<reason tag>)` from `Espalier.Media` (task 0018) when a scan fails (`scan_failed` with `limits_exceeded`, `size_limit`, `timeout`, `closed`, `connect` or `reply`), a conversion fails or times out, a job ends with an exception (`conversion_failed`, before the exception propagates), or `Espalier.Media.StaleWorker` ends an interrupted job (`interrupted`); the asset gets the status `failed` and shows the code in the library. The line comes only when the update changes the row: a job whose asset was deleted, or failed by the sweep, meanwhile logs the line of the row "Stopped media job". A clamd finding logs the security event `upload_validation` instead. No line carries a title or a file name | error |
+| Stopped media job | `media asset <id> stopped, because it is no longer processing` from `Espalier.Media` (task 0018) when a job finds its asset deleted, or failed by the sweep: at a progress update of a video conversion or a heartbeat, which stop its running command, at the check after the scan, before each command and before the output of the SVG rebuild, the captions check or the check of an animated WebP, or at the status write of its result or failure, which then changes no row; the job starts no further command, stores no file and changes no status | info |
+| Media command not stopped | `kill is not installed, so a cancelled media command runs until it ends` from `Espalier.Media.Command` (task 0018) when a job stops and no `kill` is on the `PATH`; the command runs until it ends or reaches its deadline | warning |
 | Unreachable OIDC provider | `Metadata load failed for issuer <issuer>. Retrying in <n> ms. Error Details: <term>` from the provider worker of oidcc 3.9.0 at each failed discovery or JWKS load; the term holds the HTTP status and the body of the provider's public answer or the transport error, and these requests carry no credential | error |
 
 ## What is never logged
@@ -207,10 +227,10 @@ Administrative actions are also written to the table `audit_events` through
 
 | Column | Content |
 |---|---|
-| `action` | `user.invited`, `user.invitation_resent`, `user.signed_up`, `user.disabled`, `role.granted`, `role.revoked`, `role.synced`, `sessions.ended`, `sessions.ended_all`, `api_client.created`, `api_client.deleted`; since task 0007 `failure_counter.reset`; since task 0013 `policy_version.created`, `policy_version.published`, `attendance.issued`, `credential.revoked`; since task 0015 `user.factors_reset`, `user.failure_counters_reset`, `policy.created`, `policy.updated`, `policy.deleted`, `approved_tool.created`, `approved_tool.updated`, `approved_tool.deleted`, `webhook.created`, `webhook.updated`, `webhook.deleted`, `policy_version.updated`, `pack.imported`, `pack.published`; since task 0016 `export.requested`; since task 0016a `pack_draft.created`, `pack_draft.deleted` |
+| `action` | `user.invited`, `user.invitation_resent`, `user.signed_up`, `user.disabled`, `role.granted`, `role.revoked`, `role.synced`, `sessions.ended`, `sessions.ended_all`, `api_client.created`, `api_client.deleted`; since task 0007 `failure_counter.reset`; since task 0013 `policy_version.created`, `policy_version.published`, `attendance.issued`, `credential.revoked`; since task 0015 `user.factors_reset`, `user.failure_counters_reset`, `policy.created`, `policy.updated`, `policy.deleted`, `approved_tool.created`, `approved_tool.updated`, `approved_tool.deleted`, `webhook.created`, `webhook.updated`, `webhook.deleted`, `policy_version.updated`, `pack.imported`, `pack.published`; since task 0016 `export.requested`; since task 0016a `pack_draft.created`, `pack_draft.deleted`; since task 0018 `media.uploaded`, `media.deleted` |
 | `actor_id` | the acting user; `null` for release functions, the boot task and the `signup` job (`Scope.system/0`) |
 | `subject_type`, `subject_id` | the changed record |
-| `details` | role names, provider keys and counts, for task 0013 policy keys, version numbers, format keys, session dates and the previous credential status, and for task 0015 `identity_verified: true` of a factor reset, policy keys with version numbers or the number of deleted drafts, tool names, the events and the name of the secret variable of a webhook (no URL and no secret), and pack keys with the import status, and for task 0016a the `source` (`empty`, `program`, `import` or `upload`), `pack_key`, `file_count` and the `program_slug` or `pack_import_id` of the start of `pack_draft.created`, the `pack_key` and `file_count` of `pack_draft.deleted`, and `pack_draft_id` in `pack.imported` for an import from a draft; no personal data |
+| `details` | role names, provider keys and counts, for task 0013 policy keys, version numbers, format keys, session dates and the previous credential status, and for task 0015 `identity_verified: true` of a factor reset, policy keys with version numbers or the number of deleted drafts, tool names, the events and the name of the secret variable of a webhook (no URL and no secret), and pack keys with the import status, and for task 0016a the `source` (`empty`, `program`, `import` or `upload`), `pack_key`, `file_count` and the `program_slug` or `pack_import_id` of the start of `pack_draft.created`, the `pack_key` and `file_count` of `pack_draft.deleted`, and `pack_draft_id` in `pack.imported` for an import from a draft, and for task 0018 the `kind` of the asset of `media.uploaded` and `media.deleted`; no personal data |
 | `at` | UTC time of the action |
 
 Audit events are append-only: the context has no update or delete function
@@ -236,3 +256,14 @@ actors, and an event per save would record the working rhythm of an author
 in `audit_events`, which data minimization (README section 2, principle 3)
 speaks against. `updated_at` and `lock_version` of the draft show that it
 changed ([`../guides/pack-workbench.md`](../guides/pack-workbench.md)).
+
+The media library of task 0018 writes `media.uploaded` for a new asset of
+an upload, in the transaction that inserts the asset and its job, and for
+an upload that restarts a failed asset of the same file, in the
+transaction that restarts it with a new job, and `media.deleted` for a
+deleted asset, in the transaction of the deletion, each with the acting
+author as actor, the asset as subject and its `kind`. An upload of a file
+that the library holds already in an asset that has not failed, a media
+file of an imported pack (whose import writes `pack.imported`), a title
+change and the media entries of a draft write no audit event, for the
+reasons that the paragraph on the workbench names.

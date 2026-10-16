@@ -4,7 +4,7 @@ defmodule Espalier.Catalog.Pack.Diff do
   whose `slug` equals the pack key (task 0015, step 7) and lists the added,
   changed and archived keys per keyed kind of task 0008: modules, lessons,
   learning objectives, items, rules, assessments, qualifications, formats,
-  sources, segments and glossary terms.
+  sources, segments and glossary terms, and the media files of task 0018.
 
   Without such a program, every key of the payload is `added`. Live rows
   with `archived_at` set count as absent: a key that the payload holds again
@@ -17,8 +17,11 @@ defmodule Espalier.Catalog.Pack.Diff do
 
   Keys: a module by its number, a lesson as `<module number>/<lesson key>`
   and a rule as `<module number>/<rule number>`, because both are keyed per
-  module; every other kind by its key, a qualification by its code and a
-  glossary term by its slug.
+  module; every other kind by its key, a qualification by its code, a
+  glossary term by its slug and a media file by its `media/` path. A media
+  path is `changed` when its asset differs from the asset of the
+  `program_media` row of the live program, and a block is compared with its
+  `media` attributes.
 
   Besides the fields of its row, a key is compared by the values that the
   payload nests below it and that the publisher writes into rows of their
@@ -56,6 +59,7 @@ defmodule Espalier.Catalog.Pack.Diff do
     Lesson,
     Option,
     Program,
+    ProgramMedia,
     Qualification,
     Requirement,
     Rule,
@@ -77,7 +81,8 @@ defmodule Espalier.Catalog.Pack.Diff do
     :formats,
     :sources,
     :segments,
-    :glossary_terms
+    :glossary_terms,
+    :media
   ]
 
   @module_fields [
@@ -109,7 +114,7 @@ defmodule Espalier.Catalog.Pack.Diff do
   @source_fields [:title, :publisher, :url, :edition_date, :retrieved_on, :kind]
   @segment_fields [:label, :description, :default_path, :position]
   @glossary_fields [:label, :short_text]
-  @block_fields [:kind, :body, :provenance, :collapsed_on, :placeholder_key]
+  @block_fields [:kind, :body, :provenance, :collapsed_on, :placeholder_key, :media]
   @option_fields [:key, :label, :correct, :feedback]
   @requirement_fields [:kind, :target_key]
 
@@ -210,7 +215,8 @@ defmodule Espalier.Catalog.Pack.Diff do
       glossary_terms:
         Map.new(list(payload, "glossary"), fn term ->
           {term["slug"], cast(GlossaryTerm, term, @glossary_fields)}
-        end)
+        end),
+      media: Map.new(list(payload, "media"), &{&1["path"], %{asset_id: &1["asset_id"]}})
     }
   end
 
@@ -614,6 +620,11 @@ defmodule Espalier.Catalog.Pack.Diff do
         Map.new(
           live(from(g in GlossaryTerm, where: g.program_id == ^program_id)),
           &{&1.slug, Map.take(&1, @glossary_fields)}
+        ),
+      media:
+        Map.new(
+          Repo.all(from(m in ProgramMedia, where: m.program_id == ^program_id)),
+          &{&1.path, %{asset_id: &1.media_asset_id}}
         )
     }
   end
