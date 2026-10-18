@@ -1,11 +1,13 @@
 defmodule EspalierWeb.Schemas.Admin.PackDraft do
   @moduledoc """
   A draft of the pack workbench (task 0016a, step 9). The single view and
-  the answers of the changes carry `files` without content; the list leaves
-  them out. The answer of the upload adds `skipped`.
+  the answers of the changes carry `files` without content and the media
+  entries of task 0018 in `media`; the list leaves both out. The answer of
+  the upload adds `skipped`.
   """
   require OpenApiSpex
 
+  alias EspalierWeb.Schemas.Admin.MediaAsset
   alias EspalierWeb.Schemas.Fields
   alias OpenApiSpex.Schema
 
@@ -44,6 +46,11 @@ defmodule EspalierWeb.Schemas.Admin.PackDraft do
               }),
               "The files ordered by path, without content."
             ),
+          media:
+            Fields.array(
+              Fields.object(%{id: Fields.uuid(), path: Fields.string(), asset: MediaAsset}),
+              "The media entries ordered by path, each with its library asset."
+            ),
           skipped:
             Fields.object(
               %{
@@ -53,7 +60,7 @@ defmodule EspalierWeb.Schemas.Admin.PackDraft do
               description: "The files of an uploaded archive outside the pack layout."
             )
         },
-        optional: [:files, :skipped]
+        optional: [:files, :media, :skipped]
       ),
       %{title: "AdminPackDraft", description: "A draft of the pack workbench."}
     ),

@@ -23,6 +23,16 @@ defmodule Espalier.Catalog.Pack.Loader do
     * `modules/<dir>/{module,objectives,rules,items,assessment}.yaml`;
     * `modules/<dir>/lessons/*.md`.
 
+  The media files of the pack (task 0018, step 9) lie below `media/` at the
+  root of the pack. The loader keeps every regular file there in `media`
+  with its path, its absolute path and the size that `File.lstat/1`
+  reports, and reads none of them. A path that fails
+  `Espalier.Catalog.Pack.MediaPath.check/1` and a file larger than the limit
+  of its kind (`Espalier.Media.max_bytes/1`) are errors at the path of the
+  file, and more than `Espalier.Media.max_pack_media/0` files are one error
+  at `media`. A directory `modules/media/` is a module directory as any
+  other, and every other file outside the pack format stays unread.
+
   A file larger than 1 MiB (1,048,576 bytes, the size that `File.lstat/1`
   reports) is rejected before it is read. Every text must be valid UTF-8 and
   must not hold a control character other than tab, line feed and carriage
@@ -65,19 +75,24 @@ defmodule Espalier.Catalog.Pack.Loader do
       %{
         root: String.t(),
         files: %{String.t() => doc},       # the top-level YAML files that exist
-        modules: [module_dir]              # sorted by directory name
+        modules: [module_dir],             # sorted by directory name
+        media: [media_file]                # sorted by path
       }
 
       doc = %{file: String.t(), data: term(), lines: LineIndex.t()}
       module_dir = %{dir: String.t(), files: %{String.t() => doc}, lessons: [lesson_file]}
       lesson_file = %{key: String.t(), file: String.t(), front: doc, blocks: [Directives.block()]}
+      media_file = %{path: String.t(), file: Path.t(), bytes: non_neg_integer()}
 
-  `file` is the path relative to the pack directory, and `data` is `nil` for
-  an empty document.
+  `file` of a document or a lesson is the path relative to the pack
+  directory, and `data` is `nil` for an empty document. `path` of a media
+  file is the path relative to the pack directory, such as
+  `media/photo.png`, and `file` its absolute path.
   """
 
-  alias Espalier.Catalog.Pack.{Directives, Entries, LineIndex}
+  alias Espalier.Catalog.Pack.{Directives, Entries, LineIndex, MediaPath}
   alias Espalier.Catalog.Pack.Schema.Cast
+  alias Espalier.Media
   alias YamlElixir.ParsingError
 
   @top_files ~w(pack.yaml sources.yaml glossary.yaml segments.yaml stations.yaml feedback.yaml qualifications.yaml formats.yaml)
@@ -117,8 +132,16 @@ defmodule Espalier.Catalog.Pack.Loader do
   @typedoc "A module directory."
   @type module_dir :: %{dir: String.t(), files: %{String.t() => doc()}, lessons: [lesson_file()]}
 
+  @typedoc "A media file below `media/`, which the loader does not read."
+  @type media_file :: %{path: String.t(), file: Path.t(), bytes: non_neg_integer()}
+
   @typedoc "The loaded map."
-  @type loaded :: %{root: String.t(), files: %{String.t() => doc()}, modules: [module_dir()]}
+  @type loaded :: %{
+          root: String.t(),
+          files: %{String.t() => doc()},
+          modules: [module_dir()],
+          media: [media_file()]
+        }
 
   @doc "The names of the top-level YAML files of the pack format."
   @spec top_files() :: [String.t()]
@@ -197,9 +220,10 @@ defmodule Espalier.Catalog.Pack.Loader do
   defp read_root(root, tree, deadline) do
     {files, file_errors, used} = read_top_files(root, tree, %{bytes: 0, deadline: deadline})
     {modules, module_errors, _used} = read_modules(root, tree, used)
+    {media, media_errors} = media_files(root, tree)
 
-    case tree.errors ++ file_errors ++ module_errors do
-      [] -> {:ok, %{root: root, files: files, modules: modules}}
+    case tree.errors ++ file_errors ++ module_errors ++ media_errors do
+      [] -> {:ok, %{root: root, files: files, modules: modules, media: media}}
       errors -> {:error, finish(errors)}
     end
   end
@@ -290,6 +314,7 @@ defmodule Espalier.Catalog.Pack.Loader do
     tree = %{
       files: MapSet.new(),
       dirs: MapSet.new(),
+      media: [],
       errors: [],
       deadline: deadline,
       entries: 0,
@@ -378,8 +403,12 @@ defmodule Espalier.Catalog.Pack.Loader do
       {:ok, %File.Stat{type: :directory}} ->
         walk_dir(root, rel, %{tree | dirs: MapSet.put(tree.dirs, rel)})
 
-      {:ok, %File.Stat{type: :regular}} ->
-        %{tree | files: MapSet.put(tree.files, rel)}
+      {:ok, %File.Stat{type: :regular, size: size}} ->
+        tree = %{tree | files: MapSet.put(tree.files, rel)}
+
+        if String.starts_with?(rel, "media/"),
+          do: %{tree | media: [{rel, size} | tree.media]},
+          else: tree
 
       {:ok, %File.Stat{type: :symlink}} ->
         add_tree_error(tree, rel, "symbolic links are not allowed in a pack")
@@ -637,6 +666,57 @@ defmodule Espalier.Catalog.Pack.Loader do
   end
 
   defp delimiter?(line), do: String.trim_trailing(line) == "---"
+
+  # Media
+
+  # The regular files below media/ with the size of the walk's lstat. Every
+  # path passes MediaPath.check/1 and the size limit of its kind; none of
+  # the files is read.
+  defp media_files(root, tree) do
+    entries = Enum.sort(tree.media)
+    max = Media.max_pack_media()
+
+    count_errors =
+      if length(entries) > max,
+        do: [error("media", "the directory `media` holds more than #{delimit(max)} files")],
+        else: []
+
+    {media, errors} =
+      Enum.reduce(entries, {[], count_errors}, fn {rel, size}, {media, errors} ->
+        case check_media(rel, size) do
+          :ok -> {[%{path: rel, file: Path.join(root, rel), bytes: size} | media], errors}
+          {:error, message} -> {media, [error(rel, message) | errors]}
+        end
+      end)
+
+    {Enum.reverse(media), Enum.reverse(errors)}
+  end
+
+  defp check_media(rel, size) do
+    with :ok <- MediaPath.check(rel) do
+      kind = MediaPath.kind(rel)
+      limit = Media.max_bytes(kind)
+
+      if size > limit,
+        do:
+          {:error, "the file is larger than #{delimit(limit)} bytes, the limit of #{label(kind)}"},
+        else: :ok
+    end
+  end
+
+  defp label(:image), do: "an image (`MEDIA_IMAGE_MAX_MB`)"
+  defp label(:svg), do: "an SVG file"
+  defp label(:video), do: "a video (`MEDIA_VIDEO_MAX_MB`)"
+  defp label(:captions), do: "a captions file"
+
+  # 1048576 -> "1,048,576"
+  defp delimit(number) do
+    number
+    |> Integer.to_string()
+    |> String.reverse()
+    |> String.replace(~r/(\d{3})(?=\d)/, "\\1,")
+    |> String.reverse()
+  end
 
   # YAML
 

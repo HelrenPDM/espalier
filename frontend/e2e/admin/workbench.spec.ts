@@ -20,6 +20,10 @@ const MODULE_DIR = "modules/02-checking-the-output";
 const OBJECTIVES = `${MODULE_DIR}/objectives.yaml`;
 const MODULE_FILE = `${MODULE_DIR}/module.yaml`;
 const OBJECTIVE_KEY = "m2-method-release-check";
+/** The demo media of task 0018 in the draft, at their paths of the pack. */
+const DEMO_FIGURE = "media/release-checks.svg";
+const DEMO_VIDEO = "media/assistant-demo.webm";
+const DEMO_CAPTIONS = "media/assistant-demo-en.vtt";
 
 const OLD_STATEMENT =
   "Learners can run the release checks on a generated text and confirm them with their initials.";
@@ -250,6 +254,38 @@ test("an author edits the demo program in the workbench, imports and publishes i
     await expect(
       page.getByRole("heading", { level: 1, name: PROGRAM_TITLE }),
     ).toBeVisible();
+  });
+
+  await test.step("the draft holds the demo media as entries and the captions as a file", async () => {
+    // Task 0018, step 20: the figure of module 2 and the video of module 1
+    // are media entries below media/, the captions a text file.
+    const draft = await page.request.get(`/api/admin/pack-drafts/${draftId}`);
+    expect(draft.status()).toBe(200);
+    const { files, media } = (await draft.json()) as {
+      files: DraftFile[];
+      media: { path: string; asset: { kind: string } }[];
+    };
+    expect(
+      media.map((entry) => `${entry.path} ${entry.asset.kind}`).sort(),
+    ).toEqual([`${DEMO_VIDEO} video`, `${DEMO_FIGURE} svg`]);
+    expect(files.map((file) => file.path)).toContain(DEMO_CAPTIONS);
+    await expect(fileButton(page, DEMO_FIGURE)).toHaveAccessibleName(
+      /, SVG graphic$/,
+    );
+    await expect(fileButton(page, DEMO_VIDEO)).toHaveAccessibleName(/, Video$/);
+
+    // A media entry shows its preview and the directive in place of the
+    // editor.
+    await fileButton(page, DEMO_FIGURE).click();
+    await expect(fileButton(page, DEMO_FIGURE)).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
+    await expect(page.getByLabel("Directive for a lesson")).toHaveValue(
+      `:::figure{src=${DEMO_FIGURE} alt="" provenance=invented}\n:::\n`,
+    );
+    await expect(page.getByRole("img", { name: /^Preview of / })).toBeVisible();
+    await expectNoAxeViolation(page);
   });
 
   await test.step("an invalid depth fails the check at its line", async () => {

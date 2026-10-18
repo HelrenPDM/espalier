@@ -11,19 +11,23 @@ import { LoadingStatus } from "../../app/LoadingStatus";
 import { useStartErrorText } from "../workbench/startErrors";
 import { AlignmentSection } from "./AlignmentSection";
 import { ReportEntryList } from "./findings";
+import { MediaSection } from "./MediaSection";
+import { mediaBlockReason } from "./packMedia";
 import { PublishDialog } from "./PublishDialog";
 
-type BlockReason = "published" | "failed" | "alignment";
+type BlockReason =
+  "published" | "failed" | "alignment" | "mediaFailed" | "mediaPending";
 
 /**
  * Why "Publish" is disabled, or `null` when the import can be published:
- * only a `validated` import without an alignment error is publishable.
+ * only a `validated` import without an alignment error whose media files
+ * are all `ready` (task 0018, step 10) is publishable.
  */
 function blockReason(pack: PackImport): BlockReason | null {
   if (pack.status === "published") return "published";
   if (pack.status !== "validated") return "failed";
   if (pack.alignment.errors.length > 0) return "alignment";
-  return null;
+  return mediaBlockReason(pack);
 }
 
 /**
@@ -201,6 +205,7 @@ function PackView({ pack }: { pack: PackImport }) {
         <PublishControl pack={pack} />
       </div>
       <ValidationReport report={pack.report} />
+      <MediaSection pack={pack} />
       <AlignmentSection alignment={pack.alignment} />
     </div>
   );
@@ -209,8 +214,11 @@ function PackView({ pack }: { pack: PackImport }) {
 /**
  * `/admin/packs/:id`: one import with its status, the validation report
  * with file and line per error, the section "Alignment", the preview link
- * and the publication (task 0015, step 11), and "Edit in the workbench"
- * (task 0016a, step 12).
+ * and the publication (task 0015, step 11), "Edit in the workbench" (task
+ * 0016a, step 12), and the section "Media" with the state of every media
+ * file (task 0018, step 19). The page reads the import again every two
+ * seconds while a media file is converted, and "Publish" stays disabled
+ * with a sentence until every media file is `ready`.
  */
 export function PackPage() {
   const { t } = useTranslation();

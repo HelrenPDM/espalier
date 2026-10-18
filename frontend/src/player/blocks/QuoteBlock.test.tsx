@@ -21,6 +21,7 @@ const block: Block = {
   collapsed_on: [],
   placeholder_key: null,
   policy: null,
+  media: null,
   citations: [
     { locator: "Interviews", source: source("office-study", "Office study") },
     { locator: null, source: source("second-study", "Second study") },

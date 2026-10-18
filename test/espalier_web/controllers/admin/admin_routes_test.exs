@@ -27,14 +27,15 @@ defmodule EspalierWeb.Admin.AdminRoutesTest do
     check of a pack draft (task 0016a), which changes no state, runs
     `:author`, and every GET runs `:admin` or `:author`.
   - Only the pack upload and the upload of a pack draft (task 0016a) run
-    `:pack_upload`, after `:author_write`, and both check the content type
-    only after the checks of `:author_write`.
+    `:pack_upload`, and only the media upload (task 0018) runs
+    `:media_upload`, each after `:author_write`, and all three check the
+    content type only after the checks of `:author_write`.
   - A failed role check, a missing recent second factor and a closed
     passkey gate log `authz_fail` (ASVS 16.3.2).
   - Every answer under `/api/admin` carries `cache-control: no-store` (ASVS
     14.2.2 and 14.3.2), and no route takes an e-mail address in its path or
     query string (ASVS 14.2.1).
-  - Every POST route apart from the two uploads and every PUT and PATCH
+  - Every POST route apart from the three uploads and every PUT and PATCH
     route answers 422 `validation_failed` for a JSON body with an extra
     member (ASVS 15.3.3).
   """
@@ -53,14 +54,16 @@ defmodule EspalierWeb.Admin.AdminRoutesTest do
   @draft_check "/api/admin/pack-drafts/:id/check"
   @pack_upload "/api/admin/packs"
   @draft_upload "/api/admin/pack-draft-uploads"
-  @uploads [@pack_upload, @draft_upload]
+  @media_upload "/api/admin/media"
+  @pack_uploads [@pack_upload, @draft_upload]
+  @uploads [@pack_upload, @draft_upload, @media_upload]
   @uuid "6f1c2d3e-4b5a-4c6d-8e7f-0a1b2c3d4e5f"
 
   # A body of every POST route that its request schema accepts. The test of
-  # extra members merges the member "unexpected" into it. The two uploads
-  # are multipart bodies with the archive in the field "file" and have no
-  # JSON members, so that test leaves them out; the archive tests cover
-  # them.
+  # extra members merges the member "unexpected" into it. The three uploads
+  # are multipart bodies with the archive or the media file in the field
+  # "file" and have no JSON members, so that test leaves them out; the
+  # archive and media upload tests cover them.
   @post_bodies %{
     "/api/admin/policies" => %{policy: %{key: "route-test", title: "A policy"}},
     "/api/admin/approved-tools" => %{
@@ -97,7 +100,12 @@ defmodule EspalierWeb.Admin.AdminRoutesTest do
       content: "[]\n",
       lock_version: 1
     },
-    "/api/admin/pack-drafts/:id/imports" => %{lock_version: 1}
+    "/api/admin/pack-drafts/:id/imports" => %{lock_version: 1},
+    "/api/admin/pack-drafts/:id/media" => %{
+      media_asset_id: @uuid,
+      path: "media/photo.webp",
+      lock_version: 1
+    }
   }
 
   # A body of every PUT and PATCH route that its request schema accepts,
@@ -116,6 +124,12 @@ defmodule EspalierWeb.Admin.AdminRoutesTest do
     {:put, "/api/admin/pack-drafts/:id/files/:file_id"} => %{content: "", lock_version: 1},
     {:patch, "/api/admin/pack-drafts/:id/files/:file_id"} => %{
       path: "sources.yaml",
+      lock_version: 1
+    },
+    # Task 0018: the title of a library asset and the path of a media entry.
+    {:patch, "/api/admin/media/:id"} => %{title: "A title"},
+    {:patch, "/api/admin/pack-drafts/:id/media/:media_id"} => %{
+      path: "media/photo.webp",
       lock_version: 1
     }
   }
@@ -176,7 +190,7 @@ defmodule EspalierWeb.Admin.AdminRoutesTest do
 
   # Sends the request of `route` with the CSRF token of the session of
   # `conn` and returns `{status, headers, decoded body}`. GET and DELETE
-  # send no body, the two uploads send the multipart body of the pack
+  # send no body, the three uploads send the multipart body of the pack
   # upload with a file that holds no zip archive, and every other route
   # sends `body` as JSON. An exception that the endpoint rendered as a
   # client error before it raised it again, such as `Ecto.NoResultsError`
@@ -270,12 +284,19 @@ defmodule EspalierWeb.Admin.AdminRoutesTest do
             refute :admin in route.pipes or :author in route.pipes, label(route)
         end
 
-        # The upload parser runs only for the two uploads and only after the
-        # checks of :author_write.
-        if route.pattern in @uploads do
-          assert route.pipes == [:api, :author_write, :pack_upload], label(route)
-        else
-          refute :pack_upload in route.pipes, label(route)
+        # The upload parsers run only for the three uploads and only after
+        # the checks of :author_write: the parser of the pack upload for the
+        # two archives, the parser of the media upload for media files.
+        case route do
+          %{verb: :post, pattern: pattern} when pattern in @pack_uploads ->
+            assert route.pipes == [:api, :author_write, :pack_upload], label(route)
+
+          %{verb: :post, pattern: @media_upload} ->
+            assert route.pipes == [:api, :author_write, :media_upload], label(route)
+
+          _other ->
+            refute :pack_upload in route.pipes, label(route)
+            refute :media_upload in route.pipes, label(route)
         end
       end
     end
@@ -417,7 +438,7 @@ defmodule EspalierWeb.Admin.AdminRoutesTest do
       end
     end
 
-    test "both uploads check the content type only after the checks of :author_write" do
+    test "the three uploads check the content type only after the checks of :author_write" do
       author = user_with_role_fixture(:author)
       token = sign_in(author)
       learner_token = sign_in(user_fixture())
@@ -442,8 +463,8 @@ defmodule EspalierWeb.Admin.AdminRoutesTest do
   end
 
   describe "the request bodies" do
-    # The two uploads are multipart bodies without JSON members; the
-    # archive tests check them.
+    # The three uploads are multipart bodies without JSON members; the
+    # archive and media upload tests check them.
     test "every POST route answers 422 validation_failed for a body with an extra member" do
       token = sign_in(staff_with_passkey())
 

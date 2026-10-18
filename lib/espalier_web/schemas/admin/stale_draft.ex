@@ -3,8 +3,9 @@ defmodule EspalierWeb.Schemas.Admin.StaleDraft do
   The 409 answers of the workbench routes (task 0016a, step 9):
   `stale_draft` with the stored `lock_version` when the draft changed since
   the request read it, `draft_limit` with the configured `max_drafts`, and
-  the conflicts `path_taken`, `too_many_files`, `draft_too_large` and
-  `no_payload` without a further member.
+  the conflicts `path_taken`, `too_many_files`, `draft_too_large`,
+  `no_payload` and `media_limit` (task 0018: at most 500 media entries per
+  draft) without a further member.
   """
   require OpenApiSpex
 
@@ -17,7 +18,7 @@ defmodule EspalierWeb.Schemas.Admin.StaleDraft do
         %{
           error:
             Fields.enum(
-              ~w(stale_draft path_taken too_many_files draft_too_large draft_limit no_payload)
+              ~w(stale_draft path_taken too_many_files draft_too_large draft_limit no_payload media_limit)
             ),
           lock_version: %Schema{
             type: :integer,

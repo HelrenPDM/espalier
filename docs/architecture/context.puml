@@ -25,6 +25,7 @@ node "Application server (Elixir release)" {
     [JSON API\n/api] as Api
     [Auth controllers\n/auth] as Auth
     [OpenAPI spec\n/api/openapi] as Spec
+    [Media route\n/media/:file] as MediaRoute
   }
   package "Espalier (contexts)" {
     [Accounts\n(sessions, passkeys,\nTOTP, recovery)] as Accounts
@@ -38,10 +39,19 @@ node "Application server (Elixir release)" {
     [Insights] as Insights
     [Interop] as Interop
     [Workbench\n(pack drafts)] as Workbench
+    [Media\n(library, conversion,\nSVG rebuild, WebVTT check)] as Media
     [Audit] as Audit
     [Repo (Ecto)] as Repo
   }
   [Oban jobs] as Oban
+  [ffmpeg / ffprobe\n(separate processes\nunder timeout)] as Ffmpeg
+}
+
+folder "Media store\n(MEDIA_DIR: files, incoming,\nwork, uploads)" as Store
+[clamd\n(optional, ClamAV)] as Clamd
+cloud "Allowlisted media hosts" {
+  [External video files\n(MEDIA_EXTERNAL_HOSTS)] as ExtFiles
+  [Players of streaming services\n(MEDIA_EMBED_HOSTS)] as Embeds
 }
 
 database "PostgreSQL" as DB
@@ -89,6 +99,9 @@ Api --> Policies
 Api --> Insights
 Api --> Interop
 Api --> Workbench
+Api --> Media : media library
+PR --> MediaRoute : images, videos,\ncaptions (byte ranges)
+MediaRoute --> Media : servable
 
 Learning --> Credentials : requirement events
 Policies --> Credentials : refresher events
@@ -99,6 +112,16 @@ Oban --> DB : job queue
 Oban --> Credentials : validity and refresher schedule
 Oban --> Interop : SCORM exports
 Oban --> Insights : retention purge
+Oban --> Media : conversion jobs,\nstale sweep, retention
+Media --> Store : content-addressed files
+Media --> Ffmpeg : Port.open, argument list,\n-protocol_whitelist file
+Ffmpeg --> Store : reads incoming,\nwrites work
+Media ..> Clamd : INSTREAM over\nUnix socket
+Catalog --> Media : import ingests\nmedia/ files
+Workbench --> Media : media entries
+Interop --> Media : delivery files for\npack and SCORM export
+Player ..> ExtFiles : after play
+Player ..> Embeds : after consent
 Oban --> SMTP : notifications, invitation, e-mail change\nand recovery links
 Oban --> Down : signed webhooks
 Down --> Api : integration API\n(machine token)

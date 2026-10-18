@@ -37,16 +37,28 @@ defmodule EspalierWeb.FallbackController do
 
   Task 0016a adds the codes of the pack workbench: 409 `path_taken`,
   `too_many_files`, `draft_too_large`, `no_payload` and `draft_limit`, which
-  names the configured limit in `max_drafts`; 429
-  `checks_busy` with `retry-after: 5` when every slot of
-  `Espalier.Workbench.CheckLimiter` is taken; and 422 `validation_failed`
-  with `fields.path` `["invalid_path"]` and `fields.content` `["too_large"]`,
+  names the configured limit in `max_drafts`; 429 `checks_busy` with
+  `retry-after: 5` when every slot of `Espalier.Workbench.CheckLimiter` is
+  taken, and for a download also when `Espalier.Workbench.DownloadLimiter`
+  grants no slot; and 422 `validation_failed` with `fields.path`
+  `["invalid_path"]` and `fields.content` `["too_large"]`,
   `["nul_character"]` or `["invalid_encoding"]`, and with the members of a
   request whose sources do not fit (`required`, `not_allowed`). The draft
   controllers render the 409 answer `stale_draft` with the stored
   `lock_version` themselves.
+
+  Task 0018 adds the codes of the media library: 409 `storage_full`,
+  `media_limit` and `download_too_large`; 409 `media_not_ready` with the
+  entries of the media that are not `ready`; and 422 `validation_failed`
+  with `fields.file` `["unsupported_type"]`, `["extension_mismatch"]`,
+  `["too_large"]` or `["too_many_pixels"]` for an upload that the detection
+  of `Espalier.Media.Sniff` or the size limit of its kind rejects. The
+  library controller renders the 409 answer `asset_in_use` with the uses
+  itself.
   """
   use EspalierWeb, :controller
+
+  alias EspalierWeb.Admin.MediaJSON
 
   @statuses %{
     invalid_credentials: :unauthorized,
@@ -86,7 +98,10 @@ defmodule EspalierWeb.FallbackController do
     draft_too_large: :conflict,
     draft_limit: :conflict,
     no_payload: :conflict,
-    checks_busy: :too_many_requests
+    checks_busy: :too_many_requests,
+    storage_full: :conflict,
+    media_limit: :conflict,
+    download_too_large: :conflict
   }
 
   # The workbench codes of a path or a content (task 0016a).
@@ -94,7 +109,11 @@ defmodule EspalierWeb.FallbackController do
     invalid_path: {"path", "invalid_path"},
     file_too_large: {"content", "too_large"},
     nul_character: {"content", "nul_character"},
-    invalid_encoding: {"content", "invalid_encoding"}
+    invalid_encoding: {"content", "invalid_encoding"},
+    unsupported_type: {"file", "unsupported_type"},
+    extension_mismatch: {"file", "extension_mismatch"},
+    media_too_large: {"file", "too_large"},
+    too_many_pixels: {"file", "too_many_pixels"}
   }
 
   def call(conn, {:error, %Ecto.Changeset{} = changeset}) do
@@ -140,6 +159,12 @@ defmodule EspalierWeb.FallbackController do
     conn
     |> put_resp_header("retry-after", "5")
     |> render_error(:checks_busy)
+  end
+
+  def call(conn, {:error, {:media_not_ready, entries}}) when is_list(entries) do
+    conn
+    |> put_status(:conflict)
+    |> json(MediaJSON.media_not_ready(%{entries: entries}))
   end
 
   def call(conn, {:error, {:assessments_open, assessments}}) do

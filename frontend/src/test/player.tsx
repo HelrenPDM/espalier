@@ -60,6 +60,7 @@ const block = (
   collapsed_on: [],
   placeholder_key: null,
   policy: null,
+  media: null,
   citations: [],
   ...overrides,
 });

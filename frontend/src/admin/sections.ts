@@ -17,6 +17,7 @@ export const ADMIN_ROLES: readonly Role[] = [
 export type AdminSectionKey =
   | "packs"
   | "workbench"
+  | "media"
   | "exports"
   | "users"
   | "policies"
@@ -39,13 +40,15 @@ export interface AdminSection {
 
 /**
  * The sections of the admin area in the order of the navigation: author
- * (packs, the pack workbench of 0016a and the exports of 0016), admin,
+ * (packs, the pack workbench of 0016a, the media library of 0018 and the
+ * exports of 0016), admin,
  * facilitator, analyst (0014) and registrar. Each section appears only for its role (ASVS 8.3.1: the
  * navigation is convenience; the router pipelines decide).
  */
 export const ADMIN_SECTIONS: readonly AdminSection[] = [
   { key: "packs", path: "packs", role: "author" },
   { key: "workbench", path: "workbench", role: "author" },
+  { key: "media", path: "media", role: "author" },
   { key: "exports", path: "exports", role: "author" },
   { key: "users", path: "users", role: "admin" },
   { key: "policies", path: "policies", role: "admin" },

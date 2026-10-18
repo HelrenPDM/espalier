@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="200" viewBox="0 0 720 200">
+  <title>The release checks of a generated draft</title>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="720" height="200" fill="#ffffff"/>
+  <g font-family="sans-serif" font-size="15" fill="#0f172a" text-anchor="middle">
+    <rect x="20" y="60" width="120" height="80" rx="10" fill="#e0f2fe" stroke="#0369a1" stroke-width="2"/>
+    <text x="80" y="96">Generated</text>
+    <text x="80" y="116">draft</text>
+    <rect x="200" y="60" width="140" height="80" rx="10" fill="#fef9c3" stroke="#a16207" stroke-width="2"/>
+    <text x="270" y="96">Mark the</text>
+    <text x="270" y="116">statements</text>
+    <rect x="400" y="60" width="140" height="80" rx="10" fill="#fef9c3" stroke="#a16207" stroke-width="2"/>
+    <text x="470" y="96">Check each</text>
+    <text x="470" y="116">source</text>
+    <rect x="600" y="60" width="100" height="80" rx="10" fill="#dcfce7" stroke="#15803d" stroke-width="2"/>
+    <text x="650" y="96">Initials,</text>
+    <text x="650" y="116">release</text>
+  </g>
+  <g stroke="#334155" stroke-width="2" fill="none" marker-end="url(#arrow)">
+    <path d="M 140 100 L 196 100"/>
+    <path d="M 340 100 L 396 100"/>
+    <path d="M 540 100 L 596 100"/>
+  </g>
+</svg>

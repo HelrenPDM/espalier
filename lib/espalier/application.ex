@@ -10,7 +10,9 @@ defmodule Espalier.Application do
   alias Espalier.Accounts.PasswordPolicy
   alias Espalier.Crypto.Keys
   alias Espalier.Identity.{Ldap, Oidc}
+  alias Espalier.Media
   alias Espalier.Telemetry.QueryLog
+  alias EspalierWeb.Plugs.SecurityHeaders
 
   @impl true
   def start(_type, _args) do
@@ -26,6 +28,10 @@ defmodule Espalier.Application do
     log_settings()
     Ldap.log_providers()
 
+    # The CSP of the application with the media hosts of task 0018, read by
+    # EspalierWeb.Plugs.SecurityHeaders on every response.
+    SecurityHeaders.put_csp(Media.external_hosts(), Media.embed_hosts())
+
     children =
       [
         EspalierWeb.Telemetry,
@@ -40,9 +46,12 @@ defmodule Espalier.Application do
           # Each LDAP sign-in runs in a task with a hard deadline (task 0007).
           {Task.Supervisor, name: Espalier.Identity.LdapTaskSupervisor},
           # The checks and imports of pack drafts run in tasks, at most
-          # max_parallel_checks at once (task 0016a).
+          # max_parallel_checks at once with the zip builds of the draft
+          # downloads (task 0016a), and at most max_parallel_downloads
+          # downloads run at once, one per user (task 0018).
           {Task.Supervisor, name: Espalier.Workbench.TaskSupervisor},
           Espalier.Workbench.CheckLimiter,
+          Espalier.Workbench.DownloadLimiter,
           {Espalier.RateLimit, clean_period: :timer.minutes(1)},
           {DNSCluster, query: Application.get_env(:espalier, :dns_cluster_query) || :ignore},
           {Phoenix.PubSub, name: Espalier.PubSub},

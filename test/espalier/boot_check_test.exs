@@ -23,20 +23,53 @@ defmodule Espalier.BootCheckTest do
       "DATABASE_CA_CERT_FILE" => ca_file,
       "CLOAK_KEY_V1" => Base.encode64(:binary.copy(<<1>>, 32)),
       "CLOAK_HMAC_SECRET" => Base.encode64(:binary.copy(<<2>>, 32)),
-      "EXPORT_DIR" => "/data/exports"
+      "EXPORT_DIR" => "/data/exports",
+      "MEDIA_DIR" => "/data/media"
     }
 
     %{env: env}
   end
 
+  # The tool check of the media processing is stubbed, so that no test
+  # starts a process (task 0018, step 2).
+  defp errors(env, config_env, tools \\ fn -> [] end),
+    do: BootCheck.errors(env, config_env, tools)
+
+  describe "the tool check of the media processing" do
+    test "runs in production and adds its messages after the production rules", %{env: env} do
+      tools = fn -> ["ffmpeg lacks the encoder libvpx-vp9", "ffmpeg 6.1 is older than 7.1"] end
+
+      assert errors(env, :prod, tools) == [
+               "ffmpeg lacks the encoder libvpx-vp9",
+               "ffmpeg 6.1 is older than 7.1"
+             ]
+
+      assert errors(Map.delete(env, "PHX_HOST"), :prod, tools) == [
+               "Missing environment variables: PHX_HOST",
+               "ffmpeg lacks the encoder libvpx-vp9",
+               "ffmpeg 6.1 is older than 7.1"
+             ]
+    end
+
+    test "does not run in development and tests" do
+      tools = fn -> flunk("the tool check runs in production only") end
+      assert errors(%{}, :dev, tools) == []
+      assert errors(%{}, :test, tools) == []
+    end
+
+    test "a missing MEDIA_DIR is reported by RuntimeConfig alone", %{env: env} do
+      assert errors(Map.delete(env, "MEDIA_DIR"), :prod) == ["MEDIA_DIR is required"]
+    end
+  end
+
   test "a complete production environment has no gap", %{env: env} do
-    assert BootCheck.errors(env, :prod) == []
-    assert BootCheck.errors(Map.put(env, "PUBLIC_URL", "https://learn.example.org/"), :prod) == []
+    assert errors(env, :prod) == []
+    assert errors(Map.put(env, "PUBLIC_URL", "https://learn.example.org/"), :prod) == []
 
     # RuntimeConfig lower-cases the host, the form of the origin that
     # browsers send, so a host in other letter case equals PHX_HOST.
     mixed_case = Map.put(env, "PUBLIC_URL", "https://LEARN.example.org")
-    assert BootCheck.errors(mixed_case, :prod) == []
+    assert errors(mixed_case, :prod) == []
 
     assert Espalier.RuntimeConfig.parse!(mixed_case, :prod)[:public_url] ==
              "https://learn.example.org"
@@ -52,30 +85,30 @@ defmodule Espalier.BootCheckTest do
         "MAIL_FROM" => "noreply@example.org"
       })
 
-    assert BootCheck.errors(quoted, :prod) == []
+    assert errors(quoted, :prod) == []
   end
 
   test "development and tests need none of the production variables" do
-    assert BootCheck.errors(%{}, :dev) == []
-    assert BootCheck.errors(%{}, :test) == []
+    assert errors(%{}, :dev) == []
+    assert errors(%{}, :test) == []
   end
 
   describe "required variables in production" do
     test "one message names every missing variable" do
-      assert [missing | rest] = BootCheck.errors(%{}, :prod)
+      assert [missing | rest] = errors(%{}, :prod)
 
       assert missing ==
                "Missing environment variables: DATABASE_URL, SECRET_KEY_BASE, PHX_HOST, " <>
                  "DATABASE_CA_CERT_FILE, CLOAK_KEY_V1, CLOAK_HMAC_SECRET"
 
-      # RuntimeConfig names PUBLIC_URL and EXPORT_DIR once each.
-      assert rest == ["PUBLIC_URL is required", "EXPORT_DIR is required"]
+      # RuntimeConfig names PUBLIC_URL, EXPORT_DIR and MEDIA_DIR once each.
+      assert rest == ["PUBLIC_URL is required", "EXPORT_DIR is required", "MEDIA_DIR is required"]
     end
 
     test "an empty or whitespace-only value counts as missing", %{env: env} do
       for name <- ["DATABASE_URL", "SECRET_KEY_BASE", "PHX_HOST", "DATABASE_CA_CERT_FILE"],
           blank <- ["", "   ", ~s("")] do
-        assert "Missing environment variables: #{name}" in BootCheck.errors(
+        assert "Missing environment variables: #{name}" in errors(
                  Map.put(env, name, blank),
                  :prod
                )
@@ -85,34 +118,34 @@ defmodule Espalier.BootCheckTest do
     test "the Cloak variables as task 0003 names them", %{env: env} do
       without_keys = Map.delete(env, "CLOAK_KEY_V1")
 
-      assert "Missing environment variables: CLOAK_KEY_V1" in BootCheck.errors(
+      assert "Missing environment variables: CLOAK_KEY_V1" in errors(
                without_keys,
                :prod
              )
 
       # Any CLOAK_KEY_V<n> counts, a name with a leading zero does not.
-      assert BootCheck.errors(Map.put(without_keys, "CLOAK_KEY_V2", env["CLOAK_KEY_V1"]), :prod) ==
+      assert errors(Map.put(without_keys, "CLOAK_KEY_V2", env["CLOAK_KEY_V1"]), :prod) ==
                []
 
-      assert "Missing environment variables: CLOAK_KEY_V1" in BootCheck.errors(
+      assert "Missing environment variables: CLOAK_KEY_V1" in errors(
                Map.put(without_keys, "CLOAK_KEY_V01", env["CLOAK_KEY_V1"]),
                :prod
              )
 
-      assert "Missing environment variables: CLOAK_HMAC_SECRET" in BootCheck.errors(
+      assert "Missing environment variables: CLOAK_HMAC_SECRET" in errors(
                Map.put(env, "CLOAK_HMAC_SECRET", " "),
                :prod
              )
 
       # An empty pair of double quotes counts as missing for both variables.
-      assert "Missing environment variables: CLOAK_KEY_V1, CLOAK_HMAC_SECRET" in BootCheck.errors(
+      assert "Missing environment variables: CLOAK_KEY_V1, CLOAK_HMAC_SECRET" in errors(
                Map.merge(env, %{"CLOAK_KEY_V1" => ~s(""), "CLOAK_HMAC_SECRET" => ~s("")}),
                :prod
              )
     end
 
     test "SECRET_KEY_BASE needs at least 64 bytes", %{env: env} do
-      assert BootCheck.errors(Map.put(env, "SECRET_KEY_BASE", String.duplicate("k", 63)), :prod) ==
+      assert errors(Map.put(env, "SECRET_KEY_BASE", String.duplicate("k", 63)), :prod) ==
                [
                  "SECRET_KEY_BASE is shorter than 64 bytes; generate one with mix phx.gen.secret"
                ]
@@ -120,7 +153,7 @@ defmodule Espalier.BootCheckTest do
 
     test "DATABASE_CA_CERT_FILE must name a file", %{env: env, tmp_dir: tmp_dir} do
       for path <- [Path.join(tmp_dir, "missing.pem"), tmp_dir] do
-        assert BootCheck.errors(Map.put(env, "DATABASE_CA_CERT_FILE", path), :prod) ==
+        assert errors(Map.put(env, "DATABASE_CA_CERT_FILE", path), :prod) ==
                  ["DATABASE_CA_CERT_FILE names no file"]
       end
     end
@@ -135,7 +168,7 @@ defmodule Espalier.BootCheckTest do
             "ecto://postgres:db-password@db/espalier_prod/",
             "ecto://postgres:db-password@db/espalier/prod"
           ] do
-        assert BootCheck.errors(Map.put(env, "DATABASE_URL", url), :prod) ==
+        assert errors(Map.put(env, "DATABASE_URL", url), :prod) ==
                  ["DATABASE_URL must be an ecto:// URL with a host and a database name"],
                url
       end
@@ -144,41 +177,41 @@ defmodule Espalier.BootCheckTest do
     test "DATABASE_URL gives timeout, pool_size and idle_interval as integers", %{env: env} do
       url = "ecto://postgres:db-password@db/espalier_prod"
 
-      assert BootCheck.errors(
+      assert errors(
                Map.put(env, "DATABASE_URL", url <> "?pool_size=5&timeout=15000"),
                :prod
              ) ==
                []
 
       for query <- ["pool_size=ten", "timeout=1.5", "idle_interval="] do
-        assert BootCheck.errors(Map.put(env, "DATABASE_URL", "#{url}?#{query}"), :prod) ==
+        assert errors(Map.put(env, "DATABASE_URL", "#{url}?#{query}"), :prod) ==
                  ["DATABASE_URL must give timeout, pool_size and idle_interval as integers"],
                query
       end
     end
 
     test "PORT and POOL_SIZE must be numbers", %{env: env} do
-      assert BootCheck.errors(
+      assert errors(
                Map.merge(env, %{"PORT" => ~s("4000"), "POOL_SIZE" => " 20 "}),
                :prod
              ) ==
                []
 
-      assert BootCheck.errors(Map.merge(env, %{"PORT" => "http", "POOL_SIZE" => "0"}), :prod) ==
+      assert errors(Map.merge(env, %{"PORT" => "http", "POOL_SIZE" => "0"}), :prod) ==
                [
                  "PORT must be a port number from 1 to 65535",
                  "POOL_SIZE must be a positive integer"
                ]
 
       # PORT applies in every environment, POOL_SIZE in production only.
-      assert BootCheck.errors(%{"PORT" => "70000", "POOL_SIZE" => "x"}, :dev) ==
+      assert errors(%{"PORT" => "70000", "POOL_SIZE" => "x"}, :dev) ==
                ["PORT must be a port number from 1 to 65535"]
     end
 
     test "DATABASE_URL must not set ssl, which Ecto would merge over the TLS options",
          %{env: env} do
       for query <- ["ssl=false", "ssl=true", "pool_size=5&ssl=false", "s%73l=false", "ssl"] do
-        assert BootCheck.errors(
+        assert errors(
                  Map.put(
                    env,
                    "DATABASE_URL",
@@ -190,7 +223,7 @@ defmodule Espalier.BootCheckTest do
       end
 
       for query <- ["pool_size=5", "sslmode=disable", "SSL=false"] do
-        assert BootCheck.errors(
+        assert errors(
                  Map.put(
                    env,
                    "DATABASE_URL",
@@ -203,19 +236,19 @@ defmodule Espalier.BootCheckTest do
     end
 
     test "SMTP is optional, and MAIL_FROM is required only with SMTP_HOST", %{env: env} do
-      assert BootCheck.errors(env, :prod) == []
+      assert errors(env, :prod) == []
 
-      assert BootCheck.errors(Map.put(env, "SMTP_HOST", "smtp.example.org"), :prod) ==
+      assert errors(Map.put(env, "SMTP_HOST", "smtp.example.org"), :prod) ==
                ["MAIL_FROM is required with SMTP_HOST"]
     end
 
     test "SMTP_PORT must be a port number", %{env: env} do
       for port <- ["587", "465", "1", "65535"] do
-        assert BootCheck.errors(Map.put(env, "SMTP_PORT", port), :prod) == [], port
+        assert errors(Map.put(env, "SMTP_PORT", port), :prod) == [], port
       end
 
       for port <- ["0", "65536", "-1", "587a", "smtp", "5.87"] do
-        assert BootCheck.errors(Map.put(env, "SMTP_PORT", port), :prod) ==
+        assert errors(Map.put(env, "SMTP_PORT", port), :prod) ==
                  ["SMTP_PORT must be a port number from 1 to 65535"],
                port
       end
@@ -224,13 +257,13 @@ defmodule Espalier.BootCheckTest do
 
   describe "PUBLIC_URL in production" do
     test "needs the https scheme", %{env: env} do
-      assert BootCheck.errors(Map.put(env, "PUBLIC_URL", "http://learn.example.org"), :prod) ==
+      assert errors(Map.put(env, "PUBLIC_URL", "http://learn.example.org"), :prod) ==
                [
                  "PUBLIC_URL must use https in production, because passkeys derive their origin from it"
                ]
 
       # Development and tests accept http.
-      assert BootCheck.errors(%{"PUBLIC_URL" => "http://localhost:5173"}, :dev) == []
+      assert errors(%{"PUBLIC_URL" => "http://localhost:5173"}, :dev) == []
     end
 
     test "is an origin without user info, path, query or fragment", %{env: env} do
@@ -242,23 +275,23 @@ defmodule Espalier.BootCheckTest do
             "https://learn.example.org/?a=1",
             "https://learn.example.org/#top"
           ] do
-        assert BootCheck.errors(Map.put(env, "PUBLIC_URL", url), :prod) ==
+        assert errors(Map.put(env, "PUBLIC_URL", url), :prod) ==
                  ["PUBLIC_URL must be an origin without user info, path, query or fragment"],
                url
       end
     end
 
     test "has the host of PHX_HOST", %{env: env} do
-      assert BootCheck.errors(Map.put(env, "PUBLIC_URL", "https://other.example.org"), :prod) ==
+      assert errors(Map.put(env, "PUBLIC_URL", "https://other.example.org"), :prod) ==
                ["The host of PUBLIC_URL must equal PHX_HOST"]
 
       # A port does not change the host.
-      assert BootCheck.errors(Map.put(env, "PUBLIC_URL", "https://learn.example.org:8443"), :prod) ==
+      assert errors(Map.put(env, "PUBLIC_URL", "https://learn.example.org:8443"), :prod) ==
                []
     end
 
     test "that is no URL comes from RuntimeConfig alone", %{env: env} do
-      assert BootCheck.errors(Map.put(env, "PUBLIC_URL", "learn.example.org"), :prod) ==
+      assert errors(Map.put(env, "PUBLIC_URL", "learn.example.org"), :prod) ==
                ["PUBLIC_URL must be an http or https URL"]
     end
   end
@@ -268,27 +301,27 @@ defmodule Espalier.BootCheckTest do
                "and AUTH_PROVIDERS names no provider"
 
     test "LOCAL_ACCOUNTS=false without demo sign-in and providers has none" do
-      assert BootCheck.errors(%{"LOCAL_ACCOUNTS" => "false"}, :dev) == [@pathway]
+      assert errors(%{"LOCAL_ACCOUNTS" => "false"}, :dev) == [@pathway]
 
-      assert BootCheck.errors(%{"LOCAL_ACCOUNTS" => "false", "AUTH_PROVIDERS" => " "}, :dev) == [
+      assert errors(%{"LOCAL_ACCOUNTS" => "false", "AUTH_PROVIDERS" => " "}, :dev) == [
                @pathway
              ]
 
-      assert BootCheck.errors(%{"LOCAL_ACCOUNTS" => "false", "AUTH_DEMO" => "false"}, :dev) ==
+      assert errors(%{"LOCAL_ACCOUNTS" => "false", "AUTH_DEMO" => "false"}, :dev) ==
                [@pathway]
     end
 
     test "local accounts, demo sign-in or a provider is a pathway" do
-      assert BootCheck.errors(%{}, :dev) == []
-      assert BootCheck.errors(%{"LOCAL_ACCOUNTS" => "true"}, :dev) == []
+      assert errors(%{}, :dev) == []
+      assert errors(%{"LOCAL_ACCOUNTS" => "true"}, :dev) == []
 
       # The demo profile of decision D5 (.env.demo.example).
-      assert BootCheck.errors(
+      assert errors(
                %{"LOCAL_ACCOUNTS" => "false", "AUTH_DEMO" => "true", "AUTH_PROVIDERS" => ""},
                :dev
              ) == []
 
-      assert BootCheck.errors(
+      assert errors(
                %{
                  "LOCAL_ACCOUNTS" => "false",
                  "AUTH_PROVIDERS" => "corp",
@@ -305,7 +338,7 @@ defmodule Espalier.BootCheckTest do
 
   describe "identity providers" do
     test "the message of the ConfigError names the variable" do
-      assert BootCheck.errors(%{"AUTH_PROVIDERS" => "corp"}, :dev) == [
+      assert errors(%{"AUTH_PROVIDERS" => "corp"}, :dev) == [
                "AUTH_CORP_TYPE is required"
              ]
     end
@@ -318,7 +351,7 @@ defmodule Espalier.BootCheckTest do
           "AUTH_DIR_TLS" => "none"
         })
 
-      assert [message] = BootCheck.errors(env, :prod)
+      assert [message] = errors(env, :prod)
       assert message =~ "AUTH_DIR_TLS"
     end
 
@@ -343,9 +376,9 @@ defmodule Espalier.BootCheckTest do
         "AUTH_DIR_MFA" => "idp_trusted"
       }
 
-      assert [message] = BootCheck.errors(env, :dev)
+      assert [message] = errors(env, :dev)
       assert message =~ "AUTH_DIR_MFA"
-      assert BootCheck.errors(Map.put(env, "AUTH_DIR_MFA", "local"), :dev) == []
+      assert errors(Map.put(env, "AUTH_DIR_MFA", "local"), :dev) == []
     end
   end
 
@@ -371,7 +404,7 @@ defmodule Espalier.BootCheckTest do
       "PUBLIC_URL" => "ftp://learn.example.org"
     }
 
-    errors = BootCheck.errors(env, :dev)
+    errors = errors(env, :dev)
 
     for name <- [
           "SESSION_IDLE_MINUTES",
@@ -399,7 +432,7 @@ defmodule Espalier.BootCheckTest do
 
     assert length(errors) == 18
 
-    assert "SIGNUP=domain requires SIGNUP_DOMAINS" in BootCheck.errors(
+    assert "SIGNUP=domain requires SIGNUP_DOMAINS" in errors(
              %{"SIGNUP" => "domain"},
              :dev
            )
@@ -415,7 +448,7 @@ defmodule Espalier.BootCheckTest do
         "TRACKING_DETAIL" => "full"
       })
 
-    assert BootCheck.errors(env, :prod) == [
+    assert errors(env, :prod) == [
              "Missing environment variables: SECRET_KEY_BASE, CLOAK_KEY_V1",
              "No sign-in pathway: LOCAL_ACCOUNTS=false, AUTH_DEMO is not true " <>
                "and AUTH_PROVIDERS names no provider",
@@ -549,7 +582,7 @@ defmodule Espalier.BootCheckTest do
       "AUTH_CORP_CLIENT_AUTH" => "private_key_jwt"
     }
 
-    errors = BootCheck.errors(Map.merge(env, secrets), :prod)
+    errors = errors(Map.merge(env, secrets), :prod)
     assert "DATABASE_URL must not set ssl; TLS comes from DATABASE_CA_CERT_FILE" in errors
     assert length(errors) >= 4
 

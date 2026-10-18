@@ -143,7 +143,7 @@ export interface paths {
         put?: never;
         /**
          * Start a draft from a zip archive
-         * @description A zip archive of at most `PACK_UPLOAD_MAX_MB` (default 20) with at most 2,000 entries and declared sizes of at most five times that limit, with the pack at its root or in its one top-level directory. The draft keeps the files of the pack layout (`pack.yaml`, `sources.yaml`, `glossary.yaml`, `segments.yaml`, `stations.yaml`, `feedback.yaml`, `qualifications.yaml`, `formats.yaml`, `modules/<dir>/{module,objectives,rules,items,assessment}.yaml` and `modules/<dir>/lessons/<key>.md`) and lists every other file in `skipped`. Each kept file is UTF-8 text without U+0000 of at most 1,048,576 bytes. A draft holds at most 2,000 files of at most 1,048,576 bytes each and at most five times `PACK_UPLOAD_MAX_MB` (default 20) in total; at most 50 drafts exist.
+         * @description A zip archive of at most `PACK_UPLOAD_MAX_MB` (default 20) with at most 2,000 entries and declared sizes of at most five times that limit, with the pack at its root or in its one top-level directory. The draft keeps the files of the pack layout (`pack.yaml`, `sources.yaml`, `glossary.yaml`, `segments.yaml`, `stations.yaml`, `feedback.yaml`, `qualifications.yaml`, `formats.yaml`, `modules/<dir>/{module,objectives,rules,items,assessment}.yaml` and `modules/<dir>/lessons/<key>.md`) and the captions files `.vtt` below `media/` as text files; each kept file is UTF-8 text without U+0000 of at most 1,048,576 bytes. Every other file below `media/` whose path passes the media path rules, at most 500 (`max_draft_media`), becomes an asset of the media library and a media entry of the draft at its delivery path (`.webp`, `.svg` or `.webm`), and the directives of the lessons follow the new paths. A media file that the library refuses and two media files with one delivery path reject the archive with 422 entries at their paths. These media files never appear in `skipped`, which lists every other file of the archive. A draft holds at most 2,000 files of at most 1,048,576 bytes each and at most five times `PACK_UPLOAD_MAX_MB` (default 20) in total; at most 50 drafts exist.
          */
         post: operations["EspalierWeb.Admin.PackDraftController.upload"];
         delete?: never;
@@ -404,6 +404,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/media": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the media library
+         * @description Newest first, with an opaque cursor in `next`.
+         */
+        get: operations["EspalierWeb.Admin.MediaController.index"];
+        put?: never;
+        /**
+         * Upload a media file
+         * @description Accepted files, detected from their leading bytes, with the extension of the detected kind: images `.png` (`89 50 4E 47 0D 0A 1A 0A`), `.jpg` and `.jpeg` (`FF D8 FF`), `.gif` (`GIF87a`, `GIF89a`) and `.webp` (`RIFF`, four bytes, `WEBP`) of at most `MEDIA_IMAGE_MAX_MB` (default 20) and 40,000,000 pixels; SVG `.svg` (`<?xml`, `<svg` or `<!--` after an optional BOM) of at most 1,048,576 bytes; videos `.mp4`, `.m4v` and `.mov` (`ftyp` at offset 4, no HEIF brand) and `.webm` and `.mkv` (`1A 45 DF A3`) of at most `MEDIA_VIDEO_MAX_MB` (default 1024), `MEDIA_VIDEO_MAX_MINUTES` (default 60) and 3840 by 2160 pixels; captions `.vtt` (`WEBVTT`) of at most 524,288 bytes. Images become WebP with at most `MEDIA_IMAGE_MAX_EDGE` pixels per edge (animated images at most 1,000 frames), videos WebM with VP9 and Opus at most `MEDIA_VIDEO_MAX_HEIGHT` high, SVG files are rebuilt from an allowlist, and captions are checked. The media store holds at most `MEDIA_STORAGE_MAX_GB` (default 50).
+         */
+        post: operations["EspalierWeb.Admin.MediaController.create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/exports/{id}/download": {
         parameters: {
             query?: never;
@@ -638,7 +662,7 @@ export interface paths {
         };
         /**
          * Download a draft as a zip archive
-         * @description Sends the files in the pack layout at the root of a zip archive named `<pack key>-draft.zip`, or `pack-draft.zip` without a usable pack key. The archive is built in memory, so a download takes one of the two slots of the checks and imports.
+         * @description Sends the files and the media files in the pack layout at the root of a zip archive named `<pack key>-draft.zip`, or `pack-draft.zip` without a usable pack key. The media of a draft stay within `export_max_mb` (1,024 MB; 409 `download_too_large`), and a media file that is not ready answers 409 `media_not_ready`. At most two downloads run at once, one per user; a download builds the archive in one of the two slots of the checks and imports and frees it before the transfer. When the user runs a download already or no slot is free, the download answers 429 `checks_busy` and builds nothing. The transfer ends at its deadline, the size of the archive at 256 KiB per second and at least 60 seconds, or when the client reads nothing for 30 seconds; the client then holds fewer bytes than `content-length`.
          */
         get: operations["EspalierWeb.Admin.PackDraftController.download"];
         put?: never;
@@ -779,7 +803,7 @@ export interface paths {
         put?: never;
         /**
          * Upload a content pack
-         * @description A zip archive of at most `PACK_UPLOAD_MAX_MB` (default 20) with at most 2,000 entries and declared sizes of at most five times that limit.
+         * @description A zip archive of at most `PACK_UPLOAD_MAX_MB` (default 20) with at most 2,000 entries and declared sizes of at most five times that limit. The folder `media/` holds at most 500 files (`max_pack_media`), whether a lesson references them or not, and each of them must pass the media path rules and the size limit of its kind: images `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, SVG `.svg`, videos `.mp4`, `.m4v`, `.mov`, `.webm`, `.mkv` and captions `.vtt`. Only the files that a lesson references become assets of the media library. The archive stays within `PACK_UPLOAD_MAX_MB`, so larger videos come through the media library or an external URL.
          */
         post: operations["EspalierWeb.Admin.PackController.create"];
         delete?: never;
@@ -873,9 +897,29 @@ export interface paths {
         put?: never;
         /**
          * Import a draft
-         * @description Validates the files of the draft as an upload of the same files would and stores the import; the pack page continues with report, diff, preview and publish. The draft stays. At most two checks and imports run at once.
+         * @description Validates the files of the draft as an upload of the same files would and stores the import; the pack page continues with report, diff, preview and publish. The draft stays. At most two checks, imports and zip builds of draft downloads run at once.
          */
         post: operations["EspalierWeb.Admin.PackDraftController.create_import"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/pack-drafts/{id}/media": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a library asset to a draft
+         * @description A media entry names a `media/` path with at most three directories and the delivery extension of its asset (`webp`, `svg`, `webm`). A draft holds at most 500 media entries and at most 2,000 files and media entries together. A captions asset becomes a text file at a `.vtt` path within the limits of the files of a draft.
+         */
+        post: operations["EspalierWeb.Admin.PackDraftMediaController.create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1251,6 +1295,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/media/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read an asset with its uses */
+        get: operations["EspalierWeb.Admin.MediaController.show"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete an asset
+         * @description Refused with 409 `asset_in_use` while a published program or a draft uses it.
+         */
+        delete: operations["EspalierWeb.Admin.MediaController.delete"];
+        options?: never;
+        head?: never;
+        /** Change the title of an asset */
+        patch: operations["EspalierWeb.Admin.MediaController.update"];
+        trace?: never;
+    };
+    "/api/admin/pack-drafts/{id}/media/{media_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a media entry from a draft
+         * @description The asset stays in the media library.
+         */
+        delete: operations["EspalierWeb.Admin.PackDraftMediaController.delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Move a media entry to another path
+         * @description A media entry names a `media/` path with at most three directories and the delivery extension of its asset (`webp`, `svg`, `webm`). A draft holds at most 500 media entries and at most 2,000 files and media entries together. A captions asset becomes a text file at a `.vtt` path within the limits of the files of a draft.
+         */
+        patch: operations["EspalierWeb.Admin.PackDraftMediaController.rename"];
+        trace?: never;
+    };
     "/api/session": {
         parameters: {
             query?: never;
@@ -1267,7 +1357,7 @@ export interface paths {
         post?: never;
         /**
          * Sign out
-         * @description Answers 200 with `logout_url` for an OIDC session whose provider has an end-session endpoint on its allowed hosts, and 204 otherwise.
+         * @description Answers 200 with `logout_url` for an OIDC session whose provider has an end-session endpoint on its allowed hosts, and 204 otherwise. Both answers carry `Clear-Site-Data: "cache"`, so the browser drops the media files that it cached during the session.
          */
         delete: operations["EspalierWeb.SessionController.delete"];
         options?: never;
@@ -1687,7 +1777,7 @@ export interface paths {
         put?: never;
         /**
          * Check a draft without saving it
-         * @description Runs the loader and the validator of the pack format on the files of the draft, with the unsaved `content` of the file `file_id` when both are given, and changes no state. At most two checks and imports run at once.
+         * @description Runs the loader and the validator of the pack format on the files of the draft, with the unsaved `content` of the file `file_id` when both are given, and changes no state. At most two checks, imports and zip builds of draft downloads run at once.
          */
         post: operations["EspalierWeb.Admin.PackDraftController.check"];
         delete?: never;
@@ -2094,7 +2184,22 @@ export interface components {
             content: string;
             /** @description The `lock_version` of the draft that the change starts from. */
             lock_version: number;
-            /** @description A path of the pack layout: a top-level YAML file, `modules/<dir>/<name>.yaml` or `modules/<dir>/lessons/<key>.md`, with at most 255 bytes per component. */
+            /** @description A path of the pack layout: a top-level YAML file, `modules/<dir>/<name>.yaml`, `modules/<dir>/lessons/<key>.md` or a captions file `media/<dirs>/<key>.vtt`, with at most 255 bytes per component. */
+            path: string;
+        };
+        /**
+         * AdminDraftMediaAttach
+         * @description A library asset for a draft.
+         */
+        AdminDraftMediaAttach: {
+            /** @description The `lock_version` of the draft that the change starts from. */
+            lock_version: number;
+            /**
+             * Format: uuid
+             * @description An asset of the media library. An image, SVG or video asset may still be converting; a captions asset must be `ready`.
+             */
+            media_asset_id: string;
+            /** @description `media/` followed by at most three directories and `<key>.<ext>`, where the extension is the delivery extension of the asset (`webp`, `svg`, `webm`), or `vtt` for a captions asset, which becomes a text file. */
             path: string;
         };
         /**
@@ -2249,6 +2354,11 @@ export interface components {
                 archived: string[];
                 changed: string[];
             };
+            media: {
+                added: string[];
+                archived: string[];
+                changed: string[];
+            };
             modules: {
                 added: string[];
                 archived: string[];
@@ -2351,6 +2461,15 @@ export interface components {
             valid_until: string | null;
         };
         /**
+         * AdminMediaInUse
+         * @description The asset is in use.
+         */
+        AdminMediaInUse: {
+            /** @enum {string} */
+            error: "asset_in_use";
+            uses: components["schemas"]["AdminMediaUses"];
+        };
+        /**
          * AdminArchiveRejected
          * @description The upload was rejected.
          */
@@ -2374,6 +2493,21 @@ export interface components {
             credential: components["schemas"]["PasskeyAttestation"];
             /** @description The name of the passkey in the list. */
             nickname?: string;
+        };
+        /**
+         * AdminDraftMediaRename
+         * @description The new path of a media entry.
+         */
+        AdminDraftMediaRename: {
+            /** @description The `lock_version` of the draft that the change starts from. */
+            lock_version: number;
+            /** @description `media/` followed by at most three directories and `<key>.<ext>`, where the extension is the delivery extension of the asset (`webp`, `svg`, `webm`), or `vtt` for a captions asset, which becomes a text file. */
+            path: string;
+        };
+        /** AdminMediaUpload */
+        AdminMediaUpload: {
+            /** Format: binary */
+            file: string;
         };
         /**
          * AdminPackDraftCheckRequest
@@ -2527,6 +2661,21 @@ export interface components {
             path: "short" | "full" | null;
         };
         /**
+         * AdminMediaNotReady
+         * @description A media file is not ready: at the publish of an import, at the start of a draft from a program or an import, or at the download of a draft. `failure` names the code of a `failed` asset.
+         */
+        AdminMediaNotReady: {
+            /** @enum {string} */
+            error: "media_not_ready";
+            media: {
+                /** @enum {string|null} */
+                failure: "too_many_pixels" | "too_many_frames" | "too_long" | "no_video_stream" | "unsupported_animation" | "invalid_svg" | "invalid_captions" | "malware_found" | "scan_failed" | "storage_full" | "conversion_failed" | "timeout" | "interrupted" | null;
+                path: string;
+                /** @enum {string} */
+                status: "missing" | "queued" | "processing" | "failed";
+            }[];
+        };
+        /**
          * AdminAuditEventList
          * @description One page of audit events, newest first.
          */
@@ -2622,7 +2771,7 @@ export interface components {
         AdminPackDraftRename: {
             /** @description The `lock_version` of the draft that the change starts from. */
             lock_version: number;
-            /** @description A path of the pack layout: a top-level YAML file, `modules/<dir>/<name>.yaml` or `modules/<dir>/lessons/<key>.md`, with at most 255 bytes per component. */
+            /** @description A path of the pack layout: a top-level YAML file, `modules/<dir>/<name>.yaml`, `modules/<dir>/lessons/<key>.md` or a captions file `media/<dirs>/<key>.vtt`, with at most 255 bytes per component. */
             path: string;
         };
         /**
@@ -2852,7 +3001,9 @@ export interface components {
                      */
                     id: string;
                     /** @enum {string} */
-                    kind: "text" | "explanation" | "example" | "case_comparison" | "quote" | "callout" | "placeholder";
+                    kind: "text" | "explanation" | "example" | "case_comparison" | "quote" | "callout" | "placeholder" | "figure" | "video";
+                    /** @description The media of a figure or a video block; `null` for the other kinds. */
+                    media: components["schemas"]["BlockMedia"] | null;
                     /** @description The policy that a placeholder block renders. */
                     placeholder_key: string | null;
                     /** @description The current version of the policy, or `null` without a published version. */
@@ -2929,6 +3080,22 @@ export interface components {
             id: string;
             /** Format: date-time */
             inserted_at: string;
+            /** @description The media of the payload keyed by their `media/` path; `{}` without a payload. */
+            media: {
+                [key: string]: components["schemas"]["AdminPackMedia"];
+            };
+            /** @description The media settings of the installation, which the preview applies. */
+            media_policy: {
+                /**
+                 * @description `MEDIA_EMBED_CONSENT`.
+                 * @enum {string}
+                 */
+                embed_consent: "click" | "auto";
+                /** @description `MEDIA_EMBED_HOSTS` as `host` or `host:port`. */
+                embed_hosts: string[];
+                /** @description `MEDIA_EXTERNAL_HOSTS` as `host` or `host:port`. */
+                external_hosts: string[];
+            };
             pack_key: string | null;
             pack_version: string | null;
             /** @description The normalized pack of a validated import. */
@@ -2966,6 +3133,11 @@ export interface components {
                 /** @description Mirrors `FEEDBACK_FREE_TEXT`: the feedback station shows free-text questions. */
                 feedback_free_text: boolean;
                 local_accounts: boolean;
+                /**
+                 * @description Mirrors `MEDIA_EMBED_CONSENT`: `click` loads the player of a streaming service after the learner agrees, `auto` with the page.
+                 * @enum {string}
+                 */
+                media_embed_consent: "click" | "auto";
                 /** @enum {string} */
                 signup: "closed" | "invite" | "domain";
                 /** @description Mirrors `TEST_NOTES`: the SPA records the test session notes in the browser. */
@@ -3016,6 +3188,14 @@ export interface components {
                 id: string;
                 locale: string;
             } | null;
+        };
+        /**
+         * AdminMediaUpdate
+         * @description The new title of an asset.
+         */
+        AdminMediaUpdate: {
+            /** @description 1 to 255 characters without U+0000. */
+            title: string;
         };
         /**
          * FeedbackRequest
@@ -3130,7 +3310,7 @@ export interface components {
          */
         AdminStaleDraft: {
             /** @enum {string} */
-            error: "stale_draft" | "path_taken" | "too_many_files" | "draft_too_large" | "draft_limit" | "no_payload";
+            error: "stale_draft" | "path_taken" | "too_many_files" | "draft_too_large" | "draft_limit" | "no_payload" | "media_limit";
             /** @description For `stale_draft`: the stored version. */
             lock_version?: number;
             /** @description For `draft_limit`: the largest number of drafts. */
@@ -3160,6 +3340,11 @@ export interface components {
                 /** @description Mirrors `FEEDBACK_FREE_TEXT`: the feedback station shows free-text questions. */
                 feedback_free_text: boolean;
                 local_accounts: boolean;
+                /**
+                 * @description Mirrors `MEDIA_EMBED_CONSENT`: `click` loads the player of a streaming service after the learner agrees, `auto` with the page.
+                 * @enum {string}
+                 */
+                media_embed_consent: "click" | "auto";
                 /** @enum {string} */
                 signup: "closed" | "invite" | "domain";
                 /** @description Mirrors `TEST_NOTES`: the SPA records the test session notes in the browser. */
@@ -3235,6 +3420,32 @@ export interface components {
             choice: "would_use";
         };
         /**
+         * AdminMediaUses
+         * @description Where a media asset is used.
+         */
+        AdminMediaUses: {
+            /** @description The drafts of the pack workbench that hold the asset, with its path there. */
+            drafts: {
+                /** Format: uuid */
+                id: string;
+                path: string;
+                title: string;
+            }[];
+            /** @description The validated imports whose payload names the asset. */
+            imports: {
+                /** Format: uuid */
+                id: string;
+                /** Format: date-time */
+                inserted_at: string;
+                pack_key: string | null;
+            }[];
+            /** @description The published programs that show the asset. */
+            programs: {
+                slug: string;
+                title: string;
+            }[];
+        };
+        /**
          * AdminPackDraftRequest
          * @description The starting point of a new draft.
          */
@@ -3265,6 +3476,11 @@ export interface components {
                 /** @description Mirrors `FEEDBACK_FREE_TEXT`: the feedback station shows free-text questions. */
                 feedback_free_text: boolean;
                 local_accounts: boolean;
+                /**
+                 * @description Mirrors `MEDIA_EMBED_CONSENT`: `click` loads the player of a streaming service after the learner agrees, `auto` with the page.
+                 * @enum {string}
+                 */
+                media_embed_consent: "click" | "auto";
                 /** @enum {string} */
                 signup: "closed" | "invite" | "domain";
                 /** @description Mirrors `TEST_NOTES`: the SPA records the test session notes in the browser. */
@@ -3557,6 +3773,58 @@ export interface components {
             };
         };
         /**
+         * AdminMediaAsset
+         * @description A file of the media library.
+         */
+        AdminMediaAsset: {
+            animated: boolean;
+            /** @description The delivery file. */
+            bytes: number | null;
+            /** @description The length of a video, or the end of the last cue of captions. */
+            duration_ms: number | null;
+            /**
+             * @description The extension of the delivery file.
+             * @enum {string|null}
+             */
+            ext: "webp" | "svg" | "webm" | "vtt" | null;
+            /**
+             * @description The failure code of a `failed` asset.
+             * @enum {string|null}
+             */
+            failure: "too_many_pixels" | "too_many_frames" | "too_long" | "no_video_stream" | "unsupported_animation" | "invalid_svg" | "invalid_captions" | "malware_found" | "scan_failed" | "storage_full" | "conversion_failed" | "timeout" | "interrupted" | null;
+            /**
+             * @description The reason tag of `unsupported_animation`, `invalid_svg`, `invalid_captions` and `scan_failed`.
+             * @enum {string|null}
+             */
+            failure_detail: "structure" | "first_frame" | "too_many_frames" | "too_large" | "encoding" | "doctype" | "entity" | "processing_instruction" | "parse_error" | "root" | "embedded_image" | "css" | "animation" | "nul" | "header" | "too_many_cues" | "timing" | "style" | "limits_exceeded" | "size_limit" | "timeout" | "closed" | "connect" | "reply" | null;
+            has_alpha: boolean;
+            has_audio: boolean;
+            height: number | null;
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            inserted_at: string;
+            /** @enum {string} */
+            kind: "image" | "svg" | "video" | "captions";
+            /** @enum {string} */
+            origin: "upload" | "pack";
+            /** @description The poster of a video or the first frame of an animation. */
+            poster_url: string | null;
+            /** @description The progress of a video conversion in percent. */
+            progress: number;
+            /** @description The name of the uploaded or imported file, for the author. */
+            source_name: string | null;
+            /** @enum {string} */
+            status: "queued" | "processing" | "ready" | "failed";
+            title: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** @description `/media/<sha256>.<ext>` of a `ready` asset. */
+            url: string | null;
+            uses?: components["schemas"]["AdminMediaUses"];
+            width: number | null;
+        };
+        /**
          * EnrollmentPathRequest
          * @description Sets the path by the learner's choice.
          */
@@ -3652,6 +3920,32 @@ export interface components {
             min_group_size: number;
         };
         /**
+         * AdminPackMedia
+         * @description A media file of an import.
+         */
+        AdminPackMedia: {
+            animated: boolean;
+            duration_ms: number | null;
+            /** @enum {string|null} */
+            failure: "too_many_pixels" | "too_many_frames" | "too_long" | "no_video_stream" | "unsupported_animation" | "invalid_svg" | "invalid_captions" | "malware_found" | "scan_failed" | "storage_full" | "conversion_failed" | "timeout" | "interrupted" | null;
+            /** @enum {string|null} */
+            failure_detail: "structure" | "first_frame" | "too_many_frames" | "too_large" | "encoding" | "doctype" | "entity" | "processing_instruction" | "parse_error" | "root" | "embedded_image" | "css" | "animation" | "nul" | "header" | "too_many_cues" | "timing" | "style" | "limits_exceeded" | "size_limit" | "timeout" | "closed" | "connect" | "reply" | null;
+            has_alpha: boolean;
+            has_audio: boolean;
+            height: number | null;
+            /** @enum {string} */
+            kind: "image" | "svg" | "video" | "captions";
+            mime: string | null;
+            poster_url: string | null;
+            /** @description The progress of a video conversion in percent. */
+            progress: number;
+            /** @enum {string} */
+            status: "missing" | "queued" | "processing" | "ready" | "failed";
+            /** @description `/media/<sha256>.<ext>` while `ready`. */
+            url: string | null;
+            width: number | null;
+        };
+        /**
          * ReauthSession
          * @description The reissued session after a re-authentication.
          */
@@ -3665,6 +3959,11 @@ export interface components {
                 /** @description Mirrors `FEEDBACK_FREE_TEXT`: the feedback station shows free-text questions. */
                 feedback_free_text: boolean;
                 local_accounts: boolean;
+                /**
+                 * @description Mirrors `MEDIA_EMBED_CONSENT`: `click` loads the player of a streaming service after the learner agrees, `auto` with the page.
+                 * @enum {string}
+                 */
+                media_embed_consent: "click" | "auto";
                 /** @enum {string} */
                 signup: "closed" | "invite" | "domain";
                 /** @description Mirrors `TEST_NOTES`: the SPA records the test session notes in the browser. */
@@ -3770,6 +4069,13 @@ export interface components {
             };
             /** @description Grows by one with each file change; every change sends it. */
             lock_version: number;
+            /** @description The media entries ordered by path, each with its library asset. */
+            media?: {
+                asset: components["schemas"]["AdminMediaAsset"];
+                /** Format: uuid */
+                id: string;
+                path: string;
+            }[];
             /** @description The key of `pack.yaml`, when it is usable. */
             pack_key: string | null;
             /** @description The files of an uploaded archive outside the pack layout. */
@@ -3854,6 +4160,69 @@ export interface components {
                 /** @enum {string} */
                 type: "entra" | "google" | "oidc" | "ldap";
             }[];
+        };
+        /**
+         * BlockMedia
+         * @description The media of a figure or a video block.
+         */
+        BlockMedia: {
+            /** @description The alternative text of a figure; `null` when decorative. */
+            alt: string | null;
+            /** @description False when a host has left its allowlist since the publish or a file is missing. */
+            available: boolean;
+            /** @description The captions of a video file; the first is the default track. */
+            captions: {
+                /** @description A BCP 47 tag. */
+                lang: string;
+                url: string;
+            }[];
+            /** @description True for a figure without alternative text. */
+            decorative: boolean;
+            /** @description The player of a streaming service, loaded in an iframe. */
+            embed: {
+                /** @description The host of the player, which the consent notice names. */
+                host: string;
+                /** @description The `https:` URL of the player. */
+                url: string;
+            } | null;
+            /** @description The image of a figure. */
+            image: {
+                /** @description True for an animated WebP; `poster` holds its first frame. */
+                animated: boolean;
+                /** @description True when the image has transparent pixels. */
+                has_alpha: boolean;
+                /** @description `null` for an SVG without a fixed size. */
+                height: number | null;
+                /** @enum {string} */
+                mime: "image/webp" | "image/svg+xml";
+                /** @description `/media/<sha256>.<ext>`. */
+                url: string;
+                /** @description `null` for an SVG without a fixed size. */
+                width: number | null;
+            } | null;
+            /** @description The poster of a video, the first frame of an animated image, or the image of the `poster` attribute, which gives the first frame of an animated image. */
+            poster: {
+                height: number;
+                url: string;
+                width: number;
+            } | null;
+            /** @enum {string|null} */
+            size: "small" | "medium" | "full" | null;
+            /** @description The title of a video. */
+            title: string | null;
+            /** @description The video file of a video block; `null` for an embed. */
+            video: {
+                duration_ms: number | null;
+                /** @description True for a file on an allowlisted CDN host. */
+                external: boolean;
+                has_audio: boolean | null;
+                height: number | null;
+                /** @enum {string} */
+                mime: "video/webm" | "video/mp4";
+                /** @description `/media/<sha256>.webm`, or the `https:` URL of an external file. */
+                url: string;
+                width: number | null;
+            } | null;
         };
         /**
          * RegistrarCredentialList
@@ -4097,6 +4466,15 @@ export interface components {
          * @description A next step, or the session payload without `next`.
          */
         FinishResult: components["schemas"]["ExternalNextStep"] | components["schemas"]["FinishSession"];
+        /**
+         * AdminMediaAssetList
+         * @description A page of the media library.
+         */
+        AdminMediaAssetList: {
+            items: components["schemas"]["AdminMediaAsset"][];
+            /** @description The cursor of the next page, for the query `after`. */
+            next: string | null;
+        };
         /**
          * TotpConfirmResult
          * @description The authenticator app is enabled.
@@ -4859,7 +5237,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Error codes: `draft_limit`, `too_many_files`, `draft_too_large` */
+            /** @description Error codes: `draft_limit`, `too_many_files`, `draft_too_large`, and `media_limit` for more than 500 media files below `media/` other than captions (`max_draft_media`) */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -5987,6 +6365,155 @@ export interface operations {
             };
         };
     };
+    "EspalierWeb.Admin.MediaController.index": {
+        parameters: {
+            query?: {
+                kind?: "image" | "svg" | "video" | "captions";
+                status?: "queued" | "processing" | "ready" | "failed";
+                /** @description Only assets that no program, draft or validated import uses. */
+                unused?: boolean;
+                /** @description A case-insensitive part of the title. */
+                q?: string;
+                /** @description At most 100, default 50. */
+                limit?: number;
+                /** @description The `next` cursor of the previous page. */
+                after?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMediaAssetList"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.MediaController.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The file */
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The existing asset of the same file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMediaAsset"];
+                };
+            };
+            /** @description The new asset */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMediaAsset"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `storage_full` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `request_too_large` */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `unsupported_media_type` */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     "EspalierWeb.Admin.ExportController.download": {
         parameters: {
             query?: never;
@@ -6776,6 +7303,15 @@ export interface operations {
             };
             /** @description Error codes: `not_found` */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `download_too_large`, `media_not_ready` */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8009,6 +8545,79 @@ export interface operations {
             };
         };
     };
+    "EspalierWeb.Admin.PackDraftMediaController.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The draft id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description The asset and its path */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminDraftMediaAttach"];
+            };
+        };
+        responses: {
+            /** @description The draft */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPackDraft"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `stale_draft` (with `lock_version`), `path_taken`, `too_many_files`, `media_limit`, `draft_too_large` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminStaleDraft"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     "EspalierWeb.ReportController.formats": {
         parameters: {
             query: {
@@ -8990,13 +9599,13 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Error codes: `not_publishable`, `alignment_errors` */
+            /** @description Error codes: `not_publishable`, `alignment_errors`, `media_not_ready` */
             409: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdminAlignmentErrors"];
+                    "application/json": components["schemas"]["AdminAlignmentErrors"] | components["schemas"]["AdminMediaNotReady"];
                 };
             };
             /** @description Error codes: `validation_failed` */
@@ -9361,7 +9970,344 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Error codes: `draft_limit`, `no_payload`, `too_many_files`, `draft_too_large` */
+            /** @description Error codes: `draft_limit`, `no_payload`, `too_many_files`, `draft_too_large`, `media_limit`, and `media_not_ready` with the captions files that are not ready yet */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminStaleDraft"] | components["schemas"]["AdminMediaNotReady"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.MediaController.show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The asset id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The asset */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMediaAsset"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.MediaController.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The asset id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The asset is deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error code: `asset_in_use` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMediaInUse"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.MediaController.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The asset id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description The title */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminMediaUpdate"];
+            };
+        };
+        responses: {
+            /** @description The asset */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMediaAsset"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.PackDraftMediaController.delete": {
+        parameters: {
+            query: {
+                /** @description The `lock_version` of the draft that the change starts from. */
+                lock_version: number;
+            };
+            header?: never;
+            path: {
+                /** @description The draft id. */
+                id: string;
+                /** @description The id of the media entry. */
+                media_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The draft */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPackDraft"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error code: `stale_draft` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminStaleDraft"];
+                };
+            };
+            /** @description Error codes: `validation_failed` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    "EspalierWeb.Admin.PackDraftMediaController.rename": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The draft id. */
+                id: string;
+                /** @description The id of the media entry. */
+                media_id: string;
+            };
+            cookie?: never;
+        };
+        /** @description The new path */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminDraftMediaRename"];
+            };
+        };
+        responses: {
+            /** @description The draft */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPackDraft"];
+                };
+            };
+            /** @description Error codes: `unauthenticated` */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `forbidden`, `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request` */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `not_found` */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error codes: `stale_draft` (with `lock_version`), `path_taken`, `too_many_files`, `media_limit`, `draft_too_large` */
             409: {
                 headers: {
                     [name: string]: unknown;

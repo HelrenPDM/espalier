@@ -406,7 +406,22 @@
     "caseComparison": "Fallvergleich",
     "quote": "Zitat",
     "callout": "Hinweis",
-    "placeholder": "Regeln Ihrer Organisation"
+    "placeholder": "Regeln Ihrer Organisation",
+    "figure": "Abbildung",
+    "video": "Video"
+  },
+  "media": {
+    "transcript": "Transkript",
+    "playsFrom": "Wird von {{host}} abgespielt",
+    "embedNotice": "Dieses Video läuft in einem Player von {{host}}. Wenn Sie es laden, gehen die Adresse Ihres Geräts und Daten Ihres Browsers an {{host}}.",
+    "loadVideo": "Video laden",
+    "openOn": "Auf {{host}} öffnen",
+    "unavailable": "Dieses Video ist auf dieser Installation nicht verfügbar.",
+    "imageUnavailable": "Dieses Bild ist auf dieser Installation nicht verfügbar.",
+    "fallback": "Ihr Browser kann dieses Video nicht abspielen.",
+    "play": "Animation abspielen",
+    "pause": "Animation anhalten",
+    "printNote": "Video: siehe die Lektion online"
   },
   "provenance": {
     "label": "Herkunft:",
@@ -725,6 +740,7 @@
       "label": "Bereiche der Administration",
       "packs": "Inhaltspakete",
       "workbench": "Werkbank",
+      "media": "Medien",
       "exports": "Exporte",
       "users": "Personen",
       "policies": "Richtlinien",
@@ -812,6 +828,20 @@
         "errors": "Fehler ({{count}})",
         "warnings": "Warnungen ({{count}})"
       },
+      "media": {
+        "title": "Medien",
+        "empty": "Der Import enthält keine Mediendatei.",
+        "intro": "Die Mediendateien der Nutzdaten mit dem Zustand ihrer Umwandlung. Der Import kann veröffentlicht werden, sobald jede Datei bereit ist.",
+        "path": "Pfad",
+        "kind": "Art",
+        "state": "Zustand",
+        "facts": "Angaben",
+        "withAudio": "mit Ton",
+        "withoutAudio": "ohne Ton",
+        "animated": "animiert",
+        "captionsHintTitle": "Videos ohne Untertitel",
+        "captionsHint": "Diese Videodateien haben eine Tonspur, und ein Videoblock zeigt sie ohne Untertitel. Das Erfolgskriterium 1.2.2 der WCAG 2.2 verlangt Untertitel für jedes aufgezeichnete Video mit Ton."
+      },
       "alignment": {
         "title": "Ausrichtung",
         "description": "Die Ausrichtungsmatrix nennt je Modul, Kompetenzbereich und Tiefe die Lernziele, die Lektionen, die sie vermitteln, ihre Belege und den Ort, den areas_elsewhere nennt.",
@@ -836,7 +866,9 @@
         "reason": {
           "published": "Dieser Import ist bereits veröffentlicht.",
           "failed": "Der Import hat die Validierung nicht bestanden und kann nicht veröffentlicht werden.",
-          "alignment": "Die Ausrichtungsprüfungen melden Fehler. Korrigieren Sie das Paket und laden Sie es erneut hoch."
+          "alignment": "Die Ausrichtungsprüfungen melden Fehler. Korrigieren Sie das Paket und laden Sie es erneut hoch.",
+          "mediaPending": "Mediendateien werden noch umgewandelt. Die Veröffentlichung ist möglich, sobald jede Mediendatei bereit ist.",
+          "mediaFailed": "Eine Mediendatei ist fehlgeschlagen oder fehlt. Ersetzen Sie sie im Paket und importieren Sie das Paket erneut."
         },
         "dialogTitle": "{{key}} veröffentlichen?",
         "intro": "Die Veröffentlichung ändert das laufende Programm wie folgt.",
@@ -858,13 +890,15 @@
           "formats": "Begleitformate",
           "sources": "Quellen",
           "segments": "Segmente",
-          "glossary_terms": "Glossarbegriffe"
+          "glossary_terms": "Glossarbegriffe",
+          "media": "Mediendateien"
         },
         "warnings": "Ausrichtungswarnungen: {{count}}.",
         "confirm": "Veröffentlichen",
         "publishing": "Wird veröffentlicht …",
         "done": "Das Paket ist veröffentlicht.",
         "refused": "Die Veröffentlichung wurde abgelehnt, weil die Ausrichtungsprüfungen Fehler im gespeicherten Paket melden. Der Import bleibt unveröffentlicht.",
+        "mediaNotReady": "Die Veröffentlichung wurde abgelehnt, weil diese Mediendateien nicht bereit sind. Der Import bleibt unveröffentlicht.",
         "notPublishable": "Der Import kann in seinem aktuellen Status nicht veröffentlicht werden.",
         "failed": "Die Veröffentlichung ist fehlgeschlagen. Versuchen Sie es erneut."
       }
@@ -949,7 +983,9 @@
           "draftLimit": "Die Werkbank enthält höchstens {{limit}} Entwürfe, und diese Grenze ist erreicht. Löschen Sie einen Entwurf, den Sie nicht mehr brauchen, und beginnen Sie dann erneut.",
           "tooManyFiles": "Das Paket hat mehr Dateien, als ein Entwurf enthalten darf.",
           "tooLarge": "Das Paket ist größer, als ein Entwurf sein darf.",
-          "noPayload": "Dieser Import enthält kein Paket, weil seine Validierung fehlgeschlagen ist. Beginnen Sie den Entwurf stattdessen mit seinem Archiv."
+          "noPayload": "Dieser Import enthält kein Paket, weil seine Validierung fehlgeschlagen ist. Beginnen Sie den Entwurf stattdessen mit seinem Archiv.",
+          "mediaLimit": "Das Paket hat mehr Mediendateien, als ein Entwurf enthalten darf. Ein Entwurf enthält höchstens {{limit}} Mediendateien.",
+          "mediaNotReady": "Der Entwurf kann noch nicht beginnen, weil diese Untertiteldateien des Pakets nicht bereit sind: {{entries}}. Warten Sie, bis ihre Umwandlung abgeschlossen ist, und beginnen Sie dann erneut. Eine fehlgeschlagene oder fehlende Datei muss zuerst im Paket ersetzt werden."
         }
       },
       "draft": {
@@ -962,11 +998,16 @@
         "packKey": "Paketschlüssel",
         "noPackKey": "Keiner: pack.yaml nennt keinen verwendbaren Schlüssel.",
         "files": "Dateien",
+        "mediaEntries": "Medieneinträge",
         "size": "Größe",
         "usage": "{{used}} von {{limit}}",
         "fileLimit": "(höchstens {{limit}} je Datei)",
         "updatedAt": "Letzte Änderung",
         "download": "Als ZIP herunterladen",
+        "downloadReason": {
+          "mediaPending": "Mediendateien werden noch umgewandelt. Das Herunterladen ist möglich, sobald jede Mediendatei bereit ist.",
+          "mediaFailed": "Eine Mediendatei des Entwurfs ist fehlgeschlagen. Entfernen Sie ihren Eintrag oder ersetzen Sie ihn durch eine bereite Datei, und laden Sie den Entwurf dann herunter."
+        },
         "saved": "{{path}} gespeichert",
         "added": "{{path}} hinzugefügt",
         "renamed": "{{from}} in {{to}} umbenannt",
@@ -974,6 +1015,7 @@
         "tree": {
           "title": "Dateien des Entwurfs",
           "add": "Datei hinzufügen",
+          "addMedia": "Medium hinzufügen",
           "empty": "Der Entwurf enthält keine Datei.",
           "actions": "Aktionen",
           "actionsFor": "für {{path}}",
@@ -987,7 +1029,8 @@
           "kinds": {
             "root": "Datei auf der obersten Ebene des Pakets",
             "module": "Datei eines Modulverzeichnisses",
-            "lesson": "Lektion eines Modulverzeichnisses"
+            "lesson": "Lektion eines Modulverzeichnisses",
+            "captions": "Untertiteldatei (WebVTT) unter media/"
           },
           "fileName": "Dateiname",
           "moduleDir": "Modulverzeichnis",
@@ -996,6 +1039,8 @@
           "lessonKeyHint": "Kleinbuchstaben, Ziffern und Bindestriche, etwa 02-second-lesson.",
           "lessonTitle": "Titel der Lektion",
           "titleRequired": "Geben Sie den Titel der Lektion ein.",
+          "captionsKey": "Schlüssel der Untertitel",
+          "captionsKeyHint": "Kleinbuchstaben, Ziffern und Bindestriche, etwa intro-video-en. Die Datei beginnt mit der Kopfzeile WEBVTT.",
           "path": "Pfad",
           "pathHint": "Der Pfad ergibt sich aus der Auswahl oben. Eine YAML-Datei beginnt leer, eine Lektion beginnt mit ihrem Front Matter und einem Textblock.",
           "submit": "Datei hinzufügen"
@@ -1072,8 +1117,48 @@
           "nulCharacter": "Der Text enthält das Zeichen U+0000, das eine Datei nicht enthalten kann.",
           "tooManyFiles": "Der Entwurf enthält {{max}} Dateien, die Grenze eines Entwurfs. Löschen Sie zuerst eine Datei.",
           "draftTooLarge": "Die Änderung bringt den Entwurf über seine Grenze von {{size}}.",
-          "checksBusy": "Andere Prüfungen oder Importe laufen gerade. Versuchen Sie es in einigen Sekunden erneut.",
+          "checksBusy": "Andere Prüfungen, Importe oder Downloads von Entwürfen laufen gerade. Versuchen Sie es in einigen Sekunden erneut.",
           "notFound": "Der Entwurf oder die Datei existiert nicht mehr. Laden Sie die Seite neu."
+        }
+      },
+      "media": {
+        "added": "Medium {{path}} hinzugefügt",
+        "removed": "Medium {{path}} entfernt",
+        "errors": {
+          "invalidPath": "Verwenden Sie media/ mit bis zu drei Ordnern und einem Dateinamen aus Kleinbuchstaben, Ziffern und Bindestrichen, mit der Endung .{{ext}}.",
+          "pathTaken": "Der Entwurf enthält bereits eine Datei oder einen Medieneintrag mit diesem Pfad.",
+          "notReady": "Die Datei ist noch nicht bereit. Fügen Sie sie hinzu, wenn ihre Umwandlung abgeschlossen ist.",
+          "mediaLimit": "Der Entwurf enthält die größte Zahl an Medieneinträgen. Entfernen Sie zuerst einen Medieneintrag."
+        },
+        "add": {
+          "title": "Medium hinzufügen",
+          "intro": "Wählen Sie ein Bild, eine SVG-Grafik oder ein Video der Medienbibliothek aus, oder laden Sie eine neue Datei hoch. Der Entwurf verweist auf die Datei der Bibliothek.",
+          "search": "Bibliothek nach Titel durchsuchen",
+          "asset": "Datei der Bibliothek",
+          "choose": "Datei auswählen",
+          "assetRequired": "Wählen Sie eine Datei der Bibliothek aus, oder laden Sie eine hoch.",
+          "loading": "Die Medienbibliothek wird geladen …",
+          "loadFailed": "Die Medienbibliothek konnte nicht geladen werden.",
+          "emptyLibrary": "Die Bibliothek enthält noch kein Bild, keine SVG-Grafik und kein Video. Laden Sie unten eine Datei hoch.",
+          "noMatch": "Kein Bild, keine SVG-Grafik und kein Video passt zur Suche.",
+          "uploadTitle": "Oder eine neue Datei hochladen",
+          "path": "Pfad im Entwurf",
+          "pathHint": "media/ mit bis zu drei Ordnern und einem Dateinamen aus Kleinbuchstaben, Ziffern und Bindestrichen, mit der Endung .{{ext}}.",
+          "submit": "Medium hinzufügen"
+        },
+        "rename": {
+          "hint": "Ein Pfad unter media/ mit der Endung .{{ext}}, etwa media/figures/overview.{{ext}}."
+        },
+        "delete": {
+          "title": "{{path}} aus dem Entwurf entfernen?",
+          "body": "Der Medieneintrag verlässt den Entwurf. Die Datei bleibt in der Medienbibliothek.",
+          "confirm": "Entfernen"
+        },
+        "preview": {
+          "title": "Mediendatei {{path}}",
+          "libraryTitle": "Titel in der Bibliothek:",
+          "toLibrary": "Medienbibliothek öffnen",
+          "directive": "Direktive für eine Lektion"
         }
       }
     },
@@ -1130,6 +1215,206 @@
         "done": "Bereit zum Herunterladen",
         "failed": "Fehlgeschlagen",
         "removed": "Nicht mehr verfügbar"
+      }
+    },
+    "media": {
+      "title": "Medienbibliothek",
+      "intro": "Die Bilder, SVG-Grafiken, Videos und Untertitel der Inhaltspakete. Lektionen setzen sie mit den Direktiven figure und video ein. Die Details einer Datei geben die Direktive zum Kopieren an und fügen die Datei einem Entwurf der Werkbank hinzu.",
+      "kinds": {
+        "image": "Bild",
+        "svg": "SVG-Grafik",
+        "video": "Video",
+        "captions": "Untertitel"
+      },
+      "status": {
+        "queued": "Wartet",
+        "processing": "In Bearbeitung",
+        "ready": "Bereit",
+        "failed": "Fehlgeschlagen",
+        "missing": "Fehlt"
+      },
+      "origins": {
+        "upload": "Hochgeladen",
+        "pack": "Inhaltspaket"
+      },
+      "processing": "In Bearbeitung, {{progress}} %",
+      "progressLabel": "Umwandlung von {{subject}}",
+      "failure": {
+        "too_many_pixels": "Die Datei hat mehr Pixel, als die Bibliothek annimmt.",
+        "too_many_frames": "Die Animation hat mehr als 1.000 Einzelbilder.",
+        "too_long": "Das Video ist länger als die Grenze der Installation.",
+        "no_video_stream": "Die Datei enthält keinen Videostream.",
+        "unsupported_animation": "Die animierte WebP-Datei konnte nicht geprüft werden.",
+        "invalid_svg": "Die SVG-Datei konnte nicht neu aufgebaut werden.",
+        "invalid_captions": "Die Untertiteldatei ist kein gültiges WebVTT.",
+        "malware_found": "Die Prüfung auf Schadsoftware hat in der Datei eine Bedrohung gefunden.",
+        "scan_failed": "Die Prüfung auf Schadsoftware ist fehlgeschlagen, deshalb wurde die Datei abgelehnt.",
+        "storage_full": "Der Medienspeicher ist voll.",
+        "conversion_failed": "Die Umwandlung ist fehlgeschlagen.",
+        "timeout": "Die Umwandlung hat länger als ihre Zeitgrenze gedauert.",
+        "interrupted": "Die Umwandlung wurde unterbrochen, etwa durch einen Neustart des Servers."
+      },
+      "failureDetail": {
+        "unsupported_animation": {
+          "structure": "Die Struktur der Datei folgt nicht dem WebP-Containerformat.",
+          "first_frame": "Das erste Einzelbild deckt nicht die ganze Fläche ab.",
+          "too_many_frames": "Die Animation hat mehr als 1.000 Einzelbilder."
+        },
+        "invalid_svg": {
+          "too_large": "Die Datei ist größer als 1.048.576 Byte.",
+          "encoding": "Die Datei ist kein UTF-8-Text.",
+          "doctype": "Die Datei enthält eine DOCTYPE-Deklaration.",
+          "entity": "Die Datei deklariert eine Entität.",
+          "processing_instruction": "Die Datei enthält eine Verarbeitungsanweisung außer der XML-Deklaration.",
+          "parse_error": "Die Datei ist kein wohlgeformtes XML.",
+          "root": "Das Wurzelelement ist kein SVG-Element.",
+          "embedded_image": "Die Datei bettet ein Rasterbild ein.",
+          "css": "Die Stile der Datei laden eine Ressource oder verwenden eine Funktion, die die Bibliothek nicht zulässt.",
+          "animation": "Die Datei enthält eine Animation oder einen Übergang."
+        },
+        "invalid_captions": {
+          "too_large": "Die Datei ist größer als 524.288 Byte.",
+          "encoding": "Die Datei ist kein UTF-8-Text.",
+          "nul": "Die Datei enthält das Zeichen U+0000.",
+          "header": "Die Datei beginnt nicht mit der Kopfzeile WEBVTT.",
+          "too_many_cues": "Die Datei enthält mehr als 10.000 Untertitel.",
+          "timing": "Eine Zeitangabe eines Untertitels ist ungültig oder endet vor ihrem Beginn.",
+          "style": "Die Datei enthält einen STYLE-Block."
+        },
+        "scan_failed": {
+          "limits_exceeded": "Die Datei überschreitet eine Grenze des Scanners.",
+          "size_limit": "Die Datei ist größer, als der Scanner annimmt.",
+          "timeout": "Der Scanner hat nicht rechtzeitig geantwortet.",
+          "closed": "Der Scanner hat die Verbindung geschlossen.",
+          "connect": "Der Scanner war nicht erreichbar.",
+          "reply": "Der Scanner hat eine Antwort gesendet, die die Plattform nicht versteht."
+        }
+      },
+      "failureUnknown": "Die Verarbeitung ist fehlgeschlagen.",
+      "failureCode": "Die Verarbeitung ist mit dem Code {{code}} fehlgeschlagen.",
+      "reasonCode": "Code {{code}}.",
+      "failureWithReason": "{{failure}} Grund: {{reason}}",
+      "view": {
+        "imageAlt": "Vorschau von {{title}}",
+        "playAnimation": "Animation abspielen",
+        "videoLabel": "Vorschau von {{title}}",
+        "videoFallback": "Ihr Browser kann dieses Video nicht abspielen.",
+        "captions": "Untertitel haben keine Vorschau. Fügen Sie sie einem Entwurf hinzu, um sie im Editor zu lesen.",
+        "notReady": "Die Vorschau erscheint, sobald die Datei bereit ist."
+      },
+      "facts": {
+        "state": "Zustand",
+        "kind": "Art",
+        "size": "Größe",
+        "dimensions": "Abmessungen",
+        "pixels": "{{width}} × {{height}} px",
+        "duration": "Länge",
+        "audio": "Tonspur",
+        "animated": "Animiert",
+        "transparency": "Transparente Pixel",
+        "origin": "Herkunft",
+        "sourceName": "Ursprüngliche Datei",
+        "added": "Hinzugefügt",
+        "yes": "Ja",
+        "no": "Nein"
+      },
+      "uses": {
+        "title": "Verwendungen",
+        "none": "Kein veröffentlichtes Programm, kein Entwurf und kein validierter Import verwendet diese Datei.",
+        "program": "Programm",
+        "draft": "Entwurf",
+        "import": "Validierter Import",
+        "noPackKey": "ohne Paketschlüssel",
+        "loading": "Die Verwendungen werden geladen …",
+        "loadFailed": "Die Verwendungen konnten nicht geladen werden."
+      },
+      "upload": {
+        "title": "Dateien hochladen",
+        "intro": "Die Bibliothek wandelt jede Datei nach dem Hochladen um: Bilder in WebP, Videos in WebM mit VP9 und Opus. SVG-Dateien baut sie aus einer Positivliste neu auf, und Untertitel prüft sie. Eine Datei, die die Bibliothek bereits enthält, wird nicht zweimal gespeichert.",
+        "label": "Dateien auswählen",
+        "labelOne": "Datei auswählen",
+        "hint": "Zulässige Endungen: {{extensions}}. Sie können Dateien auch auf diese Fläche ziehen.",
+        "listLabel": "Uploads",
+        "progressLabel": "Upload von {{name}}",
+        "waiting": "Wartet auf den Upload.",
+        "sending": "Wird hochgeladen …",
+        "created": "Hochgeladen. Die Bibliothek wandelt die Datei jetzt um.",
+        "existing": "Die Bibliothek enthält diese Datei bereits als {{title}}.",
+        "notSent": "Nicht gesendet, weil die Bestätigung mit einem zweiten Faktor abgebrochen wurde.",
+        "notSentSignedOut": "Nicht gesendet, weil die Sitzung beendet ist. Wählen Sie die Datei nach der Anmeldung erneut aus.",
+        "notSentEnrollment": "Nicht gesendet, weil das Konto noch keinen zweiten Faktor hat. Wählen Sie die Datei nach dessen Einrichtung erneut aus.",
+        "errors": {
+          "unsupported_type": "Die Datei hat keinen zulässigen Typ. Die Bibliothek prüft den Inhalt der Datei, nicht nur ihren Namen.",
+          "extension_mismatch": "Die Endung des Dateinamens passt nicht zum Inhalt. Geben Sie der Datei die Endung ihres Typs.",
+          "too_large": "Die Datei ist größer als die Grenze ihrer Art.",
+          "too_many_pixels": "Das Bild hat mehr als 40.000.000 Pixel.",
+          "invalid_type": "Der Upload enthielt keine Datei.",
+          "requestTooLarge": "Die Datei ist größer als der größte Upload der Installation.",
+          "unsupportedMediaType": "Der Upload wurde nicht als Datei gesendet.",
+          "storageFull": "Der Medienspeicher ist voll. Löschen Sie nicht verwendete Dateien oder bitten Sie den Betrieb um mehr Platz.",
+          "network": "Der Upload ist wegen der Verbindung fehlgeschlagen. Versuchen Sie es erneut."
+        }
+      },
+      "filters": {
+        "title": "Filter",
+        "kind": "Art",
+        "anyKind": "Alle Arten",
+        "status": "Zustand",
+        "anyStatus": "Alle Zustände",
+        "unused": "Nur nicht verwendete Dateien",
+        "search": "Nach Titel suchen",
+        "submit": "Suchen",
+        "clear": "Filter zurücksetzen"
+      },
+      "list": {
+        "title": "Dateien",
+        "loading": "Die Medienbibliothek wird geladen …",
+        "loadFailed": "Die Medienbibliothek konnte nicht geladen werden.",
+        "refreshFailed": "Die Liste konnte nicht aktualisiert werden. Sie zeigt den zuletzt geladenen Stand.",
+        "noMatch": "Keine Datei passt zu den Filtern.",
+        "empty": "Die Bibliothek enthält noch keine Datei.",
+        "more": "Weitere Dateien anzeigen",
+        "loadingMore": "Weitere Dateien werden geladen …"
+      },
+      "detail": {
+        "title": "Titel",
+        "titleInvalid": "Geben Sie einen Titel mit 1 bis 255 Zeichen ein.",
+        "saveTitle": "Titel speichern",
+        "titleSaved": "Der Titel ist gespeichert.",
+        "close": "Schließen"
+      },
+      "directive": {
+        "title": "Direktive",
+        "hint": "Fügen Sie die Direktive in eine Lektion ein und füllen Sie das leere alt oder title aus, das der Validator verlangt. Der Pfad ist der, den „Zum Entwurf hinzufügen“ vorschlägt.",
+        "label": "Direktive für eine Lektion",
+        "copy": "Direktive kopieren"
+      },
+      "addToDraft": {
+        "title": "Zum Entwurf hinzufügen",
+        "intro": "Die Datei wird ein Medieneintrag des Entwurfs unter dem Pfad.",
+        "captionsIntro": "Der Server kopiert die Untertitel in eine Textdatei des Entwurfs unter dem Pfad.",
+        "draft": "Entwurf",
+        "choose": "Entwurf auswählen",
+        "draftRequired": "Wählen Sie einen Entwurf aus.",
+        "path": "Pfad im Entwurf",
+        "pathHint": "media/ mit bis zu drei Ordnern und einem Dateinamen aus Kleinbuchstaben, Ziffern und Bindestrichen, mit der Endung .{{ext}}.",
+        "submit": "Zum Entwurf hinzufügen",
+        "added": "Unter {{path}} hinzugefügt.",
+        "openDraft": "Entwurf {{title}} öffnen",
+        "loading": "Die Entwürfe werden geladen …",
+        "loadFailed": "Die Entwürfe konnten nicht geladen werden.",
+        "noDrafts": "Die Werkbank enthält keinen Entwurf.",
+        "toWorkbench": "Zur Werkbank",
+        "captionsNotReady": "Untertitel können einem Entwurf hinzugefügt werden, sobald sie bereit sind.",
+        "failed": "Eine fehlgeschlagene Datei kann keinem Entwurf hinzugefügt werden."
+      },
+      "delete": {
+        "button": "Löschen",
+        "title": "{{title}} löschen?",
+        "body": "Die Datei verlässt die Bibliothek und den Medienspeicher. Solange ein veröffentlichtes Programm oder ein Entwurf sie verwendet, wird das Löschen abgelehnt.",
+        "confirm": "Löschen",
+        "inUse": "Die Datei bleibt in der Bibliothek, weil sie verwendet wird:",
+        "done": "{{title}} gelöscht."
       }
     },
     "users": {

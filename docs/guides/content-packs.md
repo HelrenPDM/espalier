@@ -3,7 +3,8 @@
 A content pack holds the course content of one program as YAML and Markdown
 files: the program with its stations, sources, glossary, segments,
 qualifications and companion formats, and per module its learning objectives,
-rules, items, assessments and lessons. The pack format is the input of
+rules, items, assessments and lessons. Its folder `media/` holds the images,
+vector graphics, videos and captions that the lessons show. The pack format is the input of
 `mix espalier.validate`, `mix espalier.import`, the pack upload of the admin
 area and the pack workbench, and `mix espalier.export` writes it. An
 organization keeps its packs in its own Git repository next to its review
@@ -35,6 +36,10 @@ writing-assistant-basics/
 ├── feedback.yaml
 ├── qualifications.yaml
 ├── formats.yaml
+├── media/
+│   ├── next-word.svg
+│   ├── release-checks.webm
+│   └── release-checks-en.vtt
 └── modules/
     └── 01-writing-assistant/
         ├── module.yaml
@@ -66,6 +71,7 @@ writing-assistant-basics/
 | `modules/<dir>/items.yaml` | no | The practice items and exam items of the module |
 | `modules/<dir>/assessment.yaml` | no | The assessments of the module |
 | `modules/<dir>/lessons/<key>.md` | at least one in every module directory | One lesson; the file name without `.md` is the lesson key |
+| `media/<path>` | no | The images, SVG files, videos and captions that `figure` and `video` blocks name; the loader checks their paths and sizes and reads none of them (section "Media") |
 
 `modules/` holds at least one module directory, and every lesson holds at
 least one block. The name of a module directory and every lesson key follow
@@ -73,11 +79,13 @@ the key format below. The module number comes from `number` in `module.yaml`,
 so the directory name carries no meaning of its own; `mix espalier.export`
 names a directory `<number>-<slug of the module title>` with the number padded
 to two digits, or to the digits of the largest module number. The loader
-reads no other file, so a `README.md` in the pack directory stays unread. It
-rejects every symbolic link in the pack, also inside a directory that it does
-not read, every entry that is neither a directory nor a regular file, and
-every name that is not valid UTF-8. The pack workbench admits only the paths
-of the table above
+reads no other file, so a `README.md` in the pack directory stays unread, and
+it keeps the files below `media/` without reading them. It rejects every
+symbolic link in the pack, also inside a directory that it does not read,
+every entry that is neither a directory nor a regular file, and every name
+that is not valid UTF-8. The pack workbench admits the text files of the
+table above and the captions files (`.vtt`) below `media/` as files of a
+draft, and holds the other media files as media entries
 ([`pack-workbench.md`](pack-workbench.md), section "Files and layout").
 
 ### Values
@@ -85,8 +93,9 @@ of the table above
 The validator casts every file with an embedded Ecto schema of its file type
 (`lib/espalier/catalog/pack/schema/`) and validates positively:
 
-- Keys, slugs, codes, domains, placeholder keys, module directory names and
-  lesson keys match `^[a-z0-9][a-z0-9-]*$`.
+- Keys, slugs, codes, domains, placeholder keys, module directory names,
+  lesson keys, the directories below `media/` and the names of media files
+  without their extension match `^[a-z0-9][a-z0-9-]*$`.
 - A field that the schema does not know is an error.
 - A value must have the type of its field, and no type is converted: `"1"` is
   no integer, and `1.0` is no string. Quote a version or a date, so that YAML
@@ -681,6 +690,10 @@ A writing assistant continues a [[term:prompt]] with words that are likely to fo
 The assistant chooses each next word from probabilities that it learned in training. A fluent sentence therefore says nothing about whether its statements are true.
 :::
 
+:::figure{src=media/next-word.svg alt="The words 'The meeting moves to' with three candidates for the next word: Thursday with 0.6, Friday with 0.3 and Monday with 0.1" size=medium provenance=invented}
+The assistant continues the sentence with one of the likely words.
+:::
+
 :::placeholder{key=input-rules}
 Your organization adds its rules for inputs here.
 :::
@@ -705,6 +718,10 @@ A clear prompt names the task, the context and the format.
 
 :::callout{provenance=invented}
 Before you share a generated text, give each name, number and date a [[term:source-check|source check]] and confirm the release checks with your initials.
+:::
+
+:::video{src=media/release-checks.webm title="The release checks of a generated notice" captions=media/release-checks-en.vtt:en provenance=invented}
+A colleague reads a generated notice about a moved meeting. She checks the date against the calendar and the names against the staff list, and she adds her initials before she shares the notice.
 :::
 ```
 
@@ -747,7 +764,8 @@ of the directives gives the position of the blocks.
   kind, with its attributes in the braces.
 - A line that matches `^:::\s*$` closes the block.
 - The lines between become the body of the block, in Markdown, without the
-  leading and trailing blank lines. The body must not be empty.
+  leading and trailing blank lines. The body must not be empty, except for a
+  `figure` (its caption) and a `video` (its transcript).
 - Attributes have the form `name=value` or `name="value with spaces"` and are
   separated by spaces.
 
@@ -757,6 +775,8 @@ of the directives gives the position of the blocks.
 | `collapsed_on` | The paths on which the block starts collapsed, `short`, `full` or both, separated by commas. The player applies it to `explanation` blocks in a module with `single_path: false` (README section 7, domain rule 2). |
 | `cite` | Citations of the form `source-key#locator`, several separated by commas |
 | `key` | On `placeholder` blocks only, and required there: the key of the policy whose current version the block renders |
+| `src`, `alt`, `decorative`, `size` | On `figure` blocks only: the image and its text alternative (section "Media") |
+| `src`, `embed`, `title`, `poster`, `captions` | On `video` blocks only: the video, its title, its poster and its captions (section "Media") |
 
 | Kind | Content |
 |---|---|
@@ -767,16 +787,165 @@ of the directives gives the position of the blocks.
 | `quote` | A quotation; it cites at least one source |
 | `callout` | A highlighted note |
 | `placeholder` | Renders the current version of the policy that `key` names. Until a version exists, the block shows its own body with the `placeholder` badge (README section 7, domain rule 8). |
+| `figure` | An image or an SVG file of the pack with its text alternative; the body is the caption and may be empty |
+| `video` | A video file of the pack, an external video file or the player of a streaming service; the body is the transcript |
 
 Each of the following is an error at its line: an unknown kind, an unknown
-attribute, a duplicate attribute, a malformed attribute list, a missing
-`provenance`, a `key` on a block other than `placeholder`, a `placeholder`
-block without `key` or with a provenance other than `placeholder`, an opening
-line inside an open block, a line that starts with `:::` and neither opens
-nor closes a block, an unclosed block, and text outside a block. The splitter
-keeps the first 100 errors of a lesson body. The validator then checks the
-values: the provenance, the paths of `collapsed_on`, the citations, the key
-format of `key`, and that a `quote` block cites a source.
+attribute, an attribute on a kind that does not admit it (for example
+`` attribute `src` is allowed on `figure` and `video` blocks only ``), a
+duplicate attribute, a malformed attribute list, a missing `provenance`, a
+`placeholder` block without `key` or with a provenance other than
+`placeholder`, an opening line inside an open block, a line that starts with
+`:::` and neither opens nor closes a block, an unclosed block, and text
+outside a block. The splitter keeps the first 100 errors of a lesson body.
+The validator then checks the values: the provenance, the paths of
+`collapsed_on`, the citations, the key format of `key`, that a `quote` block
+cites a source, and the rules of the section "Media". No block body holds
+the Markdown image syntax `![text](address)`: the validator answers
+`use a figure block for images`, and the player shows such an image as its
+text only.
+
+## Media
+
+A pack carries its images, vector graphics, videos and captions in the folder
+`media/` at its root, next to `pack.yaml` (task 0018). Two block kinds place
+them in a lesson: `figure` shows an image or an SVG file with its text
+alternative and a caption, and `video` plays a video with its captions and a
+transcript. The import moves every file that a block names into the media
+library of the installation, which converts it into its delivery format
+before the program can be published; [`media.md`](media.md) describes the
+library, the conversion and the player.
+
+### The folder `media/`
+
+A media path is `media/`, then zero to three directories, then a file name
+`<key>.<extension>`. Every directory name and the key of the file name follow
+the key format, and the extension is one of the lower-case extensions of the
+table below. A path holds at most 527 bytes and each of its components at most
+255 bytes, as the paths of the pack workbench do. Examples are
+`media/next-word.svg` and `media/module-1/release-checks-en.vtt`.
+
+| Kind | Extensions | Delivery format | Largest file |
+|---|---|---|---|
+| Image | `png`, `jpg`, `jpeg`, `gif`, `webp` | WebP (`.webp`) | `MEDIA_IMAGE_MAX_MB` megabytes of 1,048,576 bytes each, default 20 (20,971,520 bytes) |
+| SVG | `svg` | SVG (`.svg`), rebuilt from an allowlist of elements and attributes | 1 MiB (1,048,576 bytes) |
+| Video | `mp4`, `m4v`, `mov`, `webm`, `mkv` | WebM with VP9 and Opus (`.webm`) | `MEDIA_VIDEO_MAX_MB` megabytes, default 1024 (1,073,741,824 bytes) |
+| Captions | `vtt` | WebVTT (`.vtt`), stored as written | 512 KiB (524,288 bytes) |
+
+The loader keeps every regular file below `media/` with its path and its size
+and reads none of them. Each of the following is an error at the path of the
+file: a path outside the rules above, such as `media/Photo.PNG` or a file four
+directories below `media/`, and a file larger than the limit of its kind. A
+pack holds at most 500 media files (`max_pack_media`), and more files give one
+error at `media`. A symbolic link below `media/` is rejected, as everywhere in
+the pack. A directory `modules/media/` is a module directory as any other, and
+a file outside `media/` and the layout stays unread.
+
+The import detects the kind of every referenced file from its leading bytes,
+such as `89 50 4E 47 0D 0A 1A 0A` for PNG or `1A 45 DF A3` for WebM and
+Matroska, and refuses a file whose signature belongs to no kind of the table
+or to another kind than its extension, and an image above 40,000,000 pixels;
+each refusal is an error at the path of the file. [`media.md`](media.md),
+section "Accepted files", lists every signature.
+
+The upload of a pack in the admin area stays within `PACK_UPLOAD_MAX_MB` with
+its media files (section "Upload limits"). A video above that limit reaches a
+lesson through the media library and the pack workbench, whose uploads take
+files up to `MEDIA_VIDEO_MAX_MB`, or as an external file on a host of
+`MEDIA_EXTERNAL_HOSTS`. `mix espalier.import` and
+`Espalier.Release.import_pack/2` read the pack directory and apply the limits
+per file of the table. The converted files of every import count towards the
+storage quota of the installation, `MEDIA_STORAGE_MAX_GB` gigabytes (default
+50). `mix espalier.export` writes every media file in its delivery format, so
+a pack exported from a program holds `media/photo.webp` where its source held
+`media/photo.jpg`, and its blocks name the new path.
+
+### The block `figure`
+
+```markdown
+:::figure{src=media/next-word.svg alt="The words 'The meeting moves to' with three candidates for the next word" size=medium provenance=invented}
+The assistant continues the sentence with one of the likely words.
+:::
+```
+
+| Attribute | Value |
+|---|---|
+| `src` | Required. The media path of an image or an SVG file of the pack. |
+| `alt` | The text alternative, which a screen reader reads in place of the image, 1 to 1,000 characters. Required unless the block carries `decorative=true`, and not allowed with it. |
+| `decorative` | `true` only. It marks an image that carries no information, such as an ornament, and the player gives it an empty text alternative. |
+| `size` | `small`, `medium` or `full`, the width of the figure in the lesson. The default is `full`. |
+
+The body is the caption, in Markdown, and may be empty. The attributes
+`provenance`, `collapsed_on` and `cite` apply as to every other kind.
+
+```markdown
+:::figure{src=media/divider.svg decorative=true provenance=invented}
+:::
+```
+
+### The block `video`
+
+```markdown
+:::video{src=media/release-checks.webm title="The release checks of a generated notice" poster=media/release-checks-start.png captions="media/release-checks-en.vtt:en,media/release-checks-de.vtt:de" provenance=invented}
+A colleague reads a generated notice about a moved meeting. She checks the date against the calendar and the names against the staff list, and she adds her initials before she shares the notice.
+:::
+
+:::video{src="https://cdn.example.org/clips/release-checks.mp4" title="The release checks of a generated notice" provenance=invented}
+A colleague reads a generated notice about a moved meeting and checks it before she shares it.
+:::
+
+:::video{embed="https://player.example.org/embed/release-checks" title="The release checks of a generated notice" provenance=invented}
+A colleague reads a generated notice about a moved meeting and checks it before she shares it.
+:::
+```
+
+| Attribute | Value |
+|---|---|
+| `src` | The video. Either the media path of a video file of the pack, or an external file: an absolute `https:` URL with a host and without user information, of at most 2,000 characters, whose path ends in `.webm` or `.mp4`. A path that ends in `.m3u8` or `.mpd` names a stream, and the validator answers `streams need an embed player: use embed`. |
+| `embed` | The player of a streaming service, which the lesson shows in an iframe: an absolute `https:` URL with a host and without user information, of at most 2,000 characters. |
+| `title` | Required, 1 to 255 characters. The player shows it as the label of the block. |
+| `poster` | The media path of an image of the pack, which the player shows before the video starts; of an animated image it shows the first frame. Only with `src`. |
+| `captions` | One to eight entries `<media path>:<language>`, separated by commas: the path of a captions file with the extension `vtt` and a BCP 47 language tag such as `en` or `pt-BR`. Each language appears once, compared without regard to case, so `pt-BR` and `pt-br` count as one language; the first entry is the default track. Only with `src`; with `embed` the validator answers `captions need a video file: use src`. |
+
+A block has exactly one of `src` and `embed`. The body is the transcript, in
+Markdown. A video file needs `captions` or a transcript, and an embed needs a
+transcript, because the validator cannot look into the player of another
+service. WCAG 2.2 asks for more than the validator can check: captions for
+every video with sound (success criterion 1.2.2), a text alternative that
+describes the picture as well as the sound, or an audio description (1.2.3),
+and an audio description where the picture carries information that the
+sound does not (1.2.5). These stay the task of the authors.
+
+The hosts of external files and embeds must appear in the allowlists of the
+installation, `MEDIA_EXTERNAL_HOSTS` for `src` and `MEDIA_EMBED_HOSTS` for
+`embed`, each a comma-separated list of entries `host` or `host:port`. An
+entry without a port admits port 443, the default port of `https`. The
+upload in the admin area, the check and the import of the pack workbench and
+`mix espalier.import` report every other host as an error at the line of the
+block, for example `host cdn.example.org is not in MEDIA_EXTERNAL_HOSTS`.
+`mix espalier.validate` runs without the settings of an installation and
+skips this check. The browsers of the learners load external files and
+embeds; the server fetches neither.
+
+### Checks of the media blocks
+
+Each of the following is an error at the file and the line of the block, in
+both alignment modes:
+
+- a media path in `src`, `poster` or `captions` that names no file of the
+  folder `media/` (`` the pack holds no media file `media/photo.png` ``), or a
+  file of another kind, such as a video in `src` of a figure or an SVG file
+  as `poster`;
+- a figure without `src`, a figure without `alt` and without
+  `decorative=true`, a figure with both, a value of `decorative` other than
+  `true`, and an `alt` of more than 1,000 characters;
+- a video with both or neither of `src` and `embed`, an external URL that
+  breaks the rules above, a missing `title`, a `poster` or `captions` together
+  with `embed`, more than eight captions, two captions in one language, a
+  video file without captions and transcript, and an embed without
+  transcript;
+- the Markdown image syntax in the body of any block, which answers
+  `use a figure block for images`.
 
 ## Provenance
 
@@ -1055,6 +1224,10 @@ deflated entry inflates in chunks, and the extraction stops as soon as the
 output of an entry exceeds its declared size, so the disk receives at most the
 declared sizes. The pack sits at the root of the archive, or in its one
 top-level directory when that directory holds `pack.yaml`.
+
+The media files of a pack count towards the size of the upload and the
+declared sizes of the archive. The section "Media" lists the limits per media
+file and the number of media files of a pack.
 
 The loader then applies the limits of the pack format, also to a pack that
 `mix espalier.validate`, `mix espalier.import` or the workbench reads:

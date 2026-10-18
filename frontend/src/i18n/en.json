@@ -406,7 +406,22 @@
     "caseComparison": "Case comparison",
     "quote": "Quote",
     "callout": "Note",
-    "placeholder": "Rules of your organization"
+    "placeholder": "Rules of your organization",
+    "figure": "Figure",
+    "video": "Video"
+  },
+  "media": {
+    "transcript": "Transcript",
+    "playsFrom": "Plays from {{host}}",
+    "embedNotice": "This video plays in a player of {{host}}. Loading it sends the address of your device and data of your browser to {{host}}.",
+    "loadVideo": "Load video",
+    "openOn": "Open on {{host}}",
+    "unavailable": "This video is not available on this installation.",
+    "imageUnavailable": "This image is not available on this installation.",
+    "fallback": "Your browser cannot play this video.",
+    "play": "Play animation",
+    "pause": "Pause animation",
+    "printNote": "Video: see the online lesson"
   },
   "provenance": {
     "label": "Provenance:",
@@ -725,6 +740,7 @@
       "label": "Administration sections",
       "packs": "Packs",
       "workbench": "Workbench",
+      "media": "Media",
       "exports": "Exports",
       "users": "Users",
       "policies": "Policies",
@@ -812,6 +828,20 @@
         "errors": "Errors ({{count}})",
         "warnings": "Warnings ({{count}})"
       },
+      "media": {
+        "title": "Media",
+        "empty": "The import holds no media file.",
+        "intro": "The media files of the payload with the state of their conversion. The import can be published when every file is ready.",
+        "path": "Path",
+        "kind": "Kind",
+        "state": "State",
+        "facts": "Facts",
+        "withAudio": "with audio",
+        "withoutAudio": "without audio",
+        "animated": "animated",
+        "captionsHintTitle": "Videos without captions",
+        "captionsHint": "These video files have an audio track, and a video block shows them without captions. WCAG 2.2 success criterion 1.2.2 asks for captions of every prerecorded video with audio."
+      },
       "alignment": {
         "title": "Alignment",
         "description": "The alignment matrix lists per module, competence area and depth the objectives, the lessons that teach them, their evidence and the place that areas_elsewhere names.",
@@ -836,7 +866,9 @@
         "reason": {
           "published": "This import is already published.",
           "failed": "The import failed validation and cannot be published.",
-          "alignment": "The alignment checks report errors. Correct the pack and upload it again."
+          "alignment": "The alignment checks report errors. Correct the pack and upload it again.",
+          "mediaPending": "Media files are still converted. Publishing becomes possible when every media file is ready.",
+          "mediaFailed": "A media file failed or is missing. Replace it in the pack and import the pack again."
         },
         "dialogTitle": "Publish {{key}}?",
         "intro": "The publication changes the live program as follows.",
@@ -858,13 +890,15 @@
           "formats": "Companion formats",
           "sources": "Sources",
           "segments": "Segments",
-          "glossary_terms": "Glossary terms"
+          "glossary_terms": "Glossary terms",
+          "media": "Media files"
         },
         "warnings": "Alignment warnings: {{count}}.",
         "confirm": "Publish",
         "publishing": "Publishing…",
         "done": "The pack is published.",
         "refused": "The publication was refused, because the alignment checks report errors on the stored pack. The import stays unpublished.",
+        "mediaNotReady": "The publication was refused, because these media files are not ready. The import stays unpublished.",
         "notPublishable": "The import cannot be published in its current status.",
         "failed": "The publication failed. Try again."
       }
@@ -949,7 +983,9 @@
           "draftLimit": "The workbench holds at most {{limit}} drafts, and this limit is reached. Delete a draft that you no longer need, then start again.",
           "tooManyFiles": "The pack has more files than a draft may hold.",
           "tooLarge": "The pack is larger than a draft may be.",
-          "noPayload": "This import holds no pack, because its validation failed. Start a draft from its archive instead."
+          "noPayload": "This import holds no pack, because its validation failed. Start a draft from its archive instead.",
+          "mediaLimit": "The pack has more media files than a draft may hold. A draft holds at most {{limit}} media files.",
+          "mediaNotReady": "The draft cannot start yet, because these captions files of the pack are not ready: {{entries}}. Wait until their conversion has finished, then start again. A failed or missing file has to be replaced in the pack first."
         }
       },
       "draft": {
@@ -962,11 +998,16 @@
         "packKey": "Pack key",
         "noPackKey": "None: pack.yaml names no usable key.",
         "files": "Files",
+        "mediaEntries": "Media entries",
         "size": "Size",
         "usage": "{{used}} of {{limit}}",
         "fileLimit": "(at most {{limit}} per file)",
         "updatedAt": "Last change",
         "download": "Download as zip",
+        "downloadReason": {
+          "mediaPending": "Media files are still converted. The download becomes possible when every media file is ready.",
+          "mediaFailed": "A media file of the draft failed. Remove its entry or replace it with a ready file, then download the draft."
+        },
         "saved": "Saved {{path}}",
         "added": "Added {{path}}",
         "renamed": "Renamed {{from}} to {{to}}",
@@ -974,6 +1015,7 @@
         "tree": {
           "title": "Files of the draft",
           "add": "Add file",
+          "addMedia": "Add media",
           "empty": "The draft holds no file.",
           "actions": "Actions",
           "actionsFor": "for {{path}}",
@@ -987,7 +1029,8 @@
           "kinds": {
             "root": "File at the root of the pack",
             "module": "File of a module directory",
-            "lesson": "Lesson of a module directory"
+            "lesson": "Lesson of a module directory",
+            "captions": "Captions file (WebVTT) below media/"
           },
           "fileName": "File name",
           "moduleDir": "Module directory",
@@ -996,6 +1039,8 @@
           "lessonKeyHint": "Lowercase letters, digits and hyphens, such as 02-second-lesson.",
           "lessonTitle": "Lesson title",
           "titleRequired": "Enter the title of the lesson.",
+          "captionsKey": "Captions key",
+          "captionsKeyHint": "Lowercase letters, digits and hyphens, such as intro-video-en. The file starts with the header WEBVTT.",
           "path": "Path",
           "pathHint": "The path follows from the choices above. A YAML file starts empty, and a lesson starts with its front matter and one text block.",
           "submit": "Add file"
@@ -1072,8 +1117,48 @@
           "nulCharacter": "The text holds the character U+0000, which a file cannot hold.",
           "tooManyFiles": "The draft holds {{max}} files, the limit of a draft. Delete a file first.",
           "draftTooLarge": "The change takes the draft above its limit of {{size}}.",
-          "checksBusy": "Other checks or imports are running. Try again in a few seconds.",
+          "checksBusy": "Other checks, imports or downloads of drafts are running. Try again in a few seconds.",
           "notFound": "The draft or the file no longer exists. Reload the page."
+        }
+      },
+      "media": {
+        "added": "Added media {{path}}",
+        "removed": "Removed media {{path}}",
+        "errors": {
+          "invalidPath": "Use media/ with up to three folders and a file name in lowercase letters, digits and hyphens, ending in .{{ext}}.",
+          "pathTaken": "The draft holds a file or a media entry with this path already.",
+          "notReady": "The file is not ready yet. Add it when its conversion has finished.",
+          "mediaLimit": "The draft holds the largest number of media entries. Remove a media entry first."
+        },
+        "add": {
+          "title": "Add media",
+          "intro": "Choose an image, an SVG graphic or a video of the media library, or upload a new file. The draft refers to the file of the library.",
+          "search": "Search the library by title",
+          "asset": "File of the library",
+          "choose": "Choose a file",
+          "assetRequired": "Choose a file of the library, or upload one.",
+          "loading": "Loading the media library…",
+          "loadFailed": "The media library could not be loaded.",
+          "emptyLibrary": "The library holds no image, SVG graphic or video yet. Upload a file below.",
+          "noMatch": "No image, SVG graphic or video matches the search.",
+          "uploadTitle": "Or upload a new file",
+          "path": "Path in the draft",
+          "pathHint": "media/ with up to three folders and a file name in lowercase letters, digits and hyphens, ending in .{{ext}}.",
+          "submit": "Add media"
+        },
+        "rename": {
+          "hint": "A path below media/ that ends in .{{ext}}, such as media/figures/overview.{{ext}}."
+        },
+        "delete": {
+          "title": "Remove {{path}} from the draft?",
+          "body": "The media entry leaves the draft. The file stays in the media library.",
+          "confirm": "Remove"
+        },
+        "preview": {
+          "title": "Media file {{path}}",
+          "libraryTitle": "Title in the library:",
+          "toLibrary": "Open the media library",
+          "directive": "Directive for a lesson"
         }
       }
     },
@@ -1130,6 +1215,206 @@
         "done": "Ready for download",
         "failed": "Failed",
         "removed": "No longer available"
+      }
+    },
+    "media": {
+      "title": "Media library",
+      "intro": "The images, SVG graphics, videos and captions of the content packs. Lessons place them with the directives figure and video. The details of a file give the directive to copy and add the file to a draft of the workbench.",
+      "kinds": {
+        "image": "Image",
+        "svg": "SVG graphic",
+        "video": "Video",
+        "captions": "Captions"
+      },
+      "status": {
+        "queued": "Queued",
+        "processing": "Processing",
+        "ready": "Ready",
+        "failed": "Failed",
+        "missing": "Missing"
+      },
+      "origins": {
+        "upload": "Upload",
+        "pack": "Content pack"
+      },
+      "processing": "Processing, {{progress}} %",
+      "progressLabel": "Conversion of {{subject}}",
+      "failure": {
+        "too_many_pixels": "The file has more pixels than the library accepts.",
+        "too_many_frames": "The animation has more than 1,000 frames.",
+        "too_long": "The video is longer than the limit of the installation.",
+        "no_video_stream": "The file holds no video stream.",
+        "unsupported_animation": "The animated WebP file could not be checked.",
+        "invalid_svg": "The SVG file could not be rebuilt.",
+        "invalid_captions": "The captions file is not valid WebVTT.",
+        "malware_found": "The malware scan found a threat in the file.",
+        "scan_failed": "The malware scan failed, so the file was rejected.",
+        "storage_full": "The media store is full.",
+        "conversion_failed": "The conversion failed.",
+        "timeout": "The conversion took longer than its time limit.",
+        "interrupted": "The conversion was interrupted, for example by a restart of the server."
+      },
+      "failureDetail": {
+        "unsupported_animation": {
+          "structure": "The structure of the file does not follow the WebP container format.",
+          "first_frame": "The first frame does not cover the whole canvas.",
+          "too_many_frames": "The animation has more than 1,000 frames."
+        },
+        "invalid_svg": {
+          "too_large": "The file is larger than 1,048,576 bytes.",
+          "encoding": "The file is not UTF-8 text.",
+          "doctype": "The file holds a DOCTYPE declaration.",
+          "entity": "The file declares an entity.",
+          "processing_instruction": "The file holds a processing instruction other than the XML declaration.",
+          "parse_error": "The file is not well-formed XML.",
+          "root": "The root element is not an SVG element.",
+          "embedded_image": "The file embeds a raster image.",
+          "css": "The styles of the file load a resource or use a function that the library does not admit.",
+          "animation": "The file holds an animation or a transition."
+        },
+        "invalid_captions": {
+          "too_large": "The file is larger than 524,288 bytes.",
+          "encoding": "The file is not UTF-8 text.",
+          "nul": "The file holds the character U+0000.",
+          "header": "The file does not start with the header WEBVTT.",
+          "too_many_cues": "The file holds more than 10,000 cues.",
+          "timing": "A cue timing does not parse, or it ends before it starts.",
+          "style": "The file holds a STYLE block."
+        },
+        "scan_failed": {
+          "limits_exceeded": "The file exceeds a limit of the scanner.",
+          "size_limit": "The file is larger than the scanner accepts.",
+          "timeout": "The scanner did not answer in time.",
+          "closed": "The scanner closed the connection.",
+          "connect": "The scanner could not be reached.",
+          "reply": "The scanner sent an answer that the platform does not understand."
+        }
+      },
+      "failureUnknown": "The processing failed.",
+      "failureCode": "The processing failed with the code {{code}}.",
+      "reasonCode": "Code {{code}}.",
+      "failureWithReason": "{{failure}} Reason: {{reason}}",
+      "view": {
+        "imageAlt": "Preview of {{title}}",
+        "playAnimation": "Play the animation",
+        "videoLabel": "Preview of {{title}}",
+        "videoFallback": "Your browser cannot play this video.",
+        "captions": "Captions have no preview. Add them to a draft to read them in the editor.",
+        "notReady": "The preview appears when the file is ready."
+      },
+      "facts": {
+        "state": "State",
+        "kind": "Kind",
+        "size": "Size",
+        "dimensions": "Dimensions",
+        "pixels": "{{width}} × {{height}} px",
+        "duration": "Length",
+        "audio": "Audio track",
+        "animated": "Animated",
+        "transparency": "Transparent pixels",
+        "origin": "Origin",
+        "sourceName": "Original file",
+        "added": "Added",
+        "yes": "Yes",
+        "no": "No"
+      },
+      "uses": {
+        "title": "Uses",
+        "none": "No published program, draft or validated import uses this file.",
+        "program": "Program",
+        "draft": "Draft",
+        "import": "Validated import",
+        "noPackKey": "without pack key",
+        "loading": "Loading the uses…",
+        "loadFailed": "The uses could not be loaded."
+      },
+      "upload": {
+        "title": "Upload files",
+        "intro": "The library converts each file after the upload: images to WebP, videos to WebM with VP9 and Opus. It rebuilds SVG files from an allowlist and checks captions. A file that the library holds already is not stored twice.",
+        "label": "Choose files",
+        "labelOne": "Choose a file",
+        "hint": "Accepted extensions: {{extensions}}. You can also drop files on this area.",
+        "listLabel": "Uploads",
+        "progressLabel": "Upload of {{name}}",
+        "waiting": "Waiting for the upload.",
+        "sending": "Uploading…",
+        "created": "Uploaded. The library converts the file now.",
+        "existing": "The library holds this file already as {{title}}.",
+        "notSent": "Not sent, because the confirmation with a second factor was cancelled.",
+        "notSentSignedOut": "Not sent, because the session has ended. Choose the file again after the sign-in.",
+        "notSentEnrollment": "Not sent, because the account has no second factor yet. Choose the file again after its setup.",
+        "errors": {
+          "unsupported_type": "The file is not of an accepted type. The library checks the content of the file, not only its name.",
+          "extension_mismatch": "The extension of the file name does not match its content. Give the file the extension of its type.",
+          "too_large": "The file is larger than the limit of its kind.",
+          "too_many_pixels": "The image has more than 40,000,000 pixels.",
+          "invalid_type": "The upload held no file.",
+          "requestTooLarge": "The file is larger than the largest upload of the installation.",
+          "unsupportedMediaType": "The upload was not sent as a file.",
+          "storageFull": "The media store is full. Delete unused files, or ask the operator for more space.",
+          "network": "The upload failed because of the connection. Try again."
+        }
+      },
+      "filters": {
+        "title": "Filters",
+        "kind": "Kind",
+        "anyKind": "All kinds",
+        "status": "State",
+        "anyStatus": "All states",
+        "unused": "Unused files only",
+        "search": "Search by title",
+        "submit": "Search",
+        "clear": "Clear filters"
+      },
+      "list": {
+        "title": "Files",
+        "loading": "Loading the media library…",
+        "loadFailed": "The media library could not be loaded.",
+        "refreshFailed": "The list could not be updated. It shows the last loaded state.",
+        "noMatch": "No file matches the filters.",
+        "empty": "The library holds no file yet.",
+        "more": "Show more files",
+        "loadingMore": "Loading more files…"
+      },
+      "detail": {
+        "title": "Title",
+        "titleInvalid": "Enter a title of 1 to 255 characters.",
+        "saveTitle": "Save title",
+        "titleSaved": "The title is saved.",
+        "close": "Close"
+      },
+      "directive": {
+        "title": "Directive",
+        "hint": "Paste the directive into a lesson and fill in the empty alt or title, which the validator requires. The path is the one that \"Add to draft\" suggests.",
+        "label": "Directive for a lesson",
+        "copy": "Copy directive"
+      },
+      "addToDraft": {
+        "title": "Add to draft",
+        "intro": "The file becomes a media entry of the draft at the path.",
+        "captionsIntro": "The server copies the captions into a text file of the draft at the path.",
+        "draft": "Draft",
+        "choose": "Choose a draft",
+        "draftRequired": "Choose a draft.",
+        "path": "Path in the draft",
+        "pathHint": "media/ with up to three folders and a file name in lowercase letters, digits and hyphens, ending in .{{ext}}.",
+        "submit": "Add to draft",
+        "added": "Added at {{path}}.",
+        "openDraft": "Open the draft {{title}}",
+        "loading": "Loading the drafts…",
+        "loadFailed": "The drafts could not be loaded.",
+        "noDrafts": "The workbench holds no draft.",
+        "toWorkbench": "Go to the workbench",
+        "captionsNotReady": "Captions can be added to a draft when they are ready.",
+        "failed": "A failed file cannot be added to a draft."
+      },
+      "delete": {
+        "button": "Delete",
+        "title": "Delete {{title}}?",
+        "body": "The file leaves the library and the media store. While a published program or a draft uses it, the deletion is refused.",
+        "confirm": "Delete",
+        "inUse": "The file stays in the library, because it is in use:",
+        "done": "Deleted {{title}}."
       }
     },
     "users": {

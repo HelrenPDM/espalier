@@ -43,10 +43,35 @@ export function usePathErrorText(): (error: unknown) => string | null {
 }
 
 /**
+ * Returns a function that names the error of a media path at the path
+ * field of the dialogs "Add media", "Rename" of a media entry and "Add to
+ * draft" of the media library (task 0018, step 16): a 422 with
+ * `fields.path` `["invalid_path"]` and a 409 `path_taken`, the latter for a
+ * file or a media entry at the path. Every other error gives `null`.
+ */
+export function useMediaPathErrorText(): (
+  error: unknown,
+  ext: string,
+) => string | null {
+  const { t } = useTranslation();
+  return useCallback(
+    (error: unknown, ext: string) => {
+      if (fieldErrors(error)?.path?.includes("invalid_path"))
+        return t("admin.workbench.media.errors.invalidPath", { ext });
+      if (error instanceof ApiError && error.code === "path_taken")
+        return t("admin.workbench.media.errors.pathTaken");
+      return null;
+    },
+    [t],
+  );
+}
+
+/**
  * Returns a function that translates a failed change, check or import of
  * a draft (task 0016a, step 9): the limits of a draft with their values,
- * the content rules, a 429 `checks_busy`, and every other answer through
- * the messages of the admin area.
+ * the content rules, a 429 `checks_busy`, the media limits and a library
+ * asset that is not ready (task 0018), and every other answer through the
+ * messages of the admin area.
  */
 export function useDraftErrorText(
   limits: PackDraft["limits"],
@@ -65,6 +90,8 @@ export function useDraftErrorText(
         });
       if (content.includes("nul_character"))
         return t("admin.workbench.draft.errors.nulCharacter");
+      if (fieldErrors(error)?.media_asset_id?.includes("not_ready"))
+        return t("admin.workbench.media.errors.notReady");
       if (!(error instanceof ApiError)) return adminErrorText(error);
       switch (error.code) {
         case "too_many_files":
@@ -77,6 +104,8 @@ export function useDraftErrorText(
           });
         case "checks_busy":
           return t("admin.workbench.draft.errors.checksBusy");
+        case "media_limit":
+          return t("admin.workbench.media.errors.mediaLimit");
         default:
           return error.status === 404
             ? t("admin.workbench.draft.errors.notFound")

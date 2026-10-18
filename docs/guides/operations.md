@@ -3,8 +3,8 @@
 This guide covers the operation of a running Espalier instance of
 [`self-hosting.md`](self-hosting.md): the release functions, the logs with
 their security events, log access and log forwarding, the health check, the
-background jobs and the output of the retention job, ending sessions, and
-the procedures for keys and certificates in
+background jobs and the output of the retention job, the backup of the media
+store, ending sessions, and the procedures for keys and certificates in
 [`../security/key-management.md`](../security/key-management.md). The
 commands run in the directory of `compose.yaml` with the compose files of
 the instance (`-f` options or `COMPOSE_FILE`, `self-hosting.md`, section
@@ -41,9 +41,9 @@ and takes extra volumes with `-v`.
 | `end_all_sessions/0` | Ends every session of every user and prints the number of ended sessions. |
 | `check_ldap/1` | Checks the connection to an LDAP provider step by step and prints one line per step (TLS handshake for `ldaps`, connect, StartTLS for `starttls`, service bind, base-scope search), without passwords or directory data. |
 | `reset_directory_lock/2` | Clears the directory failure counter of a user name at an LDAP provider and prints `:ok`, `{:error, :not_found}` or `{:error, :unavailable}`. |
-| `import_pack/2` | Imports a content pack directory as `mix espalier.import` does, prints the report and the outcome, and publishes the import unless `draft: true` is given. |
+| `import_pack/2` | Imports a content pack directory as `mix espalier.import` does, prints the report and the outcome, and publishes the import unless `draft: true` is given. It converts the media files of the pack in its own process before the publish, and prints one line `<path>: <status>` per media file that is not ready. |
 | `create_api_client/2` | Creates a client of the integration API with a name and scopes and prints its token once. |
-| `seed_demo/0` | Imports and publishes the demo pack of the image and seeds the policy `usage-policy` and the approved tools of the demo. |
+| `seed_demo/0` | Imports and publishes the demo pack of the image with its media files and seeds the policy `usage-policy` and the approved tools of the demo. |
 
 The calls:
 
@@ -232,6 +232,8 @@ of `config/config.exs`:
 | `mail` | 5 | every mail (`Espalier.Accounts.MailWorker`), up to 5 attempts |
 | `webhooks` | 5 | the credential events to webhook receivers (`Espalier.Credentials.WebhookWorker`), up to 10 attempts |
 | `exports` | 1 | the SCORM exports (`Espalier.Interop.ExportWorker`), one at a time, one attempt |
+| `media` | 2 | the conversion of images, SVG files and captions (`Espalier.Media.ProcessWorker`), two at a time, one attempt |
+| `media_video` | 1 | the conversion of videos (`Espalier.Media.ProcessWorker`), one at a time, one attempt |
 
 The plugin `Oban.Plugins.Cron` schedules these jobs, in UTC:
 
@@ -240,7 +242,9 @@ The plugin `Oban.Plugins.Cron` schedules these jobs, in UTC:
 | 02:00 daily | `Espalier.Accounts.PurgeExpiredTokensWorker` | deletes expired tokens, session rows idle for `SESSION_IDLE_MINUTES` and expired WebAuthn challenges |
 | 03:00 daily | `Espalier.Credentials.SweepWorker` | moves credentials to `refresh_due` or `expired` |
 | 03:30 daily | `Espalier.Insights.RetentionWorker` | the retention job of the next section |
+| 03:45 daily | `Espalier.Media.RetentionWorker` | deletes the imported media assets (origin `pack`) that no program, draft or validated import has used for 30 days, with their files ([`media.md`](media.md), section "Deletion and retention") |
 | every 15 minutes | `Espalier.Interop.StaleExportWorker` | ends interrupted SCORM exports and applies the export retention ([`scorm-export.md`](scorm-export.md)) |
+| every 15 minutes | `Espalier.Media.StaleWorker` | fails media assets whose job was interrupted with `interrupted`, and removes incoming files, work and staging directories, upload files and stored files that no asset names, each older than one hour ([`media.md`](media.md), section "Failures and timeouts") |
 
 `Oban.Plugins.Pruner` deletes finished jobs after one day. No
 `Oban.Plugins.Lifeline` is configured, so the job row of a build that a
@@ -253,7 +257,7 @@ docker compose exec db psql -U postgres -d espalier_prod \
 ```
 
 The logged failures of the workers (`mail delivery failed`, `webhook
-failed`, `export failed` and others) are listed in
+failed`, `export failed`, `media asset <id> failed` and others) are listed in
 [`../security/logging.md`](../security/logging.md), section "Other logged
 failures".
 
@@ -287,6 +291,58 @@ logs no line (README section 10). The lines of the last runs:
 ```sh
 docker compose logs --no-color app | grep '"message":"retention '
 ```
+
+## Backup and restore of the media store
+
+The database names every delivery file and poster of the media library by
+its SHA-256 digest, and `MEDIA_DIR/files/` holds these files
+([`media.md`](media.md), section "The media store"). `MEDIA_DIR/incoming/`
+holds the files that wait for their conversion. A backup holds the database
+dump of [`self-hosting.md`](self-hosting.md), section "Backups", and these
+two directories from the same moment; `work/` and `uploads/` hold temporary
+files only. An upload, a conversion or a deletion can change the database
+and the files between two commands, so the backup stops `app` for both:
+
+```sh
+docker compose stop app
+(umask 077; docker compose exec -T db pg_dump -U postgres -Fc espalier_prod \
+  > /var/backups/espalier/espalier.dump)
+(umask 077; docker compose run --rm --no-deps -T app \
+  tar -C /data/media -cf - files incoming > /var/backups/espalier/media.tar)
+docker compose start app
+```
+
+`docker compose run` starts a container of the image of `app` with its
+volumes and runs `tar` as the user `nobody` in place of the server, and
+`--no-deps` leaves the other services as they are. The archive goes to
+standard output and from there into the backup directory, with the mode 600.
+The restore loads the dump, replaces both directories and starts the
+application again:
+
+```sh
+docker compose stop app
+docker compose exec -T db \
+  pg_restore -U postgres -d espalier_prod --clean --if-exists \
+  < /var/backups/espalier/espalier.dump
+docker compose run --rm --no-deps -T app \
+  sh -c 'rm -rf /data/media/files /data/media/incoming && tar -C /data/media -xf -' \
+  < /var/backups/espalier/media.tar
+docker compose start app
+```
+
+After the start, the queued conversions of the backup run again. An asset
+that was `processing` when `app` stopped turns `failed` with `interrupted`
+at the first run of `Espalier.Media.StaleWorker` (every 15 minutes) at which
+its last change lies more than ten minutes back, for a video as for an
+image. A running job sets the time of the last change of its asset every
+minute, so that change lies at most one minute before the stop
+([`media.md`](media.md), section "Failures and timeouts"). The same file
+then converts again when an author uploads it or the pack is imported again;
+before that, an upload of the same file returns the asset in `processing`.
+The media files are course content in plain form and need no key of the
+instance; images and videos that show persons make the archive personal
+data, which the backup directory of `self-hosting.md` protects with its
+mode.
 
 ## Ending sessions
 

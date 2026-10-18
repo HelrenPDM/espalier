@@ -22,8 +22,13 @@ defmodule Espalier.Workbench do
     * `max_draft_bytes/0`: five times `PACK_UPLOAD_MAX_MB` per draft, the
       bound on the declared sizes of an uploaded archive;
     * `max_drafts/0`: 50 drafts in total;
-    * `max_parallel_checks/0`: 2 checks and imports from drafts at once per
-      node (`Espalier.Workbench.CheckLimiter`).
+    * `max_parallel_checks/0`: 2 checks, imports and zip builds of draft
+      downloads at once per node (`Espalier.Workbench.CheckLimiter`);
+    * `max_parallel_downloads/0`: 2 downloads of drafts at once per node and
+      one per user (`Espalier.Workbench.DownloadLimiter`);
+    * `download_min_bytes_per_second/0` and `download_floor_seconds/0`: the
+      deadline of the transfer of a download, the time of its zip at
+      262,144 bytes (256 KiB) per second and at least 60 seconds.
 
   A content is valid UTF-8, holds no U+0000, which a PostgreSQL `text`
   column cannot store, and has at most `max_file_bytes/0` bytes. Other
@@ -45,19 +50,67 @@ defmodule Espalier.Workbench do
   File changes write no audit event (data minimization, README section 2);
   `pack_draft.created` and `pack_draft.deleted` record the start and the end
   of a draft, and `pack.imported` names the draft of an import.
+
+  ## Media (task 0018, step 16)
+
+  A draft holds media entries (`Espalier.Workbench.PackDraftMedia`): a
+  `media/` path and an asset of the media library, at most
+  `Espalier.Media.max_draft_media/0` per draft, and at most `max_files/0`
+  files and media entries together. `attach_media/4`, `rename_media/5` and
+  `delete_media/4` follow the file changes: the row lock of the draft, the
+  `lock_version`, the path rules (`Espalier.Workbench.Paths.check_media/2`:
+  the delivery extension of the asset) and a path that no file and no media
+  entry of the draft holds. A captions asset becomes a text file of the
+  draft at a `.vtt` path, read from the store under the limits of the files.
+
+  A draft from a program or an import holds one media entry per image, SVG
+  and video file of `Espalier.Interop.PackWriter.media_files/1` and the
+  captions of `PackWriter.captions_files/1` as text files. A draft from an
+  archive keeps the captions as text files, ingests every other media file
+  into the library (origin `pack`), attaches it under its delivery path and
+  rewrites the directives of the lessons to that path. A media file that
+  equals the delivery file of an asset that the program of the pack key
+  uses attaches that asset instead, the asset at the same path first, as
+  the import does (`Espalier.Catalog.Pack.Importer.program_media/2`). The
+  check and the import write an empty file at the path of each media entry,
+  so that the loader sees the path, and the import links the paths to their
+  assets. The download stages the files below the media store and places
+  each media file there as a hard link to its store file. It builds the zip
+  in a slot of `Espalier.Workbench.CheckLimiter`, which it frees once the
+  zip is written, and keeps its slot of `Espalier.Workbench.DownloadLimiter`
+  until the zip is sent and removed.
   """
 
   import Ecto.Query, warn: false
 
   alias Espalier.Accounts.Scope
   alias Espalier.{Audit, Catalog, Repo}
-  alias Espalier.Catalog.Pack.{Archive, Loader, Report, Validator}
+  alias Espalier.Catalog.Pack.{Archive, Directives, Entries, Hosts, Importer, Loader, MediaPath}
+  alias Espalier.Catalog.Pack.{Report, Validator}
   alias Espalier.Catalog.Pack.Schema.Cast
   alias Espalier.Catalog.{PackImport, Program}
   alias Espalier.Interop.PackWriter
-  alias Espalier.Workbench.{CheckLimiter, DraftDir, PackDraft, PackDraftFile, Paths, Skeleton}
+  alias Espalier.Media
+  alias Espalier.Media.{Asset, Store}
 
-  @default_settings [max_drafts: 50, max_parallel_checks: 2]
+  alias Espalier.Workbench.{
+    CheckLimiter,
+    DownloadLimiter,
+    DraftDir,
+    PackDraft,
+    PackDraftFile,
+    PackDraftMedia,
+    Paths,
+    Skeleton
+  }
+
+  @default_settings [
+    max_drafts: 50,
+    max_parallel_checks: 2,
+    max_parallel_downloads: 2,
+    download_min_bytes_per_second: 262_144,
+    download_floor_seconds: 60
+  ]
 
   # The rows of one insert_all statement: below the 65,535 parameters of a
   # PostgreSQL statement (six per row) and at most 8 MiB of content.
@@ -104,13 +157,44 @@ defmodule Espalier.Workbench do
   def max_drafts, do: setting(:max_drafts)
 
   @doc """
-  The largest number of checks and imports from drafts that run at once on
-  a node, from `config :espalier, :pack_drafts, max_parallel_checks:`
-  (default 2). Raises `ArgumentError` for a value that is no positive
-  integer.
+  The largest number of checks, imports and zip builds of draft downloads
+  that run at once on a node, from
+  `config :espalier, :pack_drafts, max_parallel_checks:` (default 2). The
+  transfer of a download runs outside these slots. Raises `ArgumentError`
+  for a value that is no positive integer.
   """
   @spec max_parallel_checks() :: pos_integer()
   def max_parallel_checks, do: setting(:max_parallel_checks)
+
+  @doc """
+  The largest number of draft downloads that run at once on a node, from
+  `config :espalier, :pack_drafts, max_parallel_downloads:` (default 2); a
+  user runs one download at a time. A download holds its slot from the zip
+  build to the end of the transfer. Raises `ArgumentError` for a value that
+  is no positive integer.
+  """
+  @spec max_parallel_downloads() :: pos_integer()
+  def max_parallel_downloads, do: setting(:max_parallel_downloads)
+
+  @doc """
+  The lowest average rate of the transfer of a draft download in bytes per
+  second, from `config :espalier, :pack_drafts,
+  download_min_bytes_per_second:` (default 262,144, 256 KiB or about 2
+  Mbit/s). A zip with 1,024 MB of media, the limit `export_max_mb`, takes
+  about 68 minutes at this rate. Raises `ArgumentError` for a value that is
+  no positive integer.
+  """
+  @spec download_min_bytes_per_second() :: pos_integer()
+  def download_min_bytes_per_second, do: setting(:download_min_bytes_per_second)
+
+  @doc """
+  The shortest deadline of the transfer of a draft download in seconds,
+  from `config :espalier, :pack_drafts, download_floor_seconds:` (default
+  60), so that a small zip also reaches a slow client. Raises
+  `ArgumentError` for a value that is no positive integer.
+  """
+  @spec download_floor_seconds() :: pos_integer()
+  def download_floor_seconds, do: setting(:download_floor_seconds)
 
   defp setting(key) do
     config = Application.get_env(:espalier, :pack_drafts, [])
@@ -177,7 +261,8 @@ defmodule Espalier.Workbench do
 
   @doc """
   Returns the draft with its files ordered by path, each with id, path,
-  `bytes` (`octet_length(content)`) and `updated_at` and without content.
+  `bytes` (`octet_length(content)`) and `updated_at` and without content,
+  and its media entries ordered by path with their assets.
   """
   @spec get_draft(Scope.t(), term()) :: {:ok, PackDraft.t()} | {:error, :forbidden | :not_found}
   def get_draft(%Scope{} = scope, id) do
@@ -219,9 +304,18 @@ defmodule Espalier.Workbench do
   defp with_files(%PackDraft{id: id} = draft) do
     files = Repo.all(from f in files_without_content(), where: f.pack_draft_id == ^id)
 
+    media =
+      Repo.all(
+        from m in PackDraftMedia,
+          where: m.pack_draft_id == ^id,
+          order_by: m.path,
+          preload: :media_asset
+      )
+
     %{
       draft
       | files: files,
+        media: media,
         file_count: length(files),
         bytes: files |> Enum.map(& &1.bytes) |> Enum.sum()
     }
@@ -295,6 +389,146 @@ defmodule Espalier.Workbench do
       change(draft_id, lock_version, &remove_file(&1, file_id))
     end
   end
+
+  @doc """
+  Adds the library asset `media_asset_id` to the draft at `path`. An image,
+  SVG or video asset becomes a media entry; its path must carry the
+  delivery extension of the asset. A captions asset in status `ready`
+  becomes a text file at a `.vtt` path with the content of its delivery
+  file. Answers as `create_file/4`, and `{:error, :media_limit}`,
+  `{:error, :not_found}` for an unknown asset, or `{:error,
+  {:validation_failed, "media_asset_id", "not_ready"}}` for a captions
+  asset that is not ready.
+  """
+  def attach_media(
+        %Scope{} = scope,
+        draft_id,
+        %{media_asset_id: asset_id, path: path},
+        lock_version
+      ) do
+    with :ok <- require_author(scope),
+         {:ok, draft_id} <- uuid(draft_id),
+         {:ok, asset_id} <- uuid(asset_id),
+         %Asset{} = asset <- Repo.get(Asset, asset_id) || {:error, :not_found} do
+      attach(asset, draft_id, path, lock_version)
+    end
+  end
+
+  defp attach(%Asset{kind: :captions} = asset, draft_id, path, lock_version) do
+    with :ok <- captions_path(path),
+         {:ok, content} <- captions_content(asset),
+         :ok <- check_content(content) do
+      change(draft_id, lock_version, &insert_file(&1, path, content, :keep))
+    end
+  end
+
+  defp attach(%Asset{} = asset, draft_id, path, lock_version) do
+    with :ok <- Paths.check_media(path, asset) do
+      change(draft_id, lock_version, &insert_media(&1, path, asset.id))
+    end
+  end
+
+  defp captions_path(path) do
+    if Paths.check(path) == :ok and String.starts_with?(path, "media/") and
+         String.ends_with?(path, ".vtt"),
+       do: :ok,
+       else: {:error, :invalid_path}
+  end
+
+  # The delivery file of a ready captions asset, which the browser never
+  # reads through /media/ for this.
+  # Every path comes from Espalier.Media.Store, built from MEDIA_DIR and a
+  # digest, a UUID or a fixed name (ASVS 5.3.2).
+  # sobelow_skip ["Traversal.FileModule"]
+  defp captions_content(%Asset{status: :ready, sha256: sha256, ext: "vtt"}) do
+    case File.read(Store.path(sha256, "vtt")) do
+      {:ok, content} -> {:ok, content}
+      {:error, _reason} -> {:error, {:validation_failed, "media_asset_id", "not_ready"}}
+    end
+  end
+
+  defp captions_content(%Asset{}),
+    do: {:error, {:validation_failed, "media_asset_id", "not_ready"}}
+
+  @doc """
+  Moves the media entry `media_id` of the draft to `path`, which must carry
+  the delivery extension of its asset. Answers as `rename_file/5`.
+  """
+  def rename_media(%Scope{} = scope, draft_id, media_id, path, lock_version) do
+    with :ok <- require_author(scope),
+         {:ok, draft_id} <- uuid(draft_id),
+         {:ok, media_id} <- uuid(media_id) do
+      change(draft_id, lock_version, &move_media(&1, media_id, path))
+    end
+  end
+
+  @doc """
+  Removes the media entry `media_id` from the draft; the asset stays in the
+  library. Answers as `delete_file/4`.
+  """
+  def delete_media(%Scope{} = scope, draft_id, media_id, lock_version) do
+    with :ok <- require_author(scope),
+         {:ok, draft_id} <- uuid(draft_id),
+         {:ok, media_id} <- uuid(media_id) do
+      change(draft_id, lock_version, &remove_media(&1, media_id))
+    end
+  end
+
+  defp insert_media(draft, path, asset_id) do
+    with :ok <- path_free(draft.id, path),
+         :ok <- within_limits(draft.id, 0, 0, 1),
+         {:ok, _media} <-
+           %PackDraftMedia{pack_draft_id: draft.id, media_asset_id: asset_id}
+           |> PackDraftMedia.changeset(%{path: path})
+           |> Repo.insert()
+           |> media_result(),
+         do: {:ok, :keep}
+  end
+
+  defp move_media(draft, media_id, path) do
+    with {:ok, media} <- locked_media(draft.id, media_id),
+         :ok <- Paths.check_media(path, media.media_asset),
+         :ok <- media_path_free(draft.id, path, media),
+         {:ok, _media} <-
+           media |> PackDraftMedia.changeset(%{path: path}) |> Repo.update() |> media_result(),
+         do: {:ok, :keep}
+  end
+
+  defp remove_media(draft, media_id) do
+    with {:ok, media} <- locked_media(draft.id, media_id),
+         {:ok, _deleted} <- Repo.delete(media),
+         do: {:ok, :keep}
+  end
+
+  defp locked_media(draft_id, media_id) do
+    case Repo.one(
+           from m in PackDraftMedia,
+             where: m.id == ^media_id and m.pack_draft_id == ^draft_id,
+             preload: :media_asset
+         ) do
+      nil -> {:error, :not_found}
+      media -> {:ok, media}
+    end
+  end
+
+  defp media_path_free(_draft_id, path, %PackDraftMedia{path: path}), do: :ok
+  defp media_path_free(draft_id, path, _media), do: path_free(draft_id, path)
+
+  # A deleted asset fails the foreign key; a taken path the unique index.
+  defp media_result({:error, %Ecto.Changeset{errors: errors}} = error) do
+    cond do
+      Keyword.has_key?(errors, :media_asset_id) ->
+        {:error, :not_found}
+
+      Keyword.has_key?(errors, :pack_draft_id) or Keyword.has_key?(errors, :path) ->
+        {:error, :path_taken}
+
+      true ->
+        error
+    end
+  end
+
+  defp media_result(result), do: result
 
   # The changes of a file, each run by change/3 under the row lock of the
   # draft; each returns {:ok, meta} for the title and the pack key.
@@ -408,11 +642,15 @@ defmodule Espalier.Workbench do
   defp path_free(_draft_id, path, %PackDraftFile{path: path}), do: :ok
   defp path_free(draft_id, path, _file), do: path_free(draft_id, path)
 
+  # No file and no media entry of the draft holds the path.
   defp path_free(draft_id, path) do
     taken? =
       Repo.exists?(
         from f in PackDraftFile, where: f.pack_draft_id == ^draft_id and f.path == ^path
-      )
+      ) or
+        Repo.exists?(
+          from m in PackDraftMedia, where: m.pack_draft_id == ^draft_id and m.path == ^path
+        )
 
     if taken?, do: {:error, :path_taken}, else: :ok
   end
@@ -428,7 +666,8 @@ defmodule Espalier.Workbench do
   # The limits apply to the draft after the change. A change that adds no
   # file or no byte passes, so that a draft above a lowered limit can still
   # shrink.
-  defp within_limits(draft_id, added_files, added_bytes) do
+  # `max_files/0` counts the files and the media entries together.
+  defp within_limits(draft_id, added_files, added_bytes, added_media \\ 0) do
     {files, bytes} =
       Repo.one(
         from f in PackDraftFile,
@@ -436,8 +675,12 @@ defmodule Espalier.Workbench do
           select: {count(f.id), coalesce(sum(fragment("octet_length(?)", f.content)), 0)}
       )
 
+    media = Repo.aggregate(from(m in PackDraftMedia, where: m.pack_draft_id == ^draft_id), :count)
+    added = added_files + added_media
+
     cond do
-      added_files > 0 and files + added_files > max_files() -> {:error, :too_many_files}
+      added_media > 0 and media + added_media > Media.max_draft_media() -> {:error, :media_limit}
+      added > 0 and files + media + added > max_files() -> {:error, :too_many_files}
       added_bytes > 0 and bytes + added_bytes > max_draft_bytes() -> {:error, :draft_too_large}
       true -> :ok
     end
@@ -502,22 +745,25 @@ defmodule Espalier.Workbench do
     with :ok <- require_author(scope),
          :ok <- check_name(name) do
       files = name |> Skeleton.payload() |> PackWriter.render()
-      create_draft(scope, %{source: "empty"}, files, nil)
+      create_draft(scope, %{source: "empty"}, {files, []}, nil)
     end
   end
 
   @doc """
   Starts a draft from the published program `slug` with the files of
-  `Espalier.Interop.PackWriter.render_program/1`. A program that is unknown
-  or not published answers `{:error, :not_found}`.
+  `Espalier.Interop.PackWriter.render_program/1`, the media entries of its
+  image, SVG and video files and its captions as text files, all read under
+  the shared lock of the program. A program that is unknown or not
+  published answers `{:error, :not_found}`.
   """
   def create_from_program(%Scope{} = scope, slug) when is_binary(slug) do
     with :ok <- require_author(scope),
          %Program{status: :published} = program <- Catalog.get_program_by_slug(slug),
-         {:ok, files} <- PackWriter.render_program(program) do
-      create_draft(scope, %{source: "program", program_slug: slug}, files, nil)
+         {:ok, start} <- PackWriter.with_program_payload(program, &payload_start/1) do
+      create_draft(scope, %{source: "program", program_slug: slug}, start, nil)
     else
       {:error, :forbidden} -> {:error, :forbidden}
+      {:error, {:media_not_ready, _entries}} = error -> error
       _other -> {:error, :not_found}
     end
   end
@@ -528,22 +774,18 @@ defmodule Espalier.Workbench do
   answers `{:error, :no_payload}`.
   """
   def create_from_import(%Scope{} = scope, import_id) do
-    with {:ok, %PackImport{} = pack_import} <- Catalog.get_pack_import(scope, import_id) do
-      case pack_import do
-        %PackImport{status: status, payload: %{} = payload}
-        when status in [:validated, :published] ->
-          create_draft(
-            scope,
-            %{source: "import", pack_import_id: pack_import.id},
-            PackWriter.render(payload),
-            nil
-          )
-
-        %PackImport{} ->
-          {:error, :no_payload}
-      end
+    with {:ok, %PackImport{} = pack_import} <- Catalog.get_pack_import(scope, import_id),
+         {:ok, payload} <- start_payload(pack_import),
+         {:ok, start} <- payload_start(payload) do
+      create_draft(scope, %{source: "import", pack_import_id: pack_import.id}, start, nil)
     end
   end
+
+  defp start_payload(%PackImport{status: status, payload: %{} = payload})
+       when status in [:validated, :published],
+       do: {:ok, payload}
+
+  defp start_payload(%PackImport{}), do: {:error, :no_payload}
 
   @doc """
   Starts a draft from the uploaded zip archive at `upload_path`.
@@ -558,14 +800,171 @@ defmodule Espalier.Workbench do
   def create_from_upload(%Scope{} = scope, upload_path, filename, max_bytes)
       when is_binary(upload_path) and is_integer(max_bytes) do
     with :ok <- require_author(scope),
-         {:ok, files, skipped} <-
-           Archive.with_extracted(upload_path, max_bytes, fn dir ->
-             DraftDir.read_pack(Archive.pack_root(dir))
-           end),
-         {:ok, draft} <- create_draft(scope, %{source: "upload"}, files, upload_title(filename)) do
+         {:ok, files, media, skipped} <-
+           Archive.with_extracted(upload_path, max_bytes, &read_archive(&1, actor_id(scope))),
+         {:ok, draft} <-
+           create_draft(scope, %{source: "upload"}, {files, media}, upload_title(filename)) do
       {:ok, draft, skipped}
     end
   end
+
+  # The text files of the pack in an extracted archive, its media files as
+  # library assets, and the skipped paths.
+  defp read_archive(dir, actor_id) do
+    root = Archive.pack_root(dir)
+
+    with {:ok, files, skipped} <- DraftDir.read_pack(root),
+         {:ok, files, media} <- ingest_archive_media(root, files, actor_id) do
+      {:ok, files, media, skipped}
+    end
+  end
+
+  # The start of a draft from a payload: the rendered files plus the
+  # captions as text files, and one media entry per image, SVG and video
+  # file. A captions file that is not ready in the store answers
+  # {:media_not_ready, entries}, because its text cannot be read yet.
+  defp payload_start(payload) do
+    {captions, missing} =
+      payload
+      |> PackWriter.captions_files()
+      |> Enum.reduce({[], []}, fn {path, asset}, {acc, missing} ->
+        case captions_content(asset) do
+          {:ok, content} ->
+            {[{path, content} | acc], missing}
+
+          {:error, _reason} ->
+            {acc, [missing_entry(path, asset) | missing]}
+        end
+      end)
+
+    if missing == [] do
+      media = for {path, asset} <- PackWriter.media_files(payload), do: {path, asset.id}
+      {:ok, {PackWriter.render(payload) ++ Enum.reverse(captions), media}}
+    else
+      {:error, {:media_not_ready, Enum.reverse(missing)}}
+    end
+  end
+
+  # The media files of an extracted archive other than captions: each is
+  # ingested into the library and placed at its delivery path, and the
+  # directives of the lessons follow the new paths. An ingest error is a
+  # report entry at the path of the file, which rejects the archive.
+  # The limits of a draft and the delivery collisions are checked on the
+  # paths before any file becomes an asset with a conversion job.
+  defp ingest_archive_media(root, files, actor_id) do
+    media = DraftDir.read_media(root)
+    planned = for {path, _file} <- media, do: {path, MediaPath.delivery_path(path), nil}
+
+    case {archive_limits(files, media), delivery_collisions(planned)} do
+      {:ok, []} -> ingest_media(media, files, actor_id)
+      {:ok, collisions} -> {:error, collisions}
+      {error, _collisions} -> error
+    end
+  end
+
+  defp archive_limits(files, media) do
+    cond do
+      length(media) > Media.max_draft_media() -> {:error, :media_limit}
+      length(files) + length(media) > max_files() -> {:error, :too_many_files}
+      Repo.aggregate(PackDraft, :count) >= max_drafts() -> {:error, :draft_limit}
+      true -> :ok
+    end
+  end
+
+  defp ingest_media(media, files, actor_id) do
+    linked = program_media(files_meta(files).key, media)
+
+    results =
+      for {path, file} <- media do
+        case ingest_file(path, file, linked, actor_id) do
+          {:ok, asset_id} -> {:ok, path, MediaPath.delivery_path(path), asset_id}
+          {:error, reason} -> {:error, path, reason}
+        end
+      end
+
+    errors = for {:error, path, reason} <- results, do: archive_entry(path, media_message(reason))
+    attached = for {:ok, path, delivery, asset_id} <- results, do: {path, delivery, asset_id}
+    collisions = delivery_collisions(attached)
+
+    if errors == [] and collisions == [] do
+      mapping =
+        for {path, delivery, _id} <- attached, path != delivery, into: %{}, do: {path, delivery}
+
+      files = Enum.map(files, &rename_references(&1, mapping))
+      {:ok, files, Enum.map(attached, fn {_path, delivery, id} -> {delivery, id} end)}
+    else
+      {:error, errors ++ collisions}
+    end
+  end
+
+  # A media file of an archive whose pack key names a program, and that
+  # equals the delivery file of an asset of that program, links to that
+  # asset, as the import of the same files does, so that an archive of an
+  # exported pack keeps the assets of its program also when two assets
+  # share one delivery file. A linked asset gets the time of its last change
+  # set again, as an ingest of the same file does, so that the retention of
+  # unused pack media counts its days from this archive. The walk of
+  # DraftDir.read_media/1 found the files as regular files below the
+  # extracted archive.
+  # sobelow_skip ["Traversal.FileModule"]
+  defp program_media(key, media) do
+    files =
+      for {path, file} <- media,
+          {:ok, %File.Stat{type: :regular, size: bytes}} <- [File.lstat(file)],
+          do: %{path: path, file: file, bytes: bytes}
+
+    linked = Importer.program_media(key, files)
+    :ok = linked |> Map.values() |> Importer.touch_linked()
+    linked
+  end
+
+  defp ingest_file(path, file, linked, actor_id) do
+    case Map.fetch(linked, path) do
+      {:ok, asset_id} ->
+        {:ok, asset_id}
+
+      :error ->
+        with {:ok, asset, _created_or_existing} <-
+               Media.ingest_pack_file(%{path: file, file_name: path}, actor_id),
+             do: {:ok, asset.id}
+    end
+  end
+
+  defp rename_references({path, content}, mapping) when map_size(mapping) > 0 do
+    if String.ends_with?(path, ".md"),
+      do: {path, Directives.rename_media(content, mapping)},
+      else: {path, content}
+  end
+
+  defp rename_references(file, _mapping), do: file
+
+  defp delivery_collisions(attached) do
+    attached
+    |> Enum.group_by(&elem(&1, 1), &elem(&1, 0))
+    |> Enum.filter(fn {_delivery, paths} -> length(paths) > 1 end)
+    |> Enum.sort()
+    |> Enum.map(fn {delivery, paths} ->
+      [first, second | _rest] = Enum.sort(paths)
+      archive_entry(first, "#{first} and #{second} both become #{delivery}; rename one")
+    end)
+  end
+
+  defp archive_entry(path, message), do: %{"file" => path, "line" => nil, "message" => message}
+
+  defp media_message(:unsupported_type), do: "the file is no supported media file"
+
+  defp media_message(:extension_mismatch),
+    do: "the content of the file does not fit its extension"
+
+  defp media_message(:too_many_pixels),
+    do: "the image has more than #{Entries.number(Media.max_input_pixels())} pixels"
+
+  defp media_message(:media_too_large), do: "the file exceeds the size limit of its kind"
+
+  defp media_message(:storage_full),
+    do: "the media store is full (MEDIA_STORAGE_MAX_GB); delete unused media first"
+
+  defp media_message(reason), do: "the file could not be stored (#{reason})"
 
   # The file name of the client without its directories and without `.zip`.
   # The name becomes the title of the pack and of the draft, a varchar(255)
@@ -594,26 +993,41 @@ defmodule Espalier.Workbench do
 
   defp upload_title(_filename), do: nil
 
-  # Checks the files, then counts and inserts under a transaction-scoped
-  # advisory lock, so that concurrent creations count one after the other.
-  defp create_draft(scope, details, files, fallback_title) do
-    with :ok <- check_files(files) do
+  # Checks the files and the media entries, then counts and inserts under a
+  # transaction-scoped advisory lock, so that concurrent creations count one
+  # after the other. `start` holds the files as {path, content} and the
+  # media entries as {path, asset_id}.
+  defp create_draft(scope, details, {files, media} = start, fallback_title) do
+    with :ok <- check_files(files),
+         :ok <- check_media_entries(files, media) do
       meta = files_meta(files)
       title = usable(meta.title) || fallback_title || "Untitled draft"
 
-      Repo.transact(fn -> insert_counted(scope, details, files, title, usable(meta.key)) end)
+      Repo.transact(fn -> insert_counted(scope, details, start, title, usable(meta.key)) end)
     end
   end
 
-  defp insert_counted(scope, details, files, title, pack_key) do
+  defp check_media_entries(files, media) do
+    paths = MapSet.new(files, &elem(&1, 0))
+
+    cond do
+      length(media) > Media.max_draft_media() -> {:error, :media_limit}
+      length(files) + length(media) > max_files() -> {:error, :too_many_files}
+      Enum.any?(media, &MapSet.member?(paths, elem(&1, 0))) -> {:error, :path_taken}
+      length(Enum.uniq_by(media, &elem(&1, 0))) < length(media) -> {:error, :path_taken}
+      true -> :ok
+    end
+  end
+
+  defp insert_counted(scope, details, start, title, pack_key) do
     Repo.query!("SELECT pg_advisory_xact_lock(hashtext('espalier.pack_drafts'))")
 
     if Repo.aggregate(PackDraft, :count) >= max_drafts(),
       do: {:error, :draft_limit},
-      else: insert_draft(scope, details, files, title, pack_key)
+      else: insert_draft(scope, details, start, title, pack_key)
   end
 
-  defp insert_draft(scope, details, files, title, pack_key) do
+  defp insert_draft(scope, details, {files, media}, title, pack_key) do
     draft =
       Repo.insert!(%PackDraft{
         title: title,
@@ -624,13 +1038,15 @@ defmodule Espalier.Workbench do
 
     insert_files(draft.id, files)
 
-    details =
-      details
-      |> Map.put(:pack_key, pack_key)
-      |> Map.put(:file_count, length(files))
+    with :ok <- insert_media_entries(draft.id, media) do
+      details =
+        details
+        |> Map.put(:pack_key, pack_key)
+        |> Map.put(:file_count, length(files))
 
-    {:ok, _event} = Audit.record(scope, "pack_draft.created", draft, details)
-    {:ok, with_files(draft)}
+      {:ok, _event} = Audit.record(scope, "pack_draft.created", draft, details)
+      {:ok, with_files(draft)}
+    end
   end
 
   defp insert_files(draft_id, files) do
@@ -649,6 +1065,36 @@ defmodule Espalier.Workbench do
     end)
     |> chunks()
     |> Enum.each(&Repo.insert_all(PackDraftFile, &1))
+  end
+
+  defp insert_media_entries(_draft_id, []), do: :ok
+
+  defp insert_media_entries(draft_id, media) do
+    now = DateTime.utc_now(:second)
+
+    rows =
+      for {path, asset_id} <- media do
+        %{
+          id: Ecto.UUID.generate(),
+          pack_draft_id: draft_id,
+          media_asset_id: asset_id,
+          path: path,
+          inserted_at: now,
+          updated_at: now
+        }
+      end
+
+    # An asset deleted since the start read it fails the foreign key, which
+    # answers not_found as the attachment of a missing asset does.
+    try do
+      {_count, nil} = Repo.insert_all(PackDraftMedia, rows)
+      :ok
+    rescue
+      error in Postgrex.Error ->
+        if error.postgres[:code] == :foreign_key_violation,
+          do: {:error, :not_found},
+          else: reraise(error, __STACKTRACE__)
+    end
   end
 
   # Chunks of at most @chunk_rows rows and, beyond the first row, at most
@@ -737,13 +1183,17 @@ defmodule Espalier.Workbench do
     with {:ok, draft} <- read_files(id),
          {:ok, files} <- apply_overlay(draft.files, overlay),
          :ok <- overlay_size(files) do
-      in_dir(files, &{:ok, check_dir(&1, draft.lock_version)})
+      in_dir(files, draft.media, &{:ok, check_dir(&1, draft.lock_version)})
     end
   end
 
-  # Runs `fun` on a temporary directory with the files, in a task of
+  # Runs `fun` on a temporary directory with the files and an empty file at
+  # the path of each media entry, in a task of
   # Espalier.Workbench.CheckLimiter.
-  defp in_dir(files, fun), do: DraftDir.with_dir(file_pairs(files), &await_in(&1, fun))
+  defp in_dir(files, media, fun) do
+    entries = file_pairs(files) ++ Enum.map(media, &{&1.path, :media})
+    DraftDir.with_dir(entries, &await_in(&1, fun))
+  end
 
   defp await_in(dir, fun), do: CheckLimiter.await(fn -> fun.(dir) end)
 
@@ -773,6 +1223,12 @@ defmodule Espalier.Workbench do
     case Loader.load(dir) do
       {:ok, loaded} ->
         %{errors: errors, warnings: warnings, payload: payload} = Validator.run(loaded)
+
+        hosts =
+          Hosts.check(loaded, %{external: Media.external_hosts(), embed: Media.embed_hosts()})
+
+        errors = Entries.sort(errors ++ hosts)
+        payload = if hosts == [], do: payload
         %{lock_version: lock_version, report: Report.stored(errors, warnings), payload: payload}
 
       {:error, errors} ->
@@ -798,7 +1254,13 @@ defmodule Espalier.Workbench do
   defp import_in_slot(scope, id, lock_version) do
     with {:ok, draft} <- read_files(id),
          :ok <- check_version(draft, lock_version) do
-      in_dir(draft.files, &Catalog.import_pack(scope, &1, audit: %{pack_draft_id: id}))
+      media = Map.new(draft.media, &{&1.path, &1.media_asset_id})
+
+      in_dir(
+        draft.files,
+        draft.media,
+        &Catalog.import_pack(scope, &1, audit: %{pack_draft_id: id}, media: media)
+      )
     end
   end
 
@@ -813,29 +1275,162 @@ defmodule Espalier.Workbench do
   end
 
   @doc """
-  Builds the zip archive of the draft in memory, one entry per file in path
-  order, so that the pack sits at the root of the archive. Returns
-  `{:ok, %{name: name, zip: binary}}` with the download name
-  `<pack key>-draft.zip`, or `pack-draft.zip` without a usable pack key.
+  Builds the zip archive of the draft, one entry per file and media entry
+  in path order, so that the pack sits at the root of the archive, and
+  returns the result of `fun`, which receives `%{name: name, path: zip,
+  dir: dir}`: the download name `<pack key>-draft.zip`, or `pack-draft.zip`
+  without a usable pack key, the path of the zip and its staging directory.
+  The controller sends the zip in `fun`.
 
-  The draft and its archive take up to twice `max_draft_bytes/0` of memory,
-  so a download also takes a slot of `Espalier.Workbench.CheckLimiter` and
-  answers `{:error, :checks_busy}` when every slot is taken.
+  The sum of `bytes` and `poster_bytes` of the media entries must stay
+  within `Espalier.Media.export_max_mb/0` (`{:error,
+  :download_too_large}`). The files are staged in a new directory below
+  `MEDIA_DIR/work/` (`Espalier.Media.Store.staging_dir/0`): the text files
+  are written there, and each media file is a hard link to its store file,
+  which keeps the bytes when a change of the draft and a deletion remove the
+  store file meanwhile. A store file that is missing answers `{:error,
+  {:media_not_ready, entries}}`. The zip is written into the same directory
+  with `:zip.create/3`, which reads every file in blocks and stores `.webp`
+  and `.webm` entries uncompressed.
+
+  A download takes a slot of `Espalier.Workbench.DownloadLimiter`, at most
+  `max_parallel_downloads/0` per node and one per user, and builds the zip
+  in a slot of `Espalier.Workbench.CheckLimiter`, which it frees once the
+  zip is written. When either server has no slot for it, the download
+  answers `{:error, :checks_busy}` and builds nothing. The contents of the
+  draft are read only inside the slot of the build. `fun` runs in the slot
+  of the download alone, so a slow transfer holds no slot of the checks and
+  imports. The staging directory is removed when `fun` returns or raises
+  and on any failure of the build, before the slot of the download is
+  freed. So at most `max_parallel_downloads/0` zips of downloads lie on disk
+  per node, also while their transfers run.
   """
-  def download(%Scope{} = scope, id) do
+  @spec download(Scope.t(), term(), (map() -> result)) :: result | {:error, term()}
+        when result: term()
+  def download(%Scope{} = scope, id, fun) when is_function(fun, 1) do
     with :ok <- require_author(scope),
          {:ok, id} <- uuid(id) do
-      CheckLimiter.run(fn -> zip_in_slot(id) end)
+      DownloadLimiter.run(actor_id(scope), fn -> download_in_slot(id, fun) end)
     end
   end
 
-  defp zip_in_slot(id) do
-    with {:ok, draft} <- read_files(id) do
-      entries = for file <- draft.files, do: {String.to_charlist(file.path), file.content}
-      {:ok, {_name, zip}} = :zip.create(~c"draft.zip", entries, [:memory])
-      {:ok, %{name: download_name(draft.pack_key), zip: zip}}
+  # Builds the zip in a slot of CheckLimiter, which the build frees, and runs
+  # `fun` in the slot of the download. The staging directory goes when `fun`
+  # returns or raises.
+  # sobelow_skip ["Traversal.FileModule"]
+  defp download_in_slot(id, fun) do
+    with {:ok, %{dir: dir} = zip} <- CheckLimiter.run(fn -> build_zip(id) end) do
+      # The draft that the build read is no longer referenced; a collection
+      # frees its contents before the transfer starts.
+      :erlang.garbage_collect()
+
+      try do
+        fun.(zip)
+      after
+        File.rm_rf(dir)
+      end
     end
   end
+
+  # The staging directory comes from Espalier.Media.Store.staging_dir/0. Any
+  # failure of the staging and the zip, an exception and a full disk
+  # included, removes it; a built zip passes it on to the transfer.
+  # sobelow_skip ["Traversal.FileModule"]
+  defp build_zip(id) do
+    with {:ok, draft} <- read_files(id),
+         :ok <- download_size(draft.media) do
+      dir = Store.staging_dir()
+
+      try do
+        stage_and_zip(dir, draft)
+      else
+        {:ok, _zip} = built ->
+          built
+
+        error ->
+          File.rm_rf(dir)
+          error
+      catch
+        kind, reason ->
+          File.rm_rf(dir)
+          :erlang.raise(kind, reason, __STACKTRACE__)
+      end
+    end
+  end
+
+  defp stage_and_zip(dir, draft) do
+    with {:ok, paths} <- stage(dir, draft) do
+      zip = Path.join(dir, "draft.zip")
+
+      {:ok, _zip} =
+        :zip.create(String.to_charlist(zip), Enum.map(paths, &String.to_charlist/1),
+          cwd: String.to_charlist(Path.join(dir, "pack")),
+          uncompress: {:add, [~c".webp", ~c".webm"]}
+        )
+
+      {:ok, %{name: download_name(draft.pack_key), path: zip, dir: dir}}
+    end
+  end
+
+  defp download_size(media) do
+    bytes =
+      media
+      |> Enum.map(&((&1.media_asset.bytes || 0) + (&1.media_asset.poster_bytes || 0)))
+      |> Enum.sum()
+
+    if bytes > Media.export_max_mb() * 1_048_576, do: {:error, :download_too_large}, else: :ok
+  end
+
+  # The text files and a hard link per media entry below `dir/pack`. The
+  # paths pass the path rules again before they are joined with the
+  # directory.
+  # sobelow_skip ["Traversal.FileModule"]
+  defp stage(dir, draft) do
+    root = Path.join(dir, "pack")
+
+    for file <- draft.files, Paths.check(file.path) == :ok do
+      target = Path.join(root, file.path)
+      File.mkdir_p!(Path.dirname(target))
+      File.write!(target, file.content)
+    end
+
+    missing =
+      for media <- draft.media,
+          MediaPath.check(media.path) == :ok,
+          link_media(media, Path.join(root, media.path)) != :ok,
+          do: missing_entry(media.path, media.media_asset)
+
+    if missing == [] do
+      paths = Enum.map(draft.files, & &1.path) ++ Enum.map(draft.media, & &1.path)
+      {:ok, Enum.sort(paths)}
+    else
+      {:error, {:media_not_ready, missing}}
+    end
+  end
+
+  # The source comes from the store and the target from the staging directory
+  # and a path that passed MediaPath.check/1.
+  # sobelow_skip ["Traversal.FileModule"]
+  defp link_media(%PackDraftMedia{media_asset: %Asset{status: :ready} = asset}, target) do
+    File.mkdir_p!(Path.dirname(target))
+    File.ln(Store.path(asset.sha256, asset.ext), target)
+  end
+
+  defp link_media(_media, _target), do: {:error, :not_ready}
+
+  # An entry of {:media_not_ready, entries}: the path, the state of the
+  # asset, or "missing" for a ready asset without its file, and the code of
+  # a failed asset, as the publish gate gives them.
+  defp missing_entry(path, %Asset{} = asset) do
+    %{
+      "path" => path,
+      "status" => missing_status(asset),
+      "failure" => asset.failure && Atom.to_string(asset.failure)
+    }
+  end
+
+  defp missing_status(%Asset{status: :ready}), do: "missing"
+  defp missing_status(%Asset{status: status}), do: Atom.to_string(status)
 
   defp download_name(key) do
     if Cast.key?(key) and String.length(key) <= @max_download_key,
@@ -845,7 +1440,19 @@ defmodule Espalier.Workbench do
 
   # The draft with lock_version, pack_key and every file with its content,
   # in one statement, so that the files belong to the version read.
+  # The files and the media entries are read under FOR SHARE on the draft
+  # row, which every change locks with FOR UPDATE, so both belong to the
+  # version read.
   defp read_files(id) do
+    Repo.transact(fn ->
+      case Repo.one(from d in PackDraft, where: d.id == ^id, lock: "FOR SHARE", select: d.id) do
+        nil -> {:error, :not_found}
+        _id -> read_locked(id)
+      end
+    end)
+  end
+
+  defp read_locked(id) do
     rows =
       Repo.all(
         from d in PackDraft,
@@ -861,7 +1468,16 @@ defmodule Espalier.Workbench do
         {:error, :not_found}
 
       [{draft, _file} | _rest] ->
-        {:ok, %{draft | files: for({_draft, %PackDraftFile{} = file} <- rows, do: file)}}
+        media =
+          Repo.all(
+            from m in PackDraftMedia,
+              where: m.pack_draft_id == ^draft.id,
+              order_by: m.path,
+              preload: :media_asset
+          )
+
+        files = for {_draft, %PackDraftFile{} = file} <- rows, do: file
+        {:ok, %{draft | files: files, media: media}}
     end
   end
 

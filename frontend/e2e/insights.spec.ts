@@ -191,6 +191,11 @@ test("the test notes show a walk-through and never reach the server", async ({
   await expect(log).toHaveValue(
     new RegExp(`Station ${SELF_ASSESSMENT} opened`),
   );
+  // The vote is the last entry, and the log may receive it after the button
+  // shows the pressed state, so the read waits for it.
+  await expect(log).toHaveValue(
+    new RegExp(`Vote for a format at station ${FORMATS_STATION}`),
+  );
   const text = await log.inputValue();
   for (const line of [
     `Station ${MODULE_1} opened`,

@@ -5,10 +5,13 @@ defmodule Espalier.Interop.PayloadTest do
   alias Espalier.Catalog.Pack.{Importer, Publisher}
   alias Espalier.Catalog.{PackImport, Qualification}
   alias Espalier.Interop.Payload
-  alias Espalier.{LearningFixtures, PackFixtures}
+  alias Espalier.{LearningFixtures, MediaFixtures, PackFixtures}
+  alias Espalier.Media.Asset
 
   defp import_and_publish!(path) do
-    {:ok, %PackImport{status: :validated} = pack_import} = Importer.import(path, nil)
+    {:ok, %PackImport{status: :validated} = pack_import} =
+      Importer.import(path, nil, media: MediaFixtures.media_for(path))
+
     {:ok, %PackImport{status: :published}} = Publisher.publish(pack_import)
     {pack_import.payload, Catalog.get_program_by_slug(pack_import.pack_key)}
   end
@@ -56,8 +59,41 @@ defmodule Espalier.Interop.PayloadTest do
   describe "build/1" do
     test "equals the payload of the published import of the demo pack" do
       {payload, program} = import_and_publish!(PackFixtures.demo_path())
+      built = Payload.build(program)
 
-      assert Payload.build(program) == payload
+      assert built == payload
+
+      # The media list comes from program_media, and every block carries
+      # its media attributes (task 0018, step 11).
+      media = MediaFixtures.media_for(PackFixtures.demo_path())
+
+      assert built["media"] == [
+               %{
+                 "path" => "media/assistant-demo-en.vtt",
+                 "asset_id" => media["media/assistant-demo-en.vtt"],
+                 "kind" => "captions"
+               },
+               %{
+                 "path" => "media/assistant-demo.webm",
+                 "asset_id" => media["media/assistant-demo.webm"],
+                 "kind" => "video"
+               },
+               %{
+                 "path" => "media/release-checks.svg",
+                 "asset_id" => media["media/release-checks.svg"],
+                 "kind" => "svg"
+               }
+             ]
+
+      blocks =
+        for module <- built["modules"], lesson <- module["lessons"], b <- lesson["blocks"], do: b
+
+      assert Enum.all?(blocks, &Map.has_key?(&1, "media"))
+
+      assert %{"src" => "media/release-checks.svg", "decorative" => nil, "size" => "full"} =
+               Enum.find(blocks, &(&1["kind"] == "figure"))["media"]
+
+      assert Enum.all?(blocks, &(&1["kind"] in ["figure", "video"] or &1["media"] == nil))
     end
 
     test "skips archived rows and the join rows that point to them" do
@@ -136,17 +172,20 @@ defmodule Espalier.Interop.PayloadTest do
     end
   end
 
-  describe "module/2" do
+  describe "module/3" do
     setup do
       {payload, _program} = import_and_publish!(PackFixtures.demo_path())
-      %{payload: payload}
+      %{payload: payload, assets: assets(payload)}
     end
 
-    test "cuts module 1 with its objectives, glossary, sources and formats", %{payload: payload} do
-      content = Payload.module(payload, 1)
+    test "cuts module 1 with its objectives, glossary, sources, formats and media", %{
+      payload: payload,
+      assets: assets
+    } do
+      content = Payload.module(payload, 1, assets)
 
       assert Map.keys(content) |> Enum.sort() ==
-               ~w(formats glossary module program sources)
+               ~w(formats glossary media module program sources)
 
       assert content["program"] == %{
                "slug" => LearningFixtures.demo_slug(),
@@ -189,8 +228,59 @@ defmodule Espalier.Interop.PayloadTest do
                Enum.sort(Enum.uniq(cited ++ rule_and_item_sources(content["module"])))
     end
 
-    test "cuts module 2 with its areas elsewhere and no format", %{payload: payload} do
-      content = Payload.module(payload, 2)
+    test "lists the media of module 1 by path with the facts of their delivery files", %{
+      payload: payload,
+      assets: assets
+    } do
+      content = Payload.module(payload, 1, assets)
+      video = asset_at(payload, assets, "media/assistant-demo.webm")
+      captions = asset_at(payload, assets, "media/assistant-demo-en.vtt")
+
+      assert content["media"] == %{
+               "media/assistant-demo.webm" => %{
+                 "url" => "media/#{video.sha256}.webm",
+                 "kind" => "video",
+                 "mime" => "video/webm",
+                 "width" => 640,
+                 "height" => 360,
+                 "duration_ms" => 8_008,
+                 "has_audio" => true,
+                 "has_alpha" => false,
+                 "animated" => false,
+                 "poster_url" => nil
+               },
+               "media/assistant-demo-en.vtt" => %{
+                 "url" => "media/#{captions.sha256}.vtt",
+                 "kind" => "captions",
+                 "mime" => "text/vtt",
+                 "width" => nil,
+                 "height" => nil,
+                 "duration_ms" => 8_000,
+                 "has_audio" => false,
+                 "has_alpha" => false,
+                 "animated" => false,
+                 "poster_url" => nil
+               }
+             }
+
+      # The block keeps its media/ paths; the object resolves them.
+      [video_block] =
+        for lesson <- content["module"]["lessons"],
+            %{"kind" => "video"} = block <- lesson["blocks"],
+            do: block
+
+      assert video_block["media"]["src"] == "media/assistant-demo.webm"
+
+      assert video_block["media"]["captions"] == [
+               %{"src" => "media/assistant-demo-en.vtt", "lang" => "en"}
+             ]
+    end
+
+    test "cuts module 2 with its areas elsewhere, no format and its figure", %{
+      payload: payload,
+      assets: assets
+    } do
+      content = Payload.module(payload, 2, assets)
 
       assert length(content["module"]["objectives"]) == 3
 
@@ -200,11 +290,83 @@ defmodule Espalier.Interop.PayloadTest do
              ]
 
       assert content["formats"] == []
+
+      svg = asset_at(payload, assets, "media/release-checks.svg")
+
+      assert %{
+               "media/release-checks.svg" => %{
+                 "url" => url,
+                 "kind" => "svg",
+                 "mime" => "image/svg+xml",
+                 "width" => 720,
+                 "height" => 200,
+                 "poster_url" => nil
+               }
+             } = content["media"]
+
+      assert url == "media/#{svg.sha256}.svg"
+      assert map_size(content["media"]) == 1
     end
 
-    test "raises for a module the payload lacks", %{payload: payload} do
-      assert_raise ArgumentError, fn -> Payload.module(payload, 99) end
+    test "leaves out a path whose asset is not among the assets or not ready", %{
+      payload: payload,
+      assets: assets
+    } do
+      assert Payload.module(payload, 1, %{})["media"] == %{}
+
+      video = asset_at(payload, assets, "media/assistant-demo.webm")
+      queued = Map.put(assets, video.id, %{video | status: :queued})
+
+      assert Map.keys(Payload.module(payload, 1, queued)["media"]) == [
+               "media/assistant-demo-en.vtt"
+             ]
     end
+
+    test "gives a payload without the key media an empty media object", %{
+      payload: payload,
+      assets: assets
+    } do
+      content = Payload.module(Map.delete(payload, "media"), 1, assets)
+
+      assert content["media"] == %{}
+      assert content["module"] == Payload.module(payload, 1, assets)["module"]
+    end
+
+    test "raises for a module the payload lacks", %{payload: payload, assets: assets} do
+      assert_raise ArgumentError, fn -> Payload.module(payload, 99, assets) end
+    end
+  end
+
+  describe "media_paths/1 and media_asset_ids/2" do
+    test "name the media/ paths of a module and their assets" do
+      {payload, _program} = import_and_publish!(PackFixtures.demo_path())
+      [module_1, module_2] = Enum.sort_by(payload["modules"], & &1["number"])
+      by_path = Map.new(payload["media"], &{&1["path"], &1["asset_id"]})
+
+      assert Enum.sort(Payload.media_paths(module_1)) ==
+               ["media/assistant-demo-en.vtt", "media/assistant-demo.webm"]
+
+      assert Payload.media_paths(module_2) == ["media/release-checks.svg"]
+
+      assert Enum.sort(Payload.media_asset_ids(payload, module_1)) ==
+               Enum.sort([
+                 by_path["media/assistant-demo.webm"],
+                 by_path["media/assistant-demo-en.vtt"]
+               ])
+
+      assert Payload.media_asset_ids(Map.delete(payload, "media"), module_1) == []
+    end
+  end
+
+  # The asset rows of the media of `payload`, keyed by id.
+  defp assets(payload) do
+    ids = Enum.map(payload["media"], & &1["asset_id"])
+    Map.new(Repo.all(from a in Asset, where: a.id in ^ids), &{&1.id, &1})
+  end
+
+  defp asset_at(payload, assets, path) do
+    %{"asset_id" => id} = Enum.find(payload["media"], &(&1["path"] == path))
+    Map.fetch!(assets, id)
   end
 
   defp rule_and_item_sources(module) do

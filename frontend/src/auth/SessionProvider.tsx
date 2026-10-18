@@ -67,6 +67,7 @@ const DEFAULT_FLAGS: SessionFlags = {
   adminPasskeyRequired: false,
   testNotes: false,
   feedbackFreeText: false,
+  mediaEmbedConsent: "click",
 };
 
 const SIGNING_OUT = sessionValue(undefined);

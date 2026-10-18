@@ -1,0 +1,53 @@
+# The optional malware scan of uploaded and imported media
+# (docs/guides/media.md): clamd of the ClamAV image in a service of its own,
+# which app reaches over a Unix socket in the shared volume clamd-socket, so
+# no network port and no TLS take part:
+#
+#   docker compose -f compose.yaml -f docs/guides/examples/compose.clamav.yaml up -d
+#
+# clamd holds its signatures in memory: the service used 954 to 979 MiB
+# after its start (ClamAV 1.5.4 with the signatures of 2026-10-15) and up
+# to 1.9 GiB while clamd reloaded them, which it does after every update
+# of freshclam.
+# docs/guides/examples/clamd.conf sets the socket and the limits. The /init
+# script of the image starts freshclam next to clamd, which fetches new
+# signatures from database.clamav.net once a day; that download is the only
+# network connection of the service.
+#
+# Variables (Docker Compose reads them from .env or the shell):
+#   CLAMD_CONF  path of the clamd configuration, relative to the directory
+#               of compose.yaml (default docs/guides/examples/clamd.conf)
+
+services:
+  clamav:
+    image: clamav/clamav:1.5.4
+    # The volume clamd-socket starts as an empty directory of root, and clamd
+    # binds its socket as the user clamav, so the entrypoint hands the
+    # directory to clamav before it runs the /init script of the image.
+    entrypoint: ["/bin/sh", "-c", "chown clamav:clamav /run/clamav && exec /init"]
+    volumes:
+      - ${CLAMD_CONF:-./docs/guides/examples/clamd.conf}:/etc/clamav/clamd.conf:ro
+      - clamd-socket:/run/clamav
+    # The health check of the image asks TCP port 3310, which clamd.conf does
+    # not open; clamdscan --ping asks the socket that clamd.conf names.
+    healthcheck:
+      test: ["CMD", "clamdscan", "--ping", "1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 6m
+      start_interval: 5s
+      retries: 3
+    restart: unless-stopped
+
+  app:
+    # A scan fails closed, so app starts once clamd answers.
+    depends_on:
+      clamav:
+        condition: service_healthy
+    environment:
+      MEDIA_CLAMAV_SOCKET: /run/clamav/clamd.sock
+    volumes:
+      - clamd-socket:/run/clamav
+
+volumes:
+  clamd-socket:

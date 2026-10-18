@@ -22,6 +22,7 @@ const block = (policy: Block["policy"]): Block => ({
   body: PLACEHOLDER_BODY,
   provenance: "placeholder",
   collapsed_on: [],
+  media: null,
   placeholder_key: "input-rules",
   policy,
   citations: [

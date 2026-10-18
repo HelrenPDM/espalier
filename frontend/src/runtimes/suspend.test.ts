@@ -51,6 +51,7 @@ function block(kind: PayloadBlock["kind"]): PayloadBlock {
     collapsed_on: [],
     placeholder_key: null,
     cite: [],
+    media: null,
   };
 }
 

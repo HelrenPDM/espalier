@@ -53,10 +53,13 @@ defmodule Espalier.Catalog do
     * `:audit` - a map that is merged into the details of `pack.imported`,
       such as `%{pack_draft_id: id}` for an import from a draft of the pack
       workbench (task 0016a, step 7).
+    * `:media` - a map of `media/` path to asset id, which links those paths
+      to existing assets of the media library instead of reading the files
+      (task 0018, step 10: the workbench and the test fixtures).
   """
   def import_pack(%Scope{} = scope, path, opts \\ []) when is_binary(path) and is_list(opts) do
     with :ok <- require_author(scope) do
-      changeset = Importer.prepare(path, scope.user.id)
+      changeset = Importer.prepare(path, scope.user.id, Keyword.take(opts, [:media, :hosts]))
       details = Keyword.get(opts, :audit, %{})
       Repo.transact(fn -> insert_import(scope, changeset, details) end)
     end
@@ -109,6 +112,8 @@ defmodule Espalier.Catalog do
   the publisher runs, `Espalier.Catalog.Alignment.check/1` checks the stored
   payload with the rules of the running release; at least one error answers
   `{:error, {:alignment_errors, errors}}`, and the publisher does not run.
+  A media file of the payload that is missing or not `ready` answers
+  `{:error, {:media_not_ready, entries}}` from the publisher (task 0018).
   The publisher and the audit event `pack.published` run in one
   `Repo.transact/2` with the timeout of the publisher, so that neither
   persists without the other.
@@ -124,6 +129,7 @@ defmodule Espalier.Catalog do
       {:ok, published}
     else
       {:error, :forbidden} -> {:error, :forbidden}
+      {:error, {:media_not_ready, _entries}} = error -> error
       {[_error | _rest] = errors, _warnings} -> {:error, {:alignment_errors, errors}}
       _other -> {:error, :not_publishable}
     end
@@ -239,9 +245,12 @@ defmodule Espalier.Catalog do
 
     item_ids = Enum.map(practice_items, & &1.id) ++ Enum.map(listed, &elem(&1, 1).id)
 
+    lessons = lessons_with_blocks(module.id)
+
     %{
       module: module,
-      lessons: lessons_with_blocks(module.id),
+      lessons: lessons,
+      media: lesson_media(module.program_id, lessons),
       rules: rules_with_citations(module.id),
       practice_items: practice_items,
       exams: exams,
@@ -319,6 +328,31 @@ defmodule Espalier.Catalog do
           blocks: ^from(b in Block, order_by: b.position, preload: [citations: ^citations])
         ]
     )
+  end
+
+  # The assets of the media/ paths that the blocks of the lessons reference,
+  # from the program_media rows of the program, in one query (task 0018).
+  defp lesson_media(program_id, lessons) do
+    paths =
+      for lesson <- lessons,
+          %Block{media: %{} = media} <- lesson.blocks,
+          path <- [media["src"], media["poster"] | Enum.map(media["captions"] || [], & &1["src"])],
+          is_binary(path) and String.starts_with?(path, "media/"),
+          uniq: true,
+          do: path
+
+    if paths == [] do
+      %{}
+    else
+      Repo.all(
+        from pm in Espalier.Catalog.ProgramMedia,
+          join: a in Espalier.Media.Asset,
+          on: a.id == pm.media_asset_id,
+          where: pm.program_id == ^program_id and pm.path in ^paths,
+          select: {pm.path, a}
+      )
+      |> Map.new()
+    end
   end
 
   defp rules_with_citations(module_id) do

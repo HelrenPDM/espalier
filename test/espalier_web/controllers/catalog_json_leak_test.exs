@@ -8,6 +8,8 @@ defmodule EspalierWeb.CatalogJSONLeakTest do
 
   alias Espalier.Catalog
   alias Espalier.Catalog.{Item, Option}
+  alias Espalier.Media.{Asset, Store}
+  alias Espalier.MediaFixtures
   alias EspalierWeb.CatalogJSON
 
   @forbidden ~w(config correct expected feedback)
@@ -151,6 +153,56 @@ defmodule EspalierWeb.CatalogJSONLeakTest do
 
     assert MapSet.disjoint?(values, feedback),
            "found #{inspect(MapSet.intersection(values, feedback))}"
+  end
+
+  # Task 0018, step 12: the media of a block are URLs below /media/ and
+  # facts of the delivery file, never the asset, its source or the store.
+  test "no block view carries an asset id, a source name or digest, or a store path",
+       %{program_json: program_json, modules: modules} do
+    ids = Map.values(MediaFixtures.media_for(demo_path()))
+    assets = Repo.all(from a in Asset, where: a.id in ^ids)
+    assert length(assets) == 3
+
+    secrets =
+      assets
+      |> Enum.flat_map(&[&1.id, &1.source_name, &1.source_sha256])
+      |> MapSet.new()
+
+    blocks =
+      for module <- modules, lesson <- module["lessons"], block <- lesson["blocks"], do: block
+
+    assert blocks |> Enum.filter(& &1["media"]) |> Enum.map(& &1["kind"]) |> Enum.sort() ==
+             ["figure", "video"]
+
+    root = Store.root()
+
+    for view <- [program_json | blocks] do
+      keys = view |> keys() |> MapSet.new()
+
+      for key <- ~w(asset_id media_asset_id source_name source_sha256 sha256 poster_sha256 path),
+          do: refute(key in keys, key)
+
+      for value <- strings(view) do
+        refute value in secrets, value
+        refute String.contains?(value, root), value
+        refute String.contains?(value, "/files/"), value
+        refute String.contains?(value, "incoming/"), value
+
+        for id <- ids, do: refute(String.contains?(value, id), value)
+      end
+    end
+
+    # Every media URL names a delivery file below /media/.
+    urls =
+      for block <- blocks,
+          media = block["media"],
+          media,
+          value <- strings(media),
+          String.starts_with?(value, "/"),
+          do: value
+
+    assert urls != []
+    for url <- urls, do: assert(url =~ ~r"\A/media/[0-9a-f]{64}\.(webp|svg|webm|vtt)\z")
   end
 
   ## JSON

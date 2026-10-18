@@ -5,16 +5,22 @@ import { useTranslation } from "react-i18next";
 import {
   staleDraft,
   useCreateFile,
+  useDeleteDraftMedia,
   useDeleteFile,
   useRenameFile,
   type DraftFileEntry,
+  type DraftMediaEntry,
   type PackDraft,
 } from "../../api/admin/workbench";
 import { ConfirmDialog } from "../../app/ConfirmDialog";
 import { AlertRegion, Button, TextField } from "../../app/forms";
 import { FOCUS_RING } from "../../app/formStyles";
+import { MediaKindIcon } from "../media/MediaParts";
 import { useDraftErrorText, usePathErrorText } from "./draftErrors";
+import { AddMediaDialog, RenameMediaDialog } from "./MediaDialogs";
 import {
+  CAPTIONS_TEMPLATE,
+  captionsPath,
   isLayoutPath,
   lessonCount,
   lessonPath,
@@ -49,20 +55,41 @@ interface FileNode {
   file: DraftFileEntry;
 }
 
-type TreeNode = DirNode | FileNode;
+/** A media entry of the draft (task 0018): a library asset at a path. */
+interface MediaNode {
+  kind: "media";
+  name: string;
+  dir: string;
+  entry: DraftMediaEntry;
+}
 
-const byPath = (a: DraftFileEntry, b: DraftFileEntry) =>
+type TreeNode = DirNode | FileNode | MediaNode;
+
+/** A file or a media entry, each with its path. */
+type Leaf =
+  | { kind: "file"; path: string; file: DraftFileEntry }
+  | { kind: "media"; path: string; entry: DraftMediaEntry };
+
+const byPath = (a: Leaf, b: Leaf) =>
   a.path < b.path ? -1 : a.path > b.path ? 1 : 0;
 
 /**
- * The files as nested directories, in the order of their paths: each
- * directory appears where its first file would, so the tree reads in path
- * order at every level.
+ * The files and the media entries as nested directories, in the order of
+ * their paths: each directory appears where its first entry would, so the
+ * tree reads in path order at every level. The captions of `media/` are
+ * files; the images, SVG files and videos there are media entries.
  */
-function buildTree(files: readonly DraftFileEntry[]): TreeNode[] {
+function buildTree(
+  files: readonly DraftFileEntry[],
+  media: readonly DraftMediaEntry[],
+): TreeNode[] {
+  const leaves: Leaf[] = [
+    ...files.map((file): Leaf => ({ kind: "file", path: file.path, file })),
+    ...media.map((entry): Leaf => ({ kind: "media", path: entry.path, entry })),
+  ];
   const root: DirNode = { kind: "dir", name: "", path: "", children: [] };
-  for (const file of [...files].sort(byPath)) {
-    const parts = file.path.split("/");
+  for (const leaf of leaves.sort(byPath)) {
+    const parts = leaf.path.split("/");
     let dir = root;
     for (const [index, part] of parts.slice(0, -1).entries()) {
       const found = dir.children.find(
@@ -77,12 +104,12 @@ function buildTree(files: readonly DraftFileEntry[]): TreeNode[] {
       if (found === undefined) dir.children.push(next);
       dir = next;
     }
-    dir.children.push({
-      kind: "file",
-      name: parts[parts.length - 1],
-      dir: dir.path,
-      file,
-    });
+    const name = parts[parts.length - 1];
+    dir.children.push(
+      leaf.kind === "file"
+        ? { kind: "file", name, dir: dir.path, file: leaf.file }
+        : { kind: "media", name, dir: dir.path, entry: leaf.entry },
+    );
   }
   return root.children;
 }
@@ -151,9 +178,14 @@ function RadioField({
   );
 }
 
-type FileKind = "root" | "module" | "lesson";
+type FileKind = "root" | "module" | "lesson" | "captions";
 
-const FILE_KINDS: readonly FileKind[] = ["root", "module", "lesson"];
+const FILE_KINDS: readonly FileKind[] = [
+  "root",
+  "module",
+  "lesson",
+  "captions",
+];
 
 interface ChangeCallbacks {
   /** A 409 `stale_draft` with the stored `lock_version`. */
@@ -162,9 +194,11 @@ interface ChangeCallbacks {
 
 /**
  * "Add file": builds a path of the pack layout from a choice (a file at
- * the root, a file of a module directory, or a lesson with its key) and
- * sends `POST .../files`. A new lesson starts with front matter (`title`,
- * `position`) and one `text` block, a new YAML file starts empty. The path
+ * the root, a file of a module directory, a lesson with its key, or a
+ * captions file `media/<key>.vtt` of task 0018) and sends
+ * `POST .../files`. A new lesson starts with front matter (`title`,
+ * `position`) and one `text` block, a new captions file with the header
+ * `WEBVTT` and an empty line, and a new YAML file starts empty. The path
  * field shows `invalid_path` and `path_taken`.
  */
 function AddFileDialog({
@@ -194,6 +228,7 @@ function AddFileDialog({
   const [dir, setDir] = useState(dirs[0] ?? "");
   const [moduleName, setModuleName] = useState<string>(MODULE_FILES[0]);
   const [lessonKey, setLessonKey] = useState("");
+  const [captionsKey, setCaptionsKey] = useState("");
   const [title, setTitle] = useState("");
   const [titleError, setTitleError] = useState<string | null>(null);
   const [pathError, setPathError] = useState<string | null>(null);
@@ -203,7 +238,9 @@ function AddFileDialog({
       ? rootName
       : kind === "module"
         ? moduleFilePath(dir, moduleName)
-        : lessonPath(dir, lessonKey);
+        : kind === "lesson"
+          ? lessonPath(dir, lessonKey)
+          : captionsPath(captionsKey);
 
   /** Every change of a choice clears the errors of the last attempt. */
   const changed =
@@ -233,7 +270,9 @@ function AddFileDialog({
     const content =
       kind === "lesson"
         ? lessonTemplate(title.trim(), lessonCount(paths, dir) + 1)
-        : "";
+        : kind === "captions"
+          ? CAPTIONS_TEMPLATE
+          : "";
     create.mutate(
       { path, content, lock_version: draft.lock_version },
       {
@@ -298,7 +337,7 @@ function AddFileDialog({
           onChange={changed(setRootName)}
         />
       )}
-      {kind !== "root" && (
+      {(kind === "module" || kind === "lesson") && (
         <>
           <TextField
             label={t("admin.workbench.draft.add.moduleDir")}
@@ -347,6 +386,17 @@ function AddFileDialog({
             }}
           />
         </>
+      )}
+      {kind === "captions" && (
+        <TextField
+          label={t("admin.workbench.draft.add.captionsKey")}
+          hint={t("admin.workbench.draft.add.captionsKeyHint")}
+          value={captionsKey}
+          autoComplete="off"
+          spellCheck={false}
+          autoCapitalize="off"
+          onChange={(event) => changed(setCaptionsKey)(event.target.value)}
+        />
       )}
       <TextField
         label={t("admin.workbench.draft.add.path")}
@@ -460,13 +510,13 @@ function RenameDialog({
   );
 }
 
-/** "Rename" and "Delete" of one file in a Headless UI `Menu`. */
+/** "Rename" and "Delete" of one file or media entry in a Headless UI `Menu`. */
 function FileMenu({
-  file,
+  path,
   onRename,
   onDelete,
 }: {
-  file: DraftFileEntry;
+  path: string;
   onRename: () => void;
   onDelete: () => void;
 }) {
@@ -476,7 +526,7 @@ function FileMenu({
       <MenuButton className={MENU_BUTTON}>
         {t("admin.workbench.draft.tree.actions")}{" "}
         <span className="sr-only">
-          {t("admin.workbench.draft.tree.actionsFor", { path: file.path })}
+          {t("admin.workbench.draft.tree.actionsFor", { path })}
         </span>
         <ChevronDownIcon aria-hidden="true" className="size-4" />
       </MenuButton>
@@ -503,10 +553,12 @@ function TreeList({
   nodes,
   nested,
   renderFile,
+  renderMedia,
 }: {
   nodes: TreeNode[];
   nested: boolean;
   renderFile: (node: FileNode) => ReactNode;
+  renderMedia: (node: MediaNode) => ReactNode;
 }) {
   return (
     <ul
@@ -522,11 +574,20 @@ function TreeList({
             <span className="block px-2 py-1 font-mono text-xs font-semibold break-all text-gray-700 dark:text-gray-300">
               {`${node.name}/`}
             </span>
-            <TreeList nodes={node.children} nested renderFile={renderFile} />
+            <TreeList
+              nodes={node.children}
+              nested
+              renderFile={renderFile}
+              renderMedia={renderMedia}
+            />
           </li>
-        ) : (
+        ) : node.kind === "file" ? (
           <li key={node.file.id} className="flex items-start gap-1">
             {renderFile(node)}
+          </li>
+        ) : (
+          <li key={`media:${node.entry.id}`} className="flex items-start gap-1">
+            {renderMedia(node)}
           </li>
         ),
       )}
@@ -536,8 +597,11 @@ function TreeList({
 
 type TreeDialog =
   | { kind: "add" }
+  | { kind: "addMedia" }
   | { kind: "rename"; file: DraftFileEntry }
-  | { kind: "delete"; file: DraftFileEntry };
+  | { kind: "delete"; file: DraftFileEntry }
+  | { kind: "renameMedia"; entry: DraftMediaEntry }
+  | { kind: "deleteMedia"; entry: DraftMediaEntry };
 
 /**
  * The file tree of the draft page (task 0016a, step 13): a `nav` named
@@ -548,43 +612,83 @@ type TreeDialog =
  * and the arrow keys keep their plain behavior. "Add file" and the menu
  * of each file ("Rename", "Delete") open a dialog each; paths and names
  * render as text.
+ *
+ * The media entries of task 0018 sit below `media/` among the files, each
+ * a button with the icon and the name of its kind; the captions there are
+ * text files. "Add media" adds a library asset or a new upload, and the
+ * menu of a media entry renames it or removes it from the draft through
+ * the media routes.
  */
 export function FileTree({
   draft,
   openFileId,
+  openMediaId,
   unsaved,
   onOpen,
+  onOpenMedia,
   onCreated,
   onRenamed,
   onDeleted,
+  onMediaAdded,
+  onMediaDeleted,
   onConflict,
 }: ChangeCallbacks & {
   draft: PackDraft;
   openFileId: string | null;
+  /** The media entry shown in place of the editor. */
+  openMediaId: string | null;
   /** The open file has unsaved changes. */
   unsaved: boolean;
   onOpen: (fileId: string) => void;
+  onOpenMedia: (mediaId: string) => void;
   onCreated: (draft: PackDraft, path: string) => void;
+  /** A file or a media entry moved from `from` to `to`. */
   onRenamed: (from: string, to: string) => void;
   onDeleted: (file: DraftFileEntry) => void;
+  onMediaAdded: (draft: PackDraft, path: string) => void;
+  onMediaDeleted: (entry: DraftMediaEntry) => void;
 }) {
   const { t } = useTranslation();
   const headingId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const remove = useDeleteFile(draft.id);
+  const removeMedia = useDeleteDraftMedia(draft.id);
   const errorText = useDraftErrorText(draft.limits);
   const [dialog, setDialog] = useState<TreeDialog | null>(null);
   // A new key for each dialog that opens, so it starts with fresh fields.
   const [dialogKey, setDialogKey] = useState(0);
   const files = draft.files ?? [];
+  const media = draft.media ?? [];
 
   const openDialog = (next: TreeDialog) => {
     remove.reset();
+    removeMedia.reset();
     setDialogKey((key) => key + 1);
     setDialog(next);
   };
   const closeDialog = () => setDialog(null);
   const deleting = dialog?.kind === "delete" ? dialog.file : null;
+  const deletingMedia = dialog?.kind === "deleteMedia" ? dialog.entry : null;
+
+  const confirmDeleteMedia = () => {
+    if (removeMedia.isPending || deletingMedia === null) return;
+    removeMedia.mutate(
+      { entry: deletingMedia, lock_version: draft.lock_version },
+      {
+        onSuccess: () => {
+          closeDialog();
+          onMediaDeleted(deletingMedia);
+          requestAnimationFrame(() => headingRef.current?.focus());
+        },
+        onError: (error) => {
+          const stored = staleDraft(error);
+          if (stored === null) return;
+          closeDialog();
+          onConflict(stored);
+        },
+      },
+    );
+  };
 
   const confirmDelete = () => {
     if (remove.isPending || deleting === null) return;
@@ -629,9 +733,36 @@ export function FileTree({
           )}
         </button>
         <FileMenu
-          file={file}
+          path={file.path}
           onRename={() => openDialog({ kind: "rename", file })}
           onDelete={() => openDialog({ kind: "delete", file })}
+        />
+      </>
+    );
+  };
+
+  const renderMedia = ({ name, dir, entry }: MediaNode) => {
+    const current = entry.id === openMediaId;
+    return (
+      <>
+        <button
+          type="button"
+          aria-current={current ? "true" : undefined}
+          onClick={() => onOpenMedia(entry.id)}
+          className={`flex items-start gap-1.5 ${FILE_BUTTON}`}
+        >
+          <MediaKindIcon kind={entry.asset.kind} className="mt-px size-4" />
+          <span className="min-w-0">
+            {name}
+            <span className="sr-only">
+              {`, ${dir}/, ${t(`admin.media.kinds.${entry.asset.kind}`)}`}
+            </span>
+          </span>
+        </button>
+        <FileMenu
+          path={entry.path}
+          onRename={() => openDialog({ kind: "renameMedia", entry })}
+          onDelete={() => openDialog({ kind: "deleteMedia", entry })}
         />
       </>
     );
@@ -647,18 +778,27 @@ export function FileTree({
       >
         {t("admin.workbench.draft.tree.title")}
       </h2>
-      <Button variant="secondary" onClick={() => openDialog({ kind: "add" })}>
-        {t("admin.workbench.draft.tree.add")}
-      </Button>
-      {files.length === 0 ? (
+      <div className="flex flex-wrap gap-2">
+        <Button variant="secondary" onClick={() => openDialog({ kind: "add" })}>
+          {t("admin.workbench.draft.tree.add")}
+        </Button>
+        <Button
+          variant="secondary"
+          onClick={() => openDialog({ kind: "addMedia" })}
+        >
+          {t("admin.workbench.draft.tree.addMedia")}
+        </Button>
+      </div>
+      {files.length === 0 && media.length === 0 ? (
         <p className="text-sm text-gray-700 dark:text-gray-300">
           {t("admin.workbench.draft.tree.empty")}
         </p>
       ) : (
         <TreeList
-          nodes={buildTree(files)}
+          nodes={buildTree(files, media)}
           nested={false}
           renderFile={renderFile}
+          renderMedia={renderMedia}
         />
       )}
       <AddFileDialog
@@ -669,6 +809,41 @@ export function FileTree({
         onCreated={onCreated}
         onConflict={onConflict}
       />
+      <AddMediaDialog
+        key={`add-media-${dialogKey}`}
+        open={dialog?.kind === "addMedia"}
+        draft={draft}
+        onClose={closeDialog}
+        onAdded={onMediaAdded}
+        onConflict={onConflict}
+      />
+      <RenameMediaDialog
+        key={`rename-media-${dialogKey}`}
+        entry={dialog?.kind === "renameMedia" ? dialog.entry : null}
+        draft={draft}
+        onClose={closeDialog}
+        onRenamed={onRenamed}
+        onConflict={onConflict}
+      />
+      <ConfirmDialog
+        open={deletingMedia !== null}
+        title={t("admin.workbench.media.delete.title", {
+          path: deletingMedia?.path,
+        })}
+        confirmLabel={t("admin.workbench.media.delete.confirm")}
+        confirmVariant="danger"
+        onConfirm={confirmDeleteMedia}
+        onClose={() => {
+          if (!removeMedia.isPending) closeDialog();
+        }}
+      >
+        <p>{t("admin.workbench.media.delete.body")}</p>
+        <AlertRegion>
+          {removeMedia.error !== null && staleDraft(removeMedia.error) === null
+            ? errorText(removeMedia.error)
+            : null}
+        </AlertRegion>
+      </ConfirmDialog>
       <RenameDialog
         key={`rename-${dialogKey}`}
         file={dialog?.kind === "rename" ? dialog.file : null}

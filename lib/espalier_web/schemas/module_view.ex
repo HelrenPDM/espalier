@@ -2,7 +2,7 @@ defmodule EspalierWeb.Schemas.ModuleView do
   @moduledoc "The answer of `GET /api/modules/{id}`."
   require OpenApiSpex
 
-  alias EspalierWeb.Schemas.{Fields, ItemView, ObjectiveView, PolicyText}
+  alias EspalierWeb.Schemas.{BlockMedia, Fields, ItemView, ObjectiveView, PolicyText}
 
   @source Fields.object(%{
             key: Fields.string(),
@@ -19,7 +19,9 @@ defmodule EspalierWeb.Schemas.ModuleView do
   @block Fields.object(%{
            id: Fields.uuid("The block id, which the player keeps for opened explanations."),
            kind:
-             Fields.enum(~w(text explanation example case_comparison quote callout placeholder)),
+             Fields.enum(
+               ~w(text explanation example case_comparison quote callout placeholder figure video)
+             ),
            body: Fields.string("Markdown."),
            provenance: Fields.provenance(),
            collapsed_on:
@@ -30,6 +32,7 @@ defmodule EspalierWeb.Schemas.ModuleView do
            placeholder_key:
              Fields.nullable_string("The policy that a placeholder block renders."),
            policy: PolicyText.policy(),
+           media: BlockMedia.member(),
            citations: Fields.array(@citation)
          })
 

@@ -136,11 +136,11 @@ defmodule Espalier.Catalog.DirectivesTest do
 
   describe "errors with their line numbers" do
     test "an unknown kind" do
-      assert [{3, "unknown block kind `video`"}] =
+      assert [{3, "unknown block kind `audio`"}] =
                errors([
                  ":::text{provenance=invented}",
                  ":::",
-                 ":::video{provenance=invented}",
+                 ":::audio{provenance=invented}",
                  "Text.",
                  ":::"
                ])
@@ -233,7 +233,7 @@ defmodule Espalier.Catalog.DirectivesTest do
       assert errors(
                [
                  "Stray.",
-                 ":::video{provenance=invented}",
+                 ":::audio{provenance=invented}",
                  "Text.",
                  ":::",
                  ":::text{provenance=invented colour=red}",
@@ -249,7 +249,7 @@ defmodule Espalier.Catalog.DirectivesTest do
                20
              ) == [
                {20, "text outside a block"},
-               {21, "unknown block kind `video`"},
+               {21, "unknown block kind `audio`"},
                {24, "unknown attribute `colour`"},
                {26, "missing attribute `provenance`"},
                {29, "a block cannot open inside the block opened at line 28"},
@@ -266,16 +266,217 @@ defmodule Espalier.Catalog.DirectivesTest do
     test "reports every error of a body, sorted by line" do
       assert [
                {1, "text outside a block"},
-               {2, "unknown block kind `video`"},
+               {2, "unknown block kind `audio`"},
                {5, "unclosed block `text`"}
              ] =
                errors([
                  "Stray.",
-                 ":::video{provenance=invented}",
+                 ":::audio{provenance=invented}",
                  "Text.",
                  ":::",
                  ":::text{provenance=invented}"
                ])
+    end
+  end
+
+  describe "figure and video blocks (task 0018, step 9)" do
+    test "collect their own attributes in media and the common ones as before" do
+      assert {:ok, [figure, video, text]} =
+               split([
+                 ~s(:::figure{src=media/diagram.svg alt="The four checks" size=medium provenance=invented}),
+                 "The caption.",
+                 ":::",
+                 ~s(:::video{src=media/clip.webm title="A short demo" poster=media/clip.webp ) <>
+                   ~s(captions="media/clip-en.vtt:en,media/clip-de.vtt:de" provenance=invented cite=a#1}),
+                 "The transcript.",
+                 ":::",
+                 ":::text{provenance=invented}",
+                 "Text.",
+                 ":::"
+               ])
+
+      assert figure.kind == "figure"
+      assert figure.provenance == "invented"
+      assert figure.body == "The caption."
+
+      assert figure.media == %{
+               "src" => "media/diagram.svg",
+               "alt" => "The four checks",
+               "size" => "medium"
+             }
+
+      assert video.cite == ["a#1"]
+
+      assert video.media == %{
+               "src" => "media/clip.webm",
+               "title" => "A short demo",
+               "poster" => "media/clip.webp",
+               "captions" => "media/clip-en.vtt:en,media/clip-de.vtt:de"
+             }
+
+      assert text.media == nil
+    end
+
+    test "keep only the attributes present, and decorative and embed as raw strings" do
+      assert {:ok, [figure, video]} =
+               split([
+                 ":::figure{src=media/line.svg decorative=true provenance=invented}",
+                 ":::",
+                 ~s(:::video{embed="https://player.example.org/v/1" title=Demo provenance=invented}),
+                 "Transcript.",
+                 ":::"
+               ])
+
+      assert figure.media == %{"src" => "media/line.svg", "decorative" => "true"}
+      assert figure.body == ""
+      assert video.media == %{"embed" => "https://player.example.org/v/1", "title" => "Demo"}
+    end
+
+    test "need provenance as every other kind" do
+      assert [{1, "missing attribute `provenance`"}, {3, "missing attribute `provenance`"}] =
+               errors([
+                 ":::figure{src=media/a.png alt=A}",
+                 ":::",
+                 ":::video{src=media/a.webm title=A}",
+                 ":::"
+               ])
+    end
+
+    test "every kind lists the attributes it admits" do
+      assert Directives.attributes("text") == ~w(provenance collapsed_on cite)
+      assert Directives.attributes("placeholder") == ~w(provenance collapsed_on cite key)
+
+      assert Directives.attributes("figure") ==
+               ~w(provenance collapsed_on cite src alt decorative size)
+
+      assert Directives.attributes("video") ==
+               ~w(provenance collapsed_on cite src embed title poster captions)
+
+      assert "figure" in Directives.kinds() and "video" in Directives.kinds()
+      assert length(Directives.kinds()) == 9
+    end
+
+    test "an attribute on a kind that does not admit it names the kinds that do" do
+      assert errors([
+               ":::text{provenance=invented src=media/a.png}",
+               "Text.",
+               ":::",
+               ":::video{provenance=invented src=media/a.webm title=A alt=B size=full}",
+               ":::",
+               ":::figure{provenance=invented src=media/a.png alt=A embed=x poster=y captions=z title=t}",
+               ":::",
+               ":::placeholder{key=k decorative=true}",
+               "Text.",
+               ":::",
+               ":::figure{provenance=invented src=media/a.png alt=A key=k}",
+               ":::"
+             ]) == [
+               {1, "attribute `src` is allowed on `figure` and `video` blocks only"},
+               {4, "attribute `alt` is allowed on `figure` blocks only"},
+               {4, "attribute `size` is allowed on `figure` blocks only"},
+               {6, "attribute `embed` is allowed on `video` blocks only"},
+               {6, "attribute `poster` is allowed on `video` blocks only"},
+               {6, "attribute `captions` is allowed on `video` blocks only"},
+               {6, "attribute `title` is allowed on `video` blocks only"},
+               {8, "attribute `decorative` is allowed on `figure` blocks only"},
+               {11, "attribute `key` is allowed on `placeholder` blocks only"}
+             ]
+    end
+
+    test "an unknown attribute stays unknown on the new kinds" do
+      assert [{1, "unknown attribute `width`"}] =
+               errors([":::figure{provenance=invented src=media/a.png alt=A width=3}", ":::"])
+    end
+  end
+
+  describe "rename_media/2" do
+    @mapping %{
+      "media/photo.jpg" => "media/photo.webp",
+      "media/clip.mp4" => "media/clip.webm",
+      "media/poster.png" => "media/poster.webp",
+      "media/en.vtt" => "media/captions/en.vtt"
+    }
+
+    test "rewrites src, poster and each captions path on opening lines, quoted or not" do
+      text =
+        Enum.join(
+          [
+            "---",
+            "title: Media",
+            "position: 1",
+            "---",
+            "",
+            ~s(:::figure{src=media/photo.jpg alt="media/photo.jpg shows a chart" provenance=invented}),
+            "A caption that names media/photo.jpg.",
+            ":::",
+            "",
+            ~s(:::video{src="media/clip.mp4"   title=Clip poster=media/poster.png ) <>
+              ~s(captions="media/en.vtt:en, media/de.vtt:de" provenance=invented}),
+            ":::",
+            ""
+          ],
+          "\n"
+        )
+
+      renamed = Directives.rename_media(text, @mapping)
+
+      assert String.split(renamed, "\n") ==
+               [
+                 "---",
+                 "title: Media",
+                 "position: 1",
+                 "---",
+                 "",
+                 ~s(:::figure{src=media/photo.webp alt="media/photo.jpg shows a chart" provenance=invented}),
+                 "A caption that names media/photo.jpg.",
+                 ":::",
+                 "",
+                 ~s(:::video{src="media/clip.webm"   title=Clip poster=media/poster.webp ) <>
+                   ~s(captions="media/captions/en.vtt:en, media/de.vtt:de" provenance=invented}),
+                 ":::",
+                 ""
+               ]
+    end
+
+    test "keeps Windows line endings and lines that only look like an opening line" do
+      text =
+        ":::figure{src=media/photo.jpg alt=A provenance=invented}\r\n" <>
+          "src=media/photo.jpg\r\n:::\r\n" <>
+          ":::text {src=media/photo.jpg}\r\n"
+
+      assert Directives.rename_media(text, @mapping) ==
+               ":::figure{src=media/photo.webp alt=A provenance=invented}\r\n" <>
+                 "src=media/photo.jpg\r\n:::\r\n" <>
+                 ":::text {src=media/photo.jpg}\r\n"
+    end
+
+    test "leaves an opening line with a malformed attribute list unchanged" do
+      line = ~s(:::figure{src=media/photo.jpg alt="unclosed provenance=invented})
+      assert Directives.rename_media(line, @mapping) == line
+    end
+
+    test "quotes a new value with a space, and leaves paths outside the mapping" do
+      text = ":::figure{src=media/photo.jpg alt=A provenance=invented}\n:::\n"
+
+      assert Directives.rename_media(text, %{"media/photo.jpg" => "media/my photo.webp"}) ==
+               ~s(:::figure{src="media/my photo.webp" alt=A provenance=invented}\n:::\n)
+
+      assert Directives.rename_media(text, %{"media/other.jpg" => "media/other.webp"}) == text
+      assert Directives.rename_media(text, %{}) == text
+    end
+
+    test "gives a renamed lesson the blocks of the new paths" do
+      body =
+        ":::video{src=media/clip.mp4 title=Clip captions=media/en.vtt:en provenance=invented}\n" <>
+          "Transcript.\n:::\n"
+
+      assert {:ok, [video]} = body |> Directives.rename_media(@mapping) |> Directives.split(1)
+
+      assert video.media == %{
+               "src" => "media/clip.webm",
+               "title" => "Clip",
+               "captions" => "media/captions/en.vtt:en"
+             }
     end
   end
 

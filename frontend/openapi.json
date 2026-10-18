@@ -650,7 +650,7 @@
             "type": "integer"
           },
           "path": {
-            "description": "A path of the pack layout: a top-level YAML file, `modules/<dir>/<name>.yaml` or `modules/<dir>/lessons/<key>.md`, with at most 255 bytes per component.",
+            "description": "A path of the pack layout: a top-level YAML file, `modules/<dir>/<name>.yaml`, `modules/<dir>/lessons/<key>.md` or a captions file `media/<dirs>/<key>.vtt`, with at most 255 bytes per component.",
             "maxLength": 527,
             "minLength": 1,
             "type": "string"
@@ -662,6 +662,35 @@
           "path"
         ],
         "title": "AdminPackDraftFileRequest",
+        "type": "object"
+      },
+      "AdminDraftMediaAttach": {
+        "additionalProperties": false,
+        "description": "A library asset for a draft.",
+        "properties": {
+          "lock_version": {
+            "description": "The `lock_version` of the draft that the change starts from.",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "media_asset_id": {
+            "description": "An asset of the media library. An image, SVG or video asset may still be converting; a captions asset must be `ready`.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "path": {
+            "description": "`media/` followed by at most three directories and `<key>.<ext>`, where the extension is the delivery extension of the asset (`webp`, `svg`, `webm`), or `vtt` for a captions asset, which becomes a text file.",
+            "maxLength": 527,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "lock_version",
+          "media_asset_id",
+          "path"
+        ],
+        "title": "AdminDraftMediaAttach",
         "type": "object"
       },
       "AdminPolicyVersionList": {
@@ -1176,6 +1205,35 @@
             ],
             "type": "object"
           },
+          "media": {
+            "additionalProperties": false,
+            "properties": {
+              "added": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "archived": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "changed": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "added",
+              "archived",
+              "changed"
+            ],
+            "type": "object"
+          },
           "modules": {
             "additionalProperties": false,
             "properties": {
@@ -1329,6 +1387,7 @@
           "items",
           "learning_objectives",
           "lessons",
+          "media",
           "modules",
           "qualifications",
           "rules",
@@ -1504,6 +1563,27 @@
         "title": "CredentialView",
         "type": "object"
       },
+      "AdminMediaInUse": {
+        "additionalProperties": false,
+        "description": "The asset is in use.",
+        "properties": {
+          "error": {
+            "enum": [
+              "asset_in_use"
+            ],
+            "type": "string"
+          },
+          "uses": {
+            "$ref": "#/components/schemas/AdminMediaUses"
+          }
+        },
+        "required": [
+          "error",
+          "uses"
+        ],
+        "title": "AdminMediaInUse",
+        "type": "object"
+      },
       "AdminArchiveRejected": {
         "additionalProperties": false,
         "description": "The upload was rejected.",
@@ -1571,6 +1651,43 @@
           "credential"
         ],
         "title": "PasskeyRegistrationRequest",
+        "type": "object"
+      },
+      "AdminDraftMediaRename": {
+        "additionalProperties": false,
+        "description": "The new path of a media entry.",
+        "properties": {
+          "lock_version": {
+            "description": "The `lock_version` of the draft that the change starts from.",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "path": {
+            "description": "`media/` followed by at most three directories and `<key>.<ext>`, where the extension is the delivery extension of the asset (`webp`, `svg`, `webm`), or `vtt` for a captions asset, which becomes a text file.",
+            "maxLength": 527,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "lock_version",
+          "path"
+        ],
+        "title": "AdminDraftMediaRename",
+        "type": "object"
+      },
+      "AdminMediaUpload": {
+        "additionalProperties": false,
+        "properties": {
+          "file": {
+            "format": "binary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "AdminMediaUpload",
         "type": "object"
       },
       "AdminPackDraftCheckRequest": {
@@ -1909,6 +2026,69 @@
         "title": "SelfAssessmentResult",
         "type": "object"
       },
+      "AdminMediaNotReady": {
+        "additionalProperties": false,
+        "description": "A media file is not ready: at the publish of an import, at the start of a draft from a program or an import, or at the download of a draft. `failure` names the code of a `failed` asset.",
+        "properties": {
+          "error": {
+            "enum": [
+              "media_not_ready"
+            ],
+            "type": "string"
+          },
+          "media": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "failure": {
+                  "enum": [
+                    "too_many_pixels",
+                    "too_many_frames",
+                    "too_long",
+                    "no_video_stream",
+                    "unsupported_animation",
+                    "invalid_svg",
+                    "invalid_captions",
+                    "malware_found",
+                    "scan_failed",
+                    "storage_full",
+                    "conversion_failed",
+                    "timeout",
+                    "interrupted"
+                  ],
+                  "nullable": true,
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "status": {
+                  "enum": [
+                    "missing",
+                    "queued",
+                    "processing",
+                    "failed"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "failure",
+                "path",
+                "status"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "error",
+          "media"
+        ],
+        "title": "AdminMediaNotReady",
+        "type": "object"
+      },
       "AdminAuditEventList": {
         "additionalProperties": false,
         "description": "One page of audit events, newest first.",
@@ -2183,7 +2363,7 @@
             "type": "integer"
           },
           "path": {
-            "description": "A path of the pack layout: a top-level YAML file, `modules/<dir>/<name>.yaml` or `modules/<dir>/lessons/<key>.md`, with at most 255 bytes per component.",
+            "description": "A path of the pack layout: a top-level YAML file, `modules/<dir>/<name>.yaml`, `modules/<dir>/lessons/<key>.md` or a captions file `media/<dirs>/<key>.vtt`, with at most 255 bytes per component.",
             "maxLength": 527,
             "minLength": 1,
             "type": "string"
@@ -2883,9 +3063,20 @@
                           "case_comparison",
                           "quote",
                           "callout",
-                          "placeholder"
+                          "placeholder",
+                          "figure",
+                          "video"
                         ],
                         "type": "string"
+                      },
+                      "media": {
+                        "allOf": [
+                          {
+                            "$ref": "#/components/schemas/BlockMedia"
+                          }
+                        ],
+                        "description": "The media of a figure or a video block; `null` for the other kinds.",
+                        "nullable": true
                       },
                       "placeholder_key": {
                         "description": "The policy that a placeholder block renders.",
@@ -2939,6 +3130,7 @@
                       "collapsed_on",
                       "id",
                       "kind",
+                      "media",
                       "placeholder_key",
                       "policy",
                       "provenance"
@@ -3160,6 +3352,47 @@
             "format": "date-time",
             "type": "string"
           },
+          "media": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/AdminPackMedia"
+            },
+            "description": "The media of the payload keyed by their `media/` path; `{}` without a payload.",
+            "type": "object"
+          },
+          "media_policy": {
+            "additionalProperties": false,
+            "description": "The media settings of the installation, which the preview applies.",
+            "properties": {
+              "embed_consent": {
+                "description": "`MEDIA_EMBED_CONSENT`.",
+                "enum": [
+                  "click",
+                  "auto"
+                ],
+                "type": "string"
+              },
+              "embed_hosts": {
+                "description": "`MEDIA_EMBED_HOSTS` as `host` or `host:port`.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "external_hosts": {
+                "description": "`MEDIA_EXTERNAL_HOSTS` as `host` or `host:port`.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "embed_consent",
+              "embed_hosts",
+              "external_hosts"
+            ],
+            "type": "object"
+          },
           "pack_key": {
             "nullable": true,
             "type": "string"
@@ -3214,6 +3447,8 @@
           "alignment",
           "id",
           "inserted_at",
+          "media",
+          "media_policy",
           "pack_key",
           "pack_version",
           "payload",
@@ -3264,6 +3499,14 @@
               "local_accounts": {
                 "type": "boolean"
               },
+              "media_embed_consent": {
+                "description": "Mirrors `MEDIA_EMBED_CONSENT`: `click` loads the player of a streaming service after the learner agrees, `auto` with the page.",
+                "enum": [
+                  "click",
+                  "auto"
+                ],
+                "type": "string"
+              },
               "signup": {
                 "enum": [
                   "closed",
@@ -3282,6 +3525,7 @@
               "demo",
               "feedback_free_text",
               "local_accounts",
+              "media_embed_consent",
               "signup",
               "test_notes"
             ],
@@ -3466,6 +3710,23 @@
           "user"
         ],
         "title": "SessionPayload",
+        "type": "object"
+      },
+      "AdminMediaUpdate": {
+        "additionalProperties": false,
+        "description": "The new title of an asset.",
+        "properties": {
+          "title": {
+            "description": "1 to 255 characters without U+0000.",
+            "maxLength": 255,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "AdminMediaUpdate",
         "type": "object"
       },
       "FeedbackRequest": {
@@ -3778,7 +4039,8 @@
               "too_many_files",
               "draft_too_large",
               "draft_limit",
-              "no_payload"
+              "no_payload",
+              "media_limit"
             ],
             "type": "string"
           },
@@ -3844,6 +4106,14 @@
               "local_accounts": {
                 "type": "boolean"
               },
+              "media_embed_consent": {
+                "description": "Mirrors `MEDIA_EMBED_CONSENT`: `click` loads the player of a streaming service after the learner agrees, `auto` with the page.",
+                "enum": [
+                  "click",
+                  "auto"
+                ],
+                "type": "string"
+              },
               "signup": {
                 "enum": [
                   "closed",
@@ -3862,6 +4132,7 @@
               "demo",
               "feedback_free_text",
               "local_accounts",
+              "media_embed_consent",
               "signup",
               "test_notes"
             ],
@@ -4087,6 +4358,91 @@
         "title": "FormatVoteRequest",
         "type": "object"
       },
+      "AdminMediaUses": {
+        "additionalProperties": false,
+        "description": "Where a media asset is used.",
+        "properties": {
+          "drafts": {
+            "description": "The drafts of the pack workbench that hold the asset, with its path there.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "path",
+                "title"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "imports": {
+            "description": "The validated imports whose payload names the asset.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "inserted_at": {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                "pack_key": {
+                  "nullable": true,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "inserted_at",
+                "pack_key"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "programs": {
+            "description": "The published programs that show the asset.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "slug": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "slug",
+                "title"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "drafts",
+          "imports",
+          "programs"
+        ],
+        "title": "AdminMediaUses",
+        "type": "object"
+      },
       "AdminPackDraftRequest": {
         "additionalProperties": false,
         "description": "The starting point of a new draft.",
@@ -4149,6 +4505,14 @@
               "local_accounts": {
                 "type": "boolean"
               },
+              "media_embed_consent": {
+                "description": "Mirrors `MEDIA_EMBED_CONSENT`: `click` loads the player of a streaming service after the learner agrees, `auto` with the page.",
+                "enum": [
+                  "click",
+                  "auto"
+                ],
+                "type": "string"
+              },
               "signup": {
                 "enum": [
                   "closed",
@@ -4167,6 +4531,7 @@
               "demo",
               "feedback_free_text",
               "local_accounts",
+              "media_embed_consent",
               "signup",
               "test_notes"
             ],
@@ -5048,6 +5413,190 @@
         "title": "AdminWebhook",
         "type": "object"
       },
+      "AdminMediaAsset": {
+        "additionalProperties": false,
+        "description": "A file of the media library.",
+        "properties": {
+          "animated": {
+            "type": "boolean"
+          },
+          "bytes": {
+            "description": "The delivery file.",
+            "nullable": true,
+            "type": "integer"
+          },
+          "duration_ms": {
+            "description": "The length of a video, or the end of the last cue of captions.",
+            "nullable": true,
+            "type": "integer"
+          },
+          "ext": {
+            "description": "The extension of the delivery file.",
+            "enum": [
+              "webp",
+              "svg",
+              "webm",
+              "vtt"
+            ],
+            "nullable": true,
+            "type": "string"
+          },
+          "failure": {
+            "description": "The failure code of a `failed` asset.",
+            "enum": [
+              "too_many_pixels",
+              "too_many_frames",
+              "too_long",
+              "no_video_stream",
+              "unsupported_animation",
+              "invalid_svg",
+              "invalid_captions",
+              "malware_found",
+              "scan_failed",
+              "storage_full",
+              "conversion_failed",
+              "timeout",
+              "interrupted"
+            ],
+            "nullable": true,
+            "type": "string"
+          },
+          "failure_detail": {
+            "description": "The reason tag of `unsupported_animation`, `invalid_svg`, `invalid_captions` and `scan_failed`.",
+            "enum": [
+              "structure",
+              "first_frame",
+              "too_many_frames",
+              "too_large",
+              "encoding",
+              "doctype",
+              "entity",
+              "processing_instruction",
+              "parse_error",
+              "root",
+              "embedded_image",
+              "css",
+              "animation",
+              "nul",
+              "header",
+              "too_many_cues",
+              "timing",
+              "style",
+              "limits_exceeded",
+              "size_limit",
+              "timeout",
+              "closed",
+              "connect",
+              "reply"
+            ],
+            "nullable": true,
+            "type": "string"
+          },
+          "has_alpha": {
+            "type": "boolean"
+          },
+          "has_audio": {
+            "type": "boolean"
+          },
+          "height": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "inserted_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "image",
+              "svg",
+              "video",
+              "captions"
+            ],
+            "type": "string"
+          },
+          "origin": {
+            "enum": [
+              "upload",
+              "pack"
+            ],
+            "type": "string"
+          },
+          "poster_url": {
+            "description": "The poster of a video or the first frame of an animation.",
+            "nullable": true,
+            "type": "string"
+          },
+          "progress": {
+            "description": "The progress of a video conversion in percent.",
+            "maximum": 100,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "source_name": {
+            "description": "The name of the uploaded or imported file, for the author.",
+            "nullable": true,
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "processing",
+              "ready",
+              "failed"
+            ],
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "url": {
+            "description": "`/media/<sha256>.<ext>` of a `ready` asset.",
+            "nullable": true,
+            "type": "string"
+          },
+          "uses": {
+            "$ref": "#/components/schemas/AdminMediaUses"
+          },
+          "width": {
+            "nullable": true,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "animated",
+          "bytes",
+          "duration_ms",
+          "ext",
+          "failure",
+          "failure_detail",
+          "has_alpha",
+          "has_audio",
+          "height",
+          "id",
+          "inserted_at",
+          "kind",
+          "origin",
+          "poster_url",
+          "progress",
+          "source_name",
+          "status",
+          "title",
+          "updated_at",
+          "url",
+          "width"
+        ],
+        "title": "AdminMediaAsset",
+        "type": "object"
+      },
       "EnrollmentPathRequest": {
         "additionalProperties": false,
         "description": "Sets the path by the learner's choice.",
@@ -5327,6 +5876,138 @@
         "title": "FormatReport",
         "type": "object"
       },
+      "AdminPackMedia": {
+        "additionalProperties": false,
+        "description": "A media file of an import.",
+        "properties": {
+          "animated": {
+            "type": "boolean"
+          },
+          "duration_ms": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "failure": {
+            "enum": [
+              "too_many_pixels",
+              "too_many_frames",
+              "too_long",
+              "no_video_stream",
+              "unsupported_animation",
+              "invalid_svg",
+              "invalid_captions",
+              "malware_found",
+              "scan_failed",
+              "storage_full",
+              "conversion_failed",
+              "timeout",
+              "interrupted"
+            ],
+            "nullable": true,
+            "type": "string"
+          },
+          "failure_detail": {
+            "enum": [
+              "structure",
+              "first_frame",
+              "too_many_frames",
+              "too_large",
+              "encoding",
+              "doctype",
+              "entity",
+              "processing_instruction",
+              "parse_error",
+              "root",
+              "embedded_image",
+              "css",
+              "animation",
+              "nul",
+              "header",
+              "too_many_cues",
+              "timing",
+              "style",
+              "limits_exceeded",
+              "size_limit",
+              "timeout",
+              "closed",
+              "connect",
+              "reply"
+            ],
+            "nullable": true,
+            "type": "string"
+          },
+          "has_alpha": {
+            "type": "boolean"
+          },
+          "has_audio": {
+            "type": "boolean"
+          },
+          "height": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "image",
+              "svg",
+              "video",
+              "captions"
+            ],
+            "type": "string"
+          },
+          "mime": {
+            "nullable": true,
+            "type": "string"
+          },
+          "poster_url": {
+            "nullable": true,
+            "type": "string"
+          },
+          "progress": {
+            "description": "The progress of a video conversion in percent.",
+            "maximum": 100,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "missing",
+              "queued",
+              "processing",
+              "ready",
+              "failed"
+            ],
+            "type": "string"
+          },
+          "url": {
+            "description": "`/media/<sha256>.<ext>` while `ready`.",
+            "nullable": true,
+            "type": "string"
+          },
+          "width": {
+            "nullable": true,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "animated",
+          "duration_ms",
+          "failure",
+          "failure_detail",
+          "has_alpha",
+          "has_audio",
+          "height",
+          "kind",
+          "mime",
+          "poster_url",
+          "progress",
+          "status",
+          "url",
+          "width"
+        ],
+        "title": "AdminPackMedia",
+        "type": "object"
+      },
       "ReauthSession": {
         "additionalProperties": false,
         "description": "The reissued session after a re-authentication.",
@@ -5352,6 +6033,14 @@
               "local_accounts": {
                 "type": "boolean"
               },
+              "media_embed_consent": {
+                "description": "Mirrors `MEDIA_EMBED_CONSENT`: `click` loads the player of a streaming service after the learner agrees, `auto` with the page.",
+                "enum": [
+                  "click",
+                  "auto"
+                ],
+                "type": "string"
+              },
               "signup": {
                 "enum": [
                   "closed",
@@ -5370,6 +6059,7 @@
               "demo",
               "feedback_free_text",
               "local_accounts",
+              "media_embed_consent",
               "signup",
               "test_notes"
             ],
@@ -5684,6 +6374,31 @@
             "minimum": 1,
             "type": "integer"
           },
+          "media": {
+            "description": "The media entries ordered by path, each with its library asset.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "asset": {
+                  "$ref": "#/components/schemas/AdminMediaAsset"
+                },
+                "id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "asset",
+                "id",
+                "path"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
           "pack_key": {
             "description": "The key of `pack.yaml`, when it is usable.",
             "nullable": true,
@@ -5908,6 +6623,209 @@
           "providers"
         ],
         "title": "ProviderList",
+        "type": "object"
+      },
+      "BlockMedia": {
+        "additionalProperties": false,
+        "description": "The media of a figure or a video block.",
+        "properties": {
+          "alt": {
+            "description": "The alternative text of a figure; `null` when decorative.",
+            "nullable": true,
+            "type": "string"
+          },
+          "available": {
+            "description": "False when a host has left its allowlist since the publish or a file is missing.",
+            "type": "boolean"
+          },
+          "captions": {
+            "description": "The captions of a video file; the first is the default track.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "lang": {
+                  "description": "A BCP 47 tag.",
+                  "type": "string"
+                },
+                "url": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "lang",
+                "url"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "decorative": {
+            "description": "True for a figure without alternative text.",
+            "type": "boolean"
+          },
+          "embed": {
+            "additionalProperties": false,
+            "description": "The player of a streaming service, loaded in an iframe.",
+            "nullable": true,
+            "properties": {
+              "host": {
+                "description": "The host of the player, which the consent notice names.",
+                "type": "string"
+              },
+              "url": {
+                "description": "The `https:` URL of the player.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "host",
+              "url"
+            ],
+            "type": "object"
+          },
+          "image": {
+            "additionalProperties": false,
+            "description": "The image of a figure.",
+            "nullable": true,
+            "properties": {
+              "animated": {
+                "description": "True for an animated WebP; `poster` holds its first frame.",
+                "type": "boolean"
+              },
+              "has_alpha": {
+                "description": "True when the image has transparent pixels.",
+                "type": "boolean"
+              },
+              "height": {
+                "description": "`null` for an SVG without a fixed size.",
+                "nullable": true,
+                "type": "integer"
+              },
+              "mime": {
+                "enum": [
+                  "image/webp",
+                  "image/svg+xml"
+                ],
+                "type": "string"
+              },
+              "url": {
+                "description": "`/media/<sha256>.<ext>`.",
+                "type": "string"
+              },
+              "width": {
+                "description": "`null` for an SVG without a fixed size.",
+                "nullable": true,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "animated",
+              "has_alpha",
+              "height",
+              "mime",
+              "url",
+              "width"
+            ],
+            "type": "object"
+          },
+          "poster": {
+            "additionalProperties": false,
+            "description": "The poster of a video, the first frame of an animated image, or the image of the `poster` attribute, which gives the first frame of an animated image.",
+            "nullable": true,
+            "properties": {
+              "height": {
+                "type": "integer"
+              },
+              "url": {
+                "type": "string"
+              },
+              "width": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "height",
+              "url",
+              "width"
+            ],
+            "type": "object"
+          },
+          "size": {
+            "enum": [
+              "small",
+              "medium",
+              "full"
+            ],
+            "nullable": true,
+            "type": "string"
+          },
+          "title": {
+            "description": "The title of a video.",
+            "nullable": true,
+            "type": "string"
+          },
+          "video": {
+            "additionalProperties": false,
+            "description": "The video file of a video block; `null` for an embed.",
+            "nullable": true,
+            "properties": {
+              "duration_ms": {
+                "nullable": true,
+                "type": "integer"
+              },
+              "external": {
+                "description": "True for a file on an allowlisted CDN host.",
+                "type": "boolean"
+              },
+              "has_audio": {
+                "nullable": true,
+                "type": "boolean"
+              },
+              "height": {
+                "nullable": true,
+                "type": "integer"
+              },
+              "mime": {
+                "enum": [
+                  "video/webm",
+                  "video/mp4"
+                ],
+                "type": "string"
+              },
+              "url": {
+                "description": "`/media/<sha256>.webm`, or the `https:` URL of an external file.",
+                "type": "string"
+              },
+              "width": {
+                "nullable": true,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "duration_ms",
+              "external",
+              "has_audio",
+              "height",
+              "mime",
+              "url",
+              "width"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "alt",
+          "available",
+          "captions",
+          "decorative",
+          "embed",
+          "image",
+          "poster",
+          "size",
+          "title",
+          "video"
+        ],
+        "title": "BlockMedia",
         "type": "object"
       },
       "RegistrarCredentialList": {
@@ -6617,6 +7535,29 @@
           }
         ],
         "title": "FinishResult"
+      },
+      "AdminMediaAssetList": {
+        "additionalProperties": false,
+        "description": "A page of the media library.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AdminMediaAsset"
+            },
+            "type": "array"
+          },
+          "next": {
+            "description": "The cursor of the next page, for the query `after`.",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "next"
+        ],
+        "title": "AdminMediaAssetList",
+        "type": "object"
       },
       "TotpConfirmResult": {
         "additionalProperties": false,
@@ -8098,7 +9039,7 @@
     "/api/admin/pack-draft-uploads": {
       "post": {
         "callbacks": {},
-        "description": "A zip archive of at most `PACK_UPLOAD_MAX_MB` (default 20) with at most 2,000 entries and declared sizes of at most five times that limit, with the pack at its root or in its one top-level directory. The draft keeps the files of the pack layout (`pack.yaml`, `sources.yaml`, `glossary.yaml`, `segments.yaml`, `stations.yaml`, `feedback.yaml`, `qualifications.yaml`, `formats.yaml`, `modules/<dir>/{module,objectives,rules,items,assessment}.yaml` and `modules/<dir>/lessons/<key>.md`) and lists every other file in `skipped`. Each kept file is UTF-8 text without U+0000 of at most 1,048,576 bytes. A draft holds at most 2,000 files of at most 1,048,576 bytes each and at most five times `PACK_UPLOAD_MAX_MB` (default 20) in total; at most 50 drafts exist.",
+        "description": "A zip archive of at most `PACK_UPLOAD_MAX_MB` (default 20) with at most 2,000 entries and declared sizes of at most five times that limit, with the pack at its root or in its one top-level directory. The draft keeps the files of the pack layout (`pack.yaml`, `sources.yaml`, `glossary.yaml`, `segments.yaml`, `stations.yaml`, `feedback.yaml`, `qualifications.yaml`, `formats.yaml`, `modules/<dir>/{module,objectives,rules,items,assessment}.yaml` and `modules/<dir>/lessons/<key>.md`) and the captions files `.vtt` below `media/` as text files; each kept file is UTF-8 text without U+0000 of at most 1,048,576 bytes. Every other file below `media/` whose path passes the media path rules, at most 500 (`max_draft_media`), becomes an asset of the media library and a media entry of the draft at its delivery path (`.webp`, `.svg` or `.webm`), and the directives of the lessons follow the new paths. A media file that the library refuses and two media files with one delivery path reject the archive with 422 entries at their paths. These media files never appear in `skipped`, which lists every other file of the archive. A draft holds at most 2,000 files of at most 1,048,576 bytes each and at most five times `PACK_UPLOAD_MAX_MB` (default 20) in total; at most 50 drafts exist.",
         "operationId": "EspalierWeb.Admin.PackDraftController.upload",
         "parameters": [],
         "requestBody": {
@@ -8162,7 +9103,7 @@
                 }
               }
             },
-            "description": "Error codes: `draft_limit`, `too_many_files`, `draft_too_large`"
+            "description": "Error codes: `draft_limit`, `too_many_files`, `draft_too_large`, and `media_limit` for more than 500 media files below `media/` other than captions (`max_draft_media`)"
           },
           "413": {
             "content": {
@@ -9714,6 +10655,256 @@
         ]
       }
     },
+    "/api/admin/media": {
+      "get": {
+        "callbacks": {},
+        "description": "Newest first, with an opaque cursor in `next`.",
+        "operationId": "EspalierWeb.Admin.MediaController.index",
+        "parameters": [
+          {
+            "description": "",
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "enum": [
+                "image",
+                "svg",
+                "video",
+                "captions"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "enum": [
+                "queued",
+                "processing",
+                "ready",
+                "failed"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only assets that no program, draft or validated import uses.",
+            "in": "query",
+            "name": "unused",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "A case-insensitive part of the title.",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "maxLength": 255,
+              "type": "string"
+            }
+          },
+          {
+            "description": "At most 100, default 50.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The `next` cursor of the previous page.",
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "maxLength": 200,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminMediaAssetList"
+                }
+              }
+            },
+            "description": "The page"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `cross_site_request`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "List the media library",
+        "tags": [
+          "Admin: media"
+        ]
+      },
+      "post": {
+        "callbacks": {},
+        "description": "Accepted files, detected from their leading bytes, with the extension of the detected kind: images `.png` (`89 50 4E 47 0D 0A 1A 0A`), `.jpg` and `.jpeg` (`FF D8 FF`), `.gif` (`GIF87a`, `GIF89a`) and `.webp` (`RIFF`, four bytes, `WEBP`) of at most `MEDIA_IMAGE_MAX_MB` (default 20) and 40,000,000 pixels; SVG `.svg` (`<?xml`, `<svg` or `<!--` after an optional BOM) of at most 1,048,576 bytes; videos `.mp4`, `.m4v` and `.mov` (`ftyp` at offset 4, no HEIF brand) and `.webm` and `.mkv` (`1A 45 DF A3`) of at most `MEDIA_VIDEO_MAX_MB` (default 1024), `MEDIA_VIDEO_MAX_MINUTES` (default 60) and 3840 by 2160 pixels; captions `.vtt` (`WEBVTT`) of at most 524,288 bytes. Images become WebP with at most `MEDIA_IMAGE_MAX_EDGE` pixels per edge (animated images at most 1,000 frames), videos WebM with VP9 and Opus at most `MEDIA_VIDEO_MAX_HEIGHT` high, SVG files are rebuilt from an allowlist, and captions are checked. The media store holds at most `MEDIA_STORAGE_MAX_GB` (default 50).",
+        "operationId": "EspalierWeb.Admin.MediaController.create",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "file": {
+                    "format": "binary",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "file"
+                ],
+                "title": "AdminMediaUpload",
+                "type": "object"
+              }
+            }
+          },
+          "description": "The file",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminMediaAsset"
+                }
+              }
+            },
+            "description": "The existing asset of the same file"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminMediaAsset"
+                }
+              }
+            },
+            "description": "The new asset"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `storage_full`"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `request_too_large`"
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unsupported_media_type`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Upload a media file",
+        "tags": [
+          "Admin: media"
+        ]
+      }
+    },
     "/api/admin/exports/{id}/download": {
       "get": {
         "callbacks": {},
@@ -10751,7 +11942,7 @@
     "/api/admin/pack-drafts/{id}/download": {
       "get": {
         "callbacks": {},
-        "description": "Sends the files in the pack layout at the root of a zip archive named `<pack key>-draft.zip`, or `pack-draft.zip` without a usable pack key. The archive is built in memory, so a download takes one of the two slots of the checks and imports.",
+        "description": "Sends the files and the media files in the pack layout at the root of a zip archive named `<pack key>-draft.zip`, or `pack-draft.zip` without a usable pack key. The media of a draft stay within `export_max_mb` (1,024 MB; 409 `download_too_large`), and a media file that is not ready answers 409 `media_not_ready`. At most two downloads run at once, one per user; a download builds the archive in one of the two slots of the checks and imports and frees it before the transfer. When the user runs a download already or no slot is free, the download answers 429 `checks_busy` and builds nothing. The transfer ends at its deadline, the size of the archive at 256 KiB per second and at least 60 seconds, or when the client reads nothing for 30 seconds; the client then holds fewer bytes than `content-length`.",
         "operationId": "EspalierWeb.Admin.PackDraftController.download",
         "parameters": [
           {
@@ -10806,6 +11997,16 @@
               }
             },
             "description": "Error codes: `not_found`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `download_too_large`, `media_not_ready`"
           },
           "422": {
             "content": {
@@ -11680,7 +12881,7 @@
     "/api/admin/packs": {
       "post": {
         "callbacks": {},
-        "description": "A zip archive of at most `PACK_UPLOAD_MAX_MB` (default 20) with at most 2,000 entries and declared sizes of at most five times that limit.",
+        "description": "A zip archive of at most `PACK_UPLOAD_MAX_MB` (default 20) with at most 2,000 entries and declared sizes of at most five times that limit. The folder `media/` holds at most 500 files (`max_pack_media`), whether a lesson references them or not, and each of them must pass the media path rules and the size limit of its kind: images `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, SVG `.svg`, videos `.mp4`, `.m4v`, `.mov`, `.webm`, `.mkv` and captions `.vtt`. Only the files that a lesson references become assets of the media library. The archive stays within `PACK_UPLOAD_MAX_MB`, so larger videos come through the media library or an external URL.",
         "operationId": "EspalierWeb.Admin.PackController.create",
         "parameters": [],
         "requestBody": {
@@ -12360,7 +13561,7 @@
     "/api/admin/pack-drafts/{id}/imports": {
       "post": {
         "callbacks": {},
-        "description": "Validates the files of the draft as an upload of the same files would and stores the import; the pack page continues with report, diff, preview and publish. The draft stays. At most two checks and imports run at once.",
+        "description": "Validates the files of the draft as an upload of the same files would and stores the import; the pack page continues with report, diff, preview and publish. The draft stays. At most two checks, imports and zip builds of draft downloads run at once.",
         "operationId": "EspalierWeb.Admin.PackDraftController.create_import",
         "parameters": [
           {
@@ -12474,6 +13675,108 @@
           }
         ],
         "summary": "Import a draft",
+        "tags": [
+          "Admin: pack workbench"
+        ]
+      }
+    },
+    "/api/admin/pack-drafts/{id}/media": {
+      "post": {
+        "callbacks": {},
+        "description": "A media entry names a `media/` path with at most three directories and the delivery extension of its asset (`webp`, `svg`, `webm`). A draft holds at most 500 media entries and at most 2,000 files and media entries together. A captions asset becomes a text file at a `.vtt` path within the limits of the files of a draft.",
+        "operationId": "EspalierWeb.Admin.PackDraftMediaController.create",
+        "parameters": [
+          {
+            "description": "The draft id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminDraftMediaAttach"
+              }
+            }
+          },
+          "description": "The asset and its path",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPackDraft"
+                }
+              }
+            },
+            "description": "The draft"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminStaleDraft"
+                }
+              }
+            },
+            "description": "Error codes: `stale_draft` (with `lock_version`), `path_taken`, `too_many_files`, `media_limit`, `draft_too_large`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Add a library asset to a draft",
         "tags": [
           "Admin: pack workbench"
         ]
@@ -13811,11 +15114,18 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AdminAlignmentErrors"
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/AdminAlignmentErrors"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AdminMediaNotReady"
+                    }
+                  ]
                 }
               }
             },
-            "description": "Error codes: `not_publishable`, `alignment_errors`"
+            "description": "Error codes: `not_publishable`, `alignment_errors`, `media_not_ready`"
           },
           "422": {
             "content": {
@@ -14316,11 +15626,18 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AdminStaleDraft"
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/AdminStaleDraft"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AdminMediaNotReady"
+                    }
+                  ]
                 }
               }
             },
-            "description": "Error codes: `draft_limit`, `no_payload`, `too_many_files`, `draft_too_large`"
+            "description": "Error codes: `draft_limit`, `no_payload`, `too_many_files`, `draft_too_large`, `media_limit`, and `media_not_ready` with the captions files that are not ready yet"
           },
           "422": {
             "content": {
@@ -14345,10 +15662,481 @@
         ]
       }
     },
+    "/api/admin/media/{id}": {
+      "delete": {
+        "callbacks": {},
+        "description": "Refused with 409 `asset_in_use` while a published program or a draft uses it.",
+        "operationId": "EspalierWeb.Admin.MediaController.delete",
+        "parameters": [
+          {
+            "description": "The asset id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The asset is deleted"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminMediaInUse"
+                }
+              }
+            },
+            "description": "Error code: `asset_in_use`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Delete an asset",
+        "tags": [
+          "Admin: media"
+        ]
+      },
+      "get": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Admin.MediaController.show",
+        "parameters": [
+          {
+            "description": "The asset id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminMediaAsset"
+                }
+              }
+            },
+            "description": "The asset"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "session_cookie": []
+          }
+        ],
+        "summary": "Read an asset with its uses",
+        "tags": [
+          "Admin: media"
+        ]
+      },
+      "patch": {
+        "callbacks": {},
+        "operationId": "EspalierWeb.Admin.MediaController.update",
+        "parameters": [
+          {
+            "description": "The asset id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminMediaUpdate"
+              }
+            }
+          },
+          "description": "The title",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminMediaAsset"
+                }
+              }
+            },
+            "description": "The asset"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Change the title of an asset",
+        "tags": [
+          "Admin: media"
+        ]
+      }
+    },
+    "/api/admin/pack-drafts/{id}/media/{media_id}": {
+      "delete": {
+        "callbacks": {},
+        "description": "The asset stays in the media library.",
+        "operationId": "EspalierWeb.Admin.PackDraftMediaController.delete",
+        "parameters": [
+          {
+            "description": "The draft id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The id of the media entry.",
+            "in": "path",
+            "name": "media_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The `lock_version` of the draft that the change starts from.",
+            "in": "query",
+            "name": "lock_version",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPackDraft"
+                }
+              }
+            },
+            "description": "The draft"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminStaleDraft"
+                }
+              }
+            },
+            "description": "Error code: `stale_draft`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Remove a media entry from a draft",
+        "tags": [
+          "Admin: pack workbench"
+        ]
+      },
+      "patch": {
+        "callbacks": {},
+        "description": "A media entry names a `media/` path with at most three directories and the delivery extension of its asset (`webp`, `svg`, `webm`). A draft holds at most 500 media entries and at most 2,000 files and media entries together. A captions asset becomes a text file at a `.vtt` path within the limits of the files of a draft.",
+        "operationId": "EspalierWeb.Admin.PackDraftMediaController.rename",
+        "parameters": [
+          {
+            "description": "The draft id.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The id of the media entry.",
+            "in": "path",
+            "name": "media_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminDraftMediaRename"
+              }
+            }
+          },
+          "description": "The new path",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPackDraft"
+                }
+              }
+            },
+            "description": "The draft"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `unauthenticated`"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `forbidden`, `enrollment_required`, `reauth_required`, `csrf`, `cross_site_request`"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `not_found`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminStaleDraft"
+                }
+              }
+            },
+            "description": "Error codes: `stale_draft` (with `lock_version`), `path_taken`, `too_many_files`, `media_limit`, `draft_too_large`"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error codes: `validation_failed`"
+          }
+        },
+        "security": [
+          {
+            "csrf_header": [],
+            "session_cookie": []
+          }
+        ],
+        "summary": "Move a media entry to another path",
+        "tags": [
+          "Admin: pack workbench"
+        ]
+      }
+    },
     "/api/session": {
       "delete": {
         "callbacks": {},
-        "description": "Answers 200 with `logout_url` for an OIDC session whose provider has an end-session endpoint on its allowed hosts, and 204 otherwise.",
+        "description": "Answers 200 with `logout_url` for an OIDC session whose provider has an end-session endpoint on its allowed hosts, and 204 otherwise. Both answers carry `Clear-Site-Data: \"cache\"`, so the browser drops the media files that it cached during the session.",
         "operationId": "EspalierWeb.SessionController.delete",
         "parameters": [],
         "responses": {
@@ -16552,7 +18340,7 @@
     "/api/admin/pack-drafts/{id}/check": {
       "post": {
         "callbacks": {},
-        "description": "Runs the loader and the validator of the pack format on the files of the draft, with the unsaved `content` of the file `file_id` when both are given, and changes no state. At most two checks and imports run at once.",
+        "description": "Runs the loader and the validator of the pack format on the files of the draft, with the unsaved `content` of the file `file_id` when both are given, and changes no state. At most two checks, imports and zip builds of draft downloads run at once.",
         "operationId": "EspalierWeb.Admin.PackDraftController.check",
         "parameters": [
           {

@@ -2,7 +2,7 @@ defmodule EspalierWeb.SpaController do
   use EspalierWeb, :controller
 
   # Paths below these prefixes belong to Phoenix and never receive the SPA.
-  @reserved ~w(api auth health)
+  @reserved ~w(api auth health media)
 
   def index(conn, %{"path" => [first | _rest]}) when first in @reserved do
     conn

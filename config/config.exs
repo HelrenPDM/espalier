@@ -36,7 +36,7 @@ config :argon2_elixir, argon2_type: 2, parallelism: 1, t_cost: 2, m_cost: 16
 config :espalier, Oban,
   engine: Oban.Engines.Basic,
   repo: Espalier.Repo,
-  queues: [default: 10, mail: 5, webhooks: 5, exports: 1],
+  queues: [default: 10, mail: 5, webhooks: 5, exports: 1, media: 2, media_video: 1],
   plugins: [
     {Oban.Plugins.Pruner, max_age: 86_400},
     {Oban.Plugins.Cron,
@@ -46,7 +46,12 @@ config :espalier, Oban,
        {"30 3 * * *", Espalier.Insights.RetentionWorker},
        # Ends the exports of task 0016 whose build was interrupted and
        # applies their retention.
-       {"*/15 * * * *", Espalier.Interop.StaleExportWorker}
+       {"*/15 * * * *", Espalier.Interop.StaleExportWorker},
+       # Fails interrupted media jobs and removes leftover media files (task
+       # 0018), and deletes imported media that no program, draft or import
+       # uses.
+       {"*/15 * * * *", Espalier.Media.StaleWorker},
+       {"45 3 * * *", Espalier.Media.RetentionWorker}
      ]}
   ]
 
@@ -56,10 +61,48 @@ config :espalier, Oban,
 # newest max_packages keep their package.
 config :espalier, :export_retention, max_age_days: 7, max_packages: 100
 
+# The fixed limits of the media store (task 0018, step 4), read through
+# Espalier.Media. The runtime settings of README section 6.11 (MEDIA_DIR and
+# the MEDIA_* variables) join this list from config/runtime.exs. Sizes are
+# bytes, pixels count width times height, and the timeouts are seconds; the
+# deadline of a video conversion is max(video_timeout_floor_seconds,
+# video_timeout_factor * duration). A running job sets updated_at of its
+# asset every heartbeat_seconds, and Espalier.Media.StaleWorker fails an
+# asset in processing whose updated_at lies more than
+# stale_processing_seconds back, a multiple of heartbeat_seconds.
+config :espalier, :media,
+  svg_max_bytes: 1_048_576,
+  captions_max_bytes: 524_288,
+  max_input_pixels: 40_000_000,
+  max_video_pixels: 8_294_400,
+  max_frames: 1_000,
+  image_timeout_seconds: 120,
+  video_timeout_factor: 25,
+  video_timeout_floor_seconds: 600,
+  heartbeat_seconds: 60,
+  stale_processing_seconds: 600,
+  max_pack_media: 500,
+  max_draft_media: 500,
+  export_max_mb: 1_024
+
+# Imported media (origin pack) that no program, draft or validated import
+# has used for unused_days are deleted (Espalier.Media.RetentionWorker).
+config :espalier, :media_retention, unused_days: 30
+
 # The drafts of the pack workbench (task 0016a, Espalier.Workbench): at most
-# max_drafts drafts in total, and at most max_parallel_checks checks and
-# imports from drafts at once per node.
-config :espalier, :pack_drafts, max_drafts: 50, max_parallel_checks: 2
+# max_drafts drafts in total, and at most max_parallel_checks checks,
+# imports and zip builds of downloads from drafts at once per node. At most
+# max_parallel_downloads downloads of drafts run at once per node, one per
+# user, from the zip build to the end of the transfer (task 0018). A
+# transfer ends at its deadline: the size of the zip at
+# download_min_bytes_per_second (256 KiB, about 2 Mbit/s, so 1,024 MB of
+# media take about 68 minutes), and at least download_floor_seconds.
+config :espalier, :pack_drafts,
+  max_drafts: 50,
+  max_parallel_checks: 2,
+  max_parallel_downloads: 2,
+  download_min_bytes_per_second: 262_144,
+  download_floor_seconds: 60
 
 # Rate limit buckets as {scale_ms, limit} (docs/security/authentication.md).
 config :espalier, :rate_limits, %{

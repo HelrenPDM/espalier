@@ -1893,7 +1893,8 @@ defmodule Espalier.Catalog.ValidatorTest do
                "provenance" => "placeholder",
                "collapsed_on" => [],
                "placeholder_key" => "usage-policy",
-               "cite" => []
+               "cite" => [],
+               "media" => nil
              }
 
       callout = basics["lessons"] |> hd() |> Map.fetch!("blocks") |> List.last()

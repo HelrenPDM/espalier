@@ -39,7 +39,11 @@ defmodule Espalier.Catalog.PublisherTest do
 
   alias Espalier.Catalog.Module, as: CatalogModule
   alias Espalier.Catalog.Pack.{Importer, Publisher}
+  alias Espalier.Catalog.ProgramMedia
   alias Espalier.Credentials.Credential
+  alias Espalier.Interop.Payload
+  alias Espalier.Media.Asset
+  alias Espalier.MediaFixtures
 
   @key "publisher-test"
 
@@ -1019,11 +1023,233 @@ defmodule Espalier.Catalog.PublisherTest do
     end
   end
 
+  describe "publish/1 with media (task 0018, step 10)" do
+    test "holds back an import with a queued, a processing and a failed asset, and publishes once they are ready" do
+      queued = media_asset!(:captions, :queued)
+      processing = media_asset!(:video, :processing)
+      failed = media_asset!(:svg, :failed, :invalid_svg)
+
+      media = %{
+        "media/assistant-demo-en.vtt" => queued.id,
+        "media/assistant-demo.webm" => processing.id,
+        "media/release-checks.svg" => failed.id
+      }
+
+      pack_import = import_with!(copy_pack!(demo_path()), media)
+
+      assert Publisher.publish(pack_import) ==
+               {:error,
+                {:media_not_ready,
+                 [
+                   %{
+                     "path" => "media/assistant-demo-en.vtt",
+                     "status" => "queued",
+                     "failure" => nil
+                   },
+                   %{
+                     "path" => "media/assistant-demo.webm",
+                     "status" => "processing",
+                     "failure" => nil
+                   },
+                   %{
+                     "path" => "media/release-checks.svg",
+                     "status" => "failed",
+                     "failure" => "invalid_svg"
+                   }
+                 ]}}
+
+      # No row changed: no program, no block, no program_media row.
+      assert Repo.get_by(Program, slug: @demo_key) == nil
+      assert Repo.aggregate(Block, :count) == 0
+      assert Repo.aggregate(ProgramMedia, :count) == 0
+      assert Repo.get!(PackImport, pack_import.id).status == :validated
+
+      Repo.update_all(from(a in Asset, where: a.id in ^Map.values(media)),
+        set: [status: :ready, failure: nil]
+      )
+
+      assert {:ok, %PackImport{status: :published}} = Publisher.publish(pack_import)
+      assert program_media(demo_program!()) == Enum.sort(media)
+    end
+
+    test "names a missing asset and changes no row of the published program" do
+      first = publish_pack!(copy_pack!(demo_path()))
+      program = demo_program!()
+      before = Payload.build(program)
+
+      pack = copy_pack!(demo_path())
+      update_yaml!(pack, "pack.yaml", &Map.put(&1, "version", "1.1.0"))
+
+      media =
+        Map.put(MediaFixtures.media_for(pack), "media/release-checks.svg", Ecto.UUID.generate())
+
+      second = import_with!(pack, media)
+
+      assert Publisher.publish(second) ==
+               {:error,
+                {:media_not_ready,
+                 [
+                   %{
+                     "path" => "media/release-checks.svg",
+                     "status" => "missing",
+                     "failure" => nil
+                   }
+                 ]}}
+
+      assert Payload.build(demo_program!()) == before
+      assert before["media"] == first.payload["media"]
+      assert Repo.get!(PackImport, second.id).status == :validated
+    end
+
+    test "replaces the program_media rows of the program with every publish" do
+      first = publish_pack!(copy_pack!(demo_path()))
+      demo = MediaFixtures.media_for(demo_path())
+      assert program_media(demo_program!()) == Enum.sort(demo)
+      assert Enum.map(first.payload["media"], & &1["path"]) == Enum.sort(Map.keys(demo))
+
+      # The second version names the figure under another path with another
+      # asset and drops the video of module 1.
+      pack = copy_pack!(demo_path())
+      File.cp!(path(pack, "media/release-checks.svg"), path(pack, "media/checks.svg"))
+
+      replace!(
+        pack,
+        "modules/02-checking/lessons/02-second-lesson.md",
+        "src=media/release-checks.svg",
+        "src=media/checks.svg"
+      )
+
+      replace!(
+        pack,
+        "modules/01-basics/lessons/01-first-lesson.md",
+        ~s(:::video{src=media/assistant-demo.webm title="A test pattern with a tone" captions="media/assistant-demo-en.vtt:en" provenance=invented}\nThe video shows a moving test pattern with colour bars and a counter while a steady tone plays. It holds no speech.\n:::\n),
+        ""
+      )
+
+      svg =
+        MediaFixtures.stored_asset!(path(pack, "media/checks.svg"), :svg, "svg", %{
+          width: 720,
+          height: 200
+        })
+
+      assert {:ok, %PackImport{status: :published}} =
+               pack |> import_with!(%{"media/checks.svg" => svg.id}) |> Publisher.publish()
+
+      assert program_media(demo_program!()) == [{"media/checks.svg", svg.id}]
+
+      assert Payload.build(demo_program!())["media"] == [
+               %{"path" => "media/checks.svg", "asset_id" => svg.id, "kind" => "svg"}
+             ]
+    end
+
+    test "stores the media of a figure and a video block and nil for the other kinds" do
+      pack_import = publish_pack!(copy_pack!(demo_path()))
+      program = demo_program!()
+
+      blocks =
+        Repo.all(
+          from b in Block,
+            join: l in Lesson,
+            on: l.id == b.lesson_id,
+            join: m in CatalogModule,
+            on: m.id == l.module_id,
+            where: m.program_id == ^program.id
+        )
+
+      payload_blocks =
+        for module <- pack_import.payload["modules"],
+            lesson <- module["lessons"],
+            block <- lesson["blocks"],
+            do: block
+
+      figure = Enum.find(blocks, &(&1.kind == :figure))
+      video = Enum.find(blocks, &(&1.kind == :video))
+
+      assert figure.media == Enum.find(payload_blocks, &(&1["kind"] == "figure"))["media"]
+      assert video.media == Enum.find(payload_blocks, &(&1["kind"] == "video"))["media"]
+
+      assert %{"src" => "media/assistant-demo.webm", "embed" => nil, "poster" => nil} =
+               video.media
+
+      assert video.media["captions"] == [
+               %{"src" => "media/assistant-demo-en.vtt", "lang" => "en"}
+             ]
+
+      assert Enum.all?(blocks -- [figure, video], &is_nil(&1.media))
+    end
+
+    test "publishes a payload without the key media, as an import validated before, without media" do
+      assert {:ok, %PackImport{status: :validated} = pack_import} =
+               Importer.import(copy_pack!("minimal"), nil)
+
+      payload = pack_import.payload
+      assert payload["media"] == []
+      stripped = strip_media(payload)
+
+      Repo.update_all(from(i in PackImport, where: i.id == ^pack_import.id),
+        set: [payload: stripped]
+      )
+
+      pack_import = Repo.get!(PackImport, pack_import.id)
+      refute Map.has_key?(pack_import.payload, "media")
+
+      assert {:ok, %PackImport{status: :published}} = Publisher.publish(pack_import)
+      program = Repo.get_by!(Program, slug: pack_import.pack_key)
+
+      assert program_media(program) == []
+      assert Payload.build(program) == payload
+    end
+  end
+
+  defp import_with!(pack, media) do
+    assert {:ok, %PackImport{status: :validated} = pack_import} =
+             Importer.import(pack, nil, media: media)
+
+    pack_import
+  end
+
+  defp media_asset!(kind, status, failure \\ nil) do
+    Repo.insert!(%Asset{
+      kind: kind,
+      status: status,
+      failure: failure,
+      title: "An asset",
+      source_sha256: MediaFixtures.random_sha256(),
+      incoming_bytes: 0,
+      progress: 0,
+      origin: :pack
+    })
+  end
+
+  defp program_media(program) do
+    Repo.all(
+      from m in ProgramMedia,
+        where: m.program_id == ^program.id,
+        order_by: m.path,
+        select: {m.path, m.media_asset_id}
+    )
+  end
+
+  # The payload without the key media at the top and in every block.
+  defp strip_media(payload) do
+    modules =
+      for module <- payload["modules"] do
+        lessons =
+          for lesson <- module["lessons"] do
+            %{lesson | "blocks" => Enum.map(lesson["blocks"], &Map.delete(&1, "media"))}
+          end
+
+        %{module | "lessons" => lessons}
+      end
+
+    payload |> Map.delete("media") |> Map.put("modules", modules)
+  end
+
   ## The demo pack through the importer
 
   defp import!(pack) do
     assert {:ok, %PackImport{status: :validated, pack_key: @demo_key} = pack_import} =
-             Importer.import(pack, nil)
+             Importer.import(pack, nil, media: MediaFixtures.media_for(pack))
 
     pack_import
   end
@@ -1736,6 +1962,7 @@ defmodule Espalier.Catalog.PublisherTimeoutTest do
 
   alias Espalier.Catalog.Pack.{Importer, Publisher}
   alias Espalier.Catalog.PackImport
+  alias Espalier.MediaFixtures
 
   setup do
     on_exit(fn -> Application.delete_env(:espalier, Publisher) end)
@@ -1755,8 +1982,10 @@ defmodule Espalier.Catalog.PublisherTimeoutTest do
   # checkout, so a publish that takes longer than the configured timeout
   # loses its connection.
   test "the publish transaction runs under the configured timeout" do
+    pack = copy_pack!(demo_path())
+
     assert {:ok, %PackImport{status: :validated} = pack_import} =
-             Importer.import(copy_pack!(demo_path()), nil)
+             Importer.import(pack, nil, media: MediaFixtures.media_for(pack))
 
     put_timeout(1)
 

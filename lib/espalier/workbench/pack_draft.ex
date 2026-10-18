@@ -19,7 +19,7 @@ defmodule Espalier.Workbench.PackDraft do
   """
   use Ecto.Schema
 
-  alias Espalier.Workbench.PackDraftFile
+  alias Espalier.Workbench.{PackDraftFile, PackDraftMedia}
 
   @type t :: %__MODULE__{}
 
@@ -33,6 +33,7 @@ defmodule Espalier.Workbench.PackDraft do
     field :file_count, :integer, virtual: true
     field :bytes, :integer, virtual: true
     has_many :files, PackDraftFile
+    has_many :media, PackDraftMedia
 
     timestamps(type: :utc_datetime)
   end

@@ -54,6 +54,10 @@ const DraftPageChunk = lazy(() =>
     default: m.DraftPage,
   })),
 );
+// The media library of task 0018.
+const MediaPageChunk = lazy(() =>
+  import("../admin/media/MediaPage").then((m) => ({ default: m.MediaPage })),
+);
 const ExportsPageChunk = lazy(() =>
   import("../admin/ExportsPage").then((m) => ({ default: m.ExportsPage })),
 );
@@ -193,6 +197,14 @@ export function DraftPage() {
   return (
     <Chunk>
       <DraftPageChunk />
+    </Chunk>
+  );
+}
+
+export function MediaPage() {
+  return (
+    <Chunk>
+      <MediaPageChunk />
     </Chunk>
   );
 }

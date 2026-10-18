@@ -19,6 +19,7 @@ const session: Session = {
   sessionStrength: "demo",
   authMethods: ["demo"],
   providerKey: null,
+  recentAuthUntil: null,
   pending: null,
   csrfToken: "token-1",
   providers: [],
@@ -29,6 +30,7 @@ const session: Session = {
     adminPasskeyRequired: false,
     testNotes: false,
     feedbackFreeText: false,
+    mediaEmbedConsent: "click",
   },
 };
 
@@ -46,6 +48,7 @@ const sessionPayload = (csrfToken: string) => ({
     admin_passkey_required: false,
     test_notes: false,
     feedback_free_text: false,
+    media_embed_consent: "click",
   },
 });
 

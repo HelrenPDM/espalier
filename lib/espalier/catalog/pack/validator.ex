@@ -23,13 +23,20 @@ defmodule Espalier.Catalog.Pack.Validator do
      every entry of `qualifications.yaml` sets `position` or none does, and
      no position appears twice; and the pack has exactly one
      `self_assessment` station when `segments.yaml` has entries and exactly
-     one `feedback` station when `feedback.yaml` exists, and none otherwise.
+     one `feedback` station when `feedback.yaml` exists, and none otherwise;
+     and every media path of a `figure` or a `video` block (`src`, `poster`
+     and the paths of `captions`) names a file of `loaded.media` (task 0018,
+     step 9), whose extension the schema of the block has checked.
   3. **Alignment.** `Espalier.Catalog.Alignment.check/1` runs on the
      normalized map, and `alignment_entries/2` places each finding at the
      line of its objective, item or module area.
 
+  The body of a `figure` (its caption) and of a `video` (its transcript)
+  may be empty: `cast_block/2` passes `nil` for it, and the normalizer
+  writes `""`.
+
   Only the alignment produces warnings; every other check reports an error
-  in both alignment modes. Every entry has `file` (relative to the pack
+  in both alignment modes, the rules of the media blocks included. Every entry has `file` (relative to the pack
   directory), `line` and `message`; an alignment entry also has `check`,
   `module` and `key`. Errors and warnings are sorted by file, line and
   message, and each list passes through `Espalier.Catalog.Pack.Entries.limit/2`:
@@ -56,6 +63,7 @@ defmodule Espalier.Catalog.Pack.Validator do
     Block,
     Cast,
     Feedback,
+    FigureMedia,
     Format,
     GlossaryTerm,
     Item,
@@ -67,7 +75,8 @@ defmodule Espalier.Catalog.Pack.Validator do
     Rule,
     Segment,
     Source,
-    Station
+    Station,
+    VideoMedia
   }
 
   @top_lists [
@@ -294,11 +303,12 @@ defmodule Espalier.Catalog.Pack.Validator do
   defp cast_block(file, block) do
     attrs = %{
       "kind" => block.kind,
-      "body" => block.body,
+      "body" => body(block),
       "provenance" => block.provenance,
       "collapsed_on" => block.collapsed_on,
       "cite" => block.cite,
       "placeholder_key" => block.placeholder_key,
+      "media" => Map.get(block, :media),
       "line" => block.line
     }
 
@@ -312,6 +322,12 @@ defmodule Espalier.Catalog.Pack.Validator do
            %{file: file, line: block.line, message: message}
          end)}
   end
+
+  # The body of a figure (its caption) and of a video (its transcript) may be
+  # empty; Schema.Block reads an absent body as no caption or transcript,
+  # while Schema.Cast keeps rejecting empty strings elsewhere.
+  defp body(%{kind: kind, body: ""}) when kind in ["figure", "video"], do: nil
+  defp body(block), do: block.body
 
   defp cast_map(nil, _schema, _message), do: {nil, []}
 
@@ -375,7 +391,8 @@ defmodule Espalier.Catalog.Pack.Validator do
       objectives: cast.modules |> Enum.flat_map(& &1.objectives) |> MapSet.new(& &1.key),
       assessments: cast.modules |> Enum.flat_map(& &1.assessments) |> Map.new(&{&1.key, &1}),
       formats: Map.new(cast.formats, &{&1.key, &1}),
-      qualifications: Map.new(cast.qualifications, &{&1.code, &1})
+      qualifications: Map.new(cast.qualifications, &{&1.code, &1}),
+      media: cast.loaded |> Map.get(:media, []) |> MapSet.new(& &1.path)
     }
   end
 
@@ -563,9 +580,35 @@ defmodule Espalier.Catalog.Pack.Validator do
   defp block_errors(module, ctx) do
     for lesson <- module.lessons,
         block <- lesson.blocks,
-        cite <- block.cite || [],
-        message <- cite_messages(cite, ctx),
+        message <-
+          Enum.flat_map(block.cite || [], &cite_messages(&1, ctx)) ++ media_messages(block, ctx),
         do: %{file: lesson.file, line: block.line, message: message}
+  end
+
+  # Every media path of a block names a file below `media/` of the pack. The
+  # kind of each path follows from its extension, which the schema of the
+  # block has checked (ASVS 2.2.3).
+  defp media_messages(%Block{media: media}, ctx) do
+    for path <- media_paths(media),
+        not MapSet.member?(ctx.media, path),
+        do: "the pack holds no media file `#{path}`"
+  end
+
+  defp media_paths(%FigureMedia{src: src}), do: [src]
+
+  defp media_paths(%VideoMedia{} = video) do
+    src = if is_nil(video.src) or VideoMedia.url?(video.src), do: [], else: [video.src]
+    poster = if is_nil(video.poster), do: [], else: [video.poster]
+    src ++ poster ++ Enum.map(tracks(video.captions), & &1.src)
+  end
+
+  defp media_paths(_media), do: []
+
+  defp tracks(nil), do: []
+
+  defp tracks(captions) do
+    {:ok, tracks} = VideoMedia.tracks(captions)
+    tracks
   end
 
   defp elsewhere_errors(%{module: %PackModule{areas_elsewhere: nil}}, _ctx), do: []
@@ -835,7 +878,7 @@ defmodule Espalier.Catalog.Pack.Validator do
           entry <-
             bounded(
               for block <- lesson.blocks,
-                  message <- term_messages(block.body, ctx),
+                  message <- term_messages(block.body || "", ctx),
                   do: %{file: lesson.file, line: block.line, message: message}
             ),
           do: entry

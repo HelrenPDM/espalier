@@ -12,15 +12,25 @@ defmodule EspalierWeb.Admin.PackDraftJSON do
   """
 
   alias Espalier.Workbench
-  alias Espalier.Workbench.{PackDraft, PackDraftFile}
-  alias EspalierWeb.Admin.PackJSON
+  alias Espalier.Workbench.{PackDraft, PackDraftFile, PackDraftMedia}
+  alias EspalierWeb.Admin.{MediaJSON, PackJSON}
 
   @doc "Renders the list of drafts."
   def index(%{drafts: drafts}), do: %{data: Enum.map(drafts, &summary/1)}
 
-  @doc "Renders a draft with its files."
+  @doc "Renders a draft with its files and its media entries."
   def show(%{draft: %PackDraft{} = draft}) do
-    Map.put(summary(draft), :files, Enum.map(draft.files, &file_entry/1))
+    draft
+    |> summary()
+    |> Map.put(:files, Enum.map(draft.files, &file_entry/1))
+    |> Map.put(:media, Enum.map(media_entries(draft), &media_entry/1))
+  end
+
+  defp media_entries(%PackDraft{media: media}) when is_list(media), do: media
+  defp media_entries(%PackDraft{}), do: []
+
+  defp media_entry(%PackDraftMedia{} = media) do
+    %{id: media.id, path: media.path, asset: MediaJSON.asset(media.media_asset)}
   end
 
   @doc "Renders the draft of an upload with the skipped paths of the archive."
