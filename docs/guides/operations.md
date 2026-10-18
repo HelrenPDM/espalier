@@ -36,7 +36,7 @@ and takes extra volumes with `-v`.
 | `rollback/2` | Reverts the migrations of a repo down to and including a version. |
 | `rotate_encryption/0` | Re-encrypts every encrypted column under the current Cloak key and prints the rows per schema and the cipher tags per column, without values or keys. |
 | `encryption_status/0` | Prints the cipher tags per encrypted column and the number of values under each. |
-| `grant_role/2` | Grants a `manual` role to the account of an address and prints `{:ok, grant}`, `{:error, :unknown_role}` or `{:error, :not_found}`. |
+| `grant_role/2` | Grants a `manual` role to the account of an address and prints `{:ok, grant}`, `{:error, :unknown_role}`, `{:error, :not_found}` or `{:error, :demo_user}`. |
 | `invite_user/1` | Invites a new address, or sends a new invitation to an invited account, and prints the result. |
 | `end_all_sessions/0` | Ends every session of every user and prints the number of ended sessions. |
 | `check_ldap/1` | Checks the connection to an LDAP provider step by step and prints one line per step (TLS handshake for `ldaps`, connect, StartTLS for `starttls`, service bind, base-scope search), without passwords or directory data. |
@@ -55,7 +55,7 @@ docker compose exec app bin/espalier eval 'Espalier.Release.rollback(Espalier.Re
 # rotate_encryption/0 and encryption_status/0
 docker compose exec app bin/espalier eval 'Espalier.Release.rotate_encryption()'
 docker compose exec app bin/espalier eval 'Espalier.Release.encryption_status()'
-# grant_role/2 with a role (facilitator, author, registrar, analyst, admin)
+# grant_role/2 with a role (learner, facilitator, author, registrar, analyst, admin)
 docker compose exec app bin/espalier eval 'Espalier.Release.grant_role("admin", "a@example.org")'
 # invite_user/1
 docker compose exec app bin/espalier eval 'Espalier.Release.invite_user("a@example.org")'

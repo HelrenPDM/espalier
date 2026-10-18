@@ -380,6 +380,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `npm --prefix frontend audit --omit=dev` as the last command of
   `make check`, and tests that check the example files of the content pack
   guide and the deployment files against the guides (task 0017).
+- Four introductions in `docs/guides/` (what Espalier is for, installation and
+  setup, instance, tenant and authentication, and the building blocks of course
+  YAML) with an index `docs/guides/README.md`, and `test/docs/guides_links_test.exs`,
+  which checks that the relative links of the guides and the README resolve.
+- API documentation with ExDoc (`make docs-api`, `mix docs --warnings-as-errors`
+  in `make check`): the module documentation grouped by layer with the content
+  pack format first, and the guides, the security documents, the plan, the
+  changelog and the contribution rules as pages.
 
 ### Changed
 

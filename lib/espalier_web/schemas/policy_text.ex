@@ -1,8 +1,10 @@
 defmodule EspalierWeb.Schemas.PolicyText do
   @moduledoc """
   The current version of a policy as a placeholder block and the handbook
-  render it (README section 7, domain rule 8). `policy/0` returns the
-  member schema that is `null` while the policy has no published version.
+  render it (README section 7, domain rule 8).
+
+  `policy/0` returns the member schema that is `null` while the policy has no
+  published version.
   """
   require OpenApiSpex
 

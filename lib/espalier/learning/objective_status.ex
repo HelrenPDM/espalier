@@ -1,9 +1,10 @@
 defmodule Espalier.Learning.ObjectiveStatus do
   @moduledoc """
   Derives the status of each learning objective from the learner's own
-  records (README section 7, domain rule 15). No table stores the status;
-  `Espalier.Learning.objective_status/2` collects the facts per request and
-  calls `derive/2`.
+  records (README section 7, domain rule 15).
+
+  No table stores the status; `Espalier.Learning.objective_status/2` collects
+  the facts per request and calls `derive/2`.
 
   An objective is `evidenced` when one of its `assessment_ids` lies in
   `passed_assessment_ids`, when one of its `format_ids` lies in

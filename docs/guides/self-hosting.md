@@ -166,8 +166,8 @@ read as they stand.
 every missing or invalid setting, so one boot names every gap. Two checks
 name only their first finding: `Espalier.Identity.Config` for the `AUTH_*`
 variables, and `Espalier.Crypto.Keys.check!/0`, which checks the values of
-the Cloak keys when the application starts. A boot without
-`SECRET_KEY_BASE` and `CLOAK_KEY_V1`, with `LOCAL_ACCOUNTS=false`, an empty
+the Cloak keys when the application starts. A boot on a host with a
+supported ffmpeg, without `SECRET_KEY_BASE` and `CLOAK_KEY_V1`, with `LOCAL_ACCOUNTS=false`, an empty
 `AUTH_PROVIDERS` and `TRACKING_DETAIL=full` stops with:
 
 ```text
@@ -177,7 +177,7 @@ The environment stops the boot:
   * TRACKING_DETAIL must be one of minimal, standard
 ```
 
-No message contains the value of a variable. A boot that passes logs the
+No message contains the value of a secret variable. A boot that passes logs the
 line `Effective settings: ...` with the session and data protection
 settings ([`operations.md`](operations.md), section "Logs").
 

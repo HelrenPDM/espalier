@@ -1,9 +1,27 @@
 defmodule Espalier.RuntimeConfig do
   @moduledoc """
-  Parses and validates the account and session settings from the
-  environment (README section 6.11). `config/runtime.exs` calls `parse!/2`
-  in every environment, so an invalid value stops the boot with a message
-  that names the variable and never contains a secret.
+  Parses and validates the application settings that come from the
+  environment.
+
+  The module reads the map that its functions receive, in
+  `config/runtime.exs` the result of `System.get_env/0`, and returns the
+  settings as a keyword list for `config :espalier`. It covers the account,
+  session, learning, insights, retention, credential, webhook, upload and
+  export settings (plan sections 6.11 and 10 in `docs/plan/README.md`).
+  `config/runtime.exs` calls `parse!/2` in every environment, so an invalid
+  value stops the boot with a message that names the variable and never
+  contains a secret.
+
+  The variables outside this module are described elsewhere. The connection
+  and secret variables (`DATABASE_URL`, `SECRET_KEY_BASE`, `CLOAK_*`,
+  `SMTP_*`, `PORT`, `POOL_SIZE`) are read by `config/runtime.exs` through
+  `value/2`, and `Espalier.BootCheck` checks them. `Espalier.Identity.Config`
+  parses the `AUTH_*` variables. [Self-hosting](self-hosting.md), sections
+  "Required settings" and "How the settings are read", and [Setup](setup.md),
+  step 3 of the production route, state which settings a production
+  instance requires and how the environment file is written.
+
+  ## Settings
 
   | Variable | Key | Default |
   |---|---|---|
@@ -49,33 +67,32 @@ defmodule Espalier.RuntimeConfig do
   | `MEDIA_CLAMAV_SOCKET` | `:media`, `:clamav_socket` | unset |
   | `MEDIA_FFMPEG_THREADS` | `:media`, `:ffmpeg_threads` | 2 (1 to 16) |
 
-  `TRACKING_DETAIL` and `INSIGHTS_ORG_UNIT` (README section 10) come back
-  under the key `:learning`, so that `config :espalier, :learning` holds
-  both.
+  `TRACKING_DETAIL` and `INSIGHTS_ORG_UNIT` come back under the key
+  `:learning`, so that `config :espalier, :learning` holds both.
 
   `PUBLIC_URL` comes back with a lower-case host, without the default port
   of its scheme and without a trailing `/`, which is the form of the origin
-  that browsers send (task 0017).
+  that browsers send.
 
-  The insights settings of task 0014 come back under the key `:insights`:
+  The insights settings come back under the key `:insights`:
   the group threshold of the reports, the switches for free-text feedback
   and the test session notes, and the four retention periods in days. An
   unset retention variable is `nil`, and `Espalier.Insights.RetentionWorker`
-  then deletes nothing from its tables (README section 10).
+  then deletes nothing from its tables.
 
-  `WEBHOOK_ALLOWED_HOSTS` (task 0013) lists the receivers of webhooks as
+  `WEBHOOK_ALLOWED_HOSTS` lists the receivers of webhooks as
   comma-separated entries `host` or `host:port`, an IPv6 address in square
   brackets. Each entry becomes `{host, port}` with the host lower-case and
   `port` `nil` for an entry without a port, which stands for the default
   port of the webhook URL's scheme. An entry with a scheme or a path stops
   the boot.
 
-  `PACK_UPLOAD_MAX_MB` (task 0015) bounds the body of a content pack upload
+  `PACK_UPLOAD_MAX_MB` bounds the body of a content pack upload
   in MB (ASVS 5.2.1); the archive check of
   `Espalier.Catalog.Pack.Archive.extract/2` admits declared sizes of at most
   five times that limit.
 
-  `EXPORT_DIR` (task 0016) is the directory of the SCORM packages that
+  `EXPORT_DIR` is the directory of the SCORM packages that
   `Espalier.Interop.ExportWorker` writes and the download route reads. The
   defaults of development and tests lie below `tmp/`, which `.gitignore`
   covers; in production an unset value stops the boot. The directory
@@ -95,8 +112,8 @@ defmodule Espalier.RuntimeConfig do
   clamd scans at most 2 GiB per file.
 
   `errors/2` runs the same checks as `parse!/2` and returns the message of
-  every invalid value instead of raising at the first, so that the boot
-  check of task 0017 (`Espalier.BootCheck`) names every gap in one boot.
+  every invalid value instead of raising at the first, so that
+  `Espalier.BootCheck` names every gap in one boot.
   """
 
   @typep env :: %{optional(String.t()) => String.t()}

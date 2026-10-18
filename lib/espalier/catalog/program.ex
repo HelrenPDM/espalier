@@ -43,6 +43,9 @@ defmodule Espalier.Catalog.Program do
     timestamps(type: :utc_datetime)
   end
 
+  @typedoc "A row of the table `programs`."
+  @type t :: %__MODULE__{}
+
   @doc false
   def changeset(program, attrs) do
     program

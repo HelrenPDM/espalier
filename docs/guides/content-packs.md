@@ -13,7 +13,7 @@ format, task 0015 the upload and the pack page, and task 0016a the pack
 workbench.
 
 This repository ships one pack, the demo pack in
-[`content/demo/`](../../content/demo/). It is the complete example of the
+[`content/demo/`](https://github.com/HelrenPDM/espalier/tree/main/content/demo). It is the complete example of the
 format: it uses every file, every block kind and every item kind, and it
 passes every check of this guide without an error or a warning.
 
@@ -98,9 +98,10 @@ The validator casts every file with an embedded Ecto schema of its file type
   without their extension match `^[a-z0-9][a-z0-9-]*$`.
 - A field that the schema does not know is an error.
 - A value must have the type of its field, and no type is converted: `"1"` is
-  no integer, and `1.0` is no string. Quote a version or a date, so that YAML
-  reads it as a string.
-- Every string is non-empty and holds no U+0000. A YAML `null` counts as
+  no integer, and `1.0` is no string. Quote a value that YAML reads as another type, such as the version
+  `1.0`, so that YAML reads it as a string. Dates are quoted by convention,
+  although the parser reads an unquoted date as a string as well.
+- Every string is not empty after trimming whitespace and holds no U+0000. A YAML `null` counts as
   absent. A string that the publisher writes to a `varchar(255)` column, such
   as a key, a title, a label, a URL or the locator of a citation, holds at most
   255 characters, and an integer lies between the bounds of a PostgreSQL
@@ -482,7 +483,7 @@ section "Item kinds" describes `options` and `config`.
 |---|---|---|
 | `key` | yes | The key of the item, unique in the pack |
 | `kind` | yes | `single_choice`, `multiple_choice`, `poll`, `slot_builder`, `classification` or `checklist_drill` |
-| `lesson` | for an item that no assessment lists | A lesson key of the module; the player shows the practice item in the section of that lesson. An exam item names no lesson. |
+| `lesson` | for an item that no assessment lists | A lesson key of the module; the player shows the practice item in the section of that lesson, or in the section "More practice" when it names none. An exam item names no lesson. |
 | `stem` | yes | The question or task |
 | `core` | yes | A boolean. A wrong answer to a core item fails an exam attempt with `failed_core` (README section 7, domain rule 5). |
 | `phase` | yes | A phase of the five-phase arc |
@@ -1092,7 +1093,7 @@ one line with the outcome:
 
 | Outcome | Last line | Exit status |
 |---|---|---|
-| The pack has errors | `Import <id> failed with <n> errors` | 1 |
+| The pack has errors | `Import <id> failed with <n> errors` (`1 error` for a single error) | 1 |
 | Validated, with `--draft` | `Stored <key> <version> as draft import <id>` | 0 |
 | Validated and published | `Published <key> <version> from import <id>` | 0 |
 | Validated, the publish failed | `Import <id> was not published: <reason>` | 1 |

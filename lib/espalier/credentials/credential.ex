@@ -28,6 +28,9 @@ defmodule Espalier.Credentials.Credential do
     timestamps(type: :utc_datetime)
   end
 
+  @typedoc "A row of the table `credentials`."
+  @type t :: %__MODULE__{}
+
   @doc "The statuses in which a credential is in force."
   def in_force_statuses, do: [:active, :refresh_due]
 

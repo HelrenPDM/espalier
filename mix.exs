@@ -12,6 +12,7 @@ defmodule Espalier.MixProject do
       deps: deps(),
       listeners: [Phoenix.CodeReloader],
       package: [licenses: ["Apache-2.0"]],
+      docs: docs(),
       hex: [
         # With a cooldown, Hex resolves only releases that are at least seven
         # days old (README section 13, `mix help hex.config`).
@@ -91,9 +92,206 @@ defmodule Espalier.MixProject do
       {:open_api_spex, "~> 3.22"},
       {:mox, "~> 1.3", only: :test},
       {:stream_data, "~> 1.4", only: :test},
+      {:ex_doc, "~> 0.40.4", only: :dev, runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:sobelow, "~> 0.16", only: [:dev, :test], runtime: false, warn_if_outdated: true},
       {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false}
+    ]
+  end
+
+  # Configuration of `mix docs` (ExDoc, dev environment only; `make docs-api`).
+  #
+  # The landing page is the README, which holds the quick start and the links to
+  # the introductions. ExDoc resolves a relative link to an extra by the file
+  # name alone, so two extras named README.md would shadow each other. The
+  # README of the repository root and docs/plan/README.md are the only ones in
+  # the list, and links to docs/guides/README.md and docs/architecture/README.md
+  # are absolute URLs of the repository. The same holds for every file outside
+  # the list (test/docs/guides_links_test.exs checks both rules).
+  defp docs do
+    [
+      main: "readme",
+      source_url: "https://github.com/HelrenPDM/espalier",
+      source_ref: "main",
+      homepage_url: "https://github.com/HelrenPDM/espalier",
+      formatters: ["html"],
+      extras: docs_extras(),
+      groups_for_extras: [
+        Introductions: [
+          "README.md",
+          "docs/guides/purpose.md",
+          "docs/guides/setup.md",
+          "docs/guides/tenant-and-authentication.md",
+          "docs/guides/course-yaml.md"
+        ],
+        Guides: ~r{^docs/guides/},
+        Security: ~r{^docs/security/},
+        Project: [
+          "docs/plan/README.md",
+          "CHANGELOG.md",
+          "CONTRIBUTING.md",
+          "SECURITY.md"
+        ]
+      ],
+      nest_modules_by_prefix: [
+        Espalier.Accounts.Passkeys,
+        Espalier.Catalog.Pack.Schema,
+        Espalier.Crypto.Rotation,
+        Espalier.DevOidc,
+        Espalier.Identity.Ldap,
+        Espalier.Identity.Oidc,
+        Espalier.Workbench,
+        EspalierWeb.Admin,
+        EspalierWeb.Auth,
+        EspalierWeb.Me,
+        EspalierWeb.Plugs,
+        EspalierWeb.Schemas.Admin,
+        EspalierWeb.Schemas
+      ],
+      groups_for_modules: docs_groups_for_modules(),
+      # The security guides cite functions that carry `@doc false` (callbacks
+      # and generated Cloak.Vault functions) and the module
+      # Espalier.Application (`@moduledoc false`) as the place where a control
+      # sits. They have no page, so ExDoc leaves exactly these references as
+      # code.
+      skip_code_autolink_to: [
+        "Cloak.Ecto.Type",
+        "Espalier.Application",
+        "Espalier.Application.settings_line/0",
+        "Espalier.Application.start/2",
+        "Espalier.Identity.Oidc.Supervisor.init/1",
+        "Espalier.Vault.decrypt!/1",
+        "Espalier.Vault.encrypt!/1",
+        "Espalier.Vault.format_status/1",
+        "EspalierWeb.OidcController.authorize_opts/2",
+        "EspalierWeb.OidcController.callback_opts/1"
+      ]
+    ]
+  end
+
+  # The order is the order of the sidebar. The Guides group collects the
+  # reference guides in the order of docs/guides/README.md.
+  defp docs_extras do
+    [
+      {"README.md", title: "Overview"},
+      "docs/guides/purpose.md",
+      "docs/guides/setup.md",
+      "docs/guides/tenant-and-authentication.md",
+      "docs/guides/course-yaml.md",
+      "docs/guides/content-packs.md",
+      "docs/guides/media.md",
+      "docs/guides/pack-workbench.md",
+      "docs/guides/scorm-export.md",
+      "docs/guides/self-hosting.md",
+      "docs/guides/operations.md",
+      "docs/guides/demo-instance.md",
+      "docs/guides/identity-providers.md",
+      {"docs/guides/security.md", title: "Security guide"},
+      "docs/security/asvs-l2.md",
+      "docs/security/authentication.md",
+      "docs/security/crypto-inventory.md",
+      "docs/security/key-management.md",
+      "docs/security/logging.md",
+      {"docs/security/wax-spike.md", title: "Spike: wax_ on the target toolchain"},
+      {"docs/plan/README.md", filename: "implementation-plan", title: "Implementation plan"},
+      "CHANGELOG.md",
+      "CONTRIBUTING.md",
+      {"SECURITY.md", filename: "security-policy", title: "Security policy"}
+    ]
+  end
+
+  # The first group that matches a module takes it. Inside a group ExDoc sorts
+  # by module name and puts nested modules (nest_modules_by_prefix) after the
+  # others, so Espalier.Catalog.Pack heads the content pack format.
+  defp docs_groups_for_modules do
+    [
+      "Content pack format": [
+        Espalier.Catalog.Pack,
+        Espalier.Catalog.Pack.Directives,
+        Espalier.Catalog.Pack.Entries,
+        Espalier.Catalog.Pack.LineIndex,
+        Espalier.Catalog.Pack.MediaPath,
+        Espalier.Catalog.Pack.Spdx,
+        ~r/^Espalier\.Catalog\.Pack\.Schema\./
+      ],
+      "Content pack processing": [
+        Espalier.Catalog.Alignment,
+        Espalier.Catalog.Pack.Archive,
+        Espalier.Catalog.Pack.Diff,
+        Espalier.Catalog.Pack.Hosts,
+        Espalier.Catalog.Pack.Importer,
+        Espalier.Catalog.Pack.Loader,
+        Espalier.Catalog.Pack.Normalizer,
+        Espalier.Catalog.Pack.Publisher,
+        Espalier.Catalog.Pack.Report,
+        Espalier.Catalog.Pack.Validator,
+        Espalier.Catalog.PackImport,
+        ~r/^Espalier\.Workbench/
+      ],
+      "Mix tasks": ~r/^Mix\.Tasks\./,
+      "Release and operations": [
+        Espalier,
+        Espalier.Application,
+        Espalier.BootCheck,
+        Espalier.Logger.JSONFormatter,
+        Espalier.Mailer,
+        Espalier.Mailer.DisabledAdapter,
+        Espalier.Release,
+        Espalier.Repo,
+        Espalier.RuntimeConfig,
+        Espalier.Telemetry.QueryLog,
+        EspalierWeb.Telemetry
+      ],
+      "Development tools": [~r/^Espalier\.DevOidc/, EspalierWeb.DevE2EController],
+      Media: [~r/^Espalier\.Media(\.|$)/, Espalier.Catalog.ProgramMedia],
+      Catalog: ~r/^Espalier\.Catalog(\.|$)/,
+      Learning: ~r/^Espalier\.Learning(\.|$)/,
+      Credentials: ~r/^Espalier\.Credentials(\.|$)/,
+      Policies: ~r/^Espalier\.Policies(\.|$)/,
+      Insights: ~r/^Espalier\.Insights(\.|$)/,
+      Interop: ~r/^Espalier\.Interop(\.|$)/,
+      Accounts: ~r/^Espalier\.Accounts(\.|$)/,
+      Identity: ~r/^Espalier\.Identity(\.|$)/,
+      "Encryption and audit": [
+        ~r/^Espalier\.(Crypto|Encrypted|Hashed|Audit)(\.|$)/,
+        Espalier.RateLimit,
+        Espalier.SecurityLog,
+        Espalier.Vault
+      ],
+      "Web: framework layer": [
+        EspalierWeb,
+        EspalierWeb.BlockDownload,
+        EspalierWeb.CastErrorRenderer,
+        EspalierWeb.ChangesetJSON,
+        EspalierWeb.Endpoint,
+        EspalierWeb.ErrorJSON,
+        EspalierWeb.FactorInput,
+        EspalierWeb.FallbackController,
+        EspalierWeb.Gettext,
+        EspalierWeb.HealthController,
+        EspalierWeb.MediaMultipart,
+        EspalierWeb.PackMultipart,
+        EspalierWeb.Router,
+        EspalierWeb.SpaController,
+        EspalierWeb.TransactionCookie,
+        EspalierWeb.UserAuth,
+        EspalierWeb.WebauthnCeremony,
+        ~r/^EspalierWeb\.Plugs\./
+      ],
+      "Web: sign-in and account API": [
+        EspalierWeb.OidcController,
+        EspalierWeb.OidcIntentController,
+        EspalierWeb.ProviderController,
+        EspalierWeb.SessionController,
+        EspalierWeb.SessionJSON,
+        ~r/^EspalierWeb\.(Auth|Me)\./
+      ],
+      "Web: admin and integration API": [
+        EspalierWeb.ReportController,
+        ~r/^EspalierWeb\.(Admin|Facilitator|Integration|Registrar)\./
+      ],
+      "Web: OpenAPI schemas": [EspalierWeb.ApiSpec, ~r/^EspalierWeb\.(ApiSpec|Schemas)\./],
+      "Web: learner API": ~r/^EspalierWeb\./
     ]
   end
 

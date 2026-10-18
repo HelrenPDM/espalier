@@ -1,31 +1,153 @@
 defmodule Espalier.Catalog.Pack.Schema.Cast do
   @moduledoc """
-  Strict casting for the embedded schemas of a content pack (task 0008,
-  step 8). Every schema under `Espalier.Catalog.Pack.Schema` casts its data
-  with `cast/3` and the validations of this module.
+  Conventions shared by every pack file, and the strict casting that applies them.
 
-  `cast/3` validates positively:
+  Every schema under `Espalier.Catalog.Pack.Schema` casts its data with
+  `cast/3` and the validations of this module, so the rules below hold for
+  `pack.yaml`, for every entry of the list files, for the YAML of a module
+  and for the front matter and blocks of lesson files. The page of each
+  schema lists the fields and rules that are specific to its file.
 
-    * a key that is no field of the schema is an error (`unknown field`);
-    * a value must have the type of its field: a non-empty string without a
-      NUL character for `:string`, an integer of at most 2147483647 for
-      `:integer`, `true` or `false` for `:boolean`, one of the values for
-      `Ecto.Enum`, a list of such values for an array, a map for `:map` and
-      for `embeds_one`, and a list of maps for `embeds_many`. YAML strings
-      that look like numbers or booleans are not converted;
-    * a required field must be present with a value. A `null` value counts as
-      absent.
+  ## Value types
 
-  The bounds keep every value storable: PostgreSQL rejects a NUL character
-  in `text`, `varchar` and `jsonb` values, and an `integer` column holds at
-  most 2147483647. `validate_key/2`, `validate_keys/2`, `validate_cite/2`
-  and `validate_max_length/2` bound the strings that the publisher writes
-  to `varchar(255)` columns.
+  A value must have the type of its field. YAML scalars are not converted:
+  the string `"1"` is no integer, `1.0` is no string, and `"true"` is no
+  boolean. Quote a value that YAML reads as another type, such as the
+  version `1.0` (a float) or `007` (a number), so that YAML reads it as a
+  string. The parser reads a date such as `2026-05-30` as a string, and the
+  demo pack quotes its dates by convention.
 
-  Each error carries the path of the offending value relative to the cast
-  data, which `errors/1` returns, so that the validator finds its line in
-  the line index. The cast creates no atoms: field names come from the
-  schema, and unknown keys stay strings.
+  | Field type | Valid value | Error when invalid |
+  |---|---|---|
+  | string | A string that is not empty after trimming whitespace and holds no NUL character | `` `name` must be a string ``, `` `name` must not be empty ``, `` `name` must not contain a NUL character `` |
+  | integer | An integer of at most 2147483647 | `` `name` must be an integer ``, `` `name` must be at most 2147483647 `` |
+  | boolean | `true` or `false` | `` `name` must be `true` or `false` `` |
+  | enum | A string that is one of the listed values | `` `name` must be one of `a`, `b` `` |
+  | mapping | A YAML mapping | `` `name` must be a map `` |
+  | list | A YAML list whose entries have the entry type | `` `name` must be a list `` |
+  | list of strings | A list of strings with the rules of a string | `` entries of `name` must be non-empty strings `` |
+  | list of integers | A list of integers with the rules of an integer | `` entries of `name` must be integers `` |
+  | list of an enum | A list of strings that each are one of the listed values | `` entries of `name` must be one of `a`, `b` `` |
+  | list of mappings | A list of mappings, as a nested entry | `` entries of `name` must be maps `` |
+  | nested mapping | A mapping that the nested schema casts; its errors carry the path below the field | `` `name` must be a map `` |
+
+  A key that is no field of the schema is an error: `` unknown field `name` ``.
+  Some schemas give their own message for it. The data of an entry must be a
+  mapping: `an entry must be a map`.
+
+  ## Required fields and null
+
+  A required field must be present with a value. A missing field gives
+  `` missing field `name` ``. A YAML `null` counts as absent for an optional
+  field, and for a required field it gives `` `name` has no value ``. A field
+  whose value already failed its type check gets no second error for being
+  required.
+
+  ## Keys
+
+  Keys, slugs and codes match `^[a-z0-9][a-z0-9-]*$` over the whole value and
+  have at most 255 characters. The first character is a lower-case ASCII
+  letter or a digit, and the others are lower-case ASCII letters, digits or
+  hyphens. `validate_key/2` checks one key and `validate_keys/2` every key of
+  a list. The errors are
+  `` `field` value `x` does not match the key format `^[a-z0-9][a-z0-9-]*$` ``
+  and `` `field` must have at most 255 characters ``. For a list entry the
+  second message starts with `entries of`.
+
+  ## String length
+
+  A string that the publisher writes to a `varchar(255)` column has at most
+  255 characters. PostgreSQL counts code points, so a letter with a combining
+  accent counts twice. `validate_max_length/2` checks a string or every string
+  of a list and gives `` `field` must have at most 255 characters ``.
+
+  ## Dates
+
+  A date is a string in the form `YYYY-MM-DD` with exactly four digits for the
+  year, for example `2026-05-30`, and it names a day that exists.
+  `validate_date/2` gives
+  `` `field` must be a date in the form `YYYY-MM-DD`, got `x` ``.
+
+  ## Citations
+
+  A citation is a string `source-key#locator`. The source key is in the key
+  format, the locator follows the first `#`, starts and ends with a character
+  other than whitespace, and has no line feed. The locator has at most 255
+  characters. `validate_cite/2` checks every entry of a list and gives
+  `` `field` entry `x` does not have the form `source-key#locator` `` or
+  `` the locator of a `field` entry must have at most 255 characters ``. The
+  validator then checks across files that the source key names an entry of
+  `sources.yaml`.
+
+  ## JSON values
+
+  A free mapping is stored as `jsonb` and must survive it unchanged.
+  `validate_json/2` accepts string keys, strings, integers, booleans, `null`,
+  lists and maps. It rejects the following values:
+
+    * a number with a fraction or an exponent, because `jsonb` stores numbers
+      as `numeric` and gives `1.0e3` back as the integer `1000`; write an
+      integer or a quoted string;
+    * an integer below -9,007,199,254,740,991 or above 9,007,199,254,740,991,
+      because `jsonb` limits the digits of a number and a JavaScript client
+      reads larger integers inexactly;
+    * a string or a key with a NUL character, because `jsonb` rejects it;
+    * a value of any other kind.
+
+  ## Storable values
+
+  The bounds keep every value storable. PostgreSQL rejects a NUL character in
+  `text`, `varchar` and `jsonb` values, and an `integer` column holds at most
+  2147483647. `validate_key/2`, `validate_keys/2`, `validate_cite/2` and
+  `validate_max_length/2` bound the strings that the publisher writes to
+  `varchar(255)` columns.
+
+  ## Other validations
+
+  `validate_unique/2` rejects a value that appears twice in a list
+  (`` duplicate entry `x` in `field` ``). `validate_unique_by/3` does the same
+  for a field of the entries of an embedded list
+  (`` duplicate key `x` in `field` `` for the field `key`). `validate_min/3`
+  gives `` `field` must be at least N `` for an integer. `validate_length/4`
+  requires a minimum number of entries in a list that is present, and
+  `validate_regex/4` checks a string against a pattern, each with a message
+  that the calling schema supplies.
+
+  ## Text and files
+
+  Every text file is valid UTF-8, has at most 1 MiB (1,048,576 bytes), and
+  holds no control character other than tab, line feed and carriage return;
+  `Espalier.Catalog.Pack.Loader` rejects a file that breaks one of these
+  rules before any field is cast. Every string of every file and every lesson
+  body may reference a glossary term as `[[term:slug]]` or
+  `[[term:slug|label]]`. The slug has at most 255 characters and the label at
+  most 1,000. The validator reports
+  `` unknown glossary term `slug` in `[[term:slug]]` ``,
+  `` empty label in `[[term:slug|]]` `` and
+  ``malformed glossary reference `[[term:` ``.
+
+  ## Error messages and paths
+
+  A message is a sentence that names the field in backticks and states the
+  rule. Each error carries the path of the offending value relative to the
+  cast data (map keys and list indexes), which `errors/1` returns for the
+  changeset and for its embedded changesets, so that the validator finds the
+  line of the value in the line index and reports the file and line.
+  Messages that Ecto itself produces get the field name as a prefix. A value
+  with a control character is shown escaped, so that a message stays on one
+  line.
+
+  The cast creates no atoms. Field names come from the schema, and unknown
+  keys stay strings.
+
+  ## See also
+
+    * [Content packs](content-packs.md), section "Values"
+    * `Espalier.Catalog.Pack.Schema.Lesson` and `Espalier.Catalog.Pack.Schema.Block`
+      for the lesson files
+    * `Espalier.Catalog.Pack.Schema.Source` as a schema that uses these conventions
+    * `Espalier.Catalog.Pack.Loader.load/1` for the checks on whole files (size,
+      UTF-8 and control characters)
   """
 
   import Ecto.Changeset
@@ -76,7 +198,13 @@ defmodule Espalier.Catalog.Pack.Schema.Cast do
     do: byte_size(value) <= @max_length or length(String.codepoints(value)) <= @max_length
 
   @doc """
-  Casts `attrs` into `struct` strictly, as the moduledoc describes.
+  Casts `attrs`, a map with string keys, into `struct` strictly, as the
+  moduledoc describes.
+
+  Returns an `Ecto.Changeset` that is valid when `attrs` has no unknown key,
+  every value has the type of its field and every required field has a value.
+  `attrs` that is no map gives an invalid changeset with the error
+  `an entry must be a map`.
 
   Options:
 

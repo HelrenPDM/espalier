@@ -2,8 +2,8 @@ defmodule Espalier.Workbench.CheckLimiter do
   @moduledoc """
   Bounds the checks, the imports and the zip builds of draft downloads that
   run at once on a node (task 0016a, step 6, and task 0018, step 16; ASVS
-  15.2.2). A download builds its zip inside `run/1` and frees the slot once
-  the zip is written; it sends the zip under
+  15.2.2). A download builds its zip inside a slot and
+  frees the slot once the zip is written; it sends the zip under
   `Espalier.Workbench.DownloadLimiter`, a second server of this module, so a
   transfer takes no slot of the checks and imports.
 
