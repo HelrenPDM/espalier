@@ -33,6 +33,9 @@ defmodule Espalier.Interop.Export do
     timestamps(type: :utc_datetime)
   end
 
+  @typedoc "A row of the table `exports`."
+  @type t :: %__MODULE__{}
+
   @doc """
   The changeset of a new export. `Espalier.Interop` sets the program, the
   module and the requesting author on the struct; only `scorm_version` is

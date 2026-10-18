@@ -1,24 +1,58 @@
 defmodule Mix.Tasks.Espalier.Export do
   @shortdoc "Writes a published program as a content pack"
   @moduledoc """
-  Writes the published program `SLUG` as a content pack into the directory
-  `PATH` (task 0016, step 12):
+  Writes a published program as a content pack into a directory.
 
-      mix espalier.export ai-assistant-basics-demo tmp/pack-out
+  ## Synopsis
 
-  `SLUG` is the `key` of the program's `pack.yaml`. The task starts the
-  application and calls `Espalier.Interop.PackWriter.write/2`, which creates
-  a missing `PATH`. `mix espalier.validate PATH` and `mix espalier.import PATH`
-  read the written pack.
+      mix espalier.export SLUG PATH
 
-  The task exits with status 1 and a message on standard error for invalid
-  arguments, for an unknown slug, for a program that is not published, for
-  a `PATH` that is no directory or a directory that is not empty, and when a
-  file cannot be written.
+  ## Arguments
+
+  | Argument | Meaning |
+  |---|---|
+  | `SLUG` | The `key` of the program's `pack.yaml`, which is the slug of the published program. |
+  | `PATH` | The target directory. It must be empty or missing; the task creates a missing `PATH`. |
+
+  The task accepts no options.
+
+  ## Example
+
+      nix-shell --run "set -a; . ./.env; set +a; mix espalier.export ai-assistant-basics-demo tmp/pack-out"
+
+  `nix-shell --run` loads no `.env`, so the command reads it first, as the
+  Makefile does, for the database settings such as `DATABASE_PORT`.
+
+  ## What it reads and writes
+
+  The task starts the application and calls
+  `Espalier.Interop.PackWriter.write/2`. It reads the published program from
+  the database and writes the files of the content pack below `PATH`, the same
+  files that the pack workbench loads into a draft for a published program
+  ([Pack workbench](pack-workbench.md)). `mix espalier.validate
+  PATH` and `mix espalier.import PATH` read the written pack. See
+  [SCORM export](scorm-export.md), section "Pack export", and
+  [Content packs](content-packs.md) for the format.
 
   Like `mix espalier.import`, the task processes no Oban jobs, runs no admin
   bootstrap and starts no development servers, so it runs next to a running
-  development server.
+  development server. These settings apply only when the application has not
+  been started yet.
+
+  ## Output and exit status
+
+  On success the task prints `Wrote SLUG VERSION to PATH`, where `VERSION` is
+  the `version` of the pack it wrote, and ends with status 0. In the following
+  cases it prints a message on standard error and ends with status 1:
+
+  | Case | Message |
+  |---|---|
+  | Missing or surplus argument, or any option | `Usage: mix espalier.export SLUG PATH` |
+  | No program with this slug | `Unknown program "SLUG"` |
+  | The program is not published | `The program "SLUG" is not published` |
+  | `PATH` is not empty | `The directory PATH is not empty` |
+  | `PATH` is not a directory | `PATH is not a directory` |
+  | A file cannot be written | `Cannot write FILE: REASON` |
   """
   use Mix.Task
 

@@ -10,7 +10,7 @@ instance and shows the first sign-in.
 ## Purpose
 
 Espalier is an open-source learning platform (Apache-2.0, see
-[`LICENSE`](../../LICENSE)) for competence programs that end in a credential.
+[`LICENSE`](https://github.com/HelrenPDM/espalier/blob/main/LICENSE)) for competence programs that end in a credential.
 A credential names the tasks it unlocks and holds no score or rank of the
 person (plan section 2, principle 2,
 [`../plan/README.md`](../plan/README.md)). The tasks come from the field
@@ -26,7 +26,7 @@ it also stores the correctness of each practice answer (section
 An organization uses the platform for a program in which every learner works
 through the same mandatory content and ends with a credential that other
 people and systems can rely on, for example a program that qualifies staff to
-use a tool or a method. The demo pack in [`content/demo/`](../../content/demo/)
+use a tool or a method. The demo pack in [`content/demo/`](https://github.com/HelrenPDM/espalier/tree/main/content/demo)
 is such a program: two modules on working with an AI assistant, an exam in
 module 1, a usage policy to acknowledge, the qualification `basics` with a
 credential that unlocks two tasks, and the add-on qualification `workshop`,
@@ -258,7 +258,7 @@ player in the LMS of the organization and reports to that LMS only.
 | Session | The server holds the session, and the browser holds one cookie with an opaque token. The SPA never sees a provider token. |
 | Deployment | A container image and Docker Compose files, with the reverse proxy in front. |
 
-The diagrams are in [`../architecture/README.md`](../architecture/README.md),
+The diagrams are in [`../architecture/README.md`](https://github.com/HelrenPDM/espalier/blob/main/docs/architecture/README.md),
 and the implementation plan with the decisions is
 [`../plan/README.md`](../plan/README.md).
 
@@ -277,5 +277,5 @@ and the implementation plan with the decisions is
 | Look up every field of the pack format | [`content-packs.md`](content-packs.md) |
 | Edit packs in the browser | [`pack-workbench.md`](pack-workbench.md) |
 | Deliver a module through an LMS | [`scorm-export.md`](scorm-export.md) |
-| See every guide | [`README.md`](README.md) |
+| See every guide | [`README.md`](https://github.com/HelrenPDM/espalier/blob/main/docs/guides/README.md) |
 | Read the decisions and the domain rules | [`../plan/README.md`](../plan/README.md) |

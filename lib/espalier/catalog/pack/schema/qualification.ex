@@ -1,18 +1,120 @@
 defmodule Espalier.Catalog.Pack.Schema.Qualification do
   @moduledoc """
-  An entry of `qualifications.yaml`: `code`, `title`, `audience`, `unlocks`,
-  `add_on`, `validity_kind`, `validity_months`, `refresher_mode`, `phases`,
-  at least one requirement in `requirements`
-  (`Espalier.Catalog.Pack.Schema.Requirement`) and the optional `position`
-  (at least 1).
+  An entry of `qualifications.yaml`: a qualification and the requirements that issue its credential.
 
-  `position` orders the qualifications for display and means nothing else.
-  The validator admits it on every entry of the file or on none, each value
-  once; without it, the entries keep the order of the file.
+  `qualifications.yaml` sits in the pack directory and holds a list of
+  entries. The file is optional. The `code` of an entry is the target of the
+  `qualification_held` requirements of other entries. A qualification lists
+  its requirements in `requirements`, and each requirement is described by
+  `Espalier.Catalog.Pack.Schema.Requirement`.
 
-  `validity_kind: months` needs `validity_months` above 0, and only that kind
-  takes `validity_months`. `months` and `event` need a `refresher_mode`, and
-  `none` takes none. A requirement appears once per qualification.
+  ## Fields
+
+  | Field | Type | Required | Rules |
+  |---|---|---|---|
+  | `code` | key | yes | `^[a-z0-9][a-z0-9-]*$`, at most 255 characters, unique in the file. |
+  | `title` | string | yes | At most 255 characters. |
+  | `audience` | string | yes | The people that the qualification addresses. No length limit is checked. |
+  | `unlocks` | list of string | no | The tasks that a holder may do. Each entry has at most 255 characters, and no entry appears twice. The normalized pack holds an empty list when the field is absent. |
+  | `add_on` | boolean | yes | `true` or `false`. |
+  | `validity_kind` | one of `none`, `months`, `event` | yes | Decides which of `validity_months` and `refresher_mode` apply, see below. |
+  | `validity_months` | integer | with `validity_kind: months` | Above 0 and at most 2147483647. Allowed with `validity_kind: months` only. |
+  | `refresher_mode` | one of `update_unit`, `full_run`, `test_only` | with `validity_kind` `months` or `event` | Not allowed with `validity_kind: none`. The value `update_unit` needs a module with `refresher_unit: true` in the pack (checked across files). |
+  | `phases` | list of one of `orient`, `understand`, `apply`, `anchor`, `update` | no | No entry appears twice. |
+  | `position` | integer | no | At least 1. Orders the qualifications for display and has no other meaning, see "Order". |
+  | `requirements` | list of mappings | yes | At least one entry. Each entry has `kind` and `target`. The same `kind` with the same `target` appears once per qualification. |
+
+  ## Order
+
+  `position` is set on every entry of the file or on none, and no value
+  appears twice. With positions, the qualifications follow `position`;
+  without positions, they follow the order of the file. The normalized pack
+  keeps the order and holds no `position`.
+
+  ## Example
+
+  ```yaml
+  - code: assistant-basics
+    title: Writing assistant basics
+    audience: Everyone who drafts texts with a writing assistant.
+    unlocks:
+      - Draft internal texts with an approved writing assistant
+    add_on: false
+    validity_kind: months
+    validity_months: 12
+    refresher_mode: update_unit
+    phases: [understand, apply, anchor]
+    position: 1
+    requirements:
+      - kind: module_completed
+        target: 1
+      - kind: assessment_passed
+        target: module-1-exam
+      - kind: policy_acknowledged
+        target: usage-policy
+  - code: team-practice
+    title: Writing assistant in the team
+    audience: Holders of the credential Writing assistant basics who share texts with a team.
+    unlocks:
+      - Agree with a team how the use of a writing assistant is marked in shared texts
+    add_on: true
+    validity_kind: none
+    phases: [anchor]
+    position: 2
+    requirements:
+      - kind: qualification_held
+        target: assistant-basics
+      - kind: attendance
+        target: team-session
+  ```
+
+  Each entry is valid on its own. The validator checks across files that
+  module 1 exists, that `module-1-exam` is an assessment of kind `exam`, that
+  the format `team-session` exists with `attendance_counts: true`, and that
+  some module has `refresher_unit: true`, because the first entry sets
+  `refresher_mode: update_unit`.
+
+  ## Checks
+
+  Errors of the schema:
+
+    * "missing field `code`", likewise for `title`, `audience`, `add_on`,
+      `validity_kind` and `requirements`.
+    * "`code` value `x` does not match the key format `^[a-z0-9][a-z0-9-]*$`".
+    * "`title` must have at most 255 characters" and "entries of `unlocks` must
+      have at most 255 characters".
+    * "duplicate entry `x` in `unlocks`", likewise for `phases`.
+    * "`validity_kind` must be one of `none`, `months`, `event`", and likewise
+      for `refresher_mode` and the entries of `phases`.
+    * "`validity_kind: months` needs `validity_months` above 0".
+    * "`validity_months` is allowed with `validity_kind: months` only".
+    * "`validity_kind: months` needs a `refresher_mode`", likewise for `event`.
+    * "`refresher_mode` is allowed with `validity_kind` `months` or `event`
+      only".
+    * "`requirements` needs at least one requirement".
+    * "duplicate requirement `module_completed` `1`".
+    * "`position` must be at least 1".
+    * "unknown field `x`" for a key that the table does not list.
+
+  Errors of the validator, which runs after the schema stage reports no error:
+
+    * "duplicate qualification code `x`, first used in `qualifications.yaml` at
+      line N".
+    * "`position` must be set on every qualification or on none" and "duplicate
+      qualification position `1`, first used in `qualifications.yaml` at line
+      N".
+    * "`refresher_mode: update_unit` needs a module with `refresher_unit: true`".
+    * The errors of the requirement targets, which
+      `Espalier.Catalog.Pack.Schema.Requirement` lists.
+
+  ## See also
+
+  [Content packs](content-packs.md), section "`qualifications.yaml`", and the
+  neighbor modules `Espalier.Catalog.Pack.Schema.Requirement` (the entries of
+  `requirements`), `Espalier.Catalog.Pack.Schema.Format` (the formats that
+  `attendance` requirements point to), `Espalier.Catalog.Pack.Schema.PackModule`
+  (`refresher_unit`) and `Espalier.Catalog.Pack.Validator` (the cross-file
+  checks).
   """
   use Ecto.Schema
 
@@ -37,9 +139,15 @@ defmodule Espalier.Catalog.Pack.Schema.Qualification do
     embeds_many :requirements, Requirement
   end
 
+  @typedoc "A cast entry of `qualifications.yaml`."
   @type t :: %__MODULE__{}
 
-  @doc "Casts an entry of `qualifications.yaml`."
+  @doc """
+  Casts an entry of `qualifications.yaml` and returns the changeset.
+
+  The errors carry the path of the offending value, which
+  `Espalier.Catalog.Pack.Schema.Cast.errors/1` returns.
+  """
   @spec changeset(t(), term()) :: Ecto.Changeset.t()
   def changeset(qualification, attrs) do
     qualification

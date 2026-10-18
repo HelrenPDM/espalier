@@ -1,7 +1,7 @@
 # Contributing to Espalier
 
 Espalier accepts issues and pull requests on GitHub. Everyone who takes part
-follows the [code of conduct](CODE_OF_CONDUCT.md). A vulnerability goes through
+follows the [code of conduct](https://github.com/HelrenPDM/espalier/blob/main/CODE_OF_CONDUCT.md). A vulnerability goes through
 the private report form that [`SECURITY.md`](SECURITY.md) describes, never into
 a public issue.
 
@@ -36,7 +36,7 @@ starts Phoenix and the Vite dev server on <http://localhost:5173>.
 - Keep secrets and organization names out of the repository. Configuration
   comes from environment variables, and `.env.example` holds placeholders
   only.
-- The implementation plan and the task specs live in [`docs/plan/`](docs/plan/).
+- The implementation plan and the task specs live in [`docs/plan/`](https://github.com/HelrenPDM/espalier/tree/main/docs/plan).
   A change that alters the architecture updates the diagrams in
   `docs/architecture/` in the same commit.
 
@@ -55,6 +55,7 @@ make check
 | Elixir format | `mix format --check-formatted` |
 | Compiler warnings | `mix compile --warnings-as-errors` |
 | Elixir lint | `mix credo --strict` |
+| API documentation | `mix docs --warnings-as-errors` |
 | Security analysis | `mix sobelow --config --exit` |
 | Hex version | `scripts/check-hex-version.sh` (Hex 2.5.1 or later) |
 | Hex advisories and retirements | `mix hex.audit` |
@@ -94,6 +95,51 @@ example on port 443 (`docs/guides/self-hosting.md`).
 After you remove a dependency from `mix.exs`, run
 `nix-shell --run "mix deps.unlock --unused"`, so that `mix.lock` holds no
 entry without a dependency.
+
+## API documentation
+
+The API documentation is built with ExDoc from the module documentation in
+`lib/` and from the Markdown files that `docs` in `mix.exs` lists as extras:
+the README, the guides in `docs/guides/`, the security documents, the
+implementation plan, the changelog and this file.
+
+```sh
+make docs-api
+```
+
+The target runs `mix docs --warnings-as-errors` and writes the HTML site to
+`doc/` (git-ignored); open `doc/index.html`. `make check` runs the same
+command, so a documentation warning stops the gate. A warning is a link or
+reference that ExDoc cannot resolve: a reference to a module, function or type
+that does not exist or has no documentation, or a link to a file that is no
+extra. Fix the text and leave the warning on; the option
+`skip_undefined_reference_warnings_on` hides a broken link, and
+`skip_code_autolink_to` in `mix.exs` lists only functions that carry
+`@doc false` by design and the dependency module `Cloak.Ecto.Type`, which
+has no documentation in this build.
+
+Three rules keep the site consistent:
+
+- An extra links to another extra with a relative path
+  (`../security/key-management.md`). A link to any other file of the
+  repository, such as a source file, a directory, a diagram, the Makefile or
+  a task spec, is an absolute URL on `github.com/HelrenPDM/espalier` with
+  `blob/main/` or `tree/main/` in front of the path, because ExDoc resolves a
+  relative link only to an extra.
+- ExDoc finds the target of a relative link by the file name alone and keeps
+  the last extra of that name. The list in `mix.exs` holds two files named
+  `README.md`, the one of the repository root and the plan, so a link to a
+  file named `README.md` reaches the plan. The indexes `docs/guides/README.md`
+  and `docs/architecture/README.md` are no extras and are linked by absolute
+  URL. `test/docs/guides_links_test.exs` checks that every link of an extra
+  reaches the page it names.
+- The module documentation of the content pack format (`Espalier.Catalog.Pack`
+  and the modules below `Espalier.Catalog.Pack.Schema`) is documented with
+  YAML examples. A test casts each example of a module below
+  `Espalier.Catalog.Pack.Schema` through its changeset, so that the
+  documentation stays valid when a field changes. A new field of the format
+  comes with its entry in the field table and an example of the module in the
+  same commit.
 
 ## Pull requests
 
@@ -212,7 +258,7 @@ The second command prints nothing when no commit holds a term of the list.
 
 ## License
 
-Espalier is licensed under the [Apache License, Version 2.0](LICENSE).
+Espalier is licensed under the [Apache License, Version 2.0](https://github.com/HelrenPDM/espalier/blob/main/LICENSE).
 Section 5 of the license applies to every contribution:
 
 > Unless You explicitly state otherwise, any Contribution intentionally

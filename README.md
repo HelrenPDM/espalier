@@ -27,15 +27,15 @@ host can keep port 5432.
 
 ## Documentation
 
-- [Guides](docs/guides/README.md): [what Espalier is for](docs/guides/purpose.md),
+- [Guides](https://github.com/HelrenPDM/espalier/blob/main/docs/guides/README.md): [what Espalier is for](docs/guides/purpose.md),
   [installation and setup](docs/guides/setup.md),
   [instance, tenant and authentication](docs/guides/tenant-and-authentication.md)
   and [course YAML building blocks](docs/guides/course-yaml.md), followed by
   the reference guides
 - [Implementation plan and task specs](docs/plan/README.md)
-- [Architecture diagrams](docs/architecture/README.md)
+- [Architecture diagrams](https://github.com/HelrenPDM/espalier/blob/main/docs/architecture/README.md)
 
 ## License
 
 Espalier is licensed under the Apache License, Version 2.0 (SPDX identifier Apache-2.0).
-See [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).
+See [`LICENSE`](https://github.com/HelrenPDM/espalier/blob/main/LICENSE) and [`NOTICE`](https://github.com/HelrenPDM/espalier/blob/main/NOTICE).

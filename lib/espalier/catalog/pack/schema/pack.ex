@@ -1,17 +1,50 @@
 defmodule Espalier.Catalog.Pack.Schema.Pack do
   @moduledoc """
-  The schema of `pack.yaml`: `schema` (the format version, 1), `key` (becomes
-  `programs.slug`), `title`, `locale` (a language tag), `license` (an SPDX
-  license expression whose ids are on the SPDX License List,
-  `Espalier.Catalog.Pack.Spdx`), `version` (becomes
-  `programs.pack_version`) and the optional `alignment` (`strict` or `warn`,
-  default `strict`), which decides whether checks 1 to 3 of
-  `Espalier.Catalog.Alignment` report errors or warnings.
+  The `pack.yaml` file: format version, identity, language, license and alignment mode of a content pack.
 
-  Any `schema` value other than a supported version, also a value that is
-  no integer such as `"1"`, is an error whose message names the supported
-  versions. `key`, `title`, `locale` and `version` land in `varchar(255)`
-  columns and have at most 255 characters.
+  `pack.yaml` sits in the root of the pack directory and holds one mapping. It is the only required file in the root of the pack directory. The pack also needs at least one module directory under `modules/`, with `module.yaml` and at least one lesson file. `key`, `title`, `locale` and `version` are stored on the program (`programs.slug`, `title`, `locale` and `pack_version`), and an import whose `key` names an existing program updates that program when it is published. `license` and `alignment` stay in the payload of the published import. `alignment` decides how `Espalier.Catalog.Alignment` reports its findings.
+
+  ## Fields
+
+  | Field | Type | Required | Rules |
+  |---|---|---|---|
+  | `schema` | integer | yes | One of the supported format versions, currently `1` (`supported_schemas/0`). A string such as `"1"` and any other number are errors that name the supported versions. |
+  | `key` | key | yes | The key format `^[a-z0-9][a-z0-9-]*$`, at most 255 characters. Becomes `programs.slug`. |
+  | `title` | string | yes | At most 255 characters. |
+  | `locale` | string | yes | A language tag: a lowercase language subtag of 2 or 3 letters, optionally followed by subtags of 2 to 8 letters or digits, each after a hyphen, such as `en` or `de-DE`. At most 255 characters. |
+  | `license` | string | yes | An SPDX license expression such as `CC0-1.0` or `MIT OR Apache-2.0`, whose license and exception ids are on the SPDX License List of `Espalier.Catalog.Pack.Spdx`, without regard to case. A `+` may follow a license id, parentheses group, and references of the forms `LicenseRef-...` and `AdditionRef-...` are accepted without being on the list. The operators `AND`, `OR` and `WITH` are written in capitals. |
+  | `version` | string | yes | The version of the pack, at most 255 characters. Becomes `programs.pack_version`. The text is free, but a value that YAML reads as a number, such as `1.0` or `2`, must be quoted to be read as a string, as in `"1.0.0"`. |
+  | `alignment` | one of `strict`, `warn` | no | Defaults to `strict`. With `strict`, the findings of checks 1 to 3 of `Espalier.Catalog.Alignment` are errors; with `warn`, they are warnings. The findings of check 4 are warnings in both modes. |
+
+  Every string is not empty after trimming whitespace and holds no NUL character. A field that the table does not list is an error. A `null` value counts as absent.
+
+  ## Example
+
+  ```yaml
+  schema: 1
+  key: writing-assistant-basics
+  title: Safe use of a writing assistant
+  locale: en
+  license: CC0-1.0
+  version: "1.0.0"
+  alignment: strict
+  ```
+
+  ## Checks
+
+    * "missing file" for `pack.yaml` when the pack has none, and "`pack.yaml` must hold a map" when the file holds anything else.
+    * "missing field `key`" and "`key` has no value" for a required field that is absent or `null`; the same for `schema`, `title`, `locale`, `license` and `version`.
+    * "unknown field `name`" for a key that the table does not list.
+    * "unsupported schema version `2`; supported versions: `1`". The validator then reports the errors of `pack.yaml` only.
+    * "`key` value `Writing` does not match the key format `^[a-z0-9][a-z0-9-]*$`" and "`key` must have at most 255 characters"; the second message also applies to `title`, `locale` and `version`.
+    * "`version` must be a string" for an unquoted number such as `1.0`.
+    * "`locale` must be a language tag such as `en` or `de-DE`".
+    * "`license` must be an SPDX license expression such as `CC0-1.0` or `MIT OR Apache-2.0`, with ids of SPDX License List" followed by the list version.
+    * "`alignment` must be one of `strict`, `warn`".
+
+  ## See also
+
+  [Content packs](content-packs.md), section "`pack.yaml`", and [Course YAML](course-yaml.md) for the overview of the files. The neighbor modules are `Espalier.Catalog.Pack.Spdx` (the license grammar), `Espalier.Catalog.Alignment` (the alignment checks), `Espalier.Catalog.Pack.Loader` (reads the file) and `Espalier.Catalog.Pack.Validator` (runs the cast).
   """
   use Ecto.Schema
 
@@ -34,13 +67,17 @@ defmodule Espalier.Catalog.Pack.Schema.Pack do
     field :alignment, Ecto.Enum, values: [:strict, :warn]
   end
 
+  @typedoc "The cast data of `pack.yaml`."
   @type t :: %__MODULE__{}
 
-  @doc "The schema versions of the pack format that this release reads."
+  @doc "Returns the format versions of `schema` that this release reads, currently `[1]`."
   @spec supported_schemas() :: [pos_integer()]
   def supported_schemas, do: @supported_schemas
 
-  @doc "Casts the data of `pack.yaml`."
+  @doc """
+  Casts the mapping of `pack.yaml` and returns a changeset whose errors
+  `Espalier.Catalog.Pack.Schema.Cast.errors/1` lists with their paths.
+  """
   @spec changeset(t(), term()) :: Ecto.Changeset.t()
   def changeset(pack, attrs) do
     pack

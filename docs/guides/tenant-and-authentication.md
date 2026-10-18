@@ -12,7 +12,7 @@ rules behind them in
 [`../security/authentication.md`](../security/authentication.md), the security
 settings of the whole instance in [`security.md`](security.md), the logs of a
 running instance in [`operations.md`](operations.md) and the sign-in flows as
-diagrams in [`../architecture/README.md`](../architecture/README.md).
+diagrams in [`../architecture/README.md`](https://github.com/HelrenPDM/espalier/blob/main/docs/architecture/README.md).
 
 ## The instance model
 

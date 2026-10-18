@@ -232,7 +232,7 @@ nothing to a caller without the password.
 
 `Espalier.Accounts.LdapSignIn` runs the sign-in and the link;
 `Espalier.Identity.Ldap` wraps `:eldap`
-([`auth-ldap.puml`](../architecture/auth-ldap.puml)).
+([`auth-ldap.puml`](https://github.com/HelrenPDM/espalier/blob/main/docs/architecture/auth-ldap.puml)).
 
 1. The username and the password must be valid UTF-8 and not blank after
    trimming, the username at most 256 bytes and the password at most 1,024.

@@ -1,7 +1,7 @@
 defmodule Espalier.Identity.Ldap.Config do
   @moduledoc """
-  An LDAP or Active Directory provider, parsed from the environment by
-  `parse!/3` (task 0007, steps 4 and 5).
+  An LDAP or Active Directory provider, parsed from the environment (task
+  0007, steps 4 and 5).
 
   `Espalier.Identity.Config.parse!/2` calls `parse!/3` for every key of
   `AUTH_PROVIDERS` whose `AUTH_<KEY>_TYPE` is `ldap`. Every value passes

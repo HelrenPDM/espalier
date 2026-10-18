@@ -1,7 +1,9 @@
 defmodule Espalier.Interop.SchemaFiles do
   @moduledoc """
   The XML schema files that a SCORM package carries at its root (task 0016,
-  step 8). The repository does not hold them: the IMS files among them and
+  step 8).
+
+  The repository does not hold them: the IMS files among them and
   `adlcp_rootv1p2.xsd`, the ADL file of SCORM 1.2, carry no license grant
   that clearly covers redistribution in an open-source repository
   (`priv/scorm/xsd/SOURCE.md`). `install/2` fetches them at build time into

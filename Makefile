@@ -93,6 +93,7 @@ check: ## run every static check, dependency audit and test of both projects
 	$(NIX) 'mix format --check-formatted'
 	$(NIX) 'mix compile --warnings-as-errors'
 	$(NIX) 'mix credo --strict'
+	$(NIX) 'mix docs --warnings-as-errors'
 	$(NIX) 'mix sobelow --config --exit'
 	$(NIX) 'scripts/check-hex-version.sh'
 	$(NIX) 'mix hex.audit'
@@ -164,6 +165,10 @@ secrets-scan: ## scan the Git history for secrets
 .PHONY: docs
 docs: ## render PlantUML diagrams to docs/architecture/out/
 	$(NIX) 'plantuml -tsvg -o out docs/architecture/*.puml'
+
+.PHONY: docs-api
+docs-api: ## build the API documentation with ExDoc into doc/
+	$(NIX) 'mix docs --warnings-as-errors'
 
 .PHONY: spdx-lists
 spdx-lists: ## write the SPDX license and exception ids of the pinned nixpkgs to priv/spdx/

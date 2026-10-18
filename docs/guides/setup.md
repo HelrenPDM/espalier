@@ -32,7 +32,7 @@ demo and production routes run the container image and need only Docker,
 
 Nix and Docker with the Compose plugin. Every toolchain command (`mix`,
 `npm`, `node`) runs inside the pinned `nix-shell` of
-[`shell.nix`](../../shell.nix), and the [`Makefile`](../../Makefile) wraps each
+[`shell.nix`](https://github.com/HelrenPDM/espalier/blob/main/shell.nix), and the [`Makefile`](https://github.com/HelrenPDM/espalier/blob/main/Makefile) wraps each
 one, so no global Elixir or Node installation is needed. The shell keeps the
 homes of Mix and Hex in `.nix-mix/` and `.nix-hex/` inside the clone, so a
 new clone installs Hex and rebar there once
@@ -222,7 +222,7 @@ copy of `CLOAK_KEY_V1` and `CLOAK_HMAC_SECRET` apart from the database
 backups ([`../security/key-management.md`](../security/key-management.md)).
 The account, session, learning and insights settings have defaults that
 `Espalier.RuntimeConfig` documents in
-[`lib/espalier/runtime_config.ex`](../../lib/espalier/runtime_config.ex); the
+[`lib/espalier/runtime_config.ex`](https://github.com/HelrenPDM/espalier/blob/main/lib/espalier/runtime_config.ex); the
 `AUTH_*` variables are described in
 [`identity-providers.md`](identity-providers.md), and `.env.example` lists
 the others (`PORT`, `POOL_SIZE`, `SMTP_PORT`, `RELEASE_COOKIE`).
@@ -356,7 +356,7 @@ outgoing connection.
 
 The boot check collects every missing or invalid setting and names them in
 one message, without values
-([`../../lib/espalier/boot_check.ex`](../../lib/espalier/boot_check.ex)).
+([`../../lib/espalier/boot_check.ex`](https://github.com/HelrenPDM/espalier/blob/main/lib/espalier/boot_check.ex)).
 
 | Symptom | Cause | Fix |
 |---|---|---|

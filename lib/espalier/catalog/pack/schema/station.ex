@@ -1,15 +1,101 @@
 defmodule Espalier.Catalog.Pack.Schema.Station do
   @moduledoc """
-  An entry of `stations.yaml`: `kind`, `title`, `module` (the module number,
-  for kind `module` only and required there) and an optional `config` that
-  holds strings, integers, booleans, `null`, lists and maps with string keys
-  only (`Espalier.Catalog.Pack.Schema.Cast.validate_json/2`), so that it
-  survives the `jsonb` column of the payload unchanged.
+  An entry of `stations.yaml`: one step of the learner journey of the program.
 
-  The `self_assessment` station holds `question` in `config`, and the
-  `overview`, `credential` and `companion_formats` stations hold `intro`.
-  The `feedback` station receives `intro` and `questions` from
-  `feedback.yaml`, so its own `config` names neither.
+  `stations.yaml` sits in the pack directory and holds a list of entries. The
+  order of the file is the order of the journey. The file is optional. A
+  station of kind `module` points to a module of the pack by its number, and
+  the stations `self_assessment` and `feedback` depend on `segments.yaml` and
+  `feedback.yaml`, as the section "Checks" describes.
+
+  ## Fields
+
+  | Field | Type | Required | Rules |
+  |---|---|---|---|
+  | `kind` | one of `self_assessment`, `overview`, `module`, `credential`, `companion_formats`, `feedback` | yes | Selects the station type and the `config` that it needs. |
+  | `title` | string | yes | At most 255 characters. |
+  | `module` | integer | for kind `module` | The module number, from 1 to 2147483647. Allowed on stations of kind `module` only. The number must belong to a module of the pack (checked across files). |
+  | `config` | mapping | by kind | Strings, integers, booleans, `null`, lists and mappings with string keys, so that the value survives the `jsonb` column of the payload unchanged. No float, no integer beyond 9,007,199,254,740,991 in either direction, no NUL character. |
+
+  ## Config by kind
+
+  | Kind | `config` |
+  |---|---|
+  | `self_assessment` | `question` (string, not empty) is required: the question above the segments. |
+  | `overview`, `credential`, `companion_formats` | `intro` (string, not empty) is required: the text of the station. |
+  | `module` | No key is required. `config: {}` is valid, and so is leaving `config` out. |
+  | `feedback` | `intro` and `questions` are not allowed. Both come from `feedback.yaml`. |
+
+  The schema checks no further key of `config`.
+
+  ## Example
+
+  ```yaml
+  - kind: self_assessment
+    title: Where you start
+    config:
+      question: How do you use a writing assistant at work today?
+  - kind: overview
+    title: Overview
+    config:
+      intro: This program shows how to use a writing assistant safely.
+  - kind: module
+    title: Working with a writing assistant
+    module: 1
+  - kind: credential
+    title: Your credential
+    config:
+      intro: Complete the module and pass its exam to receive the credential.
+  - kind: feedback
+    title: Your feedback
+  ```
+
+  Each entry is valid on its own. The validator checks across files that
+  module 1 exists, that `segments.yaml` has entries because the pack has a
+  `self_assessment` station, and that `feedback.yaml` exists because the pack
+  has a `feedback` station.
+
+  ## Checks
+
+  Errors of the schema:
+
+    * "missing field `kind`" and "missing field `title`".
+    * "`kind` must be one of `self_assessment`, `overview`, `module`,
+      `credential`, `companion_formats`, `feedback`".
+    * "`title` must have at most 255 characters".
+    * "a station of kind `module` needs `module`, the module number" and
+      "`module` is allowed on stations of kind `module` only".
+    * "`module` must be at least 1".
+    * "a `self_assessment` station needs the text `question` in `config`" and
+      the same for `intro` on the stations `overview`, `credential` and
+      `companion_formats`.
+    * "`intro` in `config` must not be empty", likewise for `question`.
+    * "the `feedback` station takes `intro` from `feedback.yaml`", likewise for
+      `questions`.
+    * "`config` holds a number with a fraction or an exponent; use an integer
+      or a quoted string", and the messages for an integer beyond the bounds or
+      a NUL character.
+    * "unknown field `x`" for a key that the table does not list.
+
+  Errors of the validator, which runs after the schema stage reports no error:
+
+    * "unknown module `3` in `module`" when no module has that number.
+    * "the pack needs a `self_assessment` station, because `segments.yaml` has
+      entries" and "a `self_assessment` station needs entries in
+      `segments.yaml`".
+    * "the pack needs a `feedback` station, because `feedback.yaml` exists" and
+      "a `feedback` station needs `feedback.yaml`".
+    * "the pack has one `self_assessment` station only" on a second station of
+      that kind, likewise for `feedback`.
+
+  ## See also
+
+  [Content packs](content-packs.md), section "`stations.yaml`", and the
+  neighbor modules `Espalier.Catalog.Pack.Schema.Segment` (the segments that
+  the `self_assessment` station presents), `Espalier.Catalog.Pack.Schema.Feedback`
+  (the content of the `feedback` station), `Espalier.Catalog.Pack.Schema.PackModule`
+  (the modules that stations of kind `module` point to) and
+  `Espalier.Catalog.Pack.Validator` (the cross-file checks).
   """
   use Ecto.Schema
 
@@ -29,9 +115,15 @@ defmodule Espalier.Catalog.Pack.Schema.Station do
     field :config, :map
   end
 
+  @typedoc "A cast entry of `stations.yaml`."
   @type t :: %__MODULE__{}
 
-  @doc "Casts an entry of `stations.yaml`."
+  @doc """
+  Casts an entry of `stations.yaml` and returns the changeset.
+
+  The errors carry the path of the offending value, which
+  `Espalier.Catalog.Pack.Schema.Cast.errors/1` returns.
+  """
   @spec changeset(t(), term()) :: Ecto.Changeset.t()
   def changeset(station, attrs) do
     station

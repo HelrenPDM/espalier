@@ -1,37 +1,161 @@
 defmodule Espalier.Catalog.Pack.Directives do
   @moduledoc """
-  Splits the body of a lesson file into blocks (task 0008, step 7).
+  Splits the body of a lesson file into blocks and reports the syntax errors of the `:::` directives.
 
-  A line matching `^:::([a-z_]+)(\\{.*\\})?\\s*$` opens a block, and a line
-  matching `^:::\\s*$` closes it. The lines between become the `body` of the
-  block, without leading and trailing blank lines, and the order of the
-  blocks becomes their position.
+  The body of a lesson file follows its front matter (see
+  `Espalier.Catalog.Pack.Schema.Lesson`). It consists of container directives,
+  and each directive becomes one block. The order of the directives gives the
+  order of the blocks. `Espalier.Catalog.Pack.Loader` calls `split/2` for every
+  lesson file. The splitter checks the syntax only. The validator casts the
+  values of the attributes with `Espalier.Catalog.Pack.Schema.Block`.
 
-  Attributes are `key=value` or `key="value with spaces"`, separated by
-  spaces:
+  ## Syntax
 
-  | Attribute | Kinds | Value |
-  |---|---|---|
-  | `provenance` | every kind | required, except on `placeholder`, whose provenance is `placeholder` |
-  | `collapsed_on` | every kind | paths, separated by commas |
-  | `cite` | every kind | `source-key#locator`, several separated by commas |
-  | `key` | `placeholder` | becomes `placeholder_key` and is required there |
-  | `src`, `alt`, `decorative`, `size` | `figure` | the image and its text alternative (task 0018) |
-  | `src`, `embed`, `title`, `poster`, `captions` | `video` | the video, its title, poster and captions (task 0018) |
+  A block has three parts:
+
+  ```markdown
+  :::explanation{collapsed_on=short provenance=sourced cite="vendor-guide#Overview"}
+  The next word follows from probabilities learned in training.
+  :::
+  ```
+
+  * The opening line starts in the first column with `:::`, followed by the
+    kind and optionally by the attributes in braces. It matches
+    `^:::([a-z_]+)(\\{.*\\})?\\s*$`. No space stands between the kind and the
+    brace, and only whitespace may follow the closing brace.
+  * The lines between the opening and the closing line are the Markdown text
+    of the block. They become its `body` without leading and trailing blank
+    lines. The splitter does not interpret the Markdown.
+  * The closing line matches `^:::\\s*$`.
+
+  Blank lines between blocks are ignored. Every other line outside a block is
+  an error. A block does not nest, and a line inside a block that starts with
+  `:::` is either its closing line or an error, so a body holds no such line.
+  Lines end with a line feed or a carriage return and a line feed.
+
+  ## Block kinds
+
+  The kind is one of `text`, `explanation`, `example`, `case_comparison`,
+  `quote`, `callout`, `placeholder`, `figure` and `video`, as `kinds/0`
+  returns them. A `figure` block shows an image and a `video` block a video;
+  their text is the caption and the transcript. A kind has
+  lower-case letters and underscores only; any other character in the name
+  makes the line a malformed directive line. The content of each kind is in
+  `Espalier.Catalog.Pack.Schema.Block`.
+
+  ## Attributes
+
+  Attributes are `name=value` pairs, separated by spaces. A value without
+  spaces and double quotes is written as it is, and any other value is
+  enclosed in double quotes, which cannot appear inside the value. Names have
+  lower-case letters and underscores only.
+
+  | Attribute | Kinds | Value | Block field |
+  |---|---|---|---|
+  | `provenance` | every kind | One of the provenance values. Required on every kind except `placeholder`, whose provenance is `placeholder`. | `provenance` |
+  | `collapsed_on` | every kind | Paths, separated by commas, for example `short,full` | `collapsed_on` |
+  | `cite` | every kind | `source-key#locator`, several separated by commas | `cite` |
+  | `key` | `placeholder` | Required there | `placeholder_key` |
+  | `src`, `alt`, `decorative`, `size` | `figure` | The image and its text alternative | `media` |
+  | `src`, `embed`, `title`, `poster`, `captions` | `video` | The video, its player, title, poster and captions | `media` |
+
+  The splitter cuts the value of `collapsed_on` and `cite` at every comma and
+  trims the parts. A locator therefore holds no comma. An attribute that the
+  line does not set gives an empty list for `collapsed_on` and `cite` and
+  `nil` for `key`.
 
   The attributes of a `figure` or a `video` block other than `provenance`,
-  `collapsed_on` and `cite` go into `media`, a map from the attribute name
-  to its raw value; `media` is `nil` for the other kinds. A `figure` or a
-  `video` block may have an empty body, the caption or the transcript.
+  `collapsed_on` and `cite` go into `media`, a map from the attribute name to
+  its raw value that holds the attributes the line sets. The splitter does
+  not check these values; `Espalier.Catalog.Pack.Schema.FigureMedia` and
+  `Espalier.Catalog.Pack.Schema.VideoMedia` do. `media` is `nil` for every
+  other kind. The body of a `figure` or a `video` block may be empty.
 
-  Each of the following is an error with its line number: an unknown kind,
-  an unknown attribute, an attribute on a kind that does not admit it
-  (`attribute <name> is allowed on <kinds> blocks only`), a duplicate
-  attribute, a malformed attribute list, a missing `provenance`, a
-  `placeholder` block with another provenance or without `key`, an opening
-  line inside an open block, a line that starts with `:::` but neither
-  opens nor closes a block, an unclosed block, and non-blank text outside a
-  block.
+  ## Example
+
+  This body gives three blocks, and `split/2` called with the line number 1
+  for its first line returns them with the lines 1, 5 and 9:
+
+  ```markdown
+  :::text{provenance=invented}
+  A [[term:llm|language model]] continues text.
+  :::
+
+  :::quote{provenance=sourced cite="vendor-guide#Overview, assistant-manual#Chapter 5"}
+  Mark every shared document that the assistant helped to draft.
+  :::
+
+  :::placeholder{key=input-rules}
+  Your organization adds its rules for inputs here.
+  :::
+  ```
+
+  `split/2` returns the blocks as maps. The second block is:
+
+  ```elixir
+  %{
+    kind: "quote",
+    provenance: "sourced",
+    collapsed_on: [],
+    cite: ["vendor-guide#Overview", "assistant-manual#Chapter 5"],
+    placeholder_key: nil,
+    media: nil,
+    body: "Mark every shared document that the assistant helped to draft.",
+    line: 5
+  }
+  ```
+
+  A `figure` block puts its attributes into `media`. This body gives one block:
+
+  ```markdown
+  :::figure{provenance=invented src=media/next-word.svg alt="Three candidates for the next word" size=medium}
+  The candidates with their probabilities.
+  :::
+  ```
+
+  `split/2` returns it as:
+
+  ```elixir
+  %{
+    kind: "figure",
+    provenance: "invented",
+    collapsed_on: [],
+    cite: [],
+    placeholder_key: nil,
+    media: %{
+      "src" => "media/next-word.svg",
+      "alt" => "Three candidates for the next word",
+      "size" => "medium"
+    },
+    body: "The candidates with their probabilities.",
+    line: 1
+  }
+  ```
+
+  ## Errors
+
+  Every error carries the line number in the file. An error of an opening line
+  names that line, and an unclosed block names its opening line. The messages
+  are:
+
+  | Message | Cause |
+  |---|---|
+  | ``unknown block kind `<kind>` `` | The kind is not one of the nine kinds. |
+  | ``unknown attribute `<name>` `` | The attribute is none of those in the table above. |
+  | ``duplicate attribute `<name>` `` | The line sets an attribute twice. |
+  | ``malformed attribute list `<list>` `` | The braces hold something other than `name=value` pairs. |
+  | `malformed directive line` | A line that starts with `:::` neither opens nor closes a block, for example `:::Text{provenance=invented}` or `:::text {provenance=invented}`. |
+  | ``missing attribute `provenance` `` | A block of a kind other than `placeholder` sets no provenance. |
+  | ``a `placeholder` block takes the provenance `placeholder` only`` | A `placeholder` block sets another provenance. |
+  | ``missing attribute `key` on a `placeholder` block`` | A `placeholder` block sets no key. |
+  | ``attribute `<name>` is allowed on <kinds> blocks only`` | A kind sets an attribute that only other kinds admit. The message names those kinds, as in ``attribute `key` is allowed on `placeholder` blocks only`` for `key` on another kind, and in ``attribute `src` is allowed on `figure` and `video` blocks only`` for `src` on any kind but those two. |
+  | `a block cannot open inside the block opened at line <n>` | An opening line appears before the closing line. |
+  | ``closing line `:::` outside a block`` | A closing line appears without an open block. |
+  | `text outside a block` | A line that is not blank appears outside a block. |
+  | ``unclosed block `<kind>` `` | The body ends before the closing line. |
+
+  A block with an error in its opening line is not part of the result. Its
+  body and its closing line raise no further error.
 
   The splitter keeps the first 100 errors of a body and counts the further
   ones, so that a body of many faulty lines holds no more memory than one of
@@ -40,12 +164,20 @@ defmodule Espalier.Catalog.Pack.Directives do
   kept error, for example `and 2,341 further errors in this file`, whose
   `omitted` gives their number.
 
-  The splitter checks the syntax only. The validator checks the values of
-  the attributes (`Espalier.Catalog.Pack.Schema.Block`).
+  ## Renaming media paths
 
-  `rename_media/2` rewrites the media paths in the opening lines of a
-  lesson file, which the pack workbench needs when it stores the media of
-  an archive under their delivery paths (task 0018, step 16).
+  `rename_media/2` rewrites the media paths in the opening lines of a lesson
+  file. The pack workbench calls it when it stores the media of an archive
+  under their delivery paths. It changes the values of `src` and `poster`
+  and the path of each entry of `captions`, and leaves every other line and
+  attribute as it is.
+
+  ## See also
+
+    * [Content packs](content-packs.md), section "Lesson directives"
+    * `Espalier.Catalog.Pack.Schema.Lesson` for the front matter and the file layout
+    * `Espalier.Catalog.Pack.Schema.Block` for the values of the attributes
+    * `Espalier.Catalog.Pack.Loader.load/1`, which reads the lesson files
   """
 
   alias Espalier.Catalog.Pack.Entries
@@ -71,7 +203,15 @@ defmodule Espalier.Catalog.Pack.Directives do
 
   @max_errors 100
 
-  @typedoc "A block of a lesson body."
+  @typedoc """
+  A block of a lesson body as a map. `kind` and `provenance` are the strings
+  of the opening line, `collapsed_on` and `cite` the lists of their
+  attributes, `placeholder_key` the value of `key` or `nil`, `media` the map
+  from the attribute name to its raw value for a `figure` or a `video` block
+  and `nil` for every other kind, `body` the text between the opening and
+  the closing line, and `line` the line number of the opening line in the
+  lesson file.
+  """
   @type block :: %{
           kind: String.t(),
           provenance: String.t(),
@@ -93,22 +233,32 @@ defmodule Espalier.Catalog.Pack.Directives do
           optional(:omitted) => pos_integer()
         }
 
-  @doc "The nine block kinds."
+  @doc "Returns the nine block kinds as strings: `text`, `explanation`, `example`, `case_comparison`, `quote`, `callout`, `placeholder`, `figure` and `video`."
   @spec kinds() :: [String.t()]
   def kinds, do: @kinds
 
-  @doc "The attributes that a block of `kind` admits."
+  @doc """
+  Returns the attributes that a block of `kind` admits, as strings.
+
+  Every kind admits `provenance`, `collapsed_on` and `cite`. `placeholder`
+  adds `key`, `figure` adds `src`, `alt`, `decorative` and `size`, and
+  `video` adds `src`, `embed`, `title`, `poster` and `captions`. An unknown
+  kind admits the common three only.
+  """
   @spec attributes(String.t()) :: [String.t()]
   def attributes(kind), do: @common ++ Map.get(@own, kind, [])
 
-  @doc "The largest number of errors that `split/2` keeps for one body."
+  @doc "Returns 100, the largest number of errors that `split/2` keeps for one body."
   @spec max_errors() :: pos_integer()
   def max_errors, do: @max_errors
 
   @doc """
-  Splits `markdown` into blocks. `first_line` is the line number of the first
-  line of `markdown` in its file; every block and every error carries the
-  line number in the file.
+  Splits `markdown`, the body of a lesson file, into blocks.
+
+  `first_line` is the line number of the first line of `markdown` in its file;
+  every block and every error carries the line number in the file. Returns
+  `{:ok, blocks}` in the order of the file when the body has no error, and
+  `{:error, errors}` otherwise, with the errors sorted by line.
   """
   @spec split(String.t(), pos_integer()) :: {:ok, [block()]} | {:error, [error()]}
   def split(markdown, first_line) when is_binary(markdown) and is_integer(first_line) do

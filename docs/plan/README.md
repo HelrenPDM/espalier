@@ -10,8 +10,8 @@ and the user interface is a Vite/React single-page application styled with
 standard Tailwind CSS.
 
 This document is the entry point. The diagrams live in
-[`../architecture/`](../architecture/README.md), and the executable task specs
-live in [`tasks/`](tasks/). Each task spec is self-contained: read it, do what it
+[`../architecture/`](https://github.com/HelrenPDM/espalier/blob/main/docs/architecture/README.md), and the executable task specs
+live in [`tasks/`](https://github.com/HelrenPDM/espalier/tree/main/docs/plan/tasks). Each task spec is self-contained: read it, do what it
 says, run its acceptance checks, stop.
 
 ## 1 Scope
@@ -190,7 +190,7 @@ frontend is a sibling directory with its own `package.json`.
 
 ### Components
 
-[`context.puml`](../architecture/context.puml) shows the system. The Phoenix
+[`context.puml`](https://github.com/HelrenPDM/espalier/blob/main/docs/architecture/context.puml) shows the system. The Phoenix
 application has two web entry points (`/api` for JSON, `/auth` for the browser
 redirects of OIDC sign-in) and one SPA controller that returns `index.html`. The contexts below hold
 the business logic. Oban runs scheduled and long-running work.
@@ -423,7 +423,7 @@ of the user.
 
 `oidcc` and `oidcc_plug` implement the confidential client. One supervised
 `Oidcc.ProviderConfiguration.Worker` per provider refreshes discovery and keys.
-[`auth-oidc.puml`](../architecture/auth-oidc.puml) shows the flow.
+[`auth-oidc.puml`](https://github.com/HelrenPDM/espalier/blob/main/docs/architecture/auth-oidc.puml) shows the flow.
 
 - Authorization code flow with PKCE S256 (`require_pkce: true`), `state` and
   `nonce` on every request; response mode `query`.
@@ -479,7 +479,7 @@ of the user.
 ### 6.8 LDAP and Active Directory sign-in
 
 `Espalier.Identity.Ldap` is a thin wrapper around `:eldap`.
-[`auth-ldap.puml`](../architecture/auth-ldap.puml) shows the flow.
+[`auth-ldap.puml`](https://github.com/HelrenPDM/espalier/blob/main/docs/architecture/auth-ldap.puml) shows the flow.
 
 - Search, then bind: a read-only service account searches the user
   (`sAMAccountName` or `userPrincipalName` for AD, `uid` for other servers,
@@ -710,10 +710,10 @@ that each task can rely on the others.
 
 ## 7 Domain rules
 
-The class diagrams are [`domain-catalog.puml`](../architecture/domain-catalog.puml),
-[`domain-records.puml`](../architecture/domain-records.puml) and
-[`domain-values.puml`](../architecture/domain-values.puml). The learner flow is
-[`learner-journey.puml`](../architecture/learner-journey.puml). The rules below
+The class diagrams are [`domain-catalog.puml`](https://github.com/HelrenPDM/espalier/blob/main/docs/architecture/domain-catalog.puml),
+[`domain-records.puml`](https://github.com/HelrenPDM/espalier/blob/main/docs/architecture/domain-records.puml) and
+[`domain-values.puml`](https://github.com/HelrenPDM/espalier/blob/main/docs/architecture/domain-values.puml). The learner flow is
+[`learner-journey.puml`](https://github.com/HelrenPDM/espalier/blob/main/docs/architecture/learner-journey.puml). The rules below
 each get at least one test.
 
 1. **Path.** A program offers segments in its self-assessment station. Each
@@ -735,7 +735,7 @@ each get at least one test.
    `module_completed`, `assessment_passed`, `policy_acknowledged`, `attendance`
    and `qualification_held`. `Credentials.evaluate/2` runs after every event
    that can satisfy a requirement and issues the credential when all are met.
-7. **Validity and refresher.** [`credential-lifecycle.puml`](../architecture/credential-lifecycle.puml)
+7. **Validity and refresher.** [`credential-lifecycle.puml`](https://github.com/HelrenPDM/espalier/blob/main/docs/architecture/credential-lifecycle.puml)
    defines the states. A daily Oban job moves credentials to `refresh_due`
    (notice period reached) and to `expired` (grace period passed). Publishing a
    policy version with `requires_refresher: true` moves every credential whose
@@ -1097,7 +1097,7 @@ repository. This repository ships the neutral demo pack only.
 
 ### SCORM export
 
-[`scorm-export.puml`](../architecture/scorm-export.puml) shows the flow. The
+[`scorm-export.puml`](https://github.com/HelrenPDM/espalier/blob/main/docs/architecture/scorm-export.puml) shows the flow. The
 frontend has a second Vite build (`vite.scorm.config.ts`) that bundles the player
 with the SCORM runtimes into `priv/scorm_player/`. The export worker writes
 `content.json` with answer keys, copies the bundle, writes `imsmanifest.xml` for
@@ -1215,26 +1215,26 @@ no copy of that list.
 
 | # | Task | Milestone | Depends on |
 |---|---|---|---|
-| 0001 | [Bootstrap the repository with the standard generators](tasks/0001-bootstrap.md) | M0 Foundation | none |
-| 0002 | [Quality gates, CI and open-source files](tasks/0002-quality-ci-oss.md) | M0 Foundation | 0001 |
-| 0003 | [Encryption at rest with Cloak](tasks/0003-encryption-at-rest.md) | M1 Accounts | 0001 |
-| 0004 | [Accounts and sessions from phx.gen.auth](tasks/0004-accounts-sessions.md) | M1 Accounts | 0002, 0003 |
-| 0004a | [Sync the task specs with task 0004](tasks/0004a-spec-sync.md) | M1 Accounts | 0004 |
-| 0005 | [Second factors: passkeys, TOTP and recovery codes](tasks/0005-second-factors.md) | M1 Accounts | 0004, 0004a |
-| 0006 | [OIDC sign-in with oidcc and the mock provider](tasks/0006-oidc.md) | M1 Accounts | 0005 |
-| 0007 | [LDAP and Active Directory sign-in](tasks/0007-ldap.md) | M1 Accounts | 0006 |
-| 0008 | [Catalog schemas, content pack importer and demo pack](tasks/0008-catalog-content-packs.md) | M2 Content | 0001, 0004a |
-| 0009 | [Learner API with OpenAPI](tasks/0009-learner-api.md) | M3 Learning | 0004, 0004a, 0008 |
-| 0010 | [Frontend shell: Tailwind, routing, i18n, API client](tasks/0010-frontend-shell.md) | M3 Learning | 0004, 0004a |
-| 0011 | [Account UI: sign-in, enrollment, recovery and security settings](tasks/0011-account-ui.md) | M3 Learning | 0007, 0009, 0010 |
-| 0012 | [Player and learner UI](tasks/0012-player-learner-ui.md) | M3 Learning | 0009, 0010 |
-| 0013 | [Policies, credentials, attendance, refresher and integration API](tasks/0013-policies-credentials.md) | M4 Records | 0009, 0010, 0012 |
-| 0014 | [Anonymous insights, reports and retention](tasks/0014-insights.md) | M4 Records | 0012, 0013 |
-| 0015 | [Admin area](tasks/0015-admin-area.md) | M5 Administration | 0011, 0012, 0013, 0014 |
-| 0016 | [SCORM 1.2 and 2004 export, and pack export](tasks/0016-scorm-export.md) | M6 Interop and operations | 0012, 0015 |
-| 0016a | [Pack workbench](tasks/0016a-pack-workbench.md) | M5 Administration | 0015, 0016 |
-| 0017 | [Production image, guides and hardening](tasks/0017-production-hardening.md) | M6 Interop and operations | 0002, 0015, 0016, 0016a |
-| 0018 | [Media in content packs: images, SVG and video](tasks/0018-media.md) | M2 Content | 0008, 0012, 0015, 0016, 0016a, 0017 |
+| 0001 | [Bootstrap the repository with the standard generators](https://github.com/HelrenPDM/espalier/blob/main/docs/plan/tasks/0001-bootstrap.md) | M0 Foundation | none |
+| 0002 | [Quality gates, CI and open-source files](https://github.com/HelrenPDM/espalier/blob/main/docs/plan/tasks/0002-quality-ci-oss.md) | M0 Foundation | 0001 |
+| 0003 | [Encryption at rest with Cloak](https://github.com/HelrenPDM/espalier/blob/main/docs/plan/tasks/0003-encryption-at-rest.md) | M1 Accounts | 0001 |
+| 0004 | [Accounts and sessions from phx.gen.auth](https://github.com/HelrenPDM/espalier/blob/main/docs/plan/tasks/0004-accounts-sessions.md) | M1 Accounts | 0002, 0003 |
+| 0004a | [Sync the task specs with task 0004](https://github.com/HelrenPDM/espalier/blob/main/docs/plan/tasks/0004a-spec-sync.md) | M1 Accounts | 0004 |
+| 0005 | [Second factors: passkeys, TOTP and recovery codes](https://github.com/HelrenPDM/espalier/blob/main/docs/plan/tasks/0005-second-factors.md) | M1 Accounts | 0004, 0004a |
+| 0006 | [OIDC sign-in with oidcc and the mock provider](https://github.com/HelrenPDM/espalier/blob/main/docs/plan/tasks/0006-oidc.md) | M1 Accounts | 0005 |
+| 0007 | [LDAP and Active Directory sign-in](https://github.com/HelrenPDM/espalier/blob/main/docs/plan/tasks/0007-ldap.md) | M1 Accounts | 0006 |
+| 0008 | [Catalog schemas, content pack importer and demo pack](https://github.com/HelrenPDM/espalier/blob/main/docs/plan/tasks/0008-catalog-content-packs.md) | M2 Content | 0001, 0004a |
+| 0009 | [Learner API with OpenAPI](https://github.com/HelrenPDM/espalier/blob/main/docs/plan/tasks/0009-learner-api.md) | M3 Learning | 0004, 0004a, 0008 |
+| 0010 | [Frontend shell: Tailwind, routing, i18n, API client](https://github.com/HelrenPDM/espalier/blob/main/docs/plan/tasks/0010-frontend-shell.md) | M3 Learning | 0004, 0004a |
+| 0011 | [Account UI: sign-in, enrollment, recovery and security settings](https://github.com/HelrenPDM/espalier/blob/main/docs/plan/tasks/0011-account-ui.md) | M3 Learning | 0007, 0009, 0010 |
+| 0012 | [Player and learner UI](https://github.com/HelrenPDM/espalier/blob/main/docs/plan/tasks/0012-player-learner-ui.md) | M3 Learning | 0009, 0010 |
+| 0013 | [Policies, credentials, attendance, refresher and integration API](https://github.com/HelrenPDM/espalier/blob/main/docs/plan/tasks/0013-policies-credentials.md) | M4 Records | 0009, 0010, 0012 |
+| 0014 | [Anonymous insights, reports and retention](https://github.com/HelrenPDM/espalier/blob/main/docs/plan/tasks/0014-insights.md) | M4 Records | 0012, 0013 |
+| 0015 | [Admin area](https://github.com/HelrenPDM/espalier/blob/main/docs/plan/tasks/0015-admin-area.md) | M5 Administration | 0011, 0012, 0013, 0014 |
+| 0016 | [SCORM 1.2 and 2004 export, and pack export](https://github.com/HelrenPDM/espalier/blob/main/docs/plan/tasks/0016-scorm-export.md) | M6 Interop and operations | 0012, 0015 |
+| 0016a | [Pack workbench](https://github.com/HelrenPDM/espalier/blob/main/docs/plan/tasks/0016a-pack-workbench.md) | M5 Administration | 0015, 0016 |
+| 0017 | [Production image, guides and hardening](https://github.com/HelrenPDM/espalier/blob/main/docs/plan/tasks/0017-production-hardening.md) | M6 Interop and operations | 0002, 0015, 0016, 0016a |
+| 0018 | [Media in content packs: images, SVG and video](https://github.com/HelrenPDM/espalier/blob/main/docs/plan/tasks/0018-media.md) | M2 Content | 0008, 0012, 0015, 0016, 0016a, 0017 |
 
 0007 follows 0006, because it reuses the external-identity functions of 0006.
 0004a carries the implemented interfaces of 0004, the ASVS scan rows and the
@@ -1247,7 +1247,7 @@ checks of 0017, and it extends the pack format of 0008, the player of 0012,
 the pack page of 0015, the exports of 0016 and the workbench of 0016a.
 
 Each task has a GitHub issue under its milestone, and
-[`tasks/EPIC.md`](tasks/EPIC.md) records the issue and status of every task.
+[`tasks/EPIC.md`](https://github.com/HelrenPDM/espalier/blob/main/docs/plan/tasks/EPIC.md) records the issue and status of every task.
 
 ## 15 Decisions
 

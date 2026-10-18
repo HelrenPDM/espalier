@@ -1,32 +1,70 @@
 defmodule Mix.Tasks.Espalier.Alignment do
   @shortdoc "Prints the alignment matrix of a content pack"
   @moduledoc """
-  Prints the alignment matrix of the content pack in `PATH` (task 0008,
-  step 13; README section 7, domain rule 14), without a database connection:
+  Prints the alignment matrix of a content pack without a database
+  connection.
 
-      mix espalier.alignment content/demo
-      mix espalier.alignment content/demo --format csv
-      mix espalier.alignment content/demo --format json
+  ## Synopsis
+
+      mix espalier.alignment PATH [--format text|csv|json]
+
+  ## Arguments and options
+
+  | Argument or option | Meaning |
+  |---|---|
+  | `PATH` | The directory of the content pack, the one that holds `pack.yaml`. |
+  | `--format` | The output format: `text` (default), `csv` or `json`. Any other value ends the task with status 1. |
+
+  ## Example
+
+      nix-shell --run "mix espalier.alignment content/demo"
+      nix-shell --run "mix espalier.alignment content/demo --format csv"
+      nix-shell --run "mix espalier.alignment content/demo --format json"
+
+  ## What it reads and writes
 
   The task reads the pack through `Espalier.Catalog.Pack.Loader.load/1` and
-  `Espalier.Catalog.Pack.Validator.run/1`, as `mix espalier.validate` does.
-  When the loader or the checks before the alignment report errors, it prints
-  them in the form of `mix espalier.validate` and exits with status 1 without
-  a matrix. Otherwise it prints the matrix of `Espalier.Catalog.Alignment.matrix/1`,
-  one row per module, competence area and depth, and the findings of the
-  validator, which include the alignment findings with file and line:
+  `Espalier.Catalog.Pack.Validator.run/1`, as `mix espalier.validate` does,
+  and builds the matrix with `Espalier.Catalog.Alignment.matrix/1` (plan,
+  `docs/plan/README.md`, section 7, domain rule 14). It loads the
+  application configuration (`app.config`) but starts neither the
+  application nor the database, and it writes no file.
 
-    * `text` (default): a header line and one line per row with the fields
-      `module`, `area`, `depth`, `objectives`, `lessons`, `evidence` and
-      `elsewhere`, separated by tab characters, lists joined by commas and
-      `-` for an empty list or a missing `elsewhere`; then the findings.
-    * `csv`: the header `module,area,depth,objectives,lessons,evidence,elsewhere`
-      and one record per row after RFC 4180, lists joined by a space; the
-      findings go to standard error.
-    * `json`: one object with `matrix`, `errors` and `warnings`.
+  ## Output
 
-  The task exits with status 1 when an error exists, for an unknown
-  `--format` value and for invalid arguments, and with status 0 otherwise.
+  The matrix has one row per module, competence area and depth. A row has
+  the fields `module`, `area`, `depth`, `objectives`, `lessons`, `evidence`
+  and `elsewhere`. The findings of the validator follow, among them the
+  alignment findings with file and line.
+
+  | Format | Standard output | Standard error |
+  |---|---|---|
+  | `text` | A header line and one line per row, fields separated by tab characters, lists joined by commas, `-` for an empty list or a missing `elsewhere`; then the findings in the form of `mix espalier.validate` | none |
+  | `csv` | The header `module,area,depth,objectives,lessons,evidence,elsewhere` and one record per row after RFC 4180, lists joined by a space | The findings |
+  | `json` | One object with the members `matrix`, `errors` and `warnings` | none |
+
+  When the loader or the checks before the alignment report errors, the
+  task prints them in the form of `mix espalier.validate` without a matrix.
+  They go to standard output, and for `csv` to standard error.
+
+  ## Exit status
+
+  | Case | Exit status |
+  |---|---|
+  | No error, with or without warnings | 0 |
+  | At least one error | 1 |
+  | An unknown `--format` value | 1 |
+  | Missing or surplus argument, or an unknown option | 1 |
+
+  An unknown `--format` value prints a message that names the accepted
+  values. Invalid arguments print the usage line
+
+      Usage: mix espalier.alignment PATH [--format text|csv|json]
+
+  Both messages go to standard error.
+
+  See [Content packs](content-packs.md), section "The alignment matrix", for
+  the meaning of the rows.
   """
   use Mix.Task
 

@@ -1,38 +1,65 @@
 defmodule Espalier.BootCheck do
   @moduledoc """
-  Checks the environment before the configuration is built (task 0017,
-  step 4). `config/runtime.exs` calls `errors/2` in every environment
-  directly after `import Config` and raises once with all messages, so that
-  one boot names every gap instead of stopping at the first.
+  Checks the environment before the configuration is built.
 
-  The list covers:
+  `config/runtime.exs` calls `errors/2` in every environment directly after
+  `import Config` and raises once with all messages, so that one boot names
+  every gap instead of stopping at the first. A production boot in which all
+  other required variables are set, without `SECRET_KEY_BASE` and
+  `CLOAK_KEY_V1` and with `TRACKING_DETAIL=full`, stops with:
+
+  ```text
+  The environment stops the boot:
+    * Missing environment variables: SECRET_KEY_BASE, CLOAK_KEY_V1
+    * TRACKING_DETAIL must be one of minimal, standard
+  ```
+
+  ## What it reads
+
+  The module reads the map that `errors/2` receives, in `config/runtime.exs`
+  the result of `System.get_env/0`. Besides the map, it reads one file
+  system entry: it checks that the path in `DATABASE_CA_CERT_FILE` names a
+  regular file and reads no content. In production it also runs the tool
+  check of the media processing, which looks up `ffmpeg`, `ffprobe` and
+  `timeout` and starts `ffmpeg` to read its version, encoders and demuxers.
+  It writes nothing.
+
+  The variables with their rules and defaults are described in
+  [Self-hosting](self-hosting.md), sections "Required settings" and "How the
+  settings are read", and in [Setup](setup.md), step 3 of the production
+  route. `Espalier.RuntimeConfig` lists the application settings with their
+  defaults, and [Identity providers](identity-providers.md) describes the
+  `AUTH_*` variables.
+
+  ## What it checks
 
     * in every environment, a `PORT` that is no port number from 1 to
       65535;
     * in production, every missing required variable in one message:
       `DATABASE_URL`, `SECRET_KEY_BASE`, `PHX_HOST`,
       `DATABASE_CA_CERT_FILE` and the Cloak variables `CLOAK_KEY_V1` (when
-      no `CLOAK_KEY_V<n>` is set) and `CLOAK_HMAC_SECRET` (task 0003); an
-      empty or whitespace-only value counts as missing. `SMTP_HOST` is
-      optional, and `MAIL_FROM` is required only together with it
+      no `CLOAK_KEY_V<n>` is set) and `CLOAK_HMAC_SECRET`; an empty or
+      whitespace-only value counts as missing. `SMTP_HOST` is optional, and
+      `MAIL_FROM` is required only together with it
       (`Espalier.RuntimeConfig`);
-    * in production, a `SECRET_KEY_BASE` shorter than 64 bytes (task 0004),
-      a `DATABASE_URL` without a host or a database name, with the query
+    * in production, a `SECRET_KEY_BASE` shorter than 64 bytes, a
+      `DATABASE_URL` without a host or a database name, with the query
       parameter `ssl` or with a `timeout`, `pool_size` or `idle_interval`
       that is no integer, a `POOL_SIZE` that is no positive integer, a
       `DATABASE_CA_CERT_FILE` that names no regular file, an `SMTP_PORT`
       that is no port number, and a `PUBLIC_URL` with another scheme than
-      `https` (task 0005), with user info, a path, query or fragment, or
-      with a host other than `PHX_HOST` (ASVS 3.5.4);
+      `https`, with user info, a path, query or fragment, or with a host
+      other than `PHX_HOST` (ASVS 3.5.4);
     * the message of the `Espalier.Identity.ConfigError` that
       `Espalier.Identity.Config.parse!/2` raises for the `AUTH_*`
       variables;
     * a missing sign-in pathway: `LOCAL_ACCOUNTS=false`, `AUTH_DEMO` not
-      `true` and no provider in `AUTH_PROVIDERS` (README section 6.11);
+      `true` and no provider in `AUTH_PROVIDERS` (plan section 6.11 in
+      `docs/plan/README.md`);
     * in production, the messages of the tool check of the media processing
-      (task 0018, `Espalier.Media.Ffmpeg.check/0`): a missing `ffmpeg`,
-      `ffprobe` or `timeout`, an ffmpeg older than 7.1, and a missing
-      encoder or demuxer;
+      (`Espalier.Media.Ffmpeg.check/0`): a missing `ffmpeg`, `ffprobe` or
+      `timeout`, an ffmpeg older than 7.1, and a missing encoder or
+      demuxer;
     * the messages of `Espalier.RuntimeConfig.errors/2`, which validates
       every application setting outside `AUTH_*`, among them a missing
       `PUBLIC_URL`, `EXPORT_DIR` or `MEDIA_DIR` in production.
@@ -54,9 +81,12 @@ defmodule Espalier.BootCheck do
 
   @doc """
   Returns the message of every gap in `env` (the map of `System.get_env/0`)
-  for the Mix environment `config_env`, or `[]`. In production it calls
-  `tools`, the tool check of the media processing; the tests pass a stub,
-  so that they start no process.
+  for the Mix environment `config_env`, or `[]`.
+
+  In production the function calls `tools`, the tool check of the media
+  processing (`Espalier.Media.Ffmpeg.check/0` by default), and appends its
+  messages. In the other environments it does not call `tools`. The tests
+  pass a stub, so that they start no process.
   """
   @spec errors(env(), atom(), (-> [String.t()])) :: [String.t()]
   def errors(env, config_env, tools \\ &Ffmpeg.check/0) when is_map(env) do

@@ -6,7 +6,7 @@ SCORM 2004 4th edition. The package reports completion, success, score and the
 status of each learning objective of the module to the LMS. A published
 program can also be written back to disk as a content pack with
 `mix espalier.export`. README section 11 describes both interfaces, and
-[`../architecture/scorm-export.puml`](../architecture/scorm-export.puml) shows
+[`../architecture/scorm-export.puml`](https://github.com/HelrenPDM/espalier/blob/main/docs/architecture/scorm-export.puml) shows
 the flow of an export.
 
 ## Requesting an export
@@ -285,7 +285,7 @@ The repository does not hold these files. The IMS files and
 `adlcp_rootv1p2.xsd` carry no license grant that clearly covers
 redistribution in an open-source repository, so the organization that runs
 Espalier fetches them when it builds the release, and its packages carry them
-unmodified. [`priv/scorm/xsd/SOURCE.md`](../../priv/scorm/xsd/SOURCE.md)
+unmodified. [`priv/scorm/xsd/SOURCE.md`](https://github.com/HelrenPDM/espalier/blob/main/priv/scorm/xsd/SOURCE.md)
 names the two archives (the schema definition files that Rustici Software
 publishes on scorm.com), the retrieval date and the license terms of each
 file.

@@ -15,7 +15,7 @@ next to its review process ([plan](../plan/README.md) section 1, goal 5). Four t
 same files: `mix espalier.validate`, `mix espalier.import`, the pack upload of
 the admin area and the pack workbench. `mix espalier.export` writes a published
 program back into this format. The repository ships one pack,
-[`content/demo/`](../../content/demo/), which uses every file, block kind and
+[`content/demo/`](https://github.com/HelrenPDM/espalier/tree/main/content/demo), which uses every file, block kind and
 item kind.
 
 Three conventions hold for every file. A key, slug, code, module directory name
