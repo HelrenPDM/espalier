@@ -27,6 +27,11 @@ host can keep port 5432.
 
 ## Documentation
 
+- [Guides](docs/guides/README.md): [what Espalier is for](docs/guides/purpose.md),
+  [installation and setup](docs/guides/setup.md),
+  [instance, tenant and authentication](docs/guides/tenant-and-authentication.md)
+  and [course YAML building blocks](docs/guides/course-yaml.md), followed by
+  the reference guides
 - [Implementation plan and task specs](docs/plan/README.md)
 - [Architecture diagrams](docs/architecture/README.md)
 
