@@ -35,6 +35,7 @@ organization. The instances share nothing at runtime:
 | Database | `DATABASE_URL` | Accounts, records and role grants live in it. |
 | Keys | `SECRET_KEY_BASE`, `CLOAK_KEY_V1`, `CLOAK_HMAC_SECRET` | The Cloak keys encrypt the personal columns, and `CLOAK_HMAC_SECRET` keys the stored hash of every external identity ([`../security/key-management.md`](../security/key-management.md)). |
 | Export volume | Compose volume `exports` | `compose.yaml` fixes `EXPORT_DIR` to `/data/exports`, and the volume of each Compose project holds the packages of that instance. |
+| Media volume | Compose volume `media` | `compose.yaml` fixes `MEDIA_DIR` to `/data/media`, and the volume of each Compose project holds the media files of that instance. The directory belongs to one installation and its database ([`self-hosting.md`](self-hosting.md), section "The media store"). |
 | Identity providers | `AUTH_PROVIDERS` and `AUTH_<KEY>_*` | Each organization connects its own tenant or directory. |
 
 Two instances on one host need separate Docker Compose project names,
@@ -307,7 +308,12 @@ The roles are `learner`, `facilitator`, `author`, `registrar`, `analyst` and
 `admin`. Every signed-in user holds `learner` without a stored grant, and the
 other roles come from grants. [`purpose.md`](purpose.md), section "Who uses
 it", describes what each role does. `registrar` works only with
-`REGISTRAR_ENABLED=true`.
+`REGISTRAR_ENABLED=true`. The role `author` keeps the media library, and every
+change there needs a second factor from the last 10 minutes. The media files
+themselves load for every signed-in user: an `author` reads every converted
+file, a `learner` reads the files of published programs, and a request without
+a session answers 401 ([`media.md`](media.md), sections "The library" and "The
+media route").
 
 A change of the grants of a user ends the sessions of that user. Demo users
 hold `learner` only.
@@ -352,10 +358,13 @@ sign-in ends the oldest session). [`security.md`](security.md), section
 Enrollment and recovery sessions (30 minutes), e-mail links (10 minutes) and
 the pending second-factor state (5 minutes) have fixed lifetimes. A password
 change, a disabled account and an admin reset of the factors end the
-sessions of the user. Signing out of Espalier ends the platform session; the
-provider session ends too only through front-channel or RP-initiated logout
+sessions of the user. Signing out of Espalier ends the platform session and tells the browser to drop
+its cached media files; the provider session ends too only through
+front-channel or RP-initiated logout
 ([`identity-providers.md`](identity-providers.md), section "Sessions and
-logout").
+logout"). A session that ends through a limit or through an admin leaves the
+cached media files in the browser ([`media.md`](media.md), section "Cached
+files and the sign-out").
 
 ## Demo accounts
 

@@ -16,7 +16,7 @@ defmodule Espalier.Interop.ExportWorker do
   The package holds:
 
     * `content.json`, written with `JSON.encode!/1` (ASVS 1.2.3): the keys
-      of `Espalier.Interop.Payload.module/2` plus `schema` (1) and
+      of `Espalier.Interop.Payload.module/3` plus `schema` (1) and
       `policies`, which maps each `placeholder_key` of the module's blocks
       that has a published policy version to `key`, `number`,
       `effective_from` and `body` of the current version from

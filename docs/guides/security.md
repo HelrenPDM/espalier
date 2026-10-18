@@ -100,8 +100,8 @@ as well (ASVS 13.2.3).
   the whole history, and CI runs it on every push and pull request to
   `main`. A real secret that reaches a commit counts as published and is
   revoked and replaced (`CONTRIBUTING.md`, "Secret scanning").
-- No boot message contains the value of a variable: `Espalier.BootCheck`
-  names the variables only. The logs carry no password, code, token or
+- No boot message contains the value of a secret variable:
+  `Espalier.BootCheck` names these variables only. The logs carry no password, code, token or
   session id ([`logging.md`](../security/logging.md)).
 
 ## Key management

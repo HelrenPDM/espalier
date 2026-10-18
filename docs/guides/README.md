@@ -21,11 +21,12 @@ domain model and the sign-in flows as diagrams.
 
 | Guide | Covers |
 |---|---|
+| [`content-packs.md`](content-packs.md) | Every file, field, block kind and check of the content pack format |
+| [`media.md`](media.md) | Images, SVG files and videos in lessons: accepted files, conversion, the media library, captions, external files, the malware scan and backups |
+| [`pack-workbench.md`](pack-workbench.md) | Editing a content pack in the admin area |
+| [`scorm-export.md`](scorm-export.md) | SCORM 1.2 and 2004 export of a module and the export of a program as a content pack |
 | [`self-hosting.md`](self-hosting.md) | Image, environment file, PostgreSQL with TLS, reverse proxy, first admin, content, backups and upgrades of a production instance |
 | [`operations.md`](operations.md) | Release functions, logs, health, background jobs, sessions and keys of a running instance |
 | [`demo-instance.md`](demo-instance.md) | The demo profile, its Makefile targets, the demo banner, test notes and the reset |
 | [`identity-providers.md`](identity-providers.md) | Microsoft Entra ID, Google Workspace, generic OIDC, Active Directory and generic LDAP |
 | [`security.md`](security.md) | Verification target, secrets, keys, sessions, TLS, outgoing connections, limits and the dependency policy |
-| [`content-packs.md`](content-packs.md) | Every file, field, block kind and check of the content pack format |
-| [`pack-workbench.md`](pack-workbench.md) | Editing a content pack in the admin area |
-| [`scorm-export.md`](scorm-export.md) | SCORM 1.2 and 2004 export of a module and the export of a program as a content pack |

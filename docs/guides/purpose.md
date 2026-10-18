@@ -41,11 +41,12 @@ The terms below are the ones of the code and of the pack format
 | Program | The published content of one content pack. Its `slug` is the `key` of `pack.yaml`. |
 | Station | One step of the learner journey through a program: `self_assessment`, `overview`, `module`, `credential`, `companion_formats` or `feedback`. |
 | Module | A topic of a program, with a number. It holds lessons, learning objectives, rules, items and optionally an exam. |
-| Lesson | One Markdown file of a module, made of blocks (`text`, `explanation`, `example`, `case_comparison`, `quote`, `callout`, `placeholder`). |
+| Lesson | One Markdown file of a module, made of blocks (`text`, `explanation`, `example`, `case_comparison`, `quote`, `callout`, `placeholder`, `figure`, `video`). |
 | Item | A question or task with server-side evaluation: `single_choice`, `multiple_choice`, `slot_builder`, `classification`, `checklist_drill` or `poll`. |
 | Assessment | A set of items of one module, of kind `practice` or `exam`. An exam applies a pass rule. |
 | Qualification | What a credential is issued for: a code, the unlocked tasks, a validity and the requirements to meet. |
 | Format | A companion format: a session that takes place outside the platform, for example a workshop. A facilitator issues attendance certificates for it. |
+| Media library | The converted images, SVG files, videos and captions of an installation. The blocks `figure` and `video` show them, and each installation keeps one library. |
 | Segment and path | The self-assessment station offers segments. A segment preselects the `short` or the `full` path, and the learner can switch. |
 
 ## Who uses it
@@ -58,9 +59,9 @@ groups of an identity provider (plan section 6.11).
 
 | Role | What the role can do | Where |
 |---|---|---|
-| `learner` | Works through the stations of a program, answers items, takes exams, acknowledges policy versions, reads the policies and the handbook, holds credentials, and gives anonymous answers (self-assessment, interest in a format, feedback). | The program pages and `/me/credentials` |
+| `learner` | Works through the stations of a program, answers items, takes exams, acknowledges policy versions, reads the policies and the handbook, holds credentials, and gives anonymous answers (self-assessment, interest in a format, feedback). The images and videos of a published program load for the learner. | The program pages and `/me/credentials` |
 | `facilitator` | Looks up persons by e-mail address and issues attendance certificates for a companion format held outside the platform. The answer holds one result per person, and no route lists the certificates a facilitator has issued. | `/admin/attendance` |
-| `author` | Uploads content packs, checks them, previews, compares and publishes them, edits packs in the pack workbench, and requests SCORM exports. | `/admin/packs`, `/admin/workbench`, `/admin/exports` |
+| `author` | Uploads content packs, checks them, previews, compares and publishes them, edits packs in the pack workbench, keeps the media library, and requests SCORM exports. | `/admin/packs`, `/admin/workbench`, `/admin/media`, `/admin/exports` |
 | `registrar` | Reads the credential list of one qualification, per person. The list is off while `REGISTRAR_ENABLED=false`, and the route then answers 404. | `/admin/registrar` |
 | `analyst` | Reads six aggregated reports on the anonymous answers and on the credentials per qualification and status. | `/admin/insights` |
 | `admin` | Manages users (invite, disable, end sessions, reset factors), policies and their versions, the approved tool list, role grants, API clients and webhooks, revokes credentials, and reads the audit log. | `/admin/users`, `/admin/policies`, `/admin/approved-tools`, `/admin/roles`, `/admin/api-clients`, `/admin/webhooks`, `/admin/audit` |
@@ -92,9 +93,10 @@ starts, and it skips nothing:
 
 ### Content packs in Git
 
-A content pack is a directory of YAML and Markdown files. An organization
-keeps its packs in its own repository next to its review process, and the
-platform imports them:
+A content pack is a directory of YAML and Markdown files, with a folder
+`media/` for the images, SVG files, videos and captions of its lessons. An
+organization keeps its packs in its own repository next to its review process,
+and the platform imports them:
 
 | Way in | Command or page |
 |---|---|
@@ -102,9 +104,11 @@ platform imports them:
 | Production image | `Espalier.Release.import_pack/2` through `bin/espalier eval` ([`operations.md`](operations.md)) |
 | Admin area | The zip upload on `/admin/packs`, and the pack workbench |
 
-`mix espalier.export SLUG PATH` writes a published program back to disk. The
-admin upload and the workbench validate an import and store it as a draft,
-which is previewed on the pack page and published explicitly. The command
+`mix espalier.export SLUG PATH` writes a published program back to disk, with
+its media files in their delivery formats. The admin upload and the workbench
+validate an import and store it as a draft, which is previewed on the pack page
+and published explicitly. A program is published only when every media file of
+its import is converted. The command
 `mix espalier.import` and `Espalier.Release.import_pack/2` publish at once
 unless `--draft` (`draft: true`) keeps the import as a draft. Publishing upserts rows by stable keys (`module.number`,
 `item.key`, `objective.key`, `rule.number`, `source.key`) and archives rows
@@ -114,6 +118,29 @@ intact. Every block and item shows its provenance (`invented`, `sourced`,
 English and German, and the language of the content comes from `locale` in
 `pack.yaml`. [`content-packs.md`](content-packs.md) describes the format, and
 [`course-yaml.md`](course-yaml.md) introduces its building blocks.
+
+### Images, vector graphics and videos
+
+A lesson shows an image or an SVG file through a `figure` block, with a text
+alternative (or `decorative=true`) and an optional caption. A `video` block
+plays a video file of the pack with its captions and a transcript, an external
+video file on a host that the operator allows, or the player of an allowed
+streaming service. Each installation keeps one media library. Authors upload
+files on `/admin/media`, and the import of a pack moves the files of its folder
+`media/` that a block names there. A background job converts every raster image to WebP and every
+video to WebM with VP9 and Opus, rebuilds every SVG file from an allowlist of
+elements and attributes, and checks every WebVTT captions file. The library
+keeps only these delivery files, so the pack export and the SCORM export write
+them, and content packs stay the only import and export format.
+
+An animated image shows its first frame until the learner presses "Play
+animation", and no video starts by itself. An embedded player loads after the
+learner agrees in a notice that names its host, unless the operator sets
+`MEDIA_EMBED_CONSENT=auto`. The player records no playback data. Settings
+bound the size of each file, the length of a video, the storage of the
+library and the hosts of external files and embeds. With `MEDIA_CLAMAV_SOCKET`
+set, every uploaded and imported file passes a clamd scan before the
+conversion; without it, no scan runs ([`media.md`](media.md)).
 
 ### Constructive alignment
 
@@ -175,9 +202,9 @@ module completions, exam attempts, acknowledgements or attendance certificates
 
 An author exports one published module as a SCORM 1.2 or SCORM 2004 4th edition
 package on `/admin/exports`. One module becomes one SCO, and the learning
-objectives of the module become `cmi.objectives` entries. The package contains
-the answer keys, so exams that count for a credential stay on the platform. The
-receiving LMS records the results per person, outside Espalier
+objectives of the module become `cmi.objectives` entries. The package carries
+the media files of the module. It contains the answer keys, so exams that count
+for a credential stay on the platform. The receiving LMS records the results per person, outside Espalier
 ([`scorm-export.md`](scorm-export.md)).
 
 ### Integration API and webhooks
@@ -198,9 +225,11 @@ The pack workbench on `/admin/workbench` lets an author edit the YAML and
 Markdown files of a content pack in the browser. A draft starts from an empty
 pack, a published program, an import or a zip archive. The check runs the
 loader and the validator of `mix espalier.validate` and shows the alignment
-matrix. "Create import" hands the draft to the pack page, and a draft downloads
-as a zip archive, so a pack can move between the workbench and a Git
-repository in both directions ([`pack-workbench.md`](pack-workbench.md)).
+matrix. A draft holds its images, SVG files and videos as media entries that
+name assets of the media library. "Create import" hands the draft to the pack
+page, and a draft downloads as a zip archive with its media files below
+`media/`, so a pack can move between the workbench and a Git repository in
+both directions ([`pack-workbench.md`](pack-workbench.md)).
 
 ### Record separation and the data protection settings
 
@@ -225,7 +254,8 @@ The retention behavior is described in [`operations.md`](operations.md).
 
 ## What Espalier does not do
 
-Plan section 1 lists what the platform leaves out. The list reads as follows:
+Plan section 1 lists what the platform leaves out, and decision D19 names the
+limits of the media support. The list reads as follows:
 
 | Not provided | State |
 |---|---|
@@ -237,6 +267,10 @@ Plan section 1 lists what the platform leaves out. The list reads as follows:
 | Multi-tenancy | One organization runs one instance. |
 | Native mobile apps | The SPA is the only client. |
 | Gamification that ranks people | A credential holds no score or rank. |
+| Audio-only blocks | A `video` block plays a video file with or without sound. A file without a video stream fails the conversion with `no_video_stream`. |
+| Streaming formats (HLS, DASH) | The player of a streaming service plays such a stream as an embed ([`media.md`](media.md), section "External files and embeds"). |
+| Image and video editing | The conversion scales and re-encodes a file, and the library keeps no original. |
+| Object storage | The media store is a directory below `MEDIA_DIR` on the file system of the host. |
 
 Three further limits follow from the design. The platform stores nothing about
 real work items: evidence of a human review at a single work item belongs to
@@ -253,10 +287,11 @@ player in the LMS of the organization and reports to that LMS only.
 | Backend | Elixir/Phoenix JSON API with Bandit. Routes under `/api` return JSON and are described in the OpenAPI document at `/api/openapi`. The routes under `/auth/oidc` handle the browser redirects of OIDC sign-in. |
 | Frontend | A Vite/React single-page application in `frontend/`, styled with Tailwind CSS. In production, Phoenix serves it from `priv/static/spa/`. |
 | Database | PostgreSQL. Sensitive columns are encrypted at rest with Cloak (AES-256-GCM). |
-| Jobs | Oban, with its jobs in the database. Queues: `default`, `mail`, `webhooks` and `exports`. |
+| Jobs | Oban, with its jobs in the database. Queues: `default`, `mail`, `webhooks`, `exports`, `media` and `media_video`. |
+| Media | Files below `MEDIA_DIR`, named by the SHA-256 digest of their bytes. `ffmpeg` and `ffprobe` run as programs of their own and convert images and videos. The optional scan uses clamd over a Unix socket. `GET /media/<sha256>.<ext>` serves the files to signed-in users. |
 | Accounts | Built inside the Phoenix application from Elixir and Erlang libraries (passkeys, TOTP, Argon2id, OIDC client, LDAP client). There is no separate identity server. |
 | Session | The server holds the session, and the browser holds one cookie with an opaque token. The SPA never sees a provider token. |
-| Deployment | A container image and Docker Compose files, with the reverse proxy in front. |
+| Deployment | A container image with `ffmpeg` and Docker Compose files, with the reverse proxy in front. |
 
 The diagrams are in [`../architecture/README.md`](https://github.com/HelrenPDM/espalier/blob/main/docs/architecture/README.md),
 and the implementation plan with the decisions is
@@ -275,6 +310,7 @@ and the implementation plan with the decisions is
 | Review the security settings and every outgoing connection | [`security.md`](security.md) |
 | Operate a running instance: logs, jobs, release functions | [`operations.md`](operations.md) |
 | Look up every field of the pack format | [`content-packs.md`](content-packs.md) |
+| Add images, SVG files and videos, and set the limits, hosts and malware scan | [`media.md`](media.md) |
 | Edit packs in the browser | [`pack-workbench.md`](pack-workbench.md) |
 | Deliver a module through an LMS | [`scorm-export.md`](scorm-export.md) |
 | See every guide | [`README.md`](https://github.com/HelrenPDM/espalier/blob/main/docs/guides/README.md) |

@@ -4,9 +4,10 @@ defmodule Espalier.BootCheck do
 
   `config/runtime.exs` calls `errors/2` in every environment directly after
   `import Config` and raises once with all messages, so that one boot names
-  every gap instead of stopping at the first. A production boot in which all
-  other required variables are set, without `SECRET_KEY_BASE` and
-  `CLOAK_KEY_V1` and with `TRACKING_DETAIL=full`, stops with:
+  every gap instead of stopping at the first. A production boot on a host with a supported
+  ffmpeg, in which all other required variables are set, without
+  `SECRET_KEY_BASE` and `CLOAK_KEY_V1` and with `TRACKING_DETAIL=full`,
+  stops with:
 
   ```text
   The environment stops the boot:
@@ -16,13 +17,30 @@ defmodule Espalier.BootCheck do
 
   ## What it reads
 
-  The module reads the map that `errors/2` receives, in `config/runtime.exs`
-  the result of `System.get_env/0`. Besides the map, it reads one file
-  system entry: it checks that the path in `DATABASE_CA_CERT_FILE` names a
-  regular file and reads no content. In production it also runs the tool
-  check of the media processing, which looks up `ffmpeg`, `ffprobe` and
-  `timeout` and starts `ffmpeg` to read its version, encoders and demuxers.
-  It writes nothing.
+  `errors/2` reads the following and writes nothing:
+
+    * The map that it receives, in `config/runtime.exs` the result of
+      `System.get_env/0`.
+    * In production, the path in `DATABASE_CA_CERT_FILE`. The check asks
+      whether the path names a regular file and reads no content.
+    * For each provider in `AUTH_PROVIDERS` of type `ldap` with the TLS mode
+      `ldaps` (the default) or `starttls`, in every environment, the file in
+      `AUTH_<KEY>_CA_CERT_FILE`. `Espalier.Identity.Ldap.Config.parse!/3`
+      reads the whole file and decodes its PEM certificates, after the
+      earlier variables of that provider (`TYPE`, `TLS`, `DIRECTORY`,
+      `LABEL`, `HOST` and `PORT`) have passed. The first invalid provider
+      ends the parse, so the CA files of later providers stay unread in that
+      boot. A file that cannot be read, or that holds no certificate, ends
+      the check of the `AUTH_*` variables with a message. The mode `none` (development and test only)
+      reads no file. The other provider types read no file at this step;
+      the files of `AUTH_<KEY>_CLIENT_CERT_FILE` and
+      `AUTH_<KEY>_CLIENT_KEY_FILE` are not opened.
+    * In production, the tools of the media processing
+      (`Espalier.Media.Ffmpeg.check/0`). The check looks up `ffmpeg`,
+      `ffprobe` and `timeout` on the path without starting `ffprobe` or
+      `timeout`. When `ffmpeg` exists, it starts `ffmpeg -hide_banner
+      -version`, `-encoders` and `-demuxers` one after the other in
+      `System.tmp_dir!/0`. Each call prints a listing and converts no file.
 
   The variables with their rules and defaults are described in
   [Self-hosting](self-hosting.md), sections "Required settings" and "How the
@@ -43,32 +61,36 @@ defmodule Espalier.BootCheck do
       `MAIL_FROM` is required only together with it
       (`Espalier.RuntimeConfig`);
     * in production, a `SECRET_KEY_BASE` shorter than 64 bytes, a
-      `DATABASE_URL` without a host or a database name, with the query
-      parameter `ssl` or with a `timeout`, `pool_size` or `idle_interval`
+      `DATABASE_URL` without a host or with a path other than exactly one
+      database name, with the query parameter `ssl` or with a `timeout`, `pool_size` or `idle_interval`
       that is no integer, a `POOL_SIZE` that is no positive integer, a
       `DATABASE_CA_CERT_FILE` that names no regular file, an `SMTP_PORT`
       that is no port number, and a `PUBLIC_URL` with another scheme than
-      `https`, with user info, a path, query or fragment, or with a host
+      `https`, with user info, a path other than `/`, a query or a fragment, or with a host
       other than `PHX_HOST` (ASVS 3.5.4);
-    * the message of the `Espalier.Identity.ConfigError` that
-      `Espalier.Identity.Config.parse!/2` raises for the `AUTH_*`
-      variables;
+    * in every environment, the message of the
+      `Espalier.Identity.ConfigError` that `Espalier.Identity.Config.parse!/2`
+      raises for the `AUTH_*` variables, including an unreadable CA file or
+      one without a certificate;
     * a missing sign-in pathway: `LOCAL_ACCOUNTS=false`, `AUTH_DEMO` not
       `true` and no provider in `AUTH_PROVIDERS` (plan section 6.11 in
       `docs/plan/README.md`);
     * in production, the messages of the tool check of the media processing
       (`Espalier.Media.Ffmpeg.check/0`): a missing `ffmpeg`, `ffprobe` or
-      `timeout`, an ffmpeg older than 7.1, and a missing encoder or
-      demuxer;
+      `timeout`; an `ffmpeg` call that ends with an exit status other than
+      0; an ffmpeg without a release number in its version line or with a
+      release older than 7.1 (a comparison of major and minor number); and
+      a missing encoder or demuxer from the lists of the conversion;
     * the messages of `Espalier.RuntimeConfig.errors/2`, which validates
       every application setting outside `AUTH_*`, among them a missing
       `PUBLIC_URL`, `EXPORT_DIR` or `MEDIA_DIR` in production.
 
-  Every value passes `Espalier.RuntimeConfig.value/2`, which trims it and
-  removes one pair of surrounding double quotes. The production block of
+  Every value passes `Espalier.RuntimeConfig.value/2` or
+  `Espalier.Identity.Config.value/2`, which behave the same: they trim it
+  and remove one pair of surrounding double quotes. The production block of
   `config/runtime.exs` reads the variables of these checks the same way, so
   the check sees the values that the configuration uses. No message
-  contains the value of a variable.
+  contains the value of a secret variable.
   """
 
   alias Espalier.Identity.{Config, ConfigError}

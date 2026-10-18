@@ -21,9 +21,24 @@ defmodule Espalier.Docs.PackModuledocsTest do
   @file_modules ~w(Pack Source GlossaryTerm Segment Feedback Station Qualification Format
                    PackModule Objective Rule Assessment Item)
 
+  # The media attributes of the block kinds `figure` and `video`. They are no
+  # file of a pack: an author writes them in the braces of a block in a lesson
+  # file, and the validator passes the map `media` of the block to the
+  # changeset. The moduledoc shows that map as YAML.
+  @media_modules ~w(FigureMedia VideoMedia)
+
   describe "the schema modules" do
     test "every file module shows at least one yaml example" do
       for name <- @file_modules do
+        module = Module.concat(Espalier.Catalog.Pack.Schema, name)
+
+        assert [_ | _] = yaml_blocks(module),
+               "#{inspect(module)} has no yaml example in its moduledoc"
+      end
+    end
+
+    test "every media attribute module shows at least one yaml example" do
+      for name <- @media_modules do
         module = Module.concat(Espalier.Catalog.Pack.Schema, name)
 
         assert [_ | _] = yaml_blocks(module),

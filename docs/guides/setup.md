@@ -19,7 +19,7 @@ fill the instance with a course.
 |---|---|---|---|---|
 | Development | change the code, try a pack on one machine, run the test suites | Nix, Docker with the Compose plugin, a clone of the repository | local accounts with mail in Mailpit, or demo accounts with `AUTH_DEMO=true` | a database with the demo pack |
 | Demo instance | show Espalier to visitors or run a usability test | Docker with the Compose plugin and a clone | 20 pseudonymous demo persons, no e-mail address | the demo pack, reset with one command |
-| Production | run Espalier for an organization | a host with Docker Engine and the Compose plugin, a host name of its own, a reverse proxy, an SMTP server for local accounts | local accounts, identity providers or a directory | the organization's packs and the records of its learners |
+| Production | run Espalier for an organization | a host with Docker Engine and the Compose plugin, a host name of its own, a reverse proxy, an SMTP server for local accounts, disk space for the media store | local accounts, identity providers or a directory | the organization's packs and the records of its learners |
 
 The development route compiles the project and needs the Nix toolchain. The
 demo and production routes run the container image and need only Docker,
@@ -36,7 +36,10 @@ Nix and Docker with the Compose plugin. Every toolchain command (`mix`,
 one, so no global Elixir or Node installation is needed. The shell keeps the
 homes of Mix and Hex in `.nix-mix/` and `.nix-hex/` inside the clone, so a
 new clone installs Hex and rebar there once
-([`../../CONTRIBUTING.md`](../../CONTRIBUTING.md), section "Setup").
+([`../../CONTRIBUTING.md`](../../CONTRIBUTING.md), section "Setup"). The shell
+also provides `ffmpeg` and `ffprobe` (`ffmpeg-headless`), which convert the
+images and videos of a content pack, and `clamav` for the tests of the malware
+scan ([`media.md`](media.md)).
 
 ### The shortest path
 
@@ -68,16 +71,26 @@ Makefile both read `.env`, and the file sets `DATABASE_PORT`.
 | Command | Effect |
 |---|---|
 | `make services-up` | Writes the LDAPS test certificates and the lldap secrets (`make ldap-ca`, `make ldap-secrets`), then starts the services of `compose.dev.yaml` and waits until they run (`up -d --wait`): PostgreSQL 18, Mailpit and lldap |
-| `make setup` | Runs `make init` (`mix deps.get`, `npm --prefix frontend ci`, `mix compile`) and `make scorm-xsd` (downloads the SCORM schema files, which the repository does not hold), then `mix ecto.setup` (create and migrate the database), `mix espalier.import content/demo` and `mix espalier.seed_demo` |
+| `make setup` | Runs `make init` (`mix deps.get`, `npm --prefix frontend ci`, `mix compile`) and `make scorm-xsd` (downloads the SCORM schema files, which the repository does not hold), then `mix ecto.setup` (create and migrate the database), `mix espalier.import content/demo` and `mix espalier.seed_demo`; the import converts the media files of the demo pack with `ffmpeg` |
 | `make run` | Starts `iex -S mix phx.server` with the variables of `.env`. The endpoint config starts the Vite dev server as a watcher, and the development configuration starts the mock OIDC provider on port 4010 |
 | `make help` | Lists every target with its description |
-| `make check` | Runs the formatter check, the compiler with warnings as errors, Credo, Sobelow, the dependency audits, the tests of both projects, the API type check, TypeScript, lint, the SCORM player build and `npm audit`; it needs the database of `make services-up` |
+| `make test-integration` | Runs the tests tagged `ldap`, `mail` and `clamav`: the first two against the services of `make services-up`, the last against a `clamd` that the test starts from the shell |
+| `make check` | Runs the formatter check, the compiler with warnings as errors, Credo, the ExDoc build with warnings as errors, Sobelow, the dependency audits, the tests of both projects, the API type check, TypeScript, lint, the frontend format check, the SCORM player build and `npm audit`; it needs the database of `make services-up` |
 
 `make setup` needs network access for the Hex and npm packages and the SCORM
 schema files. The pack import publishes the demo pack, and `mix
 espalier.seed_demo` adds the policy `usage-policy` and three approved tools
 that the demo qualification uses. `make refresh-db` drops the database and
 repeats the migration, the import and the seed.
+
+### Media in development
+
+The media store lies in `tmp/media` of the clone unless `MEDIA_DIR` in `.env`
+names another directory, and `make run` converts uploaded files with the
+`ffmpeg` of the shell. `.env.example` lists the media variables with their
+defaults. In development, `MEDIA_EMBED_HOSTS` admits the host
+`embed.espalier.test` when the variable is empty, and `MEDIA_CLAMAV_SOCKET` is
+unset, so no scan runs ([`media.md`](media.md), section "Settings").
 
 ### Ports and services
 
@@ -136,7 +149,8 @@ section "Validation and publication").
 
 A demo instance runs the production image with the demo profile of
 `.env.demo.example`: demo sign-in as the only pathway, no local accounts, no
-external identity provider and data-sparing tracking. It sends no mail.
+external identity provider and data-sparing tracking. It sends no mail, admits
+no external video host and no embedded player, and runs no malware scan.
 
 ```sh
 make docker-build
@@ -150,7 +164,8 @@ secrets from `/dev/urandom`; it refuses to overwrite an existing file. The
 profile names `demo.example.org` as a placeholder, so set `PHX_HOST` and
 `PUBLIC_URL` in `.env.demo` to the host name of the demo before the first
 start. `make demo-up` starts the project `espalier-demo`, waits for
-`/health`, runs `bin/migrate` and `Espalier.Release.seed_demo()`. The
+`/health`, runs `bin/migrate` and `Espalier.Release.seed_demo()`, which also
+converts the media files of the demo pack. The
 application listens on `127.0.0.1:4000`. Browsers reach it through the
 reverse proxy example, started in the project of the demo with
 `SITE_ADDRESS` and `TRUSTED_PROXIES` in `.env.demo`; for a look on one
@@ -182,7 +197,8 @@ make docker-build
 ```
 
 The target builds `espalier:latest` (`IMAGE` and `TAG` choose another name).
-The build downloads the base images, the Hex and npm packages and the SCORM
+The image contains `ffmpeg` and `ffprobe` of the Debian package `ffmpeg`,
+which convert the media files, and `procps`. The build downloads the base images, the Hex and npm packages and the SCORM
 schema files. `compose.yaml` runs the image that `ESPALIER_IMAGE` names. An
 image from a registry goes into `.env`, and `make release-push
 REGISTRY=registry.example.org/team` pushes a tagged image.
@@ -210,6 +226,7 @@ application removes one pair of surrounding quotes.
 | `PHX_HOST` | the host name of step 1 |
 | `PUBLIC_URL` | `https://espalier.example.org`, an origin without user info, path, query or fragment, with the same host as `PHX_HOST` |
 | `DATABASE_CA_CERT_FILE`, `EXPORT_DIR` | a file that exists, and the directory of the SCORM packages; `compose.yaml` sets both (`/data/exports`) |
+| `MEDIA_DIR` | the root of the media store; `compose.yaml` sets `/data/media` in the volume `media` |
 | `MAIL_FROM` | required together with `SMTP_HOST` |
 | a sign-in pathway | `LOCAL_ACCOUNTS=true` (the default), a provider in `AUTH_PROVIDERS`, or `AUTH_DEMO=true` |
 
@@ -220,12 +237,29 @@ instance with local accounts needs `SMTP_HOST`, `SMTP_PORT` (default 587),
 STARTTLS. `TRUSTED_PROXIES` names the address of the reverse proxy. Keep a
 copy of `CLOAK_KEY_V1` and `CLOAK_HMAC_SECRET` apart from the database
 backups ([`../security/key-management.md`](../security/key-management.md)).
-The account, session, learning and insights settings have defaults that
+The account, session, learning, insights and media settings have defaults that
 `Espalier.RuntimeConfig` documents in
 [`lib/espalier/runtime_config.ex`](https://github.com/HelrenPDM/espalier/blob/main/lib/espalier/runtime_config.ex); the
 `AUTH_*` variables are described in
 [`identity-providers.md`](identity-providers.md), and `.env.example` lists
 the others (`PORT`, `POOL_SIZE`, `SMTP_PORT`, `RELEASE_COOKIE`).
+
+The media variables have defaults, and a production instance reviews these:
+
+| Variable | Default | Effect |
+|---|---|---|
+| `MEDIA_STORAGE_MAX_GB` | `50` | The quota of the stored and incoming media files. The volume needs space beyond it for uploads and conversions in progress. |
+| `MEDIA_IMAGE_MAX_MB`, `MEDIA_VIDEO_MAX_MB` | `20`, `1024` | The largest raster image and the largest video. |
+| `MEDIA_EXTERNAL_HOSTS`, `MEDIA_EMBED_HOSTS` | empty | The hosts of external video files and of embedded players. An empty list admits no host, and each host enters the CSP. |
+| `MEDIA_EMBED_CONSENT` | `click` | An embedded player loads after the learner agrees; `auto` loads it with the page. |
+| `MEDIA_CLAMAV_SOCKET` | unset | The clamd socket; set, it switches the malware scan on. |
+
+`MEDIA_VIDEO_MAX_MINUTES`, `MEDIA_VIDEO_MAX_HEIGHT`, `MEDIA_IMAGE_MAX_EDGE` and
+`MEDIA_FFMPEG_THREADS` have defaults as well. [`media.md`](media.md), section
+"Settings", gives every media variable with its range, and a change takes
+effect when `app` restarts. In production, the boot check also finds `ffmpeg`,
+`ffprobe` and `timeout`, requires ffmpeg 7.1 or later and the encoders and
+demuxers of the conversion, and stops the boot with a line for each gap.
 
 ### 4. Start the services and migrate
 
@@ -242,7 +276,8 @@ run, `db` accepts TLS connections only, and `app` starts when `db` is
 healthy. The restart lets the boot run against the migrated database, which
 matters for the first admin. `/health` answers `{"status":"ok"}` once the
 application reaches the database. The application port is published on
-`127.0.0.1:4000` only (`APP_PORT` changes the host port).
+`127.0.0.1:4000` only (`APP_PORT` changes the host port). The volume `media`
+holds the media store at `/data/media`, next to the volume `exports`.
 
 ### 5. Put a reverse proxy in front
 
@@ -325,11 +360,41 @@ operator mounts into the container read-only.
 [`scorm-export.md`](scorm-export.md) the export to a learning management
 system.
 
+[`media.md`](media.md) describes the media library, the conversion of images,
+SVG files and videos, and the limits.
+
 [`self-hosting.md`](self-hosting.md) also covers an external PostgreSQL
-server, mail, backups and upgrades. [`operations.md`](operations.md) covers
+server, mail, the media store, backups (the database and the media store are
+saved together) and upgrades. [`operations.md`](operations.md) covers
 logs, health, background jobs, sessions and keys, and
 [`security.md`](security.md) the secrets, TLS per connection and every
 outgoing connection.
+
+### Optional: the malware scan for media
+
+Without further steps, uploaded and imported media files pass the signature
+check and the conversion, and no virus scan runs. The compose example
+`docs/guides/examples/compose.clamav.yaml` adds a service `clamav` and sets
+`MEDIA_CLAMAV_SOCKET` for `app`. The two services share the socket in the
+volume `clamd-socket`, so clamd opens no network port. The file joins the file
+list of the instance:
+
+```sh
+# in .env
+COMPOSE_FILE=compose.yaml:docs/guides/examples/compose.caddy.yaml:docs/guides/examples/compose.clamav.yaml
+# then
+docker compose up -d
+```
+
+The service holds its signatures in memory (954 to 979 MiB after its start and
+up to 1.9 GiB while clamd loads new signatures after an update), and `app`
+starts once clamd answers, which can take several minutes at the first start.
+While `MEDIA_CLAMAV_SOCKET` is set, `MEDIA_VIDEO_MAX_MB` stays at most 2047.
+Raising `MEDIA_VIDEO_MAX_MB` above its default also needs larger limits in
+`clamd.conf` ([`media.md`](media.md), section "The clamd example").
+[`self-hosting.md`](self-hosting.md), section "The optional malware
+scan", and [`media.md`](media.md), section "Malware scan", give the settings
+of clamd and a test of the scan.
 
 ## Checklist before the first sign-in
 
@@ -348,14 +413,16 @@ outgoing connection.
 7. `BOOTSTRAP_ADMIN_EMAILS` names the first admin, or an account is ready for
    `grant_role/2`.
 8. `scripts/check-headers.sh https://espalier.example.org` passes through the
-   proxy.
+   proxy. The script expects the base CSP and reports a mismatch on a CSP
+   with `media-src` or `frame-src`, which `MEDIA_EXTERNAL_HOSTS` or
+   `MEDIA_EMBED_HOSTS` add while either is set.
 9. A copy of `CLOAK_KEY_V1` and `CLOAK_HMAC_SECRET` exists outside the
    database backups, and `AUTH_DEMO` is `false`.
 
 ## Troubleshooting
 
-The boot check collects every missing or invalid setting and names them in
-one message, without values
+The boot check collects every missing or invalid setting and, in production,
+every missing media tool, and names them in one message, without the values of secret variables
 ([`../../lib/espalier/boot_check.ex`](https://github.com/HelrenPDM/espalier/blob/main/lib/espalier/boot_check.ex)).
 
 | Symptom | Cause | Fix |
@@ -373,6 +440,10 @@ one message, without values
 | the invitation link has expired | the link works for 10 minutes | run `Espalier.Release.invite_user/1` again |
 | an admin route answers 403 `passkey_required` | the admin holds no passkey | enroll one on `/account/security` |
 | in development, the database cannot use its host port | a PostgreSQL server on the host holds port 5432 and `DATABASE_PORT` is unset | keep `DATABASE_PORT=5433` from `.env.example` in `.env` before `make services-up` |
+| `MEDIA_DIR is required` | production without a media directory | use `compose.yaml`, which sets `/data/media`, or set `MEDIA_DIR` to a writable directory |
+| `ffmpeg lacks the encoder libvpx-vp9`, `ffmpeg is not installed` or `ffmpeg 7.0 is older than 7.1` | the ffmpeg of the runtime misses a tool, an encoder or a release that the media conversion needs | run the image that `make docker-build` builds, which installs the Debian package `ffmpeg` |
+| `MEDIA_VIDEO_MAX_MB must be at most 2047 while MEDIA_CLAMAV_SOCKET is set` | clamd scans at most 2 GiB per file | lower `MEDIA_VIDEO_MAX_MB` or unset `MEDIA_CLAMAV_SOCKET` |
+| `MEDIA_EMBED_HOSTS must not name the host of PUBLIC_URL` | a same-origin iframe could leave its sandbox | remove the host of the instance from `MEDIA_EMBED_HOSTS` |
 | `make run` cannot start Vite | port 5173 is in use; the port is fixed | stop the process that holds it |
 | the demo sign-in answers 403 `csrf` in WebKit | WebKit stores no `Secure` cookie over `http://localhost` | use Chromium or Firefox, or the HTTPS proxy |
 | a second instance on the same host fails to start | `APP_PORT`, `HTTPS_PORT` or `PROXY_SUBNET` is taken, or both instances share the Compose project name `espalier` of `compose.yaml` | set other values for the second instance: `APP_PORT`, `HTTPS_PORT`, `PROXY_SUBNET` and `PROXY_ADDRESS` (an address inside the new subnet, which `TRUSTED_PROXIES` names), and start it with its own project name (`-p`, as the demo does with `espalier-demo`) |

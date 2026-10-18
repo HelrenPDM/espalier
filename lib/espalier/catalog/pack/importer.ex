@@ -188,9 +188,9 @@ defmodule Espalier.Catalog.Pack.Importer do
 
   @doc """
   Links media files of a pack to the assets that the program of its pack
-  key uses (task 0018, step 10). `media` holds the files as
-  `Espalier.Catalog.Pack.Loader.media_file/0`, `%{path, file, bytes}` with
-  the absolute path of the file. Returns `%{path => asset_id}` for every
+  key uses (task 0018, step 10). `media` holds the files as the `media_file`
+  maps of `Espalier.Catalog.Pack.Loader`, `%{path, file, bytes}` with the
+  absolute path of the file. Returns `%{path => asset_id}` for every
   file that equals the delivery file of a `ready` asset of the
   `program_media` rows of the program whose slug is `slug`, the asset at
   the same path first; `%{}` for a `slug` that is no string or names no

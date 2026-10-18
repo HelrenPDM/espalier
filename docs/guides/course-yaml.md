@@ -1,8 +1,8 @@
 # Course YAML building blocks
 
-A course in Espalier is a content pack: a directory of YAML and Markdown files
-that defines one program with its modules, lessons, practice items, exams,
-learning objectives and credentials. This chapter introduces the files of a
+A course in Espalier is a content pack: a directory of YAML and Markdown files,
+with an optional folder of media files, that defines one program with its
+modules, lessons, practice items, exams, learning objectives and credentials. This chapter introduces the files of a
 pack, shows how they refer to each other and follows a pack from an edited
 file to a published course. It orients and does not list every field. The
 field tables, the limits and every validator message are in
@@ -39,6 +39,11 @@ my-pack/
 ├── feedback.yaml
 ├── qualifications.yaml
 ├── formats.yaml
+├── media/
+│   ├── release-checks.svg
+│   └── module-1/
+│       ├── assistant-demo.webm
+│       └── assistant-demo-en.vtt
 └── modules/
     └── 01-first-module/
         ├── module.yaml
@@ -51,9 +56,10 @@ my-pack/
 ```
 
 `Espalier.Catalog.Pack.Loader` reads exactly these names, so a `README.md` in
-the pack directory stays unread, and it rejects symbolic links. The number of a
-module comes from `number` in `module.yaml`. The name of the module directory
-carries no meaning of its own.
+the pack directory stays unread, and it rejects symbolic links. It keeps the
+files below `media/` with their paths and sizes and reads none of them. The
+number of a module comes from `number` in `module.yaml`. The name of the module
+directory carries no meaning of its own.
 
 ## The building blocks
 
@@ -73,6 +79,7 @@ carries no meaning of its own.
 | `modules/<dir>/items.yaml` | no | Practice items and exam items | `key`, `kind`, `stem`, `core`, `phase`, `provenance`, `objectives`, `options` or `config` |
 | `modules/<dir>/assessment.yaml` | no | Practice assessments and exams | `key`, `kind` (`practice` or `exam`), `counts_for_credential`, `max_wrong`, `core_required`, `items` |
 | `modules/<dir>/lessons/<key>.md` | at least one per module | One lesson | Front matter `title` and `position`, then blocks |
+| `media/<path>` | no | The images, SVG files, videos and captions that `figure` and `video` blocks name | A path of `media/`, up to three directories and a file name `<key>.<extension>`; the extensions `png`, `jpg`, `jpeg`, `gif`, `webp`, `svg`, `mp4`, `m4v`, `mov`, `webm`, `mkv` and `vtt`; at most 500 files |
 
 The station kinds are `self_assessment`, `overview`, `module`, `credential`,
 `companion_formats` and `feedback`. When `segments.yaml` has entries, the pack
@@ -94,6 +101,7 @@ and reports a dangling one with file and line.
 | `rules` of an item | Rule numbers | Rules of the same module |
 | `items` of an assessment | Item keys | Items of the same module |
 | `module` of a station | A module number | A `number` in a `module.yaml` |
+| `src` of a `figure` or `video` block, `poster` and `captions` of a `video` block | A media path | A file below `media/` of the pack |
 | `domain` of an objective | A domain name | An entry of `domains` in the `module.yaml` of the objective |
 | `requirements` of a qualification | `kind` and `target` | A module number (`module_completed`), an exam key (`assessment_passed`), a format with `attendance_counts: true` (`attendance`), a qualification code (`qualification_held`) or a policy key (`policy_acknowledged`) |
 
@@ -108,6 +116,7 @@ item ---------------------> objectives, rules, lesson, reveals
 format -------------------> objectives
 objective --taught_in-----> lessons
 block --cite--> source      text --[[term:slug]]--> glossary term
+figure, video --src, poster, captions--> media file
 ```
 
 The objective joins teaching and evidence: lessons teach it, and items and
@@ -139,17 +148,24 @@ The service checks the address of the link and nothing else, unless the sender l
 ```
 
 A line `:::kind{attributes}` opens a block, and a line `:::` closes it. The body
-between them is Markdown and must not be empty, and text outside a block is an
+between them is Markdown and must not be empty, except for a `figure` (its
+caption) and a `video` (its transcript), and text outside a block is an
 error. The block kinds are `text` (running text), `explanation` (can start
 collapsed, and items open it through `reveals`), `example`, `case_comparison`
 (a comparison of cases, which gives a `classification` item the evidence of
 the depth `judge`), `quote` (cites at least one source), `callout` and
 `placeholder` (renders the current version of the policy that its `key` names,
-and shows its own body with the `placeholder` badge until a version exists).
+and shows its own body with the `placeholder` badge until a version exists),
+`figure` (an image or an SVG file with a text alternative and a caption) and
+`video` (a video with captions and a transcript). The Markdown image syntax
+`![text](address)` is an error in every block body, and a `figure` block takes
+its place.
 
 A block takes the attributes `provenance` (required on every kind except
 `placeholder`), `collapsed_on`, `cite` and `key` (a policy key, allowed and
-required on `placeholder` blocks only). The syntax and the rules of each
+required on `placeholder` blocks only). A `figure` block also takes `src`,
+`alt`, `decorative` and `size`, and a `video` block `src`, `embed`, `title`,
+`poster` and `captions`. The syntax and the rules of each
 attribute are in [`content-packs.md`](content-packs.md), section "Lesson
 directives".
 
@@ -202,6 +218,44 @@ one. The example pack has one practice item in `modules/01-sharing/items.yaml`:
       correct: false
       feedback: Named people are a setting that the sender has to choose.
 ```
+
+## Images, SVG files and videos
+
+A `figure` block shows an image or an SVG file of the folder `media/`, and a
+`video` block plays a video file of that folder, an external video file or the
+player of a streaming service. This is a lesson excerpt with one block of each
+kind. The files `media/release-checks.svg`, `media/module-1/assistant-demo.webm`
+and `media/module-1/assistant-demo-en.vtt` belong to the pack:
+
+```markdown
+:::figure{src=media/release-checks.svg alt="Four steps from left to right: generated draft, mark the statements, check each source, initials and release" size=medium provenance=invented}
+The release checks of a generated notice.
+:::
+
+:::video{src=media/module-1/assistant-demo.webm title="A test pattern with a tone" captions="media/module-1/assistant-demo-en.vtt:en" provenance=invented}
+A moving test pattern with colour bars and a counter, and a steady tone.
+:::
+```
+
+The text alternative of a `figure` is required unless the block carries
+`decorative=true`. The body of a `figure` is its caption, and the body of a
+`video` is its transcript. The validator requires captions or a transcript for
+a video file, and a transcript for an embed. An image of an identifiable
+person is personal data, and the organization obtains the consent of the person
+outside the platform ([`media.md`](media.md), section "People in images and
+videos").
+
+The import moves every file that a block names into the media library of the
+installation. A background job converts a raster image to WebP and a video to
+WebM with VP9 and Opus, rebuilds an SVG file from an allowlist and checks a
+captions file, and a program is published only when every file of its import is
+converted. The pack page lists the files of an import with their status.
+`mix espalier.export` writes the converted files back, so a file that the
+source held as `media/photo.jpg` is exported as `media/photo.webp`. The rules
+of the folder and of both blocks are in [`content-packs.md`](content-packs.md),
+section "Media". [`media.md`](media.md) describes the accepted files, the
+limits, the conversion, the hosts of external files and embeds, the malware
+scan and the browser support.
 
 ## Constructive alignment
 
@@ -298,7 +352,12 @@ and the first admin", covers how the role `author` is granted.
 4. **Import.** The task needs the database settings, and `nix-shell --run`
    loads no `.env`, so the command sources it first. `--draft` stores the
    import without publishing it, and without `--draft` a validated pack is
-   published at once. `make setup` imports the demo pack this way.
+   published at once. `make setup` imports the demo pack this way. Without
+   `--draft`, the task converts the media files of the pack in its own
+   process, with the `ffmpeg` of the development shell, before the publish,
+   and a failed file ends the task with exit status 1 without a publish. With
+   `--draft` the jobs stay queued for the running server
+   ([`media.md`](media.md), section "Import and publish").
 
    ```sh
    nix-shell --run "set -a; . ./.env; set +a; mix espalier.import path/to/pack --draft"
@@ -311,11 +370,12 @@ and the first admin", covers how the role `author` is granted.
 6. **Preview and publish** on the pack page. It shows the status (`validated`,
    `failed` or `published`), the report with file and line, the alignment
    matrix and a "Preview" of the player with a preview banner. "Publish" stays
-   disabled while the import is not `validated` or the alignment section lists
-   an error. Its confirmation dialog lists the added, changed and archived
-   keys. Upload, publish and every change in the workbench need a second factor
-   from the last 10 minutes (plan section 6.4). The check of a draft in the
-   workbench does not.
+   disabled while the import is not `validated`, while the alignment section
+   lists an error and while a media file of the import is not `ready`. Its
+   confirmation dialog lists the added, changed and archived keys and the
+   added, changed and removed media paths. Upload, publish and every change in
+   the workbench need a second factor from the last 10 minutes (plan section
+   6.4). The check of a draft in the workbench does not.
 7. **Export** a published program back into the pack format, for example to
    start a Git repository from it. The target directory must be empty or
    missing.
@@ -327,9 +387,14 @@ and the first admin", covers how the role `author` is granted.
 The workbench starts from an empty skeleton, a published program, an import or
 a zip archive. It checks a draft with the loader and validator of
 `mix espalier.validate`, hands it to the pack page with "Create import" and
-downloads it as a zip archive in the pack layout
-([`pack-workbench.md`](pack-workbench.md), which also covers the step-up). The upload accepts at most
-`PACK_UPLOAD_MAX_MB` megabytes, 20 by default. In a container release, the
+downloads it as a zip archive in the pack layout, with its media files below
+`media/`. It holds the captions files as text files and every other media file
+as an entry that names an asset of the media library
+([`pack-workbench.md`](pack-workbench.md), which also covers the step-up). The
+upload accepts at most `PACK_UPLOAD_MAX_MB` megabytes, 20 by default, media
+files included. A video above that limit reaches a lesson through the media
+library and the workbench, or as an external file
+([`content-packs.md`](content-packs.md), section "Media"). In a container release, the
 operator mounts the pack directory and calls `Espalier.Release.import_pack/2`;
 [`content-packs.md`](content-packs.md), section "In a release", gives the
 commands.
@@ -424,7 +489,8 @@ qualification and no exam, so it issues no credential.
 ## Where to go next
 
 [`content-packs.md`](content-packs.md) is the reference for every field and
-message. [`pack-workbench.md`](pack-workbench.md) covers editing in the
+message. [`media.md`](media.md) covers the media library and the conversion.
+[`pack-workbench.md`](pack-workbench.md) covers editing in the
 browser, [`demo-instance.md`](demo-instance.md) a demo instance with the demo
 pack, [`self-hosting.md`](self-hosting.md) and
 [`operations.md`](operations.md) the import into a production instance, and

@@ -150,10 +150,13 @@ defmodule Espalier.MixProject do
       ],
       groups_for_modules: docs_groups_for_modules(),
       # The security guides cite functions that carry `@doc false` (callbacks
-      # and generated Cloak.Vault functions) as the place where a control sits.
-      # They have no page, so ExDoc leaves exactly these references as code.
+      # and generated Cloak.Vault functions) and the module
+      # Espalier.Application (`@moduledoc false`) as the place where a control
+      # sits. They have no page, so ExDoc leaves exactly these references as
+      # code.
       skip_code_autolink_to: [
         "Cloak.Ecto.Type",
+        "Espalier.Application",
         "Espalier.Application.settings_line/0",
         "Espalier.Application.start/2",
         "Espalier.Identity.Oidc.Supervisor.init/1",
@@ -176,6 +179,7 @@ defmodule Espalier.MixProject do
       "docs/guides/tenant-and-authentication.md",
       "docs/guides/course-yaml.md",
       "docs/guides/content-packs.md",
+      "docs/guides/media.md",
       "docs/guides/pack-workbench.md",
       "docs/guides/scorm-export.md",
       "docs/guides/self-hosting.md",
@@ -206,6 +210,7 @@ defmodule Espalier.MixProject do
         Espalier.Catalog.Pack.Directives,
         Espalier.Catalog.Pack.Entries,
         Espalier.Catalog.Pack.LineIndex,
+        Espalier.Catalog.Pack.MediaPath,
         Espalier.Catalog.Pack.Spdx,
         ~r/^Espalier\.Catalog\.Pack\.Schema\./
       ],
@@ -213,6 +218,7 @@ defmodule Espalier.MixProject do
         Espalier.Catalog.Alignment,
         Espalier.Catalog.Pack.Archive,
         Espalier.Catalog.Pack.Diff,
+        Espalier.Catalog.Pack.Hosts,
         Espalier.Catalog.Pack.Importer,
         Espalier.Catalog.Pack.Loader,
         Espalier.Catalog.Pack.Normalizer,
@@ -237,6 +243,7 @@ defmodule Espalier.MixProject do
         EspalierWeb.Telemetry
       ],
       "Development tools": [~r/^Espalier\.DevOidc/, EspalierWeb.DevE2EController],
+      Media: [~r/^Espalier\.Media(\.|$)/, Espalier.Catalog.ProgramMedia],
       Catalog: ~r/^Espalier\.Catalog(\.|$)/,
       Learning: ~r/^Espalier\.Learning(\.|$)/,
       Credentials: ~r/^Espalier\.Credentials(\.|$)/,
@@ -253,6 +260,7 @@ defmodule Espalier.MixProject do
       ],
       "Web: framework layer": [
         EspalierWeb,
+        EspalierWeb.BlockDownload,
         EspalierWeb.CastErrorRenderer,
         EspalierWeb.ChangesetJSON,
         EspalierWeb.Endpoint,
@@ -261,6 +269,7 @@ defmodule Espalier.MixProject do
         EspalierWeb.FallbackController,
         EspalierWeb.Gettext,
         EspalierWeb.HealthController,
+        EspalierWeb.MediaMultipart,
         EspalierWeb.PackMultipart,
         EspalierWeb.Router,
         EspalierWeb.SpaController,

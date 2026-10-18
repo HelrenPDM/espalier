@@ -115,8 +115,9 @@ that does not exist or has no documentation, or a link to a file that is no
 extra. Fix the text and leave the warning on; the option
 `skip_undefined_reference_warnings_on` hides a broken link, and
 `skip_code_autolink_to` in `mix.exs` lists only functions that carry
-`@doc false` by design and the dependency module `Cloak.Ecto.Type`, which
-has no documentation in this build.
+`@doc false` by design, the module `Espalier.Application` (`@moduledoc
+false`) and the dependency module `Cloak.Ecto.Type`, which has no
+documentation in this build.
 
 Three rules keep the site consistent:
 
